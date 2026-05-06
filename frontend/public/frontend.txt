@@ -1,0 +1,139 @@
+frontend/
+├── public/                      # Static assets
+├── src/
+│   ├── app/                     # App-wide configurations and layouts
+│   │   ├── App.jsx              # Main application component
+│   │   ├── AppRoutes.jsx        # Route definitions
+│   │   ├── AppLayout.jsx        # Main layout wrapper
+│   │   └── store.js             # Redux store configuration
+│   ├── components/              # Reusable components
+│   │   ├── common/              # Shared components
+│   │   │   ├── Button.jsx
+│   │   │   ├── Card.jsx
+│   │   │   ├── Table.jsx
+│   │   │   ├── Modal.jsx
+│   │   │   ├── Dropdown.jsx
+│   │   │   ├── Pagination.jsx
+│   │   │   └── ...
+│   │   ├── layout/              # Layout components
+│   │   │   ├── Header.jsx
+│   │   │   ├── Sidebar.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   └── ...
+│   │   ├── dashboard/           # Dashboard components
+│   │   │   ├── StatisticsGrid.jsx
+│   │   │   ├── CalendarWidget.jsx
+│   │   │   ├── NotificationList.jsx
+│   │   │   └── ...
+│   │   ├── students/            # Student-related components
+│   │   │   ├── StudentList.jsx
+│   │   │   ├── StudentForm.jsx
+│   │   │   ├── StudentProfile.jsx
+│   │   │   ├── AttendanceForm.jsx
+│   │   │   └── ...
+│   │   ├── teachers/            # Teacher-related components
+│   │   ├── parents/             # Parent-related components
+│   │   ├── academics/           # Academic components
+│   │   ├── administration/      # Administrative components
+│   │   └── communication/       # Communication components
+│   ├── contexts/                # React Context providers
+│   │   ├── AuthContext.jsx      # Authentication context
+│   │   ├── ThemeContext.jsx     # Theme context
+│   │   ├── NotificationContext.jsx # Notification context
+│   │   └── ...
+│   ├── hooks/                   # Custom React hooks
+│   │   ├── useAuth.js           # Authentication hook
+│   │   ├── useApi.js            # API request hook
+│   │   ├── useOffline.js        # Offline mode hook
+│   │   ├── useForm.js           # Form handling hook
+│   │   └── ...
+│   ├── lib/                     # Utility libraries
+│   │   ├── api.js               # API client
+│   │   ├── storage.js           # Local storage utilities
+│   │   ├── validation.js        # Form validation
+│   │   ├── date.js              # Date formatting utilities
+│   │   └── ...
+│   ├── pages/                   # Page components
+│   │   ├── auth/                # Authentication pages
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── RegisterPage.jsx
+│   │   │   └── ForgotPasswordPage.jsx
+│   │   ├── dashboard/           # Dashboard pages
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── TeacherDashboard.jsx
+│   │   │   ├── StudentDashboard.jsx
+│   │   │   └── ParentDashboard.jsx
+│   │   ├── students/            # Student pages
+│   │   │   ├── StudentsPage.jsx
+│   │   │   ├── StudentDetailPage.jsx
+│   │   │   ├── StudentAttendancePage.jsx
+│   │   │   └── StudentGradesPage.jsx
+│   │   ├── teachers/            # Teacher pages
+│   │   ├── parents/             # Parent pages
+│   │   ├── academics/           # Academic pages
+│   │   ├── administration/      # Administrative pages
+│   │   └── communication/       # Communication pages
+│   ├── services/                # API services
+│   │   ├── authService.js       # Authentication API
+│   │   ├── studentService.js    # Student API
+│   │   ├── teacherService.js    # Teacher API
+│   │   ├── parentService.js     # Parent API
+│   │   ├── academicsService.js  # Academics API
+│   │   ├── administrationService.js # Administration API
+│   │   └── communicationService.js # Communication API
+│   ├── store/                   # Redux state management
+│   │   ├── slices/              # Redux slices
+│   │   │   ├── authSlice.js
+│   │   │   ├── studentSlice.js
+│   │   │   ├── teacherSlice.js
+│   │   │   ├── parentSlice.js
+│   │   │   ├── academicsSlice.js
+│   │   │   ├── administrationSlice.js
+│   │   │   └── communicationSlice.js
+│   │   ├── actions/             # Redux actions
+│   │   └── selectors/           # Redux selectors
+│   ├── styles/                  # Global styles
+│   │   ├── globals.css          # Global CSS
+│   │   ├── variables.css        # CSS variables
+│   │   ├── themes/              # Theme definitions
+│   │   │   ├── light.css
+│   │   │   └── dark.css
+│   │   └── components/          # Component-specific styles
+│   ├── types/                   # TypeScript type definitions
+│   │   ├── auth.types.ts
+│   │   ├── student.types.ts
+│   │   ├── teacher.types.ts
+│   │   ├── parent.types.ts
+│   │   ├── academics.types.ts
+│   │   ├── administration.types.ts
+│   │   └── communication.types.ts
+│   ├── utils/                   # Utility functions
+│   │   ├── formatters.js        # Data formatting utilities
+│   │   ├── validators.js        # Validation utilities
+│   │   ├── permissions.js       # Permission checking
+│   │   ├── offline.js           # Offline mode utilities
+│   │   └── analytics.js         # Analytics utilities
+│   ├── index.js                 # Application entry point
+│   └── index.css                # Root CSS file
+├── .env                         # Environment variables
+├── package.json                 # Dependencies
+└── tailwind.config.js           # Tailwind CSS configuration
+
+Improvement Update
+
+frontend/src/
+├── services/
+│   ├── api/
+│   │   ├── dashboard.api.ts
+│   │   ├── notifications.api.ts
+│   │   └── fees.api.ts
+│   └── websocket/
+│       ├── notifications.socket.ts
+│       └── dashboard.socket.ts
+├── hooks/
+│   ├── api/
+│   │   ├── useDashboard.ts
+│   │   ├── useNotifications.ts
+│   │   └── useFees.ts
+│   └── websocket/
+│       └── useWebSocket.ts

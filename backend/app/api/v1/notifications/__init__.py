@@ -1,0 +1,1 @@
+from app.api.v1.notifications.routes import notifications_bp

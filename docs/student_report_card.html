@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Greenfield High School – Student Progress Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:    #0b1e35;
+  --navy2:   #0f2f50;
+  --green:   #27774a;
+  --green2:  #2fa05e;
+  --green3:  #eaf6f1;
+  --green4:  #c2e8d4;
+  --gold:    #dfa832;
+  --text:    #17202a;
+  --muted:   #52626f;
+  --border:  #b8dece;
+  --white:   #ffffff;
+  --light:   #f3faf7;
+  --blue:    #1a5eb8;
+  --amber:   #c97a0a;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #d8e8df 0%, #c8ddd4 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 28px 16px;
+}
+
+.page {
+  background: #fff;
+  width: 880px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,.2), 0 2px 8px rgba(0,0,0,.08);
+}
+
+/* ══ HEADER ══════════════════════════════════════════════ */
+.header { background: var(--navy); }
+
+.header-main {
+  padding: 22px 32px 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.school-text h1 {
+  font-family: 'Merriweather', serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: .3px;
+  line-height: 1.1;
+}
+
+.school-text .tagline {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--green2);
+  margin-top: 4px;
+  letter-spacing: .4px;
+}
+
+.header-contact {
+  background: var(--green);
+  padding: 9px 32px;
+  display: flex;
+  gap: 36px;
+  align-items: center;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255,255,255,.92);
+  font-size: .8rem;
+  font-weight: 500;
+}
+
+/* ══ BODY ════════════════════════════════════════════════ */
+.body {
+  padding: 18px 26px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sec-bar {
+  background: var(--green3);
+  border-bottom: 1.5px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* ══ STUDENT INFO ════════════════════════════════════════ */
+.report-title-bar {
+  background: var(--navy);
+  text-align: center;
+  padding: 9px;
+  font-weight: 700;
+  font-size: .78rem;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.student-grid {
+  display: grid;
+  grid-template-columns: 1fr 108px 1fr;
+  padding: 18px 20px;
+  align-items: start;
+}
+
+.info-col { display: flex; flex-direction: column; gap: 9px; }
+.info-row { display: flex; gap: 6px; font-size: .86rem; line-height: 1.35; }
+.info-label { color: var(--muted); white-space: nowrap; min-width: 100px; }
+.info-value  { font-weight: 700; color: var(--text); }
+
+.photo-box {
+  width: 108px; height: 118px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: #f0f5f3; gap: 6px; margin: 0 16px;
+}
+.photo-box span { font-size: .65rem; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+.perf-col { display: flex; flex-direction: column; gap: 9px; }
+.perf-badge {
+  background: var(--navy);
+  color: #fff; text-align: center;
+  padding: 7px 10px; border-radius: 6px;
+  font-weight: 700; font-size: .72rem; letter-spacing: 1px; text-transform: uppercase;
+}
+.gpa-box {
+  border: 2px solid var(--green2);
+  border-radius: 6px; background: var(--green3);
+  text-align: center; padding: 9px 14px;
+}
+.gpa-value {
+  font-family: 'Merriweather', serif;
+  font-size: 1.3rem; font-weight: 700; color: var(--green);
+}
+
+/* ══ GRADES TABLE ════════════════════════════════════════ */
+.grades-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.grades-table thead tr { background: var(--navy); }
+.grades-table thead th {
+  color: #fff; font-weight: 700; font-size: .74rem;
+  letter-spacing: .9px; text-transform: uppercase;
+  padding: 10px 16px; text-align: left;
+}
+.grades-table thead th:nth-child(2),
+.grades-table thead th:nth-child(3) { text-align: center; }
+.th-inner { display: flex; align-items: center; gap: 7px; }
+.grades-table tbody tr { border-bottom: 1px solid #e2ede8; }
+.grades-table tbody tr:last-child { border-bottom: none; }
+.grades-table tbody tr:nth-child(even) { background: var(--light); }
+.grades-table td { padding: 10px 16px; color: var(--text); }
+.grades-table td:first-child { font-weight: 700; }
+.grades-table td:nth-child(2) { text-align: center; font-weight: 600; color: var(--muted); }
+.grades-table td:nth-child(3) { text-align: center; font-weight: 800; font-size: 1rem; }
+.grade-a  { color: var(--green); }
+.grade-ap { color: var(--green2); }
+.grade-bp { color: var(--blue); }
+.grades-table td:nth-child(4) { font-size: .83rem; color: var(--muted); }
+
+/* ══ ATTENDANCE ══════════════════════════════════════════ */
+.att-row {
+  display: flex; align-items: center; padding: 16px 20px;
+}
+.att-label {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: .76rem; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--navy);
+  width: 150px; flex-shrink: 0;
+}
+.att-divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 22px; }
+.att-stat { flex: 1; text-align: center; }
+.att-num { font-family: 'Merriweather', serif; font-size: 1.65rem; font-weight: 700; color: var(--green); line-height: 1; margin-bottom: 3px; }
+.att-num.dark { color: var(--navy); }
+.att-lbl { font-size: .68rem; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--muted); }
+
+/* ══ PSYCHOLOGICAL ═══════════════════════════════════════ */
+.psych-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; padding: 14px 16px 10px; }
+.psych-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 13px 14px; }
+.psych-card.attitude { background: #f0fbf5; border-color: #9dd6b8; }
+.psych-card.conduct  { background: #f0f6fd; border-color: #9abfe8; }
+.psych-card.interest { background: #fff9ec; border-color: #f5cc7c; }
+.psych-label { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .72rem; letter-spacing: .9px; text-transform: uppercase; margin-bottom: 8px; }
+.psych-label.attitude { color: var(--green); }
+.psych-label.conduct  { color: var(--blue); }
+.psych-label.interest { color: var(--amber); }
+.psych-card p { font-size: .82rem; color: var(--muted); line-height: 1.5; }
+
+.remarks-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 14px; }
+.remark-box { border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+.remark-title { background: var(--navy); color: #fff; font-weight: 700; font-size: .7rem; letter-spacing: 1px; text-transform: uppercase; padding: 7px 12px; }
+.remark-content { padding: 10px 12px; font-size: .82rem; color: var(--muted); min-height: 50px; line-height: 1.5; }
+
+/* ══ ANALYTICS ═══════════════════════════════════════════ */
+.analytics-inner { display: grid; grid-template-columns: 210px 1fr 200px; gap: 16px; padding: 16px; align-items: center; }
+.perf-summary { font-size: .82rem; }
+.perf-summary h4 { font-weight: 700; font-size: .75rem; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 12px; color: var(--navy); }
+.perf-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.perf-item svg { flex-shrink: 0; margin-top: 1px; }
+.perf-item .lbl { font-weight: 700; color: var(--text); }
+.perf-item .val { color: var(--muted); }
+
+/* ══ SIGNATURES ══════════════════════════════════════════ */
+.signatures { display: grid; grid-template-columns: repeat(3,1fr); padding: 20px 28px 22px; border-top: 1px solid var(--border); margin-top: 4px; }
+.sig-item { text-align: center; padding: 0 10px; }
+.sig-item:not(:last-child) { border-right: 1px solid var(--border); }
+.sig-line { border-top: 1.5px solid var(--navy); width: 78%; margin: 0 auto 8px; }
+.sig-label { font-size: .76rem; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-main">
+      <!-- Shield Logo -->
+      <svg width="76" height="79" viewBox="0 0 76 79" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+        <path d="M38 2L5 14V37C5 55.5 19.5 68.5 38 72C56.5 68.5 71 55.5 71 37V14L38 2Z" fill="#1f5c3a"/>
+        <path d="M38 2L5 14V37C5 55.5 19.5 68.5 38 72C56.5 68.5 71 55.5 71 37V14L38 2Z" fill="none" stroke="#dfa832" stroke-width="2.2"/>
+        <polygon points="38,8 40,14 46,14 41.5,17.5 43,23 38,19.5 33,23 34.5,17.5 30,14 36,14" fill="#dfa832"/>
+        <!-- Laurel L -->
+        <path d="M12 42 Q9 37 12 33 Q15 37 12 42Z" fill="#34a861"/>
+        <path d="M11 49 Q8 44 11 40 Q14 44 11 49Z" fill="#34a861"/>
+        <path d="M13 56 Q10 51 13 47 Q16 51 13 56Z" fill="#34a861"/>
+        <!-- Laurel R -->
+        <path d="M64 42 Q67 37 64 33 Q61 37 64 42Z" fill="#34a861"/>
+        <path d="M65 49 Q68 44 65 40 Q62 44 65 49Z" fill="#34a861"/>
+        <path d="M63 56 Q66 51 63 47 Q60 51 63 56Z" fill="#34a861"/>
+        <!-- Book -->
+        <rect x="23" y="30" width="30" height="20" rx="2" fill="white" opacity=".12"/>
+        <path d="M38 30 L38 50" stroke="white" stroke-width="1.7"/>
+        <path d="M23 33 Q30.5 29.5 38 33" stroke="white" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+        <path d="M38 33 Q45.5 29.5 53 33" stroke="white" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+        <rect x="23" y="30" width="30" height="20" rx="2" fill="none" stroke="white" stroke-width="1.6"/>
+      </svg>
+
+      <div class="school-text">
+        <h1>GREENFIELD HIGH SCHOOL</h1>
+        <div class="tagline">Nurturing Minds. Building Futures.</div>
+      </div>
+    </div>
+
+    <div class="header-contact">
+      <div class="contact-item">
+        <svg width="12" height="15" viewBox="0 0 12 15" fill="none"><path d="M6 0C3.8 0 2 1.9 2 4.3C2 7 6 13.5 6 13.5C6 13.5 10 7 10 4.3C10 1.9 8.2 0 6 0ZM6 5.8C5.2 5.8 4.5 5.1 4.5 4.3C4.5 3.5 5.2 2.8 6 2.8C6.8 2.8 7.5 3.5 7.5 4.3C7.5 5.1 6.8 5.8 6 5.8Z" fill="white"/></svg>
+        Richmond, VA 23235
+      </div>
+      <div class="contact-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.3"/><ellipse cx="7" cy="7" rx="2.8" ry="6" stroke="white" stroke-width="1.2"/><line x1="1" y1="7" x2="13" y2="7" stroke="white" stroke-width="1.2"/><line x1="1.5" y1="4" x2="12.5" y2="4" stroke="white" stroke-width="1.1"/><line x1="1.5" y1="10" x2="12.5" y2="10" stroke="white" stroke-width="1.1"/></svg>
+        www.greenfieldhighschool.com
+      </div>
+      <div class="contact-item">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 1.5H5L6.3 4.8L4.7 5.8C5.6 8 7.8 9.7 9.5 10.3L10.5 8.5L14 9.8V13C6 14.5 0 5 2 1.5Z" fill="white"/></svg>
+        222 555
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Student Info -->
+    <div class="card">
+      <div class="report-title-bar">Student Progress Report</div>
+      <div class="student-grid">
+        <div class="info-col">
+          <div class="info-row"><span class="info-label">Student Name:</span><span class="info-value">Full Name</span></div>
+          <div class="info-row"><span class="info-label">Class:</span><span class="info-value">Class</span></div>
+          <div class="info-row"><span class="info-label">Academic Year:</span><span class="info-value">Academic Year</span></div>
+          <div class="info-row"><span class="info-label">Term:</span><span class="info-value">Term</span></div>
+        </div>
+        <div class="photo-box">
+          <svg width="40" height="44" viewBox="0 0 40 44" fill="none"><circle cx="20" cy="14" r="11" fill="#b0c9c0"/><ellipse cx="20" cy="38" rx="17" ry="10" fill="#b0c9c0"/></svg>
+          <span>Student Photo</span>
+        </div>
+        <div class="perf-col">
+          <div class="info-row"><span class="info-label">Level:</span><span class="info-value">Level</span></div>
+          <div class="info-row"><span class="info-label">Admission No:</span><span class="info-value">Admission No</span></div>
+          <div class="perf-badge">Overall Performance</div>
+          <div class="gpa-box"><div class="gpa-value">GPA: 3.85 / 4.00</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grades -->
+    <div class="card">
+      <table class="grades-table">
+        <thead>
+          <tr>
+            <th><div class="th-inner"><svg width="15" height="14" viewBox="0 0 15 14" fill="none"><rect x=".5" y=".5" width="14" height="13" rx="1.5" stroke="white" stroke-width="1.3"/><line x1=".5" y1="4.5" x2="14.5" y2="4.5" stroke="white" stroke-width="1.2"/><line x1="4" y1=".5" x2="4" y2="13.5" stroke="white" stroke-width="1.2"/></svg>Subject</div></th>
+            <th><div class="th-inner" style="justify-content:center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x=".5" y=".5" width="13" height="13" rx="1.5" stroke="white" stroke-width="1.3"/><line x1="3" y1="4.5" x2="11" y2="4.5" stroke="white" stroke-width="1.1"/><line x1="3" y1="7" x2="11" y2="7" stroke="white" stroke-width="1.1"/><line x1="3" y1="9.5" x2="8" y2="9.5" stroke="white" stroke-width="1.1"/></svg>Scores</div></th>
+            <th><div class="th-inner" style="justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="5.5" stroke="#dfa832" stroke-width="1.4"/><polygon points="8,3.5 9,6.2 12,6.2 9.8,8 10.6,10.8 8,9 5.4,10.8 6.2,8 4,6.2 7,6.2" fill="#dfa832"/><path d="M5.5 12.5 L8 11 L10.5 12.5" stroke="#dfa832" stroke-width="1.3" fill="none" stroke-linecap="round"/><line x1="8" y1="12.5" x2="8" y2="15" stroke="#dfa832" stroke-width="1.3"/></svg>Grade</div></th>
+            <th><div class="th-inner"><svg width="16" height="13" viewBox="0 0 16 13" fill="none"><rect x=".5" y=".5" width="15" height="10" rx="1.5" stroke="white" stroke-width="1.3"/><path d="M4.5 12.5L8 10.5L11.5 12.5" fill="white"/></svg>Remarks</div></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>English Language</td><td>92</td><td class="grade-a">A</td><td>Shows excellent reading comprehension and writes clearly.</td></tr>
+          <tr><td>Mathematics</td><td>88</td><td class="grade-a">A</td><td>Solves problems accurately and shows good reasoning.</td></tr>
+          <tr><td>Science</td><td>85</td><td class="grade-bp">B+</td><td>Active in class and shows curiosity in experiments.</td></tr>
+          <tr><td>Social Studies</td><td>90</td><td class="grade-a">A</td><td>Understands concepts well and participates actively.</td></tr>
+          <tr><td>Computer Studies</td><td>94</td><td class="grade-ap">A+</td><td>Demonstrates strong skills and creativity.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Attendance -->
+    <div class="card">
+      <div class="sec-bar">
+        <svg width="16" height="14" viewBox="0 0 16 14" fill="none"><rect x=".5" y=".5" width="15" height="13" rx="1.5" stroke="#27774a" stroke-width="1.3"/><line x1=".5" y1="5" x2="15.5" y2="5" stroke="#27774a" stroke-width="1.2"/><line x1="4" y1=".5" x2="4" y2="13.5" stroke="#27774a" stroke-width="1.2"/></svg>
+        General Assessment
+      </div>
+      <div class="att-row">
+        <div class="att-label">
+          <svg width="19" height="19" viewBox="0 0 19 19" fill="none"><rect x="1" y="3" width="17" height="15" rx="2" stroke="#27774a" stroke-width="1.4"/><line x1="1" y1="8" x2="18" y2="8" stroke="#27774a" stroke-width="1.3"/><line x1="5.5" y1="1" x2="5.5" y2="5" stroke="#27774a" stroke-width="1.5"/><line x1="13.5" y1="1" x2="13.5" y2="5" stroke="#27774a" stroke-width="1.5"/><polyline points="5.5,12.5 8,15 13.5,10.5" stroke="#27774a" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Attendance
+        </div>
+        <div class="att-divider"></div>
+        <div class="att-stat"><div class="att-lbl">Total Days</div><div class="att-num dark">180</div></div>
+        <div class="att-divider"></div>
+        <div class="att-stat"><div class="att-lbl">Present Days</div><div class="att-num">173</div></div>
+        <div class="att-divider"></div>
+        <div class="att-stat"><div class="att-lbl">Attendance Rate</div><div class="att-num">96.11%</div></div>
+      </div>
+    </div>
+
+    <!-- Psychological -->
+    <div class="card">
+      <div class="sec-bar">
+        <svg width="19" height="14" viewBox="0 0 19 14" fill="none"><circle cx="6" cy="4.5" r="3" stroke="#27774a" stroke-width="1.3"/><path d="M1 13C1 10 3.3 8 6 8" stroke="#27774a" stroke-width="1.3" stroke-linecap="round"/><path d="M11 13C11 10 8.7 8 6 8" stroke="#27774a" stroke-width="1.3" stroke-linecap="round"/><circle cx="13" cy="4.5" r="3" stroke="#27774a" stroke-width="1.3"/><path d="M13 8C15.7 8 18 10 18 13" stroke="#27774a" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Psychological and Social Perspective
+      </div>
+      <div class="psych-cards">
+        <div class="psych-card attitude">
+          <div class="psych-label attitude">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="7" stroke="#27774a" stroke-width="1.4"/><path d="M5.5 10.5C6.2 11.8 7.2 12.5 8.5 12.5C9.8 12.5 10.8 11.8 11.5 10.5" stroke="#27774a" stroke-width="1.4" stroke-linecap="round"/><circle cx="6" cy="7.5" r="1" fill="#27774a"/><circle cx="11" cy="7.5" r="1" fill="#27774a"/></svg>
+            Attitude
+          </div>
+          <p>Shows a positive attitude towards learning. Accepts feedback well and strives to improve.</p>
+        </div>
+        <div class="psych-card conduct">
+          <div class="psych-label conduct">
+            <svg width="18" height="15" viewBox="0 0 18 15" fill="none"><path d="M3 7.5C3 7.5 4.5 5.5 6.5 5L9 7L11.5 5C13.5 5.5 15 7.5 15 7.5" stroke="#1a5eb8" stroke-width="1.3" stroke-linecap="round" fill="none"/><circle cx="6" cy="3.5" r="1.8" stroke="#1a5eb8" stroke-width="1.2"/><circle cx="12" cy="3.5" r="1.8" stroke="#1a5eb8" stroke-width="1.2"/><path d="M6.5 9L9 11.5L11.5 9" stroke="#1a5eb8" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
+            Conduct
+          </div>
+          <p>Respects teachers and classmates. Follows school rules and is responsible.</p>
+        </div>
+        <div class="psych-card interest">
+          <div class="psych-label interest">
+            <svg width="16" height="19" viewBox="0 0 16 19" fill="none"><circle cx="8" cy="7.5" r="5.5" stroke="#c97a0a" stroke-width="1.3"/><line x1="8" y1="14.5" x2="8" y2="18" stroke="#c97a0a" stroke-width="1.5"/><line x1="5.5" y1="17" x2="10.5" y2="17" stroke="#c97a0a" stroke-width="1.5"/><line x1="8" y1=".5" x2="8" y2="2.5" stroke="#c97a0a" stroke-width="1.5"/><line x1="1.5" y1="2.5" x2="2.8" y2="3.8" stroke="#c97a0a" stroke-width="1.5"/><line x1="14.5" y1="2.5" x2="13.2" y2="3.8" stroke="#c97a0a" stroke-width="1.5"/></svg>
+            Interest
+          </div>
+          <p>Shows keen interest in technology, science projects, and reading.</p>
+        </div>
+      </div>
+      <div class="remarks-row">
+        <div class="remark-box">
+          <div class="remark-title">Teacher Remarks</div>
+          <div class="remark-content">A hardworking and respectful student. Continues to show improvement and a desire to learn.</div>
+        </div>
+        <div class="remark-box">
+          <div class="remark-title">Parent / Guardian Remarks</div>
+          <div class="remark-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Learning Analytics -->
+    <div class="card">
+      <div class="sec-bar">
+        <svg width="16" height="14" viewBox="0 0 16 14" fill="none"><rect x="0" y="6" width="4" height="8" fill="#27774a" rx="1"/><rect x="6" y="3" width="4" height="11" fill="#27774a" rx="1"/><rect x="12" y="0" width="4" height="14" fill="#27774a" rx="1"/></svg>
+        Learning Analytics
+      </div>
+      <div class="analytics-inner">
+
+        <!-- Radar -->
+        <svg width="210" height="210" viewBox="-15 -15 230 230">
+          <text x="105" y="-2" text-anchor="middle" font-size="11.5" fill="#52626f" font-family="Inter,sans-serif" font-weight="600">English</text>
+          <text x="222" y="117" text-anchor="middle" font-size="11.5" fill="#52626f" font-family="Inter,sans-serif" font-weight="600">Math</text>
+          <text x="175" y="214" text-anchor="middle" font-size="11.5" fill="#52626f" font-family="Inter,sans-serif" font-weight="600">Science</text>
+          <text x="35" y="214" text-anchor="middle" font-size="11.5" fill="#52626f" font-family="Inter,sans-serif" font-weight="600">Social</text>
+          <text x="-12" y="117" text-anchor="middle" font-size="11.5" fill="#52626f" font-family="Inter,sans-serif" font-weight="600">Comp.</text>
+          <polygon points="105,10 193,75 160,178 50,178 17,75" fill="none" stroke="#c2dece" stroke-width="1.2"/>
+          <polygon points="105,28 175,81 148,162 62,162 35,81"  fill="none" stroke="#c2dece" stroke-width="1.2"/>
+          <polygon points="105,46 157,87 136,146 74,146 53,87"  fill="none" stroke="#c2dece" stroke-width="1.2"/>
+          <polygon points="105,64 139,93 124,130 86,130 71,93"  fill="none" stroke="#c2dece" stroke-width="1.2"/>
+          <polygon points="105,82 121,99 112,114 98,114 89,99"  fill="none" stroke="#c2dece" stroke-width="1.2"/>
+          <line x1="105" y1="100" x2="105" y2="10" stroke="#c2dece" stroke-width="1.1"/>
+          <line x1="105" y1="100" x2="193" y2="75" stroke="#c2dece" stroke-width="1.1"/>
+          <line x1="105" y1="100" x2="160" y2="178" stroke="#c2dece" stroke-width="1.1"/>
+          <line x1="105" y1="100" x2="50"  y2="178" stroke="#c2dece" stroke-width="1.1"/>
+          <line x1="105" y1="100" x2="17"  y2="75"  stroke="#c2dece" stroke-width="1.1"/>
+          <polygon points="105,17.2 180.5,75.5 149.9,161.6 57.4,165.5 24.7,72.6"
+                   fill="rgba(39,119,74,0.2)" stroke="#27774a" stroke-width="2.2"/>
+          <circle cx="105"   cy="17.2"  r="4.5" fill="#27774a"/>
+          <circle cx="180.5" cy="75.5"  r="4.5" fill="#27774a"/>
+          <circle cx="149.9" cy="161.6" r="4.5" fill="#27774a"/>
+          <circle cx="57.4"  cy="165.5" r="4.5" fill="#27774a"/>
+          <circle cx="24.7"  cy="72.6"  r="4.5" fill="#27774a"/>
+        </svg>
+
+        <!-- Summary -->
+        <div class="perf-summary">
+          <h4>Performance Summary</h4>
+          <div class="perf-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polygon points="8,1 9.8,6 15,6 10.9,9.1 12.6,14 8,11 3.4,14 5.1,9.1 1,6 6.2,6" fill="#dfa832"/></svg>
+            <div><span class="lbl">Strength: </span><span class="val">English, Computer Studies</span></div>
+          </div>
+          <div class="perf-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="2,12 5.5,7 8.5,9.5 14,4" stroke="#27774a" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polyline points="11,4 14,4 14,7" stroke="#27774a" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+            <div><span class="lbl">Improvement: </span><span class="val">Continue practicing problem-solving in Mathematics</span></div>
+          </div>
+          <div class="perf-item">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2" width="13" height="12" rx="1.5" stroke="#52626f" stroke-width="1.3"/><line x1="1.5" y1="6" x2="14.5" y2="6" stroke="#52626f" stroke-width="1.2"/><line x1="5" y1="2" x2="5" y2="14" stroke="#52626f" stroke-width="1.2"/></svg>
+            <div><span class="lbl">Learning Style: </span><span class="val">Visual &amp; Hands-on Learner</span></div>
+          </div>
+        </div>
+
+        <!-- Bar Chart -->
+        <svg width="196" height="132" viewBox="0 0 196 132" font-family="Inter,sans-serif">
+          <text x="16" y="13" font-size="9" fill="#888" text-anchor="end">100</text>
+          <text x="16" y="50" font-size="9" fill="#888" text-anchor="end">80</text>
+          <line x1="20" y1="10"  x2="190" y2="10"  stroke="#e0ece8" stroke-width="1"/>
+          <line x1="20" y1="47"  x2="190" y2="47"  stroke="#e0ece8" stroke-width="1"/>
+          <line x1="20" y1="100" x2="190" y2="100" stroke="#b8d8ce" stroke-width="1.3"/>
+          <rect x="30"  y="17.9"  width="36" height="82.1"  rx="4" fill="#90b8d8"/>
+          <rect x="87"  y="14.95" width="36" height="85.05" rx="4" fill="#68c48a"/>
+          <rect x="144" y="13.4"  width="36" height="86.6"  rx="4" fill="#1a5eb8"/>
+          <text x="48"  y="13"  font-size="9.5" fill="#52626f" text-anchor="middle" font-weight="700">3.65</text>
+          <text x="105" y="10"  font-size="9.5" fill="#52626f" text-anchor="middle" font-weight="700">3.78</text>
+          <text x="162" y="8.5" font-size="9.5" fill="#52626f" text-anchor="middle" font-weight="700">3.85</text>
+          <text x="48"  y="116" font-size="9.5" fill="#52626f" text-anchor="middle">Term 1</text>
+          <text x="105" y="116" font-size="9.5" fill="#52626f" text-anchor="middle">Term 2</text>
+          <text x="162" y="116" font-size="9.5" fill="#52626f" text-anchor="middle">Term 3</text>
+        </svg>
+
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- Signatures -->
+  <div class="signatures">
+    <div class="sig-item"><div class="sig-line"></div><div class="sig-label">Teacher's Signature</div></div>
+    <div class="sig-item"><div class="sig-line"></div><div class="sig-label">Parent / Guardian's Signature</div></div>
+    <div class="sig-item"><div class="sig-line"></div><div class="sig-label">Principal's Signature</div></div>
+  </div>
+
+</div>
+</body>
+</html>

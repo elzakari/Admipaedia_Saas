@@ -1,0 +1,28 @@
+name: Changelog Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  ensure-changelog-updated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Identify changed files
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          echo "changed_files=$(git diff --name-only HEAD origin/${{ github.base_ref }} | tr '\n' ',')" >> $GITHUB_OUTPUT
+
+      - name: Verify CHANGELOG.md was updated
+        run: |
+          if ! echo "${{ steps.changed.outputs.changed_files }}" | grep -q "CHANGELOG.md"; then
+            echo "CHANGELOG.md not updated in this PR. Please add an entry."
+            exit 1
+          fi
+          echo "CHANGELOG.md update detected."

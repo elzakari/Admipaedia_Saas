@@ -1,0 +1,4 @@
+/* Add this import at the top of your globals.css file */
+@import '../styles/calendar.css';
+
+/* Rest of your existing CSS */

@@ -1,0 +1,33 @@
+{
+  "common": {
+    "welcome": "مرحباً بكم في ADMIPAEDIA",
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "dashboard": "لوحة القيادة",
+    "settings": "الإعدادات",
+    "profile": "الملف الشخصي",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ ما",
+    "success": "نجاح"
+  },
+  "auth": {
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "forgot_password": "نسيت كلمة المرور؟",
+    "sign_in": "دخول",
+    "sign_up": "تسجيل"
+  },
+  "navigation": {
+    "home": "الرئيسية",
+    "students": "الطلاب",
+    "teachers": "المعلمون",
+    "parents": "أولياء الأمور",
+    "classes": "الفصول",
+    "attendance": "الحضور",
+    "exams": "الامتحانات",
+    "library": "المكتبة",
+    "fees": "الرسوم"
+  }
+}

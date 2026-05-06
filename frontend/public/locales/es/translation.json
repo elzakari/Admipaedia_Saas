@@ -1,0 +1,33 @@
+{
+  "common": {
+    "welcome": "Bienvenido a ADMIPAEDIA",
+    "login": "Acceder",
+    "logout": "Cerrar sesión",
+    "dashboard": "Tablero",
+    "settings": "Ajustes",
+    "profile": "Perfil",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "success": "Éxito"
+  },
+  "auth": {
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "forgot_password": "¿Olvidó la contraseña?",
+    "sign_in": "Entrar",
+    "sign_up": "Registrarse"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "students": "Estudiantes",
+    "teachers": "Profesores",
+    "parents": "Padres",
+    "classes": "Clases",
+    "attendance": "Asistencia",
+    "exams": "Exámenes",
+    "library": "Biblioteca",
+    "fees": "Cuotas"
+  }
+}

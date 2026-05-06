@@ -1,0 +1,33 @@
+{
+  "common": {
+    "welcome": "Welcome to ADMIPAEDIA",
+    "login": "Login",
+    "logout": "Logout",
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "profile": "Profile",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success"
+  },
+  "auth": {
+    "email": "Email Address",
+    "password": "Password",
+    "forgot_password": "Forgot Password?",
+    "sign_in": "Sign In",
+    "sign_up": "Sign Up"
+  },
+  "navigation": {
+    "home": "Home",
+    "students": "Students",
+    "teachers": "Teachers",
+    "parents": "Parents",
+    "classes": "Classes",
+    "attendance": "Attendance",
+    "exams": "Exams",
+    "library": "Library",
+    "fees": "Fees"
+  }
+}

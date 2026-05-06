@@ -1,0 +1,150 @@
+I want you to act as a full-stack developer helping me build the complete backend for the StudentsPage in a school management system called ADMIPAEDIA. Use Flask as the backend framework and PostgreSQL as the database. The system should follow clean architecture using modular Blueprints and service layers. Remove all mock data and ensure the database is used as the primary source of truth. Build a secure, scalable, and well-documented RESTful API that handles the entire student management workflow."
+
+🎯 Core Functionalities of the StudentsPage Backend
+Student Profile Management
+
+Endpoint to create new student records (POST /students/)
+
+Update existing student info such as name, gender, DOB, contact, photo (PUT /students/<id>)
+
+Soft delete or deactivate a student (DELETE /students/<id>)
+
+Upload and manage student profile photos using a secure media storage system
+
+Assign students to classes, arms/sections, academic sessions, and houses (if applicable)
+
+Parent/Guardian Association
+
+Link each student to one or more parents/guardians through a relational table
+
+Retrieve and update emergency contact details from the parent entity
+
+Attendance Tracking
+
+Record daily attendance per student (POST /students/<id>/attendance)
+
+Fetch attendance records filtered by date, term, or session
+
+API should return attendance summaries and trends
+
+Academic Performance and Grades
+
+Record student grades per subject per term/session (POST /students/<id>/grades)
+
+Generate academic report data for dashboard or printable PDF report
+
+Integrate grading system (dynamic per school, using saved configurations)
+
+Fetch performance summaries and GPA trends
+
+Advanced Filtering & Search
+
+Search students by name, ID, or guardian
+
+Filter by class, gender, academic year, active/inactive status
+
+Paginate results and allow sorting by name, date added, or academic score
+
+Security & Access Control
+
+Protect endpoints with JWT-based authentication
+
+Implement Role-Based Access Control (RBAC) for routes (e.g., Admin can create/edit, Teachers can view/mark attendance)
+
+Log key user actions in an audit trail table
+
+Reporting & Insights
+
+Endpoint to export student data in CSV or PDF format
+
+Performance analytics: AI-driven grade forecasts, performance risk detection
+
+Attendance heatmaps and dropout risk flagging
+
+🗂️ Suggested API Routes (Blueprint: students)
+http
+Copy
+Edit
+GET    /students/                     # List all students (with pagination & filters)
+GET    /students/<id>                # Get detailed student profile
+POST   /students/                    # Add new student
+PUT    /students/<id>                # Update student details
+DELETE /students/<id>                # Soft delete student
+
+POST   /students/<id>/attendance     # Mark attendance for a day
+GET    /students/<id>/attendance     # Get attendance records
+
+POST   /students/<id>/grades         # Record grades
+GET    /students/<id>/grades         # Fetch student grades
+
+GET    /students/<id>/performance    # Get academic summary with AI insights
+GET    /students/export              # Export student list/report
+🧠 AI-Enhanced Features (Optional but Valuable)
+Performance Forecasting: Predict future grade performance using trends in past results.
+
+Dropout Risk Analysis: AI flags students with low attendance, grades, or engagement.
+
+Dynamic Report Comments: Auto-generate remarks based on student performance and trends.
+
+Behavior Insights: Detect irregular attendance or performance drop and suggest intervention.
+
+📦 Database Schema Suggestions (PostgreSQL)
+sql
+Copy
+Edit
+TABLE students (
+  id UUID PRIMARY KEY,
+  first_name TEXT,
+  last_name TEXT,
+  gender TEXT,
+  date_of_birth DATE,
+  class_id UUID REFERENCES classes(id),
+  session_id UUID REFERENCES sessions(id),
+  guardian_id UUID REFERENCES parents(id),
+  photo_url TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+TABLE attendance (
+  id UUID PRIMARY KEY,
+  student_id UUID REFERENCES students(id),
+  date DATE,
+  status TEXT,  -- Present, Absent, Late
+  remarks TEXT
+);
+
+TABLE grades (
+  id UUID PRIMARY KEY,
+  student_id UUID REFERENCES students(id),
+  subject_id UUID REFERENCES subjects(id),
+  score DECIMAL,
+  term TEXT,
+  session_id UUID REFERENCES sessions(id),
+  level TEXT, -- e.g., A, P, AP
+  comment TEXT
+);
+
+TABLE parents (
+  id UUID PRIMARY KEY,
+  full_name TEXT,
+  email TEXT,
+  phone TEXT,
+  relationship TEXT
+);
+🔒 Security Best Practices
+Input validation using Marshmallow or Pydantic
+
+SQL injection prevention with SQLAlchemy ORM
+
+JWT authentication for all student routes
+
+Activity logging: track creation, edits, deletions
+
+🔧 Integration with React Frontend
+Ensure API responses are JSON structured and standardized
+
+Support optimistic UI updates and error feedback
+
+Include metadata for pagination (e.g., total_pages, current_page)

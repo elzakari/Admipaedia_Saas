@@ -1,0 +1,31 @@
+{
+  "name": "ADMIPAEDIA Frontend Debug Configuration",
+  "version": "1.0.0",
+  "debug": {
+    "enabled": true,
+    "logLevel": "debug",
+    "showPerformanceMetrics": true,
+    "enableHotReload": true,
+    "enableSourceMaps": true,
+    "enableReactDevTools": true
+  },
+  "api": {
+    "baseURL": "http://localhost:5000/api/v1",
+    "timeout": 30000,
+    "retries": 3,
+    "enableRequestLogging": true,
+    "enableResponseLogging": true
+  },
+  "websocket": {
+    "url": "ws://localhost:5000",
+    "enableLogging": true,
+    "reconnectAttempts": 5,
+    "reconnectInterval": 3000
+  },
+  "monitoring": {
+    "enableErrorBoundaries": true,
+    "enablePerformanceMonitoring": true,
+    "enableMemoryLeakDetection": true,
+    "enableRenderTracking": true
+  }
+}

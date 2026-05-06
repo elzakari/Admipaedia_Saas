@@ -1,0 +1,147 @@
+I want you to act as a full-stack developer and AI-driven system configurator to help me build a robust and scalable Settings Page for a school management system called ADMIPAEDIA. This Settings Page should serve as the central configuration hub for the entire platform, enabling administrators to manage system-wide preferences, user permissions, academic calendar, grading system, notification rules, integrations, and AI behavior. Use React for the front-end, Flask or Django for the back-end, and PostgreSQL as the database. The Settings Page should include AI functionalities like smart defaults, usage-based recommendations, anomaly detection, and behavior predictions. Ensure advanced security, audit logging, backup management, and multi-tenant support to accommodate multiple schools."
+
+🎯 Purpose of the Settings Page
+The Settings Page in ADMIPAEDIA is the control panel that empowers school administrators to configure and customize the entire system according to institutional needs. It offers centralized control over all modules—ensuring flexibility, security, and smooth operation across academic, administrative, and communication components. With integrated AI, the Settings Page will not only streamline setup but also recommend optimizations based on usage patterns and user behavior.
+
+1️⃣ Core Functionalities
+✅ User & Role Management
+
+Create, assign, and edit user roles (Super Admin, Accountant, Teacher, Parent, Student, Librarian, IT Staff, etc.).
+
+Define role-based permissions with fine-grained access control for each module.
+
+Manage login credentials, password policies, and two-factor authentication settings.
+
+✅ Academic Configuration
+
+Set academic calendar (terms, sessions, holidays, weekends).
+
+Define class structure (nursery, primary, JHS, SHS), subjects, departments, and electives.
+
+Configure dynamic grading systems (e.g., Ghana standard, or custom GPA-based formats).
+
+✅ System Behavior & Defaults
+
+Set default currency, language, time zone, and school logo/theme.
+
+Configure default values for attendance thresholds, notification triggers, invoice reminders, etc.
+
+✅ Notifications & Alerts
+
+Set global rules for email, SMS, and in-app notifications.
+
+Define event-driven triggers (e.g., attendance drop, fee due, exam results release).
+
+Allow customization of message templates by role or scenario.
+
+✅ AI Settings Dashboard
+
+Enable or disable AI modules per feature (smart reminders, performance forecasting, sentiment detection, etc.).
+
+Adjust AI thresholds (e.g., defaulter score, performance risk score).
+
+Set training preferences for AI models based on usage logs.
+
+✅ Third-Party Integrations
+
+Manage API keys for payment gateways (mobile money, Stripe, PayPal, etc.).
+
+Configure email/SMS gateways (Twilio, SMTP, Mailgun).
+
+Integration toggles for Zoom, Google Classroom, biometric devices.
+
+2️⃣ Advanced Functionalities
+✅ Audit Logs & Activity Monitoring
+
+Real-time logs for every action taken by any user across modules.
+
+Filter logs by user, module, action type, or date.
+
+AI flags suspicious or inconsistent behavior patterns.
+
+✅ Backup & Recovery Management
+
+Schedule automatic database and file system backups.
+
+Manual backup/export option with timestamp.
+
+One-click recovery or rollback to previous configuration states.
+
+✅ Multi-School / Multi-Tenant Support
+
+Allow Super Admins to manage multiple schools under one platform.
+
+Configure isolated settings per school or shared features across tenants.
+
+School-specific domains, branding, and admin panels.
+
+✅ Feature Toggle System (Beta Management)
+
+Enable/disable beta features or modules per school or admin preference.
+
+AI tracks usage of beta features and provides opt-in recommendations.
+
+✅ Dynamic Theme and Layout Editor
+
+Customize system colors, fonts, and layout presets for each school.
+
+Upload custom logos, favicons, and background banners.
+
+Preview mode before applying system-wide changes.
+
+3️⃣ AI Functionalities
+✅ Smart Defaults Generator
+
+Based on school type and location, AI recommends pre-filled configurations (e.g., Ghana-based schools auto-suggest grading schemes and term dates).
+
+✅ Usage-Based Recommendations
+
+If certain modules are underused, the system prompts admins with tutorials or tips to improve adoption.
+
+Suggests optimal settings based on peak usage hours and academic events.
+
+✅ Anomaly Detection & Alerting
+
+If a user assigns admin privileges to too many users or modifies critical roles, AI raises an alert.
+
+Tracks sudden spikes in login attempts or frequent password resets.
+
+✅ Predictive Configuration Advisor
+
+AI projects future needs based on current patterns (e.g., "Add another academic term?" or "Enable SMS reminders for upcoming exams?").
+
+✅ Auto-Fill Config Templates
+
+During onboarding, AI auto-fills typical school parameters (class categories, session durations, attendance rules) using learned data from other institutions.
+
+4️⃣ UI Components in React
+SettingsSidebar: Modular navigation (System, Academic, Users, AI, Security, etc.)
+
+SettingsFormPanel: Dynamic form renderer based on config category
+
+AIControlPanel: Visual toggles, thresholds, and suggestions
+
+AuditLogViewer: Paginated table of user activities with filters
+
+ThemeCustomizer: Real-time preview of branding and layout edits
+
+IntegrationManager: List of connected services and credentials
+
+5️⃣ PostgreSQL Database Tables
+system_settings, user_roles, role_permissions, audit_logs, ai_preferences, notification_rules, theme_settings, backup_logs, api_integrations
+
+API Endpoints Examples
+GET /settings/academic – Fetch current academic configurations
+
+POST /settings/academic/update – Update term, session, subjects
+
+GET /settings/ai – Retrieve AI module configurations
+
+POST /settings/ai/toggle – Enable or disable specific AI features
+
+GET /logs/audit – Retrieve user/system activity logs
+
+POST /settings/theme/apply – Apply a new UI theme
+
+✅ Final Thoughts
+The Settings Page in ADMIPAEDIA is more than a control center—it's a dynamic AI-assisted cockpit that allows schools to personalize, secure, and scale their operations with confidence. With integrated audit tools, anomaly detection, smart defaults, and powerful customization options, ADMIPAEDIA ensures that every school—big or small—can operate efficiently without technical complexity.

@@ -1,0 +1,241 @@
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Box, Button, Container, Typography, Grid } from '@mui/material';
+import {
+  Inventory2,
+  Analytics,
+  People,
+  Security,
+  Speed,
+  LocalPharmacy,
+  Support,
+  CloudDone,
+  Timeline,
+  Assignment,
+  LocalShipping,
+  Notifications
+} from '@mui/icons-material';
+import { useAuth } from '../hooks/useAuth';
+import logo from '../assets/logo.svg';
+import Login from './auth/Login';
+import Register from './auth/Register';
+
+const LandingPage = () => {
+  const [showAuthModal, setShowAuthModal] = useState(null);
+  const navigate = useNavigate();
+
+  const handleLogin = () => {
+    navigate('/login');
+  };
+
+  const features = [
+    {
+      icon: <Inventory2 sx={{ fontSize: 40, color: '#4CAF50' }} />,
+      title: 'Smart Inventory Management',
+      description: 'Track and manage your pharmaceutical inventory with real-time updates and automated reordering.',
+    },
+    {
+      icon: <Analytics sx={{ fontSize: 40, color: '#2196F3' }} />,
+      title: 'Advanced Analytics & Insights',
+      description: 'Make data-driven decisions with comprehensive analytics, predictive insights, and detailed reporting.',
+    },
+    {
+      icon: <People sx={{ fontSize: 40, color: '#9C27B0' }} />,
+      title: 'Customer Relationship Management',
+      description: 'Build stronger relationships with your customers through detailed profiles and purchase history tracking.',
+    },
+    {
+      icon: <Security sx={{ fontSize: 40, color: '#F44336' }} />,
+      title: 'Enhanced Security & Compliance',
+      description: 'Stay compliant with industry regulations while ensuring data security through role-based access control.',
+    },
+    {
+      icon: <Speed sx={{ fontSize: 40, color: '#FF9800' }} />,
+      title: 'Real-time Performance',
+      description: 'Experience lightning-fast updates on stock levels, sales, and critical business metrics.',
+    },
+    {
+      icon: <LocalPharmacy sx={{ fontSize: 40, color: '#3F51B5' }} />,
+      title: 'Comprehensive Drug Management',
+      description: 'Efficiently manage your pharmaceutical products with detailed tracking and expiry date monitoring.',
+    },
+    {
+      icon: <Support sx={{ fontSize: 40, color: '#009688' }} />,
+      title: '24/7 Support',
+      description: 'Get reliable support whenever you need it with our dedicated customer service team.',
+    },
+    {
+      icon: <Timeline sx={{ fontSize: 40, color: '#607D8B' }} />,
+      title: 'Financial Tracking',
+      description: 'Monitor sales, revenue, and profit margins with detailed financial analytics and reporting.',
+    },
+    {
+      icon: <Assignment sx={{ fontSize: 40, color: '#795548' }} />,
+      title: 'Prescription Management',
+      description: 'Digitally manage and track prescriptions while ensuring compliance with regulations.',
+    },
+    {
+      icon: <LocalShipping sx={{ fontSize: 40, color: '#8BC34A' }} />,
+      title: 'Supplier Management',
+      description: 'Streamline your supply chain with integrated supplier management and automated ordering.',
+    },
+    {
+      icon: <CloudDone sx={{ fontSize: 40, color: '#00BCD4' }} />,
+      title: 'Cloud-Based Solution',
+      description: 'Access your pharmacy management system from anywhere with secure cloud-based infrastructure.',
+    },
+    {
+      icon: <Notifications sx={{ fontSize: 40, color: '#FF5722' }} />,
+      title: 'Smart Alerts',
+      description: 'Stay informed with intelligent notifications for low stock, expiring drugs, and important updates.',
+    }
+  ];
+
+  return (
+    <Box className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900">
+      {/* Header */}
+      <Box className="glass-dark border-b border-white/10">
+        <Container maxWidth="lg">
+          <Box className="flex justify-between items-center py-4">
+            <Box className="flex items-center gap-3">
+              <img src={logo} alt="AdmiPharma" className="h-12 w-auto" />
+            </Box>
+            <Box className="flex gap-4">
+              <Button
+                onClick={() => setShowAuthModal('login')}
+                className="glass-button text-primary-200 hover:text-primary-100"
+              >
+                Login
+              </Button>
+              <Button
+                onClick={() => setShowAuthModal('register')}
+                className="glass-button text-primary-200 hover:text-primary-100"
+              >
+                Register
+              </Button>
+            </Box>
+          </Box>
+        </Container>
+      </Box>
+
+      {/* Hero Section */}
+      <Container maxWidth="lg" className="pt-20 pb-16">
+        <Grid container spacing={8} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Box className="space-y-6">
+              <Typography
+                variant="h1"
+                className="text-5xl font-bold bg-gradient-to-r from-primary-200 to-primary-400 bg-clip-text text-transparent"
+              >
+                Modern Pharmacy Management System
+              </Typography>
+              <Typography variant="h5" className="text-gray-300">
+                Streamline your pharmacy operations with our comprehensive management solution.
+              </Typography>
+              <Box className="flex gap-4 pt-4">
+                <Button
+                  onClick={() => setShowAuthModal('register')}
+                  variant="contained"
+                  size="large"
+                  className="bg-primary-500 hover:bg-primary-600"
+                >
+                  Get Started
+                </Button>
+                <Button
+                  onClick={handleLogin}
+                  variant="outlined"
+                  size="large"
+                  className="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-white"
+                >
+                  Learn More
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box className="glass p-8 rounded-2xl flex justify-center items-center">
+              <img
+                src={logo}
+                alt="AdmiPharma"
+                className="w-64 h-auto animate-float"
+              />
+            </Box>
+          </Grid>
+        </Grid>
+      </Container>
+
+      {/* Features Section */}
+      <Container maxWidth="lg" className="py-20">
+        <Typography
+          variant="h2"
+          className="text-center mb-16 text-3xl font-bold text-white"
+        >
+          Features that set us apart
+        </Typography>
+        <Grid container spacing={4}>
+          {features.map((feature, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <Box className="glass-card h-full">
+                <Box className="text-primary-300 mb-4">{feature.icon}</Box>
+                <Typography variant="h6" className="mb-2 font-bold text-white">
+                  {feature.title}
+                </Typography>
+                <Typography className="text-gray-300">
+                  {feature.description}
+                </Typography>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
+      {/* Footer */}
+      <Box className="glass-dark border-t border-white/10 mt-20">
+        <Container maxWidth="lg" className="py-8">
+          <Box className="flex flex-col items-center gap-6">
+            <Box className="flex items-center gap-3">
+              <img src={logo} alt="AdmiPharma" className="h-10 w-auto" />
+              <Typography className="text-white font-semibold">
+                AdmiPharma
+              </Typography>
+            </Box>
+            <Box className="flex flex-col items-center gap-2">
+              <Typography className="text-gray-400 text-sm">
+                Powered by
+              </Typography>
+              <img src={logo} alt="Logo" className="h-8 w-auto opacity-50" />
+            </Box>
+            <Typography className="text-center text-gray-400">
+              2025 AdmiPharma. All rights reserved.
+            </Typography>
+          </Box>
+        </Container>
+      </Box>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <Box
+          className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${
+            showAuthModal ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={() => setShowAuthModal(null)}
+        >
+          <Box
+            className={`w-full max-w-md transform transition-transform duration-300 ${
+              showAuthModal ? 'scale-100' : 'scale-95'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {showAuthModal === 'login' ? (
+              <Login onClose={() => setShowAuthModal(null)} />
+            ) : (
+              <Register onClose={() => setShowAuthModal(null)} />
+            )}
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default LandingPage;

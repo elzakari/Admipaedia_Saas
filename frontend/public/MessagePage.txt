@@ -1,0 +1,106 @@
+I want you to act as a full-stack developer and educational communication strategist to help me design the Message Page for a school management system called ADMIPAEDIA. This page should serve as a secure, role-based internal messaging center that facilitates direct communication among students, parents, teachers, and administrators. Build it using React for the front-end, Flask or Django for the back-end, and PostgreSQL for the database. Include AI-powered features for smart message routing, sentiment detection, conversation suggestions, and priority tagging. Ensure a modern UI/UX with real-time capabilities, rich-text editing, read receipts, offline access, and support for multimedia attachments."
+
+🎯 Purpose of the Message Page
+The Message Page will act as a private and structured communication hub within ADMIPAEDIA. Unlike notifications which are system-generated and one-way, this module supports two-way, contextual, and confidential conversations. It enhances collaboration, provides a direct line between school stakeholders, and reduces dependency on external platforms like WhatsApp or SMS. Integrated with AI, it will offer smart recommendations, tone analysis, and automated message sorting to keep communication organized and effective.
+
+1️⃣ Core Messaging Features
+✅ Secure Role-Based Conversations
+
+Teachers ↔ Students (for academic follow-ups or feedback).
+
+Teachers ↔ Parents (for updates on progress or concerns).
+
+Students ↔ Admins (for inquiries or requests).
+
+Admins ↔ Staff/All Roles (for operations or directives).
+
+✅ Rich Message Composition
+
+Text, emojis, file attachments (e.g., images, PDFs, documents).
+
+Quoting, replying, forwarding, and editing.
+
+Quick-reply templates for frequent responses (e.g., “Noted”, “Will check and respond”).
+
+✅ Conversation Threads
+
+One-on-one chats and group threads.
+
+Subject- or class-based groups (e.g., "Grade 8 - English", "PTA Committee").
+
+Persistent message history across terms/sessions.
+
+✅ Real-Time Delivery & Read Receipts
+
+Instant messaging with status indicators (sent, delivered, seen).
+
+Typing indicators and user presence (online/offline).
+
+2️⃣ AI Functionalities and Smart Suggestions
+✅ Smart Message Routing
+
+When a student or parent starts a message, the system suggests the right recipient (e.g., assigned class teacher or department).
+
+Auto-categorizes messages (Academic, Admin, Request, Complaint).
+
+✅ Tone & Sentiment Analysis
+
+AI detects message tone (e.g., urgent, negative, appreciative).
+
+Flags inappropriate language or distress signals for admin review.
+
+✅ Suggested Responses
+
+Based on historical conversation patterns, AI recommends quick replies or resources.
+
+For example, "The exam timetable will be shared soon" for repeated inquiries.
+
+✅ Priority Tagging
+
+Important or urgent messages are auto-labeled for faster resolution.
+
+Teachers/admins get alerts when flagged messages arrive.
+
+✅ Message Summarization
+
+For long threads, AI summarizes previous messages to give context before replying.
+
+3️⃣ UI Components (React-Based)
+InboxSidebar: Filters by category (Inbox, Sent, Unread, Starred).
+
+MessageThreadViewer: Real-time chat display with scroll history.
+
+MessageComposer: Rich text input with AI suggestions.
+
+AttachmentPreview: File handling for uploads/downloads.
+
+AIInsightsPanel: Displays sentiment, urgency, and auto-tags.
+
+GroupThreadManager: For admins to create/manage group threads.
+
+4️⃣ Database Models and API Structure
+PostgreSQL Tables
+messages, message_threads, message_recipients, read_receipts, attachments, message_flags, ai_analysis_logs
+
+API Endpoints
+POST /messages/send – Send a message
+
+GET /messages/thread/:id – Fetch full thread
+
+POST /messages/mark-read/:id – Update read status
+
+GET /messages/ai-insights/:id – Retrieve AI suggestions
+
+POST /messages/create-group – For group conversations
+
+🔐 Security, Offline Readiness & UX Enhancements
+End-to-end encryption for sensitive role conversations (e.g., teacher-parent).
+
+Role permissions to prevent abuse (e.g., students can’t spam all teachers).
+
+Offline drafts saved locally using IndexedDB or localStorage.
+
+Mobile-first layout for chatting on the go with swipe interactions and push notifications.
+
+✅ Final Thoughts
+The Message Page in ADMIPAEDIA is designed to be a high-impact tool for structured, private, and AI-enhanced school communication. By blending real-time messaging, intelligent suggestions, and security protocols, this feature boosts engagement while minimizing miscommunication. Teachers can manage classroom interactions efficiently, parents stay informed, and administrators keep the entire ecosystem running smoothly.

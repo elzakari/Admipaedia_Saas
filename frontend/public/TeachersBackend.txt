@@ -1,0 +1,146 @@
+"I want you to act as a full-stack developer helping me build the complete backend for the TeachersPage in a school management system called ADMIPAEDIA. Use Flask as the backend framework and PostgreSQL as the database. Remove all mock data and replace them with real-time dynamic API interactions. Follow modular architecture using Blueprints and ensure a clean, secure, and scalable codebase. The TeachersPage should support all functionalities related to teacher records, schedules, assigned subjects, attendance logs, performance reviews, and workload analytics. Protect all routes using JWT-based authentication and implement role-based access control (RBAC). Build flexible API endpoints that integrate seamlessly with a React frontend and support pagination, filtering, search, and offline data sync."
+
+🧑‍🏫 Core Functionalities of the TeachersPage Backend
+Teacher Profile Management
+
+POST /teachers/ — Add new teacher record with full details (name, contact, photo, email, gender, date of birth, hire date, employment type).
+
+GET /teachers/<id> — Retrieve complete teacher profile, including subjects and classes assigned.
+
+PUT /teachers/<id> — Update teacher details including status (active/inactive).
+
+DELETE /teachers/<id> — Soft-delete teacher with audit log.
+
+GET /teachers/ — List all teachers with pagination, search, and filters (by subject, class, role, gender).
+
+Subject and Class Assignment
+
+Assign subjects and classes to teachers dynamically using association tables.
+
+Allow teachers to have multiple assignments with academic session tracking.
+
+Endpoints to fetch subjects and classes taught by a teacher in a given term/session.
+
+Attendance Management
+
+POST /teachers/<id>/attendance — Mark attendance (Present, Absent, Late) with optional notes.
+
+GET /teachers/<id>/attendance — View attendance records with filters by date, month, and session.
+
+AI-based tracking to identify irregular patterns and notify admin or supervisor.
+
+Schedule and Timetable
+
+Assign and retrieve daily/weekly teaching schedules.
+
+Include subject name, class, time block, room number, and day of the week.
+
+API structured to support frontend calendar components.
+
+Performance and Feedback
+
+Store performance reviews from admin and feedback from students (if applicable).
+
+GET /teachers/<id>/performance-summary — Provide performance insights using past evaluations, attendance, and workload data.
+
+AI-powered suggestions to improve scheduling, balance workload, and recognize high-performing staff.
+
+Advanced Filtering & Insights
+
+Filter by department, academic session, workload level (low, medium, high).
+
+Search by name, email, phone number, or assigned subject.
+
+Export teacher records to CSV/PDF format for HR/admin use.
+
+🧠 AI Functionalities
+Workload Analysis
+Detect over-assigned teachers and suggest redistribution of subjects or classes to reduce burnout.
+
+Engagement Alerts
+Use attendance, feedback, and performance data to alert admins about disengaged or overwhelmed staff.
+
+Teaching Pattern Detection
+Analyze teaching frequency, subject variety, and schedule gaps for optimization.
+
+🔒 Security Features
+JWT-based authentication with token expiration handling.
+
+Role-Based Access Control (RBAC):
+
+Admin: Full access
+
+Teacher: Limited access (own profile, own schedule, attendance logs)
+
+Supervisor: Can view all teachers' schedules and performance
+
+Audit logging for all create/update/delete actions.
+
+🗂️ Suggested API Endpoints (teachers Blueprint)
+http
+Copy
+Edit
+GET    /teachers/                     # List teachers with filters & pagination
+GET    /teachers/<id>                # Detailed teacher profile
+POST   /teachers/                    # Create teacher
+PUT    /teachers/<id>                # Update teacher profile
+DELETE /teachers/<id>                # Soft delete
+
+POST   /teachers/<id>/assignments    # Assign subjects/classes
+GET    /teachers/<id>/assignments    # View current teaching assignments
+
+POST   /teachers/<id>/attendance     # Mark attendance
+GET    /teachers/<id>/attendance     # Retrieve attendance logs
+
+GET    /teachers/<id>/schedule       # Get teaching schedule
+POST   /teachers/<id>/feedback       # Submit performance review
+GET    /teachers/<id>/performance-summary  # AI performance dashboard
+🗃️ Database Schema Suggestions (PostgreSQL)
+sql
+Copy
+Edit
+TABLE teachers (
+  id UUID PRIMARY KEY,
+  full_name TEXT,
+  gender TEXT,
+  email TEXT UNIQUE,
+  phone TEXT,
+  photo_url TEXT,
+  hire_date DATE,
+  employment_type TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+TABLE teacher_assignments (
+  id UUID PRIMARY KEY,
+  teacher_id UUID REFERENCES teachers(id),
+  class_id UUID REFERENCES classes(id),
+  subject_id UUID REFERENCES subjects(id),
+  session_id UUID REFERENCES sessions(id),
+  term TEXT
+);
+
+TABLE teacher_attendance (
+  id UUID PRIMARY KEY,
+  teacher_id UUID REFERENCES teachers(id),
+  date DATE,
+  status TEXT,  -- Present, Absent, Late
+  note TEXT
+);
+
+TABLE teacher_feedback (
+  id UUID PRIMARY KEY,
+  teacher_id UUID REFERENCES teachers(id),
+  submitted_by UUID REFERENCES users(id),
+  feedback TEXT,
+  rating INTEGER,
+  created_at TIMESTAMP
+);
+🔗 Integration Considerations
+Make API response formats consistent for easy frontend integration with React.
+
+Include metadata (total pages, total records, current page) for list endpoints.
+
+Design endpoints to support offline caching with IndexedDB or local storage.

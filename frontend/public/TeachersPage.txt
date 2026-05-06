@@ -1,0 +1,200 @@
+I want you to act as a senior full-stack developer and educational systems analyst to help me build a feature-rich Teachers Page for a School Management System called ADMIPAEDIA. The system should allow each teacher to have a personalized and secure dashboard where they can manage classes, submit student grades, take attendance, view timetables, communicate with students and parents, and receive performance insights. The Teachers Page should be deeply integrated with the academic and administrative modules, support offline mode, and follow a clean, responsive UI using React for the frontend, Flask (or Django) for the backend, and PostgreSQL as the database."
+
+🎯 Key Objectives of the Teachers Page
+The Teachers Page must empower educators with tools to efficiently manage their academic responsibilities while maintaining a high standard of usability, data security, and accessibility. It should be role-specific, ensuring each teacher only accesses their assigned subjects, students, and classes. Additionally, it should include analytics, report generation, resource sharing, and seamless communication features.
+
+1️⃣ Teacher Profile & Personalization
+✅ Dynamic Teacher Profile Page
+
+Personal info: full name, photo, gender, phone number, email, employee ID.
+
+Professional details: subject(s) taught, qualifications, class assignments.
+
+Class timetable view: integrated with school calendar and auto-synced.
+
+Editable contact and availability settings with approval control.
+
+Certification uploads & teaching licenses (PDF/image).
+
+Attendance record (for the teacher, monitored by admin).
+
+✅ Status Dashboard
+
+Overview cards: total students taught, attendance taken, pending assignments to grade, upcoming classes.
+
+Teaching awards and recognitions (school-wide).
+
+✅ Offline Teaching Mode Support
+
+Teachers can mark attendance and grade assignments offline with local caching via IndexedDB, then sync when back online.
+
+2️⃣ Class & Student Management Features
+✅ Class Assignment Dashboard
+
+View and manage all assigned classes.
+
+Access to student rosters, gender breakdown, academic progress.
+
+Ability to update classroom-specific notices.
+
+✅ Advanced Attendance System
+
+Daily attendance marking by class.
+
+Bulk entry mode and smart filters (e.g., mark all present).
+
+Historical view of attendance logs and class-level stats.
+
+Auto-sync with student attendance module and notify absent students’ parents.
+
+✅ Homework & Assignment Management
+
+Create, assign, and collect assignments.
+
+Set submission deadlines, attach reference files, and rubrics.
+
+View submitted work, give grades and comments.
+
+AI-based plagiarism checker integration.
+
+Bulk download student submissions.
+
+✅ Student Profile Access (Read-Only)
+
+View individual student academic and behavioral records.
+
+Add notes or private comments for academic follow-up.
+
+3️⃣ Exam, Grades & Academic Reporting
+✅ Gradebook Module
+
+Teachers can input scores per subject/class and auto-calculate grade levels using the dynamic grading system.
+
+Exportable result sheets (PDF/CSV).
+
+Instant report generation and printing.
+
+Grading system customizable per institution (Ghana model by default, editable).
+
+✅ Exam Setup Access (Admin-assigned)
+
+For Head of Departments or Senior Teachers:
+
+Create exams, set grading weightage, and publish results.
+
+Assign invigilators or exam venues.
+
+✅ Score Analytics Dashboard
+
+Visualize student performance over time.
+
+Identify underperforming students with AI-powered alerts.
+
+Performance heatmaps by class/subject.
+
+✅ Print Report Cards
+
+Generate printable academic reports including teacher comments.
+
+Include attendance, grades, and AI insights.
+
+4️⃣ Communication & Notifications
+✅ Secure Messaging System
+
+Chat with students, other teachers, school administrators, and parents.
+
+File sharing enabled (assignments, notices).
+
+Internal messaging inbox and push notifications.
+
+✅ Parent Communication Portal
+
+Teachers can send progress updates, discipline alerts, or general messages.
+
+Record of all interactions saved for administrative review.
+
+✅ Bulletin Board / Notice System
+
+Post class-wide announcements visible to students and parents.
+
+5️⃣ Professional Tools & Insights
+✅ Timetable & Calendar Integration
+
+Auto-sync with the central school calendar.
+
+Teachers view daily, weekly, and term plans.
+
+Get reminders for upcoming classes and exams.
+
+✅ Teaching Resource Uploads
+
+Upload presentations, videos, PDFs to class-specific portals.
+
+Organize by subject, chapter, or week.
+
+✅ AI-Assisted Teaching Feedback
+
+Teachers receive feedback on their grading fairness and assignment turnaround.
+
+Suggestions to improve teaching outcomes (from student performance metrics).
+
+✅ Workload Monitoring
+
+View upcoming deadlines, pending tasks, and assigned responsibilities.
+
+Export teacher activity logs for performance reviews.
+
+🧠 Technical Components Required
+Database Models
+teachers: Personal and professional details.
+
+classes: Assigned classes and students.
+
+subjects: Subjects taught.
+
+attendance: Teacher-marked attendance.
+
+assignments: Homework records.
+
+exam_scores: Gradebook entries.
+
+messages: Communication logs.
+
+API Endpoints
+GET /teachers/:id → Load teacher profile.
+
+GET /teachers/classes/:id → Fetch class and student list.
+
+POST /teachers/attendance → Submit attendance.
+
+POST /teachers/grades → Record student scores.
+
+POST /messages/send → Send a message.
+
+GET /teachers/calendar → View personal schedule.
+
+Frontend Components (React)
+TeacherDashboard
+
+ClassManager
+
+GradeBook
+
+AttendanceForm
+
+MessageInbox
+
+ResourceUploader
+
+ReportCardGenerator
+
+🛡️ Security & UX Considerations
+Enforce role-based access control (RBAC).
+
+Use JWT authentication and session timeout for sensitive pages.
+
+Display real-time loading indicators and success messages.
+
+Mobile-first UI with responsive design for tablets and desktops.
+
+Audit logs for all teacher actions for accountability.

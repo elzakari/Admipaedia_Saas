@@ -1,0 +1,6 @@
+admission_number,date_of_birth,gender,address,class_id,parent_id,email,username,password
+STU001,2010-01-15,male,123 Main Street,1,1,john.doe@email.com,john_doe,TempPass123!
+STU002,2010-02-20,female,456 Oak Avenue,1,2,jane.smith@email.com,jane_smith,TempPass123!
+STU003,2009-12-10,male,789 Pine Road,2,3,mike.johnson@email.com,mike_johnson,TempPass123!
+STU004,2010-03-05,female,321 Elm Street,1,4,sarah.wilson@email.com,sarah_wilson,TempPass123!
+STU005,2009-11-25,other,654 Maple Drive,2,5,alex.brown@email.com,alex_brown,TempPass123!

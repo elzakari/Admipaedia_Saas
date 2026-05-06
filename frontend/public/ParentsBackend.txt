@@ -1,0 +1,145 @@
+"I want you to act as a full-stack developer helping me build the complete backend for the ParentsPage in a school management system called ADMIPAEDIA. Use Flask as the backend framework and PostgreSQL as the database. Remove all mock data and replace them with real-time, fully functional API endpoints. Design a secure, modular RESTful API that allows management of parent profiles, linking parents to their children (students), tracking communication, monitoring academic performance, and receiving notifications and payment alerts. Implement JWT-based authentication and role-based access control (RBAC) to protect all routes. Include support for pagination, filtering, and real-time data sync for integration with a React frontend. Add AI features to enhance parental engagement, prediction of student performance concerns, and personalized reminders or alerts."
+
+👪 Core Functionalities of the ParentsPage Backend
+Parent Profile Management
+
+POST /parents/ — Create a new parent/guardian profile with full details (name, phone, email, address, occupation, relationship to student).
+
+GET /parents/<id> — Retrieve full parent profile, including linked student(s) and last login activities.
+
+PUT /parents/<id> — Update parent information.
+
+DELETE /parents/<id> — Deactivate or soft delete a parent record.
+
+GET /parents/ — List all parents with search, filter (e.g., by student class), and pagination.
+
+Parent-Student Linking
+
+Link multiple students to one parent.
+
+Allow one student to have multiple guardians (e.g., mother and father).
+
+Endpoints to:
+
+View all children linked to a parent.
+
+View each child’s performance, attendance, and fee status.
+
+Update guardianship status.
+
+Academic and Attendance Access
+
+Provide real-time academic performance reports of linked students.
+
+Daily, weekly, and term-based attendance records with remarks.
+
+Provide historical data to parents for tracking academic progress over time.
+
+Notifications and Messaging
+
+Endpoint to retrieve school announcements relevant to their children.
+
+Direct message inbox/outbox to and from class teachers or admin.
+
+AI-driven reminders for upcoming events, fee payments, PTA meetings, or low performance alerts.
+
+Fee Monitoring
+
+Show balance and payment history for each child.
+
+Endpoint to view fees due, payment deadlines, and discounts.
+
+Provide downloadable receipts and invoices.
+
+🧠 AI-Powered Functionalities
+Performance Alerts
+Automatically notify parents when a child’s academic or attendance performance drops below a defined threshold.
+
+Engagement Reminders
+Personalized AI-generated suggestions (e.g., "Your child has missed 3 classes this week. Please reach out to the teacher.").
+
+Behavior & Progress Insights
+Predict trends using grades and attendance logs to provide feedback on study habits, risk of failure, or the need for tutoring.
+
+Smart Calendar Sync
+Integrate reminders about school events, exams, meetings, and assignments based on the student's class calendar.
+
+🔒 Security & Access Control
+JWT-based authentication for parents with secure login.
+
+RBAC to ensure:
+
+Parents only access their own profile and their children’s data.
+
+Admins and teachers can manage or view related parent information as required.
+
+Secure password reset, profile update, and session handling.
+
+🧾 Suggested API Endpoints (parents Blueprint)
+http
+Copy
+Edit
+GET    /parents/                     # List parents (with filters, pagination)
+GET    /parents/<id>                # View parent profile
+POST   /parents/                    # Create parent record
+PUT    /parents/<id>                # Update parent details
+DELETE /parents/<id>                # Deactivate parent
+
+POST   /parents/<id>/link-student   # Link a parent to student(s)
+GET    /parents/<id>/students       # Get list of children with summaries
+
+GET    /parents/<id>/notifications  # View announcements & alerts
+GET    /parents/<id>/messages       # Inbox/Outbox messaging
+GET    /parents/<id>/fees           # View fee records for all children
+GET    /parents/<id>/performance    # Academic summary of children
+
+GET    /parents/<id>/calendar       # Smart calendar with reminders
+🗃️ Database Schema Suggestions
+sql
+Copy
+Edit
+TABLE parents (
+  id UUID PRIMARY KEY,
+  full_name TEXT,
+  email TEXT UNIQUE,
+  phone TEXT,
+  address TEXT,
+  occupation TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+TABLE parent_student_link (
+  id UUID PRIMARY KEY,
+  parent_id UUID REFERENCES parents(id),
+  student_id UUID REFERENCES students(id),
+  relationship TEXT,
+  created_at TIMESTAMP
+);
+
+TABLE parent_messages (
+  id UUID PRIMARY KEY,
+  sender_id UUID,
+  receiver_id UUID,
+  subject TEXT,
+  body TEXT,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP
+);
+
+TABLE parent_notifications (
+  id UUID PRIMARY KEY,
+  parent_id UUID REFERENCES parents(id),
+  title TEXT,
+  message TEXT,
+  type TEXT,  -- e.g. fee reminder, performance alert
+  status TEXT DEFAULT 'unread',
+  created_at TIMESTAMP
+);
+🔗 Integration & Offline Considerations
+Standard JSON response structure to support React state management.
+
+Include metadata like totalPages, currentPage, and filtersApplied.
+
+Support offline caching with IndexedDB for recent messages, calendar reminders, and child performance data.

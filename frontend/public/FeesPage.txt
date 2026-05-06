@@ -1,0 +1,116 @@
+I want you to act as a full-stack developer and AI-enhanced financial workflow designer to help me build the Fees Page for a school management system called ADMIPAEDIA. This page should manage all aspects of school billing, fee structure setup, invoice generation, payment tracking, debt recovery, and automated financial reporting. Use React for the front-end, Flask or Django for the back-end, and PostgreSQL as the database. Integrate AI features for fee prediction, smart reminders, behavior-based defaulter tracking, and automated report generation. Ensure secure role-based access (Admin, Accountant, Parents, Students) and offline support for remote or underserved areas. Support integrations with mobile money, card, and bank payment APIs."
+
+🎯 Purpose of the Fees Page
+The Fees Page in ADMIPAEDIA serves as a powerful financial engine that enables seamless management of all school-related payments and transactions. Designed for transparency, automation, and security, this module ensures that administrators can efficiently create fee structures, send bills, and track payments—while parents and students stay informed in real-time. The inclusion of AI helps the system anticipate payment behavior, detect risk, and optimize collection strategies without increasing admin workload.
+
+1️⃣ Core Functionalities
+✅ Flexible Fee Structure Setup
+
+Admins can create custom fee templates by academic term, class, program, or boarding status.
+
+Variables like tuition, PTA levy, ICT, sports, hostel, exam, uniforms, and optional services.
+
+Assign fees to specific student groups or individuals.
+
+✅ Invoicing & Billing System
+
+Auto-generate invoices based on assigned templates.
+
+Support for partial payments, discounts, and scholarships.
+
+Downloadable PDF invoices and receipts with branding and QR code validation.
+
+✅ Payment Tracking
+
+Track real-time payments by student, term, and method.
+
+Filter by paid, unpaid, overpaid, underpaid, and pending.
+
+Easily generate receipts or follow-up notices.
+
+✅ Integrated Payment Gateways
+
+Connect to mobile money (MTN, AirtelTigo, Vodafone Cash), debit/credit card, and bank APIs.
+
+Offline payment capture supported for cash/bank transfers.
+
+✅ Parent & Student View
+
+View outstanding balances, receipts, and payment history.
+
+Notifications for upcoming dues and successful payments.
+
+2️⃣ AI-Powered Functionalities
+✅ Smart Reminders & Escalations
+
+AI determines the best time and channel to send payment reminders based on previous behavior.
+
+Escalation workflow triggers automated emails/SMS to guardians if deadlines are missed repeatedly.
+
+✅ Defaulter Risk Analysis
+
+AI flags high-risk accounts using attendance patterns, previous defaults, or socio-economic trends.
+
+Score-based tracking helps admin focus on critical cases.
+
+✅ Personalized Payment Plans
+
+Suggest flexible installment options based on parent history and fee balance.
+
+AI recommends rescheduling payments where needed, and predicts when a student is likely to clear dues.
+
+✅ Predictive Revenue Analytics
+
+Forecast total expected revenue for term/year.
+
+Highlight gaps in actual vs. expected collections.
+
+✅ Automated Financial Reports
+
+Generate daily, weekly, and term reports showing fee status, total collections, outstanding balances.
+
+Export as Excel or PDF, ready for board or PTA presentations.
+
+3️⃣ React UI Components
+FeeTemplateManager: Create and assign dynamic fee structures.
+
+InvoiceDashboard: Overview of current and past invoices.
+
+PaymentHistoryTable: Track student-level transactions.
+
+SmartReminderPanel: Manage and send AI-generated reminders.
+
+ParentFinancePortal: Simplified fee dashboard for parents/students.
+
+AIInsightsBar: Real-time fee behavior alerts, predictions, and risk indicators.
+
+DefaulterListView: Prioritized list of at-risk accounts.
+
+4️⃣ Database Tables and API Architecture
+PostgreSQL Tables
+fee_templates, invoices, payments, discounts, payment_methods, payment_logs, ai_fee_predictions, reminder_logs
+
+API Endpoints
+POST /fees/create-template – Add a fee structure
+
+POST /fees/generate-invoices – Auto-generate term invoices
+
+GET /fees/status/:studentId – View fee status for a student
+
+POST /fees/payment – Record or confirm payment
+
+GET /fees/ai/defaulters – Get high-risk accounts
+
+POST /fees/ai/send-reminders – Trigger smart follow-up alerts
+
+🔐 Security, Offline Support & Reporting
+Role-based access ensures only authorized personnel can modify or view fee records.
+
+Offline-ready interface allows fee officers to record cash payments or debt lists offline and sync later.
+
+Logs and audit trails for every transaction and modification.
+
+Summary dashboards for school owners or super admins.
+
+✅ Final Thoughts
+The Fees Page in ADMIPAEDIA transforms traditional school billing into an intelligent, automated, and user-friendly experience. By combining structured financial workflows with AI-powered insights and real-time data access, this module supports the school’s cash flow while reducing manual tasks and errors. Parents and students gain more clarity and convenience, while admin staff benefit from powerful tracking and forecasting tools.

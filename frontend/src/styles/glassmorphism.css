@@ -1,0 +1,89 @@
+/* Glassmorphism Styles */
+.glass-card {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+.glass-card-dark {
+  background: rgba(17, 25, 40, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.125);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px 0 rgba(31, 38, 135, 0.07);
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 16px 0 rgba(31, 38, 135, 0.2);
+}
+
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* Gradient backgrounds */
+.bg-glass-gradient {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.1) 100%);
+}
+
+.bg-glass-gradient-dark {
+  background: linear-gradient(135deg, rgba(17, 25, 40, 0.75) 0%, rgba(17, 25, 40, 0.5) 100%);
+}
+
+/* Animation for glass cards */
+@keyframes glass-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.glass-animate {
+  animation: glass-fade-in 0.5s ease forwards;
+}
+
+/* Staggered animations for multiple cards */
+.glass-stagger > * {
+  opacity: 0;
+  animation: glass-fade-in 0.5s ease forwards;
+}
+
+.glass-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.glass-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.glass-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.glass-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.glass-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+.glass-stagger > *:nth-child(6) { animation-delay: 0.6s; }

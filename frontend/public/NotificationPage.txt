@@ -1,0 +1,133 @@
+I want you to act as a full-stack developer and AI systems architect to help me build the Notification Page for a smart school management system called ADMIPAEDIA. This module must intelligently manage, generate, and deliver timely notifications to students, parents, teachers, and administrators. Use React for the front-end, Flask or Django for the back-end, PostgreSQL for the database, and integrate AI capabilities to automate alerts, prioritize messages, and personalize delivery. Notifications should support multiple channels—web, SMS, email, and push—and adapt based on user behavior and roles. Include scheduling, real-time alerts, read-tracking, and offline readiness features."
+
+🎯 Purpose of the Notification Page
+The Notification Page in ADMIPAEDIA will serve as a centralized hub to automate and manage school-wide communication. It will deliver academic, behavioral, administrative, and personalized notifications using intelligent systems. Designed with flexibility and speed in mind, the feature will empower school staff to send quick updates, reminders, and alerts while also allowing the system itself to autonomously generate messages using predefined logic and AI insights.
+
+1️⃣ Notification Types and Use Cases
+✅ System Notifications
+
+Exam schedules, timetable updates, assignment due dates.
+
+Attendance alerts (e.g., student absent or late).
+
+Fee reminders and payment confirmations.
+
+✅ Event Alerts
+
+School events, PTA meetings, sports days, and holidays.
+
+RSVP and feedback requests.
+
+✅ Behavioral Updates
+
+Disciplinary actions, commendations, or progress alerts.
+
+Direct messages to parents or guardians.
+
+✅ AI-Generated Alerts
+
+Predictive performance alerts for struggling students.
+
+Smart reminders for upcoming tests based on historical performance.
+
+Engagement-based nudges (e.g., student missed two classes).
+
+✅ Custom Admin Messages
+
+Send manual messages by role, class, or individual.
+
+Rich formatting with attachments or links (e.g., documents, forms).
+
+2️⃣ AI Functionalities and Smart Automation
+✅ Predictive Notifications
+
+Analyze student performance trends and send early warnings.
+
+Auto-generate parent messages if students consistently miss classes.
+
+✅ Prioritization Engine
+
+AI ranks messages by urgency and relevance using behavior data.
+
+High-priority messages are pinned or highlighted in user dashboards.
+
+✅ Smart Scheduling
+
+AI suggests best time to send reminders for maximum engagement.
+
+Option to auto-resend if messages are unopened after a period.
+
+✅ Language Personalization
+
+AI adjusts message tone and structure based on the user’s role (e.g., formal for parents, casual for students).
+
+Multi-language support (e.g., English, Twi, French).
+
+3️⃣ Delivery Channels and User Roles
+✅ Multi-Channel Messaging
+
+In-app notifications on dashboards.
+
+SMS and email delivery (with templates).
+
+Web push notifications for real-time alerts.
+
+✅ Role-Based Delivery Rules
+
+Students: Assignments, attendance, grades, class changes.
+
+Parents: Attendance alerts, behavior, results, payment reminders.
+
+Teachers: Schedule updates, announcements, messages from admins.
+
+Admins: Global oversight, logs, and analytics of all notifications.
+
+✅ Read Receipts and Acknowledgments
+
+Track who has viewed each notification.
+
+Request confirmation or digital signature if required (e.g., policy changes).
+
+4️⃣ Technical Infrastructure and Database Models
+Database Tables
+notifications, notification_templates, user_notification_log, read_receipts, notification_rules, ai_alerts
+
+Sample API Endpoints
+POST /notifications/send – Manual or scheduled send
+
+GET /notifications/user/:id – Fetch user-specific messages
+
+POST /notifications/acknowledge/:notificationId – Mark as read/confirmed
+
+GET /notifications/unread/:role – Filter unread messages by role
+
+POST /ai/generate-alerts – Run AI routine to create and dispatch notifications
+
+📱 React UI Components
+NotificationDashboard
+
+NotificationComposerModal
+
+ReadStatusIndicator
+
+UserNotificationFeed
+
+TemplateManagerPanel
+
+SmartNotificationSettings
+
+AI-InsightAlertBox
+
+Support for real-time push updates using WebSockets or polling, with graceful fallback to offline caching using service workers.
+
+🔐 Security, UX, and Offline Capability
+Ensure secure delivery via role-based access and encryption.
+
+Allow users to opt-in/out of certain notification types.
+
+Deliver queued notifications offline and sync when reconnected.
+
+Clean mobile-first layout with filters by date, urgency, and category.
+
+✅ Final Thoughts
+The Notification Page in ADMIPAEDIA goes beyond traditional messaging—it leverages AI to create an intelligent, responsive communication engine for schools. Whether reminding students of upcoming tests, alerting parents about attendance, or helping teachers stay informed of schedule changes, this system keeps everyone in sync. With customizable templates, predictive insights, and cross-platform delivery, it strengthens transparency and engagement across all stakeholders.

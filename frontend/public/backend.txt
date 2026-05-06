@@ -1,0 +1,101 @@
+backend/
+├── app/                        # Main application package
+│   ├── __init__.py             # App factory and initialization
+│   ├── api/                    # API versioning (v1, v2, etc.)
+│   │   └── v1/                 # API version 1
+│   │       ├── __init__.py
+│   │       ├── auth/           # Auth endpoints
+│   │       ├── academics/      # Academic endpoints
+│   │       ├── students/       # Student endpoints
+│   │       ├── teachers/       # Teacher endpoints
+│   │       ├── parents/        # Parent endpoints
+│   │       ├── administrative/ # Admin endpoints
+│   │       ├── dashboard/      # Dashboard endpoints
+│   │       └── communication/  # Communication endpoints
+│   ├── models/                 # Database models
+│   │   ├── __init__.py
+│   │   ├── user.py             # User and role models
+│   │   ├── student.py          # Student-related models
+│   │   ├── teacher.py          # Teacher-related models
+│   │   ├── parent.py           # Parent-related models
+│   │   ├── academic.py         # Academic models (classes, subjects)
+│   │   ├── attendance.py       # Attendance models
+│   │   ├── grade.py            # Grade and assessment models
+│   │   ├── administration.py   # Admin models (fees, library)
+│   │   ├── communication.py    # Communication models (messages)
+│   │   └── analytics.py        # AI analytics models
+│   ├── schemas/                # Marshmallow schemas for serialization
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   ├── student.py
+│   │   ├── teacher.py
+│   │   ├── parent.py
+│   │   ├── academic.py
+│   │   ├── attendance.py
+│   │   ├── grade.py
+│   │   ├── administration.py
+│   │   ├── communication.py
+│   │   └── analytics.py
+│   ├── services/               # Business logic layer
+│   │   ├── __init__.py
+│   │   ├── auth_service.py
+│   │   ├── student_service.py
+│   │   ├── teacher_service.py
+│   │   ├── parent_service.py
+│   │   ├── academic_service.py
+│   │   ├── attendance_service.py
+│   │   ├── grade_service.py
+│   │   ├── admin_service.py
+│   │   ├── communication_service.py
+│   │   └── analytics_service.py
+│   ├── utils/                  # Utility functions
+│   │   ├── __init__.py
+│   │   ├── security.py         # Security utilities
+│   │   ├── validators.py       # Custom validators
+│   │   ├── helpers.py          # Helper functions
+│   │   └── ai_utils.py         # AI-related utilities
+│   ├── tasks/                  # Background tasks
+│   │   ├── __init__.py
+│   │   ├── notifications.py    # Notification tasks
+│   │   ├── reports.py          # Report generation tasks
+│   │   └── analytics.py        # AI analytics tasks
+│   ├── extensions.py           # Flask extensions
+│   ├── config.py               # App configuration
+│   └── websockets/             # WebSocket handlers for real-time features
+│       ├── __init__.py
+│       ├── chat.py             # Chat websocket handlers
+│       └── notifications.py    # Notification websocket handlers
+├── migrations/                 # Database migrations
+├── tests/                      # Test suite
+│   ├── __init__.py
+│   ├── conftest.py             # Test configuration
+│   ├── unit/                   # Unit tests
+│   └── integration/            # Integration tests
+├── .env                        # Environment variables
+├── app.py                      # Application entry point
+├── config.py                   # Configuration settings
+├── db.py                       # Database initialization
+├── requirements.txt            # Project dependencies
+└── run.py                      # Development server script
+
+Improvement Update
+backend/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── dashboard/
+│   │       │   ├── __init__.py
+│   │       │   └── routes.py
+│   │       ├── notifications/
+│   │       │   ├── __init__.py
+│   │       │   └── routes.py
+│   │       └── fees/
+│   │           ├── __init__.py
+│   │           └── routes.py
+│   ├── services/
+│   │   ├── dashboard_service.py
+│   │   ├── notification_service.py
+│   │   └── fee_service.py
+│   └── websockets/
+│       ├── notifications.py
+│       └── dashboard.py

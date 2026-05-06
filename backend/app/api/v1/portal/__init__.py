@@ -1,0 +1,1 @@
+from app.api.v1.portal.routes import portal_bp

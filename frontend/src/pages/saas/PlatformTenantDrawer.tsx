@@ -1,0 +1,518 @@
+import React, { useEffect, useState } from 'react'
+import type { AxiosError } from 'axios'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useToast } from '@/components/ui/use-toast'
+import saasService, { PlatformTenantDetail } from '@/services/saasService'
+import { superAdminService } from '@/services/superAdminService'
+
+function formatMoney(amount: number, currency: string | null) {
+  const code = (currency || 'USD').toUpperCase()
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount)
+  } catch {
+    return `${code} ${amount.toFixed(2)}`
+  }
+}
+
+function formatIsoDate(iso: string | null | undefined) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString()
+}
+
+export function PlatformTenantDrawer({
+  open,
+  tenantId,
+  onOpenChange,
+  onChanged
+}: {
+  open: boolean
+  tenantId: string | null
+  onOpenChange: (next: boolean) => void
+  onChanged: () => Promise<void>
+}) {
+  const { toast } = useToast()
+  const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
+  const [members, setMembers] = useState<Array<{ id: string; user: { id: number; email: string | null; username: string | null }; role: string; status: string; created_at: string | null }> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [nextStatus, setNextStatus] = useState<string>('')
+  const [nextPlan, setNextPlan] = useState<string>('')
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [addEmail, setAddEmail] = useState('')
+  const [addRole, setAddRole] = useState('school_admin')
+  const [addStatus, setAddStatus] = useState('active')
+  const [deletingTenant, setDeletingTenant] = useState(false)
+
+  async function load() {
+    if (!tenantId) return
+    setLoading(true)
+    try {
+      const res = await saasService.platformGetTenantDetail(tenantId)
+      setDetail(res.detail)
+      setNextStatus(res.detail.tenant.status || '')
+      setNextPlan(res.detail.tenant.plan || '')
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load school detail',
+        description: e.response?.data?.message || e.message || 'Please try again'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadMembers() {
+    if (!tenantId) return
+    setMembersLoading(true)
+    try {
+      const res = await saasService.platformListMembers(tenantId)
+      setMembers(res.members)
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({
+        variant: 'destructive',
+        title: 'Failed to load members',
+        description: e.response?.data?.message || e.message || 'Please try again'
+      })
+    } finally {
+      setMembersLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      load()
+      loadMembers()
+    } else {
+      setDetail(null)
+      setMembers(null)
+      setNextStatus('')
+      setNextPlan('')
+      setAddEmail('')
+      setAddRole('school_admin')
+      setAddStatus('active')
+    }
+  }, [open, tenantId])
+
+  async function save() {
+    if (!tenantId) return
+    setSaving(true)
+    try {
+      await saasService.platformUpdateTenant(tenantId, {
+        status: nextStatus || undefined,
+        plan: nextPlan || undefined
+      })
+      toast({ title: 'Updated school settings' })
+      await onChanged()
+      await load()
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: e.response?.data?.message || e.message || 'Please try again'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const tenant = detail?.tenant
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="left-auto top-0 right-0 h-screen w-screen max-w-2xl translate-x-0 translate-y-0 rounded-none border-l border-slate-200 bg-white text-slate-900 p-0 sm:w-[44rem]">
+        <div className="flex h-full flex-col">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="text-lg font-black text-slate-900">School detail</DialogTitle>
+            <div className="text-xs text-slate-500">{tenant?.id || '—'}</div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto px-6 pb-6 space-y-6">
+            <Card className="border-slate-200 rounded-2xl">
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-base font-bold text-slate-900 truncate">{loading ? 'Loading…' : (tenant?.name || '—')}</div>
+                    <div className="text-xs text-slate-500 truncate">{tenant?.slug} • {tenant?.country_code}</div>
+                    <div className="text-xs text-slate-500 truncate">Created: {formatIsoDate(tenant?.created_at)}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-slate-200">{tenant?.status || '—'}</Badge>
+                    <Badge className="bg-slate-900 text-white hover:bg-slate-900">{tenant?.plan || '—'}</Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <div className="text-xs text-slate-500">Members</div>
+                    <div className="text-lg font-black text-slate-900">{detail ? detail.members_count : '—'}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <div className="text-xs text-slate-500">Invoiced</div>
+                    <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.invoice_total, tenant?.currency || 'USD') : '—'}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <div className="text-xs text-slate-500">Outstanding</div>
+                    <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.outstanding_total, tenant?.currency || 'USD') : '—'}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select value={nextStatus} onValueChange={setNextStatus}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">active</SelectItem>
+                        <SelectItem value="trial">trial</SelectItem>
+                        <SelectItem value="suspended">suspended</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Plan</Label>
+                    <Select value={nextPlan} onValueChange={setNextPlan}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="trial">trial</SelectItem>
+                        <SelectItem value="basic">basic</SelectItem>
+                        <SelectItem value="pro">pro</SelectItem>
+                        <SelectItem value="enterprise">enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" className="bg-white" disabled={saving || !tenantId} onClick={() => setNextStatus('active')}>
+                    Approve
+                  </Button>
+                  <Button variant="outline" className="bg-white" disabled={saving || !tenantId} onClick={() => setNextStatus('suspended')}>
+                    Suspend
+                  </Button>
+                  <Button disabled={saving || loading || !tenantId} onClick={save}>
+                    Save changes
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">School admins & team</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_220px_140px] gap-3 items-end">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={addEmail}
+                      onChange={(e) => setAddEmail(e.target.value)}
+                      placeholder="admin@school.com"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select value={addRole} onValueChange={setAddRole}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="school_admin">school_admin</SelectItem>
+                        <SelectItem value="school_finance">school_finance</SelectItem>
+                        <SelectItem value="school_staff_readonly">school_staff_readonly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select value={addStatus} onValueChange={setAddStatus}>
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">active</SelectItem>
+                        <SelectItem value="suspended">suspended</SelectItem>
+                        <SelectItem value="revoked">revoked</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    disabled={!tenantId || membersLoading || addEmail.trim().length === 0}
+                    onClick={async () => {
+                      if (!tenantId) return
+                      try {
+                        await saasService.platformUpsertMember(tenantId, {
+                          email: addEmail.trim(),
+                          role: addRole,
+                          status: addStatus
+                        })
+                        toast({ title: 'Member updated' })
+                        setAddEmail('')
+                        await loadMembers()
+                        await load()
+                      } catch (err: unknown) {
+                        const e = err as AxiosError<{ message?: string }>
+                        toast({
+                          variant: 'destructive',
+                          title: 'Member update failed',
+                          description: e.response?.data?.message || e.message || 'Please try again'
+                        })
+                      }
+                    }}
+                  >
+                    Add / Update
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-slate-500">{membersLoading ? 'Loading members…' : `Members: ${members?.length ?? 0}`}</div>
+                  <Button variant="outline" className="bg-white" onClick={loadMembers} disabled={membersLoading || !tenantId}>
+                    Refresh
+                  </Button>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(members || []).map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="min-w-0">
+                          <div className="font-medium text-slate-900 truncate">{m.user.email || m.user.username || `User #${m.user.id}`}</div>
+                          <div className="text-xs text-slate-500 truncate">{m.user.username || '—'} • {m.user.id}</div>
+                        </TableCell>
+                        <TableCell className="w-[220px]">
+                          <Select
+                            value={m.role}
+                            onValueChange={(v) => {
+                              setMembers((prev) => (prev || []).map((x) => (x.id === m.id ? { ...x, role: v } : x)))
+                            }}
+                          >
+                            <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="school_admin">school_admin</SelectItem>
+                              <SelectItem value="school_finance">school_finance</SelectItem>
+                              <SelectItem value="school_staff_readonly">school_staff_readonly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="w-[220px]">
+                          <Select
+                            value={m.status}
+                            onValueChange={(v) => {
+                              setMembers((prev) => (prev || []).map((x) => (x.id === m.id ? { ...x, status: v } : x)))
+                            }}
+                          >
+                            <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">active</SelectItem>
+                              <SelectItem value="suspended">suspended</SelectItem>
+                              <SelectItem value="revoked">revoked</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              className="bg-white"
+                              disabled={!tenantId || membersLoading}
+                              onClick={async () => {
+                                if (!tenantId) return
+                                try {
+                                  await saasService.platformUpdateMembership(tenantId, m.id, { role: m.role, status: m.status })
+                                  toast({ title: 'Member saved' })
+                                  await loadMembers()
+                                  await load()
+                                } catch (err: unknown) {
+                                  const e = err as AxiosError<{ message?: string }>
+                                  toast({
+                                    variant: 'destructive',
+                                    title: 'Save failed',
+                                    description: e.response?.data?.message || e.message || 'Please try again'
+                                  })
+                                }
+                              }}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              disabled={!tenantId || membersLoading}
+                              onClick={async () => {
+                                if (!tenantId) return
+                                try {
+                                  await saasService.platformDeleteMembership(tenantId, m.id)
+                                  toast({ title: 'Member removed' })
+                                  await loadMembers()
+                                  await load()
+                                } catch (err: unknown) {
+                                  const e = err as AxiosError<{ message?: string }>
+                                  toast({
+                                    variant: 'destructive',
+                                    title: 'Remove failed',
+                                    description: e.response?.data?.message || e.message || 'Please try again'
+                                  })
+                                }
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!membersLoading && (members || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-sm text-slate-600">No members found.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">Recent invoices</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Issued</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(detail?.recent_invoices || []).map((i) => (
+                      <TableRow key={i.id}>
+                        <TableCell className="font-medium text-slate-900">{i.invoice_number}</TableCell>
+                        <TableCell><Badge variant="outline" className="border-slate-200">{i.status}</Badge></TableCell>
+                        <TableCell className="text-right">{formatMoney(i.amount, i.currency)}</TableCell>
+                        <TableCell className="text-right text-xs text-slate-600">{i.issued_on}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!loading && (detail?.recent_invoices || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-sm text-slate-600">No invoices yet.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">Recent payments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Paid on</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Reference</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(detail?.recent_payments || []).map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-xs text-slate-700">{p.paid_on}</TableCell>
+                        <TableCell className="text-xs text-slate-700">{p.method || '—'}</TableCell>
+                        <TableCell className="text-right">{formatMoney(p.amount, p.currency)}</TableCell>
+                        <TableCell className="text-xs text-slate-600 truncate max-w-[12rem]">{p.reference || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!loading && (detail?.recent_payments || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-sm text-slate-600">No payments yet.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-red-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-red-700">Danger zone</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-slate-900">Delete orphan school permanently</div>
+                  <div className="text-xs text-slate-600">Only allowed when the school has no members, billing history, or data.</div>
+                </div>
+                <Button
+                  variant="destructive"
+                  disabled={!tenantId || deletingTenant}
+                  onClick={async () => {
+                    if (!tenantId) return
+                    try {
+                      setDeletingTenant(true)
+                      const statusRes = await superAdminService.getOrphanTenantStatus(tenantId)
+                      if (!statusRes.status.can_delete) {
+                        toast({
+                          variant: 'destructive',
+                          title: 'Cannot delete school',
+                          description: statusRes.status.reasons?.join(', ') || 'School is not orphan'
+                        })
+                        return
+                      }
+                      const name = statusRes.status.tenant?.name || tenantId
+                      const ok = window.confirm(`Delete orphan school "${name}" permanently? This cannot be undone.`)
+                      if (!ok) return
+                      await superAdminService.deleteOrphanTenant(tenantId)
+                      toast({ title: 'School deleted' })
+                      onOpenChange(false)
+                      await onChanged()
+                    } catch (err: unknown) {
+                      const e = err as AxiosError<{ message?: string }>
+                      toast({
+                        variant: 'destructive',
+                        title: 'Delete failed',
+                        description: e.response?.data?.message || e.message || 'Please try again'
+                      })
+                    } finally {
+                      setDeletingTenant(false)
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

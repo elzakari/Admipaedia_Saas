@@ -1,0 +1,208 @@
+{
+  "common": {
+    "welcome": "Welcome to ADMIPAEDIA",
+    "login": "Login",
+    "logout": "Logout",
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "profile": "Profile",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "search": "Search",
+    "refresh": "Refresh",
+    "show_all": "Show All",
+    "show_less": "Show Less",
+    "export": "Export",
+    "performance": "Performance",
+    "actions": "Actions",
+    "logout_button": "Terminate Session",
+    "commands": "Commands",
+    "search_placeholder": "Search anything... (Ctrl+K)",
+    "open_navigation": "Open navigation",
+    "user_menu": "User menu",
+    "mobile_bottom_navigation": "Mobile bottom navigation",
+    "open_menu": "Open menu",
+    "close_menu": "Close menu",
+    "expand_sidebar": "Expand sidebar",
+    "system_online": "System Online",
+    "main_navigation": "Main Navigation",
+    "quick_actions": "Quick Actions",
+    "print_list": "Print List",
+    "share": "Share",
+    "switch_to_light_mode": "Switch to light mode",
+    "switch_to_dark_mode": "Switch to dark mode",
+    "all_rights_reserved": "All rights reserved."
+  },
+  "auth": {
+    "email": "Email Address",
+    "password": "Password",
+    "forgot_password": "Forgot Password?",
+    "sign_in": "Sign In",
+    "sign_up": "Sign Up",
+    "email_placeholder": "Enter your email",
+    "password_placeholder": "Enter your password",
+    "signing_in": "Signing in...",
+    "welcome_back_title": "Welcome back!",
+    "welcome_back_desc": "You have been successfully logged in.",
+    "login_failed": "Login failed. Please try again.",
+    "invalid_credentials": "Invalid email or password. Please check your credentials.",
+    "too_many_attempts": "Too many login attempts. Please wait before trying again.",
+    "server_unavailable": "Server is temporarily unavailable. Please try again later.",
+    "network_error": "Unable to connect. Please check your internet connection.",
+    "multiple_failed_attempts": "Multiple Failed Attempts",
+    "security_wait": "For security, please wait before trying again.",
+    "demo_accounts_initialized": "Demo accounts initialized",
+    "demo_accounts_ready": "Admin and Super Admin seed accounts are ready.",
+    "bootstrap_failed": "Bootstrap failed",
+    "bootstrap_failed_desc": "Could not initialize demo accounts.",
+    "use_admin_seed": "Use Admin seed",
+    "use_super_admin_seed": "Use Super Admin seed",
+    "init_demo_accounts": "Initialize demo accounts",
+    "attempt_of": "Attempt {{current}} of {{total}}",
+    "sign_in_subtitle": "Sign in to your account to continue",
+    "no_account": "Don’t have an account?",
+    "create_one": "Create one",
+    "create_account_title": "Create your account",
+    "already_have_account": "Already have an account?",
+    "parent_question": "Are you a parent?",
+    "register_as_parent": "Register as a parent",
+    "full_name": "Full Name",
+    "full_name_placeholder": "Enter your full name",
+    "create_password_placeholder": "Create a password",
+    "confirm_password": "Confirm Password",
+    "confirm_password_placeholder": "Confirm your password",
+    "create_account": "Create account",
+    "creating_account": "Creating account...",
+    "passwords_do_not_match": "Passwords do not match",
+    "registration_failed": "Registration failed. Please try again.",
+    "registration_check_input": "Registration failed. Please check your input.",
+    "forgot_password_title": "Forgot your password?",
+    "forgot_password_desc": "Enter your email address and we'll send you a link to reset your password.",
+    "send_reset_link": "Send reset link",
+    "sending": "Sending...",
+    "back_to_login": "Back to login",
+    "check_email_title": "Check your email",
+    "reset_link_sent": "We've sent a password reset link to {{email}}. Please check your inbox.",
+    "return_to_login": "Return to login",
+    "reset_email_failed": "Failed to send password reset email. Please try again."
+  },
+  "profile": {
+    "user_details": "User Details"
+  },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "academics": "Academics",
+    "students": "Students",
+    "teachers": "Teachers",
+    "parents": "Parents",
+    "library": "Library",
+    "schedule": "Schedule",
+    "notifications": "Notifications",
+    "messages": "Messages",
+    "fees": "Fees",
+    "administration": "Administration",
+    "settings": "Settings",
+    "classes": "Classes",
+    "attendance": "Attendance",
+    "exams": "Exams",
+    "reports": "Reports",
+    "users": "Users",
+    "schools": "Schools",
+    "financial_oversight": "Financial Insights",
+    "audit_logs": "Audit Logs",
+    "system_settings": "System Settings",
+    "admissions": "Admissions",
+    "export": "Export",
+    "calendar": "Calendar",
+    "timetable": "Timetable",
+    "assignments": "Assignments",
+    "grades": "Grades",
+    "my_children": "My Children",
+    "help": "Help Center",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "legal": {
+      "terms_title": "Terms of Service",
+      "terms_description": "Please read these terms carefully before using ADMIPAEDIA.",
+      "privacy_title": "Privacy Policy",
+      "privacy_description": "Your privacy and data security are our top priorities."
+    },
+    "help_center": {
+      "description": "Find answers, tutorials, and support for using ADMIPAEDIA."
+    },
+    "navigation": "Navigation",
+    "data": "Data",
+    "help": "Help",
+    "action": "Action"
+  },
+  "classes": {
+    "select_class_title": "Select a Class",
+    "select_class_description": "Choose a class to manage daily attendance records."
+  },
+  "quick_actions": {
+    "create_student": {
+      "label": "Add New Student",
+      "description": "Create a new student profile"
+    },
+    "create_teacher": {
+      "label": "Add New Teacher",
+      "description": "Create a new teacher profile"
+    },
+    "view_attendance": {
+      "label": "View Attendance",
+      "description": "Check attendance records"
+    },
+    "generate_report": {
+      "label": "Generate Report",
+      "description": "Create custom reports"
+    },
+    "system_settings": {
+      "label": "System Settings",
+      "description": "Configure system preferences"
+    },
+    "refresh_dashboard": {
+      "label": "Refresh Dashboard",
+      "description": "Reload all dashboard data"
+    },
+    "export_data": {
+      "label": "Export Data",
+      "description": "Export system data to CSV/Excel"
+    },
+    "help_center": {
+      "label": "Help Center",
+      "description": "Get help and documentation"
+    }
+  },
+  "dashboard": {
+    "subtitle": "Monitor and manage your educational platform",
+    "layout_config": "Layout Configuration",
+    "quick_actions": {
+      "title": "Quick Actions",
+      "subtitle": "Search and execute actions quickly",
+      "favorites": "Favorites",
+      "recent": "Recent",
+      "all_actions": "All Actions"
+    },
+    "statistics": {
+      "title": "Dashboard Statistics",
+      "cached_data": "Cached Data",
+      "updated": "Updated",
+      "total_students": "Total Students",
+      "total_teachers": "Total Teachers",
+      "active_classes": "Active Classes",
+      "attendance_rate": "Attendance Rate"
+    },
+    "components": {
+      "statistics": "Statistics",
+      "calendar": "Calendar",
+      "notifications": "Notifications",
+      "analytics": "Analytics",
+      "performance": "Performance",
+      "realtime": "Real-time"
+    }
+  }
+}

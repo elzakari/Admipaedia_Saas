@@ -1,0 +1,1 @@
+from app.api.v1.educational_system.routes import educational_system_bp

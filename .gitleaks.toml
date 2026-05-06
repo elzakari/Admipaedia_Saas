@@ -1,0 +1,9 @@
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    "backend/.env.example",
+    "docs/SECURITY_SECRETS.md"
+  ]
+
+[rules]
+  # Use default builtin rules; empty here to rely on action defaults

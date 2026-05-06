@@ -1,0 +1,205 @@
+import React, { useState } from 'react';
+import { useTeacherClasses } from "../../../hooks/useTeachers";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { BookOpen, Plus, Edit, Eye } from "lucide-react";
+import { ClassFormModal } from "../../../components/classes/ClassFormModal";
+
+interface EnhancedClassesTabProps {
+  teacherId: number;
+}
+
+interface ClassData {
+  id: string | number;
+  name: string;
+  studentCount?: number;
+  schedule?: string;
+  status?: 'active' | 'inactive';
+}
+
+interface TeacherClassesData {
+  classes: ClassData[];
+  pagination: {
+    total: number;
+    page: number;
+    perPage: number;
+  };
+}
+
+export function EnhancedClassesTab({ teacherId }: EnhancedClassesTabProps) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
+  const [showClassModal, setShowClassModal] = useState(false);
+  
+  const { data, isLoading, error } = useTeacherClasses(teacherId) as {
+    data: TeacherClassesData | undefined;
+    isLoading: boolean;
+    error: Error | null;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-red-600 bg-red-50 rounded-md">
+        <p>Error loading classes: {error.message}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-md text-sm"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h2 className="text-2xl font-bold tracking-tight">Classes</h2>
+        <Button onClick={() => setShowClassModal(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Class
+        </Button>
+      </div>
+
+      {(!data?.classes || data.classes.length === 0) ? (
+        <Card className="text-center p-8">
+          <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">No classes found</h3>
+          <p className="mt-1 text-sm text-gray-500">Get started by creating a new class.</p>
+          <div className="mt-6">
+            <Button onClick={() => setShowClassModal(true)}>
+              <Plus className="-ml-1 mr-2 h-5 w-5" />
+              New Class
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="overview" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Class Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Students</TableHead>
+                        <TableHead>Schedule</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.classes?.map((cls) => (
+                        <TableRow key={cls.id}>
+                          <TableCell className="font-medium">{cls.name}</TableCell>
+                          <TableCell>{cls.studentCount || 0} students</TableCell>
+                          <TableCell>{cls.schedule || 'Not scheduled'}</TableCell>
+                          <TableCell>
+                            <Badge variant={cls.status === 'active' ? 'default' : 'secondary'}>
+                              {cls.status || 'inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => setSelectedClass(cls)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedClass(cls);
+                                  setShowClassModal(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="schedule">
+            <Card>
+              <CardHeader>
+                <CardTitle>Class Schedule</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px] flex items-center justify-center">
+                <p className="text-muted-foreground">Class schedule will be displayed here.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="students">
+            <Card>
+              <CardHeader>
+                <CardTitle>Class Students</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px] flex items-center justify-center">
+                <p className="text-muted-foreground">Student list will be displayed here.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="analytics">
+            <Card>
+              <CardHeader>
+                <CardTitle>Class Analytics</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[300px] flex items-center justify-center">
+                <p className="text-muted-foreground">Analytics will be displayed here.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      <ClassFormModal
+        isOpen={showClassModal}
+        onClose={() => {
+          setShowClassModal(false);
+          setSelectedClass(null);
+        }}
+        classData={selectedClass}
+        teacherId={teacherId}
+        onSuccess={() => {
+          // In a real app, you would invalidate the query cache here
+          // queryClient.invalidateQueries(['teacherClasses', teacherId]);
+          window.location.reload();
+        }}
+      />
+    </div>
+  );
+}

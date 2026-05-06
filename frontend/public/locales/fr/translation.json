@@ -1,0 +1,207 @@
+{
+  "common": {
+    "welcome": "Bienvenue sur ADMIPAEDIA",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "dashboard": "Tableau de bord",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "success": "Succès",
+    "search": "Rechercher",
+    "refresh": "Actualiser",
+    "show_all": "Tout afficher",
+    "show_less": "Afficher moins",
+    "export": "Exporter",
+    "performance": "Performance",
+    "actions": "Actions",
+    "logout_button": "TERMINER LA SESSION",
+    "commands": "Commandes",
+    "search_placeholder": "Rechercher... (Ctrl+K)",
+    "open_navigation": "Ouvrir la navigation",
+    "user_menu": "Menu utilisateur",
+    "mobile_bottom_navigation": "Navigation mobile",
+    "open_menu": "Ouvrir le menu",
+    "close_menu": "Fermer le menu",
+    "expand_sidebar": "Développer la barre latérale",
+    "system_online": "Système en ligne",
+    "main_navigation": "Navigation principale",
+    "quick_actions": "Actions rapides",
+    "print_list": "Imprimer la liste",
+    "share": "Partager",
+    "switch_to_light_mode": "Passer en mode clair",
+    "switch_to_dark_mode": "Passer en mode sombre",
+    "all_rights_reserved": "Tous droits réservés."
+  },
+  "auth": {
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "forgot_password": "Mot de passe oublié ?",
+    "sign_in": "Se connecter",
+    "sign_up": "S'inscrire",
+    "email_placeholder": "Saisissez votre e-mail",
+    "password_placeholder": "Saisissez votre mot de passe",
+    "signing_in": "Connexion...",
+    "welcome_back_title": "Bon retour !",
+    "welcome_back_desc": "Connexion réussie.",
+    "login_failed": "Échec de la connexion. Veuillez réessayer.",
+    "invalid_credentials": "E-mail ou mot de passe invalide. Vérifiez vos identifiants.",
+    "too_many_attempts": "Trop de tentatives. Veuillez patienter avant de réessayer.",
+    "server_unavailable": "Le serveur est indisponible. Veuillez réessayer plus tard.",
+    "network_error": "Impossible de se connecter. Vérifiez votre connexion internet.",
+    "multiple_failed_attempts": "Plusieurs échecs de connexion",
+    "security_wait": "Pour des raisons de sécurité, veuillez patienter avant de réessayer.",
+    "demo_accounts_initialized": "Comptes démo initialisés",
+    "demo_accounts_ready": "Les comptes Admin et Super Admin sont prêts.",
+    "bootstrap_failed": "Échec de l'initialisation",
+    "bootstrap_failed_desc": "Impossible d'initialiser les comptes démo.",
+    "use_admin_seed": "Utiliser le compte Admin",
+    "use_super_admin_seed": "Utiliser le compte Super Admin",
+    "init_demo_accounts": "Initialiser les comptes démo",
+    "attempt_of": "Tentative {{current}} sur {{total}}",
+    "sign_in_subtitle": "Connectez-vous pour continuer",
+    "no_account": "Vous n’avez pas de compte ?",
+    "create_one": "En créer un",
+    "create_account_title": "Créer votre compte",
+    "already_have_account": "Vous avez déjà un compte ?",
+    "parent_question": "Êtes-vous un parent ?",
+    "register_as_parent": "S'inscrire en tant que parent",
+    "full_name": "Nom complet",
+    "full_name_placeholder": "Saisissez votre nom complet",
+    "create_password_placeholder": "Créer un mot de passe",
+    "confirm_password": "Confirmer le mot de passe",
+    "confirm_password_placeholder": "Confirmez votre mot de passe",
+    "create_account": "Créer un compte",
+    "creating_account": "Création du compte...",
+    "passwords_do_not_match": "Les mots de passe ne correspondent pas",
+    "registration_failed": "Échec de l'inscription. Veuillez réessayer.",
+    "registration_check_input": "Échec de l'inscription. Vérifiez vos informations.",
+    "forgot_password_title": "Mot de passe oublié ?",
+    "forgot_password_desc": "Saisissez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+    "send_reset_link": "Envoyer le lien de réinitialisation",
+    "sending": "Envoi...",
+    "back_to_login": "Retour à la connexion",
+    "check_email_title": "Vérifiez votre e-mail",
+    "reset_link_sent": "Nous avons envoyé un lien de réinitialisation à {{email}}. Veuillez vérifier votre boîte de réception.",
+    "return_to_login": "Retour à la connexion",
+    "reset_email_failed": "Impossible d'envoyer l'e-mail de réinitialisation. Veuillez réessayer."
+  },
+  "profile": {
+    "user_details": "Détails utilisateur"
+  },
+  "navigation": {
+    "home": "Accueil",
+    "dashboard": "Tableau de bord",
+    "academics": "Études",
+    "students": "Élèves",
+    "teachers": "Enseignants",
+    "parents": "Parents",
+    "library": "Bibliothèque",
+    "schedule": "Emploi du temps",
+    "notifications": "Notifications",
+    "messages": "Messages",
+    "fees": "Frais",
+    "administration": "Administration",
+    "settings": "Paramètres",
+    "classes": "Classes",
+    "attendance": "Assiduité",
+    "exams": "Examens",
+    "reports": "Rapports",
+    "users": "Utilisateurs",
+    "schools": "Écoles",
+    "financial_oversight": "Aperçu financier",
+    "audit_logs": "Journaux d'audit",
+    "system_settings": "Paramètres système",
+    "export": "Exporter",
+    "calendar": "Calendrier",
+    "timetable": "Emploi du temps",
+    "assignments": "Devoirs",
+    "grades": "Notes",
+    "my_children": "Mes enfants",
+    "help": "Centre d'Aide",
+    "terms": "Conditions d'Utilisation",
+    "privacy": "Politique de Confidentialité",
+    "legal": {
+      "terms_title": "Conditions d'Utilisation",
+      "terms_description": "Veuillez lire attentivement ces conditions avant d'utiliser ADMIPAEDIA.",
+      "privacy_title": "Politique de Confidentialité",
+      "privacy_description": "Votre vie privée et la sécurité de vos données sont nos priorités absolues."
+    },
+    "help_center": {
+      "description": "Trouvez des réponses, des tutoriels et de l'aide pour utiliser ADMIPAEDIA."
+    },
+    "navigation": "Navigation",
+    "data": "Données",
+    "help": "Aide",
+    "action": "Action"
+  },
+  "classes": {
+    "select_class_title": "Sélectionner une classe",
+    "select_class_description": "Choisissez une classe pour gérer les registres d'assiduité quotidiens."
+  },
+  "quick_actions": {
+    "create_student": {
+      "label": "Ajouter un nouvel élève",
+      "description": "Créer un nouveau profil d'élève"
+    },
+    "create_teacher": {
+      "label": "Ajouter un nouvel enseignant",
+      "description": "Créer un nouveau profil d'enseignant"
+    },
+    "view_attendance": {
+      "label": "Voir l'assiduité",
+      "description": "Vérifier les registres de présence"
+    },
+    "generate_report": {
+      "label": "Générer un rapport",
+      "description": "Créer des rapports personnalisés"
+    },
+    "system_settings": {
+      "label": "Paramètres du système",
+      "description": "Configurer les préférences du système"
+    },
+    "refresh_dashboard": {
+      "label": "Actualiser le tableau de bord",
+      "description": "Recharger toutes les données du tableau de bord"
+    },
+    "export_data": {
+      "label": "Exporter les données",
+      "description": "Exporter les données système vers CSV/Excel"
+    },
+    "help_center": {
+      "label": "Centre d'aide",
+      "description": "Obtenir de l'aide et de la documentation"
+    }
+  },
+  "dashboard": {
+    "subtitle": "Surveillez et gérez votre plateforme éducative",
+    "layout_config": "Configuration de la mise en page",
+    "quick_actions": {
+      "title": "Actions Rapides",
+      "subtitle": "Recherchez et exécutez des actions rapidement",
+      "favorites": "Favoris",
+      "recent": "Récent",
+      "all_actions": "Toutes les Actions"
+    },
+    "statistics": {
+      "title": "Statistiques du Tableau de Bord",
+      "cached_data": "Données en Cache",
+      "updated": "Mis à jour",
+      "total_students": "Total des Élèves",
+      "total_teachers": "Total des Enseignants",
+      "active_classes": "Classes Actives",
+      "attendance_rate": "Taux de Présence"
+    },
+    "components": {
+      "statistics": "Statistiques",
+      "calendar": "Calendrier",
+      "notifications": "Notifications",
+      "analytics": "Analyses",
+      "performance": "Performance",
+      "realtime": "Temps réel"
+    }
+  }
+}

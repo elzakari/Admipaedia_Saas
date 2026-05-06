@@ -1,0 +1,163 @@
+I want you to act as a professional full-stack developer and education tech strategist to help me build the Library Page of a school management system called ADMIPAEDIA. This page will serve as the digital gateway to manage both physical and digital library operations for students, teachers, and administrative staff. The system must include book inventory tracking, borrowing history, overdue penalties, digital resource access, and role-based privileges. Build this with a Flask or Django backend, PostgreSQL for structured data storage, and React for a dynamic, responsive front-end. Include secure API endpoints, intuitive UI/UX, and offline support with caching mechanisms like IndexedDB or local storage."
+
+🎯 Purpose of the Library Page
+The Library Page should centralize all operations related to the school’s library system. It must offer an efficient, user-friendly interface for managing book inventories, tracking student borrowing activities, issuing return reminders, and optionally offering access to digital reading materials. This module should help librarians maintain accurate records while making the reading experience more accessible for students and teachers.
+
+1️⃣ Book Inventory Management
+✅ Add/Edit/Delete Books
+
+Add new books with title, author, category, edition, ISBN, publisher, and shelf location.
+
+Update book records or remove outdated/damaged entries.
+
+Upload book cover image and tag related subjects.
+
+✅ Search & Filter Functionality
+
+Live search by title, author, category, or ISBN.
+
+Filter by availability, new arrivals, or reading level.
+
+Include barcode/QR code scanning support for rapid cataloging.
+
+✅ Book Availability Status
+
+Display current availability (Available, Checked Out, Reserved).
+
+Show number of total copies and copies currently in use.
+
+2️⃣ Borrowing and Return Tracking
+✅ Issue and Return Interface
+
+Easy-to-use modal to issue books to students/teachers.
+
+Define borrowing periods with auto-calculated return dates.
+
+Option to reserve books in advance.
+
+✅ Borrowing History
+
+View full log of books borrowed by user, including late returns.
+
+Separate history for students and teachers.
+
+Exportable in CSV or PDF format.
+
+✅ Late Return Notifications
+
+Automated reminders via SMS, email, or dashboard alerts.
+
+Configurable fine system for overdue books (e.g., daily penalties).
+
+3️⃣ Digital Library Access (Optional)
+✅ eBook Management
+
+Upload PDFs, ePub files, and multimedia content (e.g., audiobooks).
+
+Restrict access by role (students, teachers, or public).
+
+Stream or download digital materials with license expiry rules.
+
+✅ Resource Categorization
+
+Organize e-resources by subject, grade level, author, or tags.
+
+Display suggested materials based on student grade or subjects enrolled.
+
+✅ Reading Tracker
+
+Track which students accessed or downloaded digital resources.
+
+Option to embed quizzes or reflection forms after reading.
+
+4️⃣ User Interaction & Role-Based Permissions
+✅ Students
+
+View available books, borrow status, digital resources.
+
+Reserve books and download allowed eBooks.
+
+Receive reminders and overdue alerts.
+
+✅ Teachers
+
+Access wider inventory with extended borrowing durations.
+
+Upload recommended reading lists for students.
+
+View class reading activity trends.
+
+✅ Librarians/Admins
+
+Full CRUD access to the library catalog.
+
+Manage inventory, digital uploads, borrowing/return status.
+
+Generate library usage reports and late fee summaries.
+
+5️⃣ Reports & Analytics
+✅ Borrowing Trends
+
+Top borrowed books by term/session.
+
+Most active students/teachers.
+
+Peak borrowing periods during the school year.
+
+✅ Inventory Summary Reports
+
+Total books by category/grade.
+
+Borrowed vs available status reports.
+
+Export options in Excel, PDF, and printable formats.
+
+✅ Penalty & Overdue Report
+
+Daily/weekly report of overdue books.
+
+Penalty calculations and status (paid/unpaid).
+
+🧠 Technical Components & API Routes
+Database Tables
+books, book_copies, borrow_records, users, late_fines, digital_resources
+
+Sample API Endpoints
+POST /library/add-book – Add new book to inventory
+
+GET /library/catalog – Fetch all books with filters
+
+POST /library/borrow – Issue book to user
+
+PUT /library/return/:recordId – Return book and update record
+
+GET /library/ebooks – Fetch digital library content
+
+📱 React UI Components
+LibraryDashboard
+
+BookInventoryTable
+
+IssueReturnModal
+
+DigitalResourceCard
+
+BorrowingHistoryList
+
+OverdueReminderPanel
+
+LibraryReportView
+
+Design should include tabbed navigation between Physical Library, Digital Library, and Reports with contextual filters and smart search.
+
+🔐 Security and Offline Readiness
+JWT-based authentication with librarian role validation.
+
+Only admins/librarians can modify inventory; students/teachers have limited views.
+
+Offline caching of catalog and digital resources using service workers.
+
+Responsive design with mobile-first usability for students.
+
+✅ Final Thoughts
+The Library Page in ADMIPAEDIA is more than a digital shelf — it's an integrated academic tool designed to promote reading culture, resource access, and data-driven literacy management. With smart search, role-based access, overdue tracking, and digital resource integration, it simplifies library operations while enriching academic engagement.

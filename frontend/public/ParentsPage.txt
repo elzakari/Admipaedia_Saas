@@ -1,0 +1,181 @@
+I want you to act as a senior full-stack school systems developer and educational engagement strategist. Help me build a feature-rich and user-friendly Parents Page for a School Management System called ADMIPAEDIA. The Parents Page should serve as a secure and personalized digital hub where parents can monitor their children’s academic performance, attendance, behavior reports, fee payments, school announcements, and directly communicate with teachers or school administration. The system should be built using a React front-end, Flask (or Django) back-end, and PostgreSQL database. It should support multilingual capabilities, real-time data syncing, mobile responsiveness, and offline viewing where necessary."
+
+🎯 Goal of the Parents Page
+The core objective is to create a digital space where parents are empowered with transparency, actively involved in their child’s learning journey, and equipped with real-time updates and tools for engagement. The Parents Page should emphasize usability, simplicity, security, and interactivity — suitable for parents with varying levels of digital literacy.
+
+1️⃣ Parent Profile & Multi-Child Dashboard
+✅ Parent Account Profile
+
+Parent name, photo, gender, contact details (phone, email), address.
+
+Linked children profiles with class/section details.
+
+Parent roles (e.g., guardian, father, mother, sponsor).
+
+Editable info with validation and approval system.
+
+✅ Linked Students View (Multiple Children Support)
+
+Ability to switch views between multiple wards/students.
+
+Overview cards showing each child's recent grades, attendance, fees, and alerts.
+
+✅ Digital ID Cards
+
+Printable student ID or digital version accessible from parent account.
+
+Include term session info, class, and photo.
+
+2️⃣ Academic Monitoring
+✅ Academic Performance Panel
+
+View subject-by-subject performance with recent exam/test scores.
+
+Grade history, performance trends, and AI-generated insights.
+
+Real-time access to report cards and exam schedules.
+
+✅ Dynamic Grading System View
+
+Parents can see the institution’s custom grading system (e.g., Ghana's LEVEL system).
+
+Hover-over tooltips to explain grading descriptions (A = Excellent, B = Beginning, etc.).
+
+✅ Score Dashboard
+
+Visual display (charts or graphs) showing academic progress over time.
+
+Benchmark child’s performance against class averages (if permitted).
+
+3️⃣ Attendance & Behavior Tracking
+✅ Attendance Overview
+
+Daily/weekly/monthly attendance records.
+
+Notifications for absences or tardiness.
+
+View teacher remarks or attendance patterns (e.g., frequent lateness).
+
+✅ Behavioral Reports
+
+Summary of disciplinary actions or behavioral notes.
+
+Positive reinforcement logs (e.g., “Star of the Week”).
+
+✅ Daily Schedule Access
+
+View class timetable, extracurriculars, and any special events.
+
+4️⃣ Fee Management & Payments
+✅ Fee Tracker Panel
+
+Total fees due, amount paid, balance, and payment deadlines.
+
+Installment tracking, scholarship info, and receipts.
+
+✅ Online Payment Integration
+
+Parents can pay fees via mobile money, card, or bank transfer.
+
+Secure payment history log with invoice download.
+
+✅ Automated Reminders
+
+SMS/Email/push notification reminders before due dates.
+
+5️⃣ Communication & Notifications
+✅ Messaging System
+
+Secure two-way chat between parents and teachers/class supervisors.
+
+Admin-to-parent bulk messages (announcements, closures, etc.).
+
+File sharing for circulars, permission slips, or updates.
+
+✅ Notifications Hub
+
+Real-time alerts for grade updates, attendance, fees, assignments.
+
+Mark notifications as read or archived.
+
+✅ PTA Meeting Scheduler
+
+Parents can RSVP for upcoming meetings.
+
+View past meeting summaries or feedback forms.
+
+6️⃣ Learning Support & Extras
+✅ Homework Alerts & Class Materials
+
+Notifications when homework is given.
+
+Access to uploaded teaching materials, assignments, or videos.
+
+✅ AI-Based Suggestions
+
+Recommendations on how parents can help improve specific subject areas.
+
+Insights on potential learning challenges based on trends.
+
+✅ Transport & Pickup Tracker (Optional Integration)
+
+GPS tracking or time logs of school bus pickups/drops (if enabled).
+
+Guardian authorization logs for student pickups.
+
+🧠 Technical Features & API Structure
+Database Tables
+parents: Personal and contact info.
+
+students: Linked student profiles.
+
+grades: Exam/test results.
+
+attendance: Student attendance records.
+
+notifications: School-wide or direct alerts.
+
+fees: Payment logs and balances.
+
+messages: Communication threads.
+
+Backend API Routes
+GET /parents/:id – Fetch parent profile and linked students.
+
+GET /parents/student/:id/grades – Fetch academic data per child.
+
+GET /parents/student/:id/attendance – Daily/term attendance records.
+
+GET /parents/student/:id/fees – Fee payment breakdown.
+
+POST /parents/message/send – Send message to teacher/admin.
+
+GET /parents/notifications – Get active notifications.
+
+Frontend Components (React)
+ParentDashboard
+
+ChildSwitcher
+
+PerformanceGraph
+
+AttendanceViewer
+
+FeeSummary
+
+ChatWithTeacher
+
+ReportCardPreview
+
+PaymentModule
+
+📱 UX/UI & Security Considerations
+Mobile-first design with clean icons and large clickable elements.
+
+Role-based access control (RBAC) to protect student data.
+
+Multi-language support (English default; optional local dialects).
+
+Push notification support via service workers or email.
+
+Secure login with password recovery, optional biometric login for mobile apps.

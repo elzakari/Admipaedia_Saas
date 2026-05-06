@@ -1,0 +1,140 @@
+I want you to act as a full-stack school systems developer and education workflow expert to help me build the Schedule Page for a school management system called ADMIPAEDIA. This page should manage academic timetables, exam schedules, event calendars, and personalized schedules for students, teachers, and administrators. Build it using React for the front-end, Flask or Django for the back-end, and PostgreSQL as the database. Integrate real-time updates, role-specific views, offline accessibility using service workers, and calendar syncing features. Ensure strong usability with drag-and-drop support, mobile responsiveness, and clean modular coding practices."
+
+🎯 Purpose of the Schedule Page
+The Schedule Page is intended to centralize and streamline all time-based activities across the academic calendar. It will allow administrators to manage institutional timetables, teachers to plan their lessons and exams, and students/parents to view their class and exam schedules from one interface. This improves organization, reduces confusion, and helps with real-time engagement and accountability.
+
+1️⃣ Class Timetable Management
+✅ Create and Manage Weekly Class Schedules
+
+Add subjects, assign time slots, rooms, and teachers.
+
+Visual weekly grid layout (drag-and-drop capable).
+
+Support for alternating week schedules (Week A/Week B).
+
+✅ Teacher & Room Conflict Detection
+
+Prevent double-booking of teachers or classrooms.
+
+Suggest alternate slots when conflicts arise.
+
+✅ Bulk Import/Export Feature
+
+Upload timetables via CSV templates.
+
+Export class schedules for printing or emailing.
+
+✅ Multi-View Support
+
+View by Class, Teacher, Subject, or Room.
+
+Real-time schedule preview in daily or weekly formats.
+
+2️⃣ Exam Schedule Management
+✅ Exam Timetable Creation
+
+Select exam type (Midterm, Final, Quiz, etc.).
+
+Assign exam sessions (AM/PM), rooms, and invigilators.
+
+Detect student/teacher schedule conflicts.
+
+✅ Student-Specific Exam View
+
+Automatically generate personalized exam timetables based on enrolled subjects.
+
+Color-coded views for overlapping or adjusted sessions.
+
+✅ Export and Notify
+
+Printable PDF version of exam schedules.
+
+Notify students and parents via portal/email/SMS when new schedules are published.
+
+3️⃣ Event and Calendar System
+✅ Academic Events & Notices
+
+Add events like PTA meetings, sports, holidays, workshops, etc.
+
+Assign events to specific user groups or the whole school.
+
+Highlight public holidays and school breaks.
+
+✅ Color-Coded Calendar View
+
+Use distinct colors for Classes, Exams, Events, and Holidays.
+
+Monthly, weekly, and agenda list views.
+
+✅ Event Reminders & RSVP
+
+Automatic reminders before events.
+
+RSVP functionality for meetings or conferences.
+
+4️⃣ Role-Based Personalized Schedules
+✅ Student View
+
+Display class periods, exams, and events based on student enrollment.
+
+Integration with reminders and attendance.
+
+✅ Teacher View
+
+See teaching schedule, exams they oversee, and upcoming events.
+
+Link with class assignments and assessments.
+
+✅ Parent View
+
+View child’s academic and exam schedule.
+
+Event alerts and meetings tagged for their children.
+
+✅ Admin View
+
+Oversee all schedules in the system.
+
+Modify master timetables and push updates to all roles.
+
+5️⃣ Technical Implementation Details
+Database Tables
+schedules, classes, teachers, rooms, subjects, exam_schedules, events, calendar_reminders
+
+Sample API Endpoints
+POST /schedule/class-timetable – Create or update timetable
+
+GET /schedule/teacher/:id – Get personalized teacher schedule
+
+POST /schedule/exam – Schedule an exam
+
+GET /schedule/events – Fetch school events
+
+GET /schedule/student/:id – Personalized student schedule
+
+📱 React UI Components
+ClassTimetableBuilder
+
+ExamScheduleViewer
+
+EventCalendarWidget
+
+PersonalScheduleCard
+
+ReminderSettingsPanel
+
+ScheduleConflictAlert
+
+Each component should be responsive and offer dynamic filtering, drag-drop updates, and clear color-coded UI.
+
+🔐 Security, Offline Access & UX
+Role-based visibility of schedules.
+
+Offline cache using service workers for student/teacher views.
+
+Smooth animations and responsive layout across devices.
+
+Real-time updates with WebSocket support or polling options.
+
+✅ Final Thoughts
+The Schedule Page in ADMIPAEDIA is the strategic time management core of the system. By combining class timetables, exam planning, and event calendars under one intelligent interface, it supports seamless daily planning for every user type. With drag-and-drop management, personalized schedule views, and smart conflict detection, this tool enhances school efficiency and communication.

@@ -1,0 +1,21 @@
+# Enhanced Backend Dependencies
+# Add these to your existing requirements.txt
+
+# Data processing for bulk import
+pandas>=1.5.0
+openpyxl>=3.0.10  # For Excel file support
+xlrd>=2.0.1       # For reading older Excel formats
+
+# File handling and validation
+Werkzeug>=2.0.0   # For secure_filename (usually included with Flask)
+
+# Additional utilities (if not already included)
+structlog>=22.0.0  # For structured logging
+marshmallow>=3.19.0  # For data validation and serialization
+
+# Optional: For advanced file processing
+Pillow>=9.0.0     # For image processing and validation
+
+# Optional: For background job processing (future enhancement)
+# celery>=5.2.0
+# redis>=4.0.0

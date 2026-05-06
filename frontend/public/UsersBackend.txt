@@ -1,0 +1,141 @@
+I want you to act as a senior backend engineer building a secure and scalable Users module for a school management system called ADMIPAEDIA using Flask and PostgreSQL. Create a robust login and registration system with support for multiple user roles including Admin, Teacher, Student, Parent, and Normal Users. Implement JWT-based authentication, secure password hashing, email/username uniqueness, and full role-based access control (RBAC). Structure the code using Flask Blueprints and a modular architecture. Design flexible API endpoints that allow for extensible role-specific data handling at login and registration. Ensure that upon successful login, the response contains token-based session data and user-role-specific metadata for the frontend React app. Include features like login history, account status (active/suspended), multi-user registration logic, and AI-powered user insights. The backend must follow secure coding practices and be fully ready to scale for multi-tenant deployment."
+
+🔐 Core Functionalities of the Users Backend
+Secure Registration & Role Assignment
+
+Endpoint to register new users with role selection: Admin, Teacher, Student, Parent, or Normal User.
+
+Validate data uniqueness (email, username, phone number).
+
+Automatically create role-linked records upon registration (e.g., when a parent registers, a corresponding parent profile is initialized).
+
+Admin-only endpoint to invite users or manually register via dashboard.
+
+Validate permissions for creating high-level roles like Admin or Teacher.
+
+Login & Token Management
+
+JWT-based login system with access and refresh token handling.
+
+Email/username + password login with encrypted token return.
+
+Password hashing using bcrypt or werkzeug.security.
+
+Detect and log failed login attempts for security auditing.
+
+Include metadata like user role, profile ID, name, and permissions in the login response.
+
+Role-Based Access Control (RBAC)
+
+RBAC layer that determines what routes and actions are allowed per role.
+
+Admins can manage users, Teachers manage academic records, Parents view child data, Students access personal reports.
+
+Middleware to check and verify user permissions before any sensitive operations.
+
+Session & Profile Management
+
+Track user login history with timestamp and IP address.
+
+Allow users to update their profile (email, password, phone).
+
+Admins can suspend, activate, or delete accounts.
+
+Endpoint for password reset (email-based or token-based).
+
+Multi-Portal Support
+
+Teachers’ Portal: Access teaching schedules, manage student scores.
+
+Students’ Portal: View academic history, assignments, and notifications.
+
+Parents’ Portal: View child’s performance, attendance, and fees.
+
+Normal User Portal: Read-only access or general info area (based on config).
+
+Upon login, return structured navigation/portal payloads based on the authenticated user's role.
+
+🧠 AI-Enhanced Features
+Login Time Analysis Provide user-specific recommendations such as peak login hours or potential security concerns from location/IP mismatch.
+
+Account Engagement Insights Suggest account actions for inactive users (e.g., “It’s been 14 days since your last login”).
+
+Role-Based Suggestions For Teachers: “Would you like to view your upcoming class schedule?” For Parents: “Your child has 3 unread performance alerts.”
+
+🔒 Security Measures
+Enforce strong password policies.
+
+Rate-limiting and lockouts on repeated failed login attempts.
+
+Password reset token expiration.
+
+Token invalidation on logout.
+
+CORS and CSRF protections where necessary.
+
+Auto-expiry sessions with refresh logic.
+
+📘 API Endpoints Blueprint (auth and users)
+http
+Copy
+Edit
+POST   /auth/register            # Register new user with role
+POST   /auth/login               # Authenticate and return JWT token
+POST   /auth/refresh             # Refresh access token
+POST   /auth/logout              # Invalidate token/session
+GET    /auth/profile             # Return current user's profile info
+
+GET    /users/                   # (Admin) List users with filters
+GET    /users/<id>              # Get user details by ID
+PUT    /users/<id>              # Update user info
+PATCH  /users/<id>/status       # Suspend or activate account
+DELETE /users/<id>              # Delete user
+
+POST   /auth/reset-password     # Request password reset
+POST   /auth/change-password    # Change password
+🗃️ Database Schema Overview
+sql
+Copy
+Edit
+TABLE users (
+  id UUID PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT,
+  password_hash TEXT NOT NULL,
+  role TEXT CHECK (role IN ('admin', 'teacher', 'student', 'parent', 'user')),
+  status TEXT DEFAULT 'active',
+  last_login TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+TABLE login_history (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  user_agent TEXT
+);
+🧭 Response Example (Login Success)
+json
+Copy
+Edit
+{
+  "token": "eyJhbGciOi...",
+  "refreshToken": "eyJhbGciOi...",
+  "role": "teacher",
+  "profileId": "uuid-123",
+  "fullName": "Jane Doe",
+  "portal": {
+    "defaultRoute": "/teacher/dashboard",
+    "allowedPages": ["dashboard", "subjects", "attendance"]
+  }
+}
+📌 Next Steps
+Would you like me to generate the actual Flask code starting with:
+
+JWT authentication setup
+
+User model and role logic
+
+Registration route

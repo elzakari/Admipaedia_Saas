@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADMIPAEDIA Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .response {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #28a745;
+            color: white;
+        }
+        .status.error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status.pending {
+            background-color: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 ADMIPAEDIA Integration Test</h1>
+        <p>Test the frontend-backend integration for authentication and ML endpoints.</p>
+        
+        <div class="section">
+            <h2>🔐 Authentication Test</h2>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="admin@admipaedia.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="Admin@123">
+            </div>
+            <button onclick="testLogin()">Login</button>
+            <button onclick="testRefreshToken()" id="refreshBtn" disabled>Refresh Token</button>
+            <button onclick="testLogout()" id="logoutBtn" disabled>Logout</button>
+            <div id="authStatus"></div>
+            <div id="authResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🤖 ML Endpoints Test</h2>
+            <button onclick="testMLStatus()" id="mlStatusBtn" disabled>Check ML Status</button>
+            <button onclick="testMLEvaluate()" id="mlEvaluateBtn" disabled>Evaluate Models</button>
+            <button onclick="testMLTrainPerformance()" id="mlTrainPerfBtn" disabled>Train Performance Model</button>
+            <button onclick="testMLTrainRisk()" id="mlTrainRiskBtn" disabled>Train Risk Model</button>
+            <button onclick="testMLRetrainAll()" id="mlRetrainBtn" disabled>Retrain All Models</button>
+            <div id="mlStatus"></div>
+            <div id="mlResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Test Results Summary</h2>
+            <div id="testSummary">
+                <p>Run tests to see results...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api/v1';
+        let accessToken = '';
+        let refreshToken = '';
+        let csrfToken = '';
+        let testResults = {
+            login: null,
+            refresh: null,
+            mlStatus: null,
+            mlEvaluate: null,
+            mlTrainPerf: null,
+            mlTrainRisk: null,
+            mlRetrain: null
+        };
+
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function updateResponse(elementId, data) {
+            const element = document.getElementById(elementId);
+            element.textContent = JSON.stringify(data, null, 2);
+            element.style.display = 'block';
+        }
+
+        function updateTestSummary() {
+            const summary = document.getElementById('testSummary');
+            let html = '<h3>Test Results:</h3><ul>';
+            
+            for (const [test, result] of Object.entries(testResults)) {
+                if (result !== null) {
+                    const status = result ? 'success' : 'error';
+                    const icon = result ? '✅' : '❌';
+                    html += `<li>${icon} <strong>${test}</strong>: <span class="status ${status}">${result ? 'PASS' : 'FAIL'}</span></li>`;
+                }
+            }
+            
+            html += '</ul>';
+            summary.innerHTML = html;
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            updateStatus('authStatus', 'Attempting login...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                updateResponse('authResponse', data);
+
+                if (response.ok && data.success) {
+                    accessToken = data.access_token;
+                    refreshToken = data.refresh_token;
+                    csrfToken = data.csrf_token;
+                    
+                    updateStatus('authStatus', `✅ Login successful! Welcome ${data.user.username}`, 'success');
+                    
+                    // Enable other buttons
+                    document.getElementById('refreshBtn').disabled = false;
+                    document.getElementById('logoutBtn').disabled = false;
+                    document.getElementById('mlStatusBtn').disabled = false;
+                    document.getElementById('mlEvaluateBtn').disabled = false;
+                    document.getElementById('mlTrainPerfBtn').disabled = false;
+                    document.getElementById('mlTrainRiskBtn').disabled = false;
+                    document.getElementById('mlRetrainBtn').disabled = false;
+                    
+                    testResults.login = true;
+                } else {
+                    updateStatus('authStatus', `❌ Login failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.login = false;
+                }
+            } catch (error) {
+                updateStatus('authStatus', `❌ Login error: ${error.message}`, 'error');
+                updateResponse('authResponse', { error: error.message });
+                testResults.login = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testRefreshToken() {
+            if (!refreshToken) {
+                updateStatus('authStatus', '❌ No refresh token available', 'error');
+                return;
+            }
+            
+            updateStatus('authStatus', 'Refreshing token...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${refreshToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                updateResponse('authResponse', data);
+
+                if (response.ok && data.success) {
+                    accessToken = data.access_token;
+                    updateStatus('authStatus', '✅ Token refreshed successfully!', 'success');
+                    testResults.refresh = true;
+                } else {
+                    updateStatus('authStatus', `❌ Token refresh failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.refresh = false;
+                }
+            } catch (error) {
+                updateStatus('authStatus', `❌ Token refresh error: ${error.message}`, 'error');
+                updateResponse('authResponse', { error: error.message });
+                testResults.refresh = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testLogout() {
+            updateStatus('authStatus', 'Logging out...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                updateResponse('authResponse', data);
+
+                if (response.ok) {
+                    accessToken = '';
+                    refreshToken = '';
+                    csrfToken = '';
+                    
+                    updateStatus('authStatus', '✅ Logged out successfully!', 'success');
+                    
+                    // Disable buttons
+                    document.getElementById('refreshBtn').disabled = true;
+                    document.getElementById('logoutBtn').disabled = true;
+                    document.getElementById('mlStatusBtn').disabled = true;
+                    document.getElementById('mlEvaluateBtn').disabled = true;
+                    document.getElementById('mlTrainPerfBtn').disabled = true;
+                    document.getElementById('mlTrainRiskBtn').disabled = true;
+                    document.getElementById('mlRetrainBtn').disabled = true;
+                } else {
+                    updateStatus('authStatus', `❌ Logout failed: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('authStatus', `❌ Logout error: ${error.message}`, 'error');
+                updateResponse('authResponse', { error: error.message });
+            }
+        }
+
+        async function makeAuthenticatedRequest(url, options = {}) {
+            const headers = {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            
+            if (csrfToken) {
+                headers['X-CSRF-TOKEN'] = csrfToken;
+            }
+            
+            return fetch(url, {
+                ...options,
+                headers,
+                credentials: 'include'
+            });
+        }
+
+        async function testMLStatus() {
+            updateStatus('mlStatus', 'Checking ML model status...', 'info');
+            
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/ml/models/status`);
+                const data = await response.json();
+                updateResponse('mlResponse', data);
+
+                if (response.ok && data.success) {
+                    updateStatus('mlStatus', '✅ ML status retrieved successfully!', 'success');
+                    testResults.mlStatus = true;
+                } else {
+                    updateStatus('mlStatus', `❌ ML status failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.mlStatus = false;
+                }
+            } catch (error) {
+                updateStatus('mlStatus', `❌ ML status error: ${error.message}`, 'error');
+                updateResponse('mlResponse', { error: error.message });
+                testResults.mlStatus = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testMLEvaluate() {
+            updateStatus('mlStatus', 'Evaluating ML models...', 'info');
+            
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/ml/models/evaluate`);
+                const data = await response.json();
+                updateResponse('mlResponse', data);
+
+                if (response.ok && data.success) {
+                    updateStatus('mlStatus', '✅ ML evaluation completed successfully!', 'success');
+                    testResults.mlEvaluate = true;
+                } else {
+                    updateStatus('mlStatus', `❌ ML evaluation failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.mlEvaluate = false;
+                }
+            } catch (error) {
+                updateStatus('mlStatus', `❌ ML evaluation error: ${error.message}`, 'error');
+                updateResponse('mlResponse', { error: error.message });
+                testResults.mlEvaluate = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testMLTrainPerformance() {
+            updateStatus('mlStatus', 'Training performance prediction model...', 'info');
+            
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/ml/models/train/performance`, {
+                    method: 'POST',
+                    body: JSON.stringify({ retrain: true })
+                });
+                const data = await response.json();
+                updateResponse('mlResponse', data);
+
+                if (response.ok && data.success) {
+                    updateStatus('mlStatus', '✅ Performance model training completed!', 'success');
+                    testResults.mlTrainPerf = true;
+                } else {
+                    updateStatus('mlStatus', `❌ Performance model training failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.mlTrainPerf = false;
+                }
+            } catch (error) {
+                updateStatus('mlStatus', `❌ Performance model training error: ${error.message}`, 'error');
+                updateResponse('mlResponse', { error: error.message });
+                testResults.mlTrainPerf = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testMLTrainRisk() {
+            updateStatus('mlStatus', 'Training risk assessment model...', 'info');
+            
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/ml/models/train/risk`, {
+                    method: 'POST',
+                    body: JSON.stringify({ retrain: true })
+                });
+                const data = await response.json();
+                updateResponse('mlResponse', data);
+
+                if (response.ok && data.success) {
+                    updateStatus('mlStatus', '✅ Risk model training completed!', 'success');
+                    testResults.mlTrainRisk = true;
+                } else {
+                    updateStatus('mlStatus', `❌ Risk model training failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.mlTrainRisk = false;
+                }
+            } catch (error) {
+                updateStatus('mlStatus', `❌ Risk model training error: ${error.message}`, 'error');
+                updateResponse('mlResponse', { error: error.message });
+                testResults.mlTrainRisk = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        async function testMLRetrainAll() {
+            updateStatus('mlStatus', 'Retraining all ML models...', 'info');
+            
+            try {
+                const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/ml/models/retrain-all`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                updateResponse('mlResponse', data);
+
+                if (response.ok && data.success) {
+                    updateStatus('mlStatus', '✅ All models retrained successfully!', 'success');
+                    testResults.mlRetrain = true;
+                } else {
+                    updateStatus('mlStatus', `❌ Model retraining failed: ${data.message || 'Unknown error'}`, 'error');
+                    testResults.mlRetrain = false;
+                }
+            } catch (error) {
+                updateStatus('mlStatus', `❌ Model retraining error: ${error.message}`, 'error');
+                updateResponse('mlResponse', { error: error.message });
+                testResults.mlRetrain = false;
+            }
+            
+            updateTestSummary();
+        }
+
+        // Initialize
+        updateTestSummary();
+    </script>
+</body>
+</html>

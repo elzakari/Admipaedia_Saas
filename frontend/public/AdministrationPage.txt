@@ -1,0 +1,184 @@
+I want you to act as an expert full-stack developer and educational system analyst to help me design and build the Administration Page of a comprehensive school management system called ADMIPAEDIA. The Administration Page will serve as the central command center for managing institutional operations including user management, finance, academic calendars, school library, notifications, infrastructure, and compliance. Build this using a Flask or Django backend, PostgreSQL as the database, and React for the front-end. The system must be modular, secure, user-role aware, mobile responsive, and support real-time syncing with offline capabilities."
+
+🎯 Objective of the Administration Page
+The Administration Page should empower school administrators, principals, and designated staff with full visibility and control over academic, operational, and communication activities. It must consolidate all management tools in one intuitive dashboard, streamline school-wide workflows, and enable informed decisions through data-driven insights.
+
+1️⃣ User Management & Access Control
+✅ Role-Based User Creation
+
+Create and manage user accounts (Admins, Teachers, Parents, Students).
+
+Assign predefined roles with access-level configurations.
+
+Custom roles for additional staff (e.g., nurse, librarian, accountant).
+
+✅ Audit Logs & Activity Tracking
+
+Track logins, actions performed (created user, updated records, deleted data).
+
+Timestamped logs for transparency and data security.
+
+✅ Account Status Control
+
+Activate/deactivate users.
+
+Password resets and two-factor authentication management.
+
+2️⃣ Financial Management Module
+✅ Fees Configuration
+
+Define fee structures by class, program, or boarding/day students.
+
+Include discounts, scholarships, or penalty rules.
+
+✅ Transaction Management
+
+Track payments, dues, refunds, and method of payment.
+
+Generate financial reports for each term/session.
+
+✅ Payment Gateway Integration
+
+Link to mobile money, card processing, or offline payment confirmation.
+
+Provide parents/students with downloadable receipts and invoices.
+
+3️⃣ Academic Calendar & Session Settings
+✅ Session & Term Management
+
+Create academic sessions and break them into terms.
+
+Lock sessions once closed to prevent modifications.
+
+✅ Holiday & Event Scheduling
+
+Define public holidays, exam periods, breaks, and special events.
+
+Display these globally across all user dashboards (CalendarWidget).
+
+✅ Timetable Coordination
+
+Assign subjects to time slots, link teachers to class sessions.
+
+Conflict detection for double-booking.
+
+4️⃣ School Library Management
+✅ Book Inventory Management
+
+Add/edit/delete books and reference materials.
+
+Set availability status and location in the library.
+
+✅ Borrowing & Return Logs
+
+Track which student or teacher borrowed what book and when.
+
+Set late return penalties and automated notifications.
+
+✅ Digital Library (Optional)
+
+Upload PDFs, eBooks, or multimedia for internal access.
+
+Categorize by subject, level, or author.
+
+5️⃣ Announcements & Communication Tools
+✅ Internal Notifications
+
+Broadcast announcements to specific roles or the whole school.
+
+Attach files or schedule notifications for future dates.
+
+✅ Emergency Alerts
+
+One-click broadcast for closures, weather, or safety incidents.
+
+SMS and email notification support.
+
+✅ Document Distribution
+
+Upload and share circulars, academic policies, or event letters.
+
+6️⃣ Infrastructure Management (Optional Module)
+✅ Facility Inventory
+
+Manage classrooms, labs, buses, equipment.
+
+Track maintenance requests and availability.
+
+✅ Asset Tracking
+
+Tag and monitor assets like computers, projectors, or tools.
+
+Assign responsibility and monitor depreciation.
+
+✅ Maintenance Logs
+
+Schedule regular checks and log repairs.
+
+7️⃣ Reports & Analytics
+✅ Administrative Reports
+
+View total number of active users by role.
+
+Financial summaries by term/session.
+
+Attendance and grade distribution across the school.
+
+✅ Export Features
+
+Export data in Excel, PDF, or CSV formats.
+
+Filter by date range, class, or department.
+
+✅ Performance Dashboards
+
+Interactive visuals: pie charts, bar graphs, trend lines.
+
+Compare academic or financial data across terms.
+
+🧠 Technical Structure & API Endpoints
+Database Tables
+users, roles, fee_transactions, sessions, terms
+
+library_books, borrow_logs, announcements, infrastructure
+
+timetables, notifications, audit_logs
+
+API Routes Example
+POST /admin/create-user – Add new user with role.
+
+GET /admin/transactions – List and filter financial transactions.
+
+POST /admin/announce – Send announcement.
+
+GET /admin/library – Fetch book inventory.
+
+PUT /admin/assign-timetable – Assign subjects to time slots.
+
+GET /admin/report/session-summary – Generate session-wide reports.
+
+📱 UI Components (React)
+AdminDashboard
+
+UserManagementPanel
+
+FinancialControlCard
+
+SessionManager
+
+LibraryOverviewTable
+
+AnnouncementsBoard
+
+InfrastructureGrid
+
+AnalyticsReportsView
+
+🔐 Security & UX Enhancements
+Use JWT or OAuth2.0 for session management.
+
+Protect sensitive endpoints with role-based access.
+
+Show toast notifications and status indicators for user actions.
+
+Add modals for confirmations before deletions or bulk actions.

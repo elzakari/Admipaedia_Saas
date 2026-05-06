@@ -1,0 +1,105 @@
+import { GraduationCap, Award, CheckCircle, CreditCard, Printer, FileText, ChevronRight } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../../components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Progress } from "../../components/ui/progress";
+
+interface ParentChildProfileProps {
+  currentChild: any;
+  currentAcademicData: any;
+  currentAttendanceData: any;
+  currentFeeData: any;
+  onIdCardClick?: () => void; // Add this prop
+  onFullProfileClick?: () => void; // Add this prop
+}
+
+const ParentChildProfile = ({
+  currentChild,
+  currentAcademicData,
+  currentAttendanceData,
+  currentFeeData,
+  onIdCardClick,
+  onFullProfileClick
+}: ParentChildProfileProps) => {
+  return (
+    <Card className="glass-card overflow-hidden border border-indigo-100 sticky top-4">
+      <CardHeader className="pb-2">
+        <div className="flex flex-col items-center text-center">
+          <Avatar className="h-24 w-24 mb-4">
+            <AvatarImage src={currentChild.photo} alt={currentChild.name} />
+            <AvatarFallback>{currentChild.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <CardTitle className="text-indigo-900">{currentChild.name}</CardTitle>
+          <p className="text-sm text-indigo-700">
+            Class {currentChild.class} • {currentChild.age} years
+          </p>
+          <div className="flex items-center mt-2">
+            <Badge variant="outline" className="mr-2">
+              ID: {currentChild.studentId || currentChild.admissionNumber}
+            </Badge>
+            <Badge variant="success">Active</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 gap-3">
+          <div className="flex items-center">
+            <GraduationCap className="h-4 w-4 mr-2 text-indigo-700" />
+            <span className="text-sm text-indigo-900">Class {currentChild.class}</span>
+          </div>
+          <div className="flex items-center">
+            <Award className="h-4 w-4 mr-2 text-indigo-700" />
+            <span className="text-sm text-indigo-900">Rank: {currentAcademicData.rank || `${currentAcademicData.classRank} of ${currentAcademicData.totalStudents}`}</span>
+          </div>
+          <div className="flex items-center">
+            <CheckCircle className="h-4 w-4 mr-2 text-indigo-700" />
+            <span className="text-sm text-indigo-900">Attendance: {currentAttendanceData.percentage || currentAttendanceData.attendancePercentage}%</span>
+          </div>
+          <div className="flex items-center">
+            <CreditCard className="h-4 w-4 mr-2 text-indigo-700" />
+            <span className="text-sm text-indigo-900">Fees Balance: ${currentFeeData.balance || currentFeeData.due}</span>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="text-sm font-medium text-indigo-700 mb-2">Academic Progress</h4>
+          <div className="flex items-center">
+            <Progress value={currentAcademicData.overallPercentage || (currentAcademicData.overallGPA * 25)} className="flex-grow mr-4" />
+            <span className="font-medium text-indigo-900">{currentAcademicData.overallPercentage || (currentAcademicData.overallGPA * 25)}%</span>
+          </div>
+        </div>
+
+      </CardContent>
+      <CardFooter className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t pt-4 border-white border-opacity-20">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full flex items-center justify-center glass-button-outline"
+          onClick={onIdCardClick}
+          disabled={!onIdCardClick}
+          aria-label="Open student ID card"
+          title="Open student ID card"
+        >
+          <Printer className="h-4 w-4 mr-2" />
+          <span>ID Card</span>
+        </Button>
+
+        <Button
+          type="button"
+          className="w-full flex items-center justify-center glass-button"
+          onClick={onFullProfileClick}
+          disabled={!onFullProfileClick}
+          aria-label="Open full profile"
+          title="Open full profile"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          <span>Full Profile</span>
+          <ChevronRight className="h-4 w-4 ml-2" />
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+export default ParentChildProfile;

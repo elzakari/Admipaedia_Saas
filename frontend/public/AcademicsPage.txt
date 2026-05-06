@@ -1,0 +1,149 @@
+I want you to act as a professional full-stack developer and educational systems architect to help me build the Academics Page of a school management system called ADMIPAEDIA. The Academics Page should serve as the core hub for managing academic records and performance tracking, with sections for Class Records, Exams Management, and an advanced Scores Dashboard. Build this with React on the front-end, Flask or Django on the back-end, and PostgreSQL as the database. Ensure modular design, seamless API communication, and offline caching support using IndexedDB or service workers. The UI should be clean, responsive, and data-rich."
+
+🎯 Purpose of the Academics Page
+The Academics Page should empower administrators and academic staff to manage academic structures, oversee class schedules, organize exams, input scores, and generate performance reports. It should centralize academic activities and integrate smart analytics for identifying trends and improving decision-making.
+
+1️⃣ Class Records Management
+✅ Class Creation and Management
+
+Add, edit, and delete classes with assigned sections.
+
+Assign class teachers and define subject combinations.
+
+Manage classroom capacity and subject-specific notes.
+
+✅ Subject & Curriculum Mapping
+
+Add subjects to each class/section.
+
+Link teachers to specific subjects and classes.
+
+Include syllabus tracking with milestone checklists.
+
+✅ Timetable Display (Optional)
+
+View class schedule per subject, teacher, or room.
+
+Weekly and daily views with color-coded blocks.
+
+2️⃣ Exam Records & Scheduling
+✅ Exam Configuration
+
+Define exam types (e.g., Midterm, Final, Mock, Class Test).
+
+Assign start and end dates per term/session.
+
+Set subject weightings and grading rules.
+
+✅ Score Entry Interface
+
+Dynamic score sheets for entering marks per subject, per student.
+
+Auto-save progress and sync when online.
+
+Role-based access: Only subject teachers can enter grades.
+
+✅ Grading System (Dynamic)
+
+Default Ghana Grading System:
+
+>=80: A – Excellent
+
+>=75: P – Proficient
+
+>=70: AP – Average Proficient
+
+>=65: D – Developing
+
+<65: B – Beginning
+
+Dynamic Configuration: Schools can modify grade letters, thresholds, and descriptions through a settings panel.
+
+✅ Exam Timetable Generation
+
+Auto-generate or manually configure exam schedules.
+
+Conflict alerts for overlapping exams.
+
+Printable/exportable exam timetables.
+
+3️⃣ Advanced Scores Dashboard & Academic Reports
+✅ Individual Student Reports
+
+View term-by-term academic report cards.
+
+Graphs for subject trends and overall GPA/CGPA.
+
+Auto-generated performance remarks based on grades.
+
+✅ Class Performance Analytics
+
+Average score by subject and class.
+
+Top 5 students, subject pass/fail rates.
+
+Identify underperforming subjects or students.
+
+✅ Printable & Exportable Reports
+
+PDF export of student report cards and full class summaries.
+
+Branded with school logo, term/session, and signatures.
+
+Option to email reports directly to parents.
+
+✅ AI-Powered Insights
+
+Highlight students needing attention based on trends.
+
+Predict grade improvement or risk areas using historical data.
+
+Recommend study resources based on performance.
+
+🧠 Technical Structure & API Endpoints
+Database Tables
+classes, subjects, class_subjects, teachers
+
+students, exams, exam_scores, grading_schemes
+
+academic_sessions, exam_timetables
+
+Example API Routes
+POST /academics/classes – Create new class
+
+GET /academics/exams – Fetch exam list
+
+POST /academics/scores/:studentId – Submit scores
+
+GET /academics/reports/:classId – Fetch full class reports
+
+GET /academics/grading-scheme – Retrieve grading logic
+
+📱 UI Components (React)
+ClassRecordsPanel
+
+SubjectManagerModal
+
+ExamScheduler
+
+ScoreEntryTable
+
+ReportCardViewer
+
+ScoresAnalyticsDashboard
+
+GradeSettingsConfig
+
+Each component should be reusable, responsive, and capable of syncing with offline storage and syncing back to the database when internet access is restored.
+
+🔐 Security & User Experience
+Role-based permissions: Only teachers can add scores; only admins can configure grading.
+
+Add real-time feedback (e.g., success, error, saving states).
+
+Responsive layout with mobile-friendly tables and charts.
+
+Use local storage for temporary score input in case of connectivity loss.
+
+✅ Final Thoughts
+The Academics Page in ADMIPAEDIA is the academic heart of the platform. It must be accurate, flexible, and insightful — offering everything from subject mapping and exam records to personalized report generation and academic forecasting. With dynamic grading and intelligent insights, it supports data-informed teaching and personalized learning journeys.

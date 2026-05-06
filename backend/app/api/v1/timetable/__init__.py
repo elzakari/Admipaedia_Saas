@@ -1,0 +1,1 @@
+from app.api.v1.timetable.routes import timetable_bp
