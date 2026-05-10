@@ -1,4 +1,4 @@
-from flask import request, jsonify, Blueprint, session
+from flask import request, jsonify, Blueprint, session, current_app
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -16,6 +16,7 @@ from app.middleware.security_middleware import (
     log_security_event, CSRFProtection
 )
 from app.utils.password_security import PasswordSecurity, AccountSecurity
+from app.models.system_setting import SystemSetting
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime, timedelta
 import secrets
@@ -53,6 +54,25 @@ class ChangePasswordSchema(Schema):
 def register():
     """Register a new user with enhanced security validation."""
     try:
+        allow_public = bool(current_app.config.get('ALLOW_PUBLIC_REGISTRATION', False))
+        if not allow_public:
+            try:
+                v = SystemSetting.get_value('platform_allow_public_registration', None)
+                if v is not None:
+                    allow_public = str(v).lower() in ('true', '1', 't', 'y', 'yes')
+            except Exception:
+                allow_public = False
+
+        if not allow_public:
+            log_security_event('blocked_public_registration', {
+                'ip': request.remote_addr,
+                'user_agent': request.headers.get('User-Agent')
+            })
+            return jsonify({
+                "success": False,
+                "message": "Registration is invitation-only. Please use a registration link from your school admin."
+            }), 403
+
         schema = RegisterSchema()
         data = schema.load(request.json)
         

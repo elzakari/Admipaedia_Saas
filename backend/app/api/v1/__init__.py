@@ -43,6 +43,7 @@ from app.api.v1.staff import staff_bp
 from app.api.v1.announcements import announcements_bp
 from app.api.v1.library import library_bp
 from app.api.v1.settings import settings_bp
+from app.api.v1.platform_settings import platform_settings_bp
 from app.api.v1.educational_system import educational_system_bp
 from app.api.v1.grades import grades_bp
 from app.api.v1.finance import finance_bp
@@ -56,6 +57,8 @@ from app.api.v1.admissions import admissions_bp
 
 from app.api.v1.saas import saas_bp
 from app.api.v1.super_admin import super_admin_bp
+
+from app.api.v1.invitations import invitations_bp
 
 # Register existing blueprints
 api_v1_bp.register_blueprint(academics_bp, url_prefix='/academics')
@@ -100,6 +103,7 @@ api_v1_bp.register_blueprint(staff_bp, url_prefix='/staff')
 api_v1_bp.register_blueprint(announcements_bp, url_prefix='/announcements')
 api_v1_bp.register_blueprint(library_bp, url_prefix='/library')
 api_v1_bp.register_blueprint(settings_bp, url_prefix='/settings')
+api_v1_bp.register_blueprint(platform_settings_bp, url_prefix='/platform')
 api_v1_bp.register_blueprint(educational_system_bp)
 api_v1_bp.register_blueprint(grades_bp, url_prefix='/grades')
 api_v1_bp.register_blueprint(finance_bp, url_prefix='/finance')
@@ -112,6 +116,7 @@ api_v1_bp.register_blueprint(attendance_bp, url_prefix='/attendance')
 api_v1_bp.register_blueprint(admissions_bp, url_prefix='/admissions')
 api_v1_bp.register_blueprint(saas_bp, url_prefix='/saas')
 api_v1_bp.register_blueprint(super_admin_bp, url_prefix='/super-admin')
+api_v1_bp.register_blueprint(invitations_bp)
 
 def register_blueprints(app):
     """Register all API blueprints."""

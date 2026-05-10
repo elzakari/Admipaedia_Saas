@@ -2,6 +2,10 @@ from app.models.tenant import Tenant, PlatformInvoice, PlatformPayment
 
 
 def serialize_tenant(t: Tenant):
+    settings = getattr(t, 'settings', None) or {}
+    logo_url = None
+    if isinstance(settings, dict):
+        logo_url = settings.get('logo_url') or settings.get('logo') or settings.get('school_logo')
     return {
         'id': str(t.id),
         'slug': t.slug,
@@ -16,6 +20,7 @@ def serialize_tenant(t: Tenant):
         'currency': t.currency,
         'custom_domain': getattr(t, 'custom_domain', None),
         'schema_name': getattr(t, 'schema_name', None),
+        'logo_url': logo_url,
         'created_at': t.created_at.isoformat() if t.created_at else None
     }
 
