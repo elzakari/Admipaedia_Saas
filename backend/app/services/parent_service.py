@@ -218,15 +218,60 @@ class ParentService:
             avg_attendance_rate = (total_attendance_rate / children_with_attendance) if children_with_attendance > 0 else 0
             avg_grade_average = (total_grade_average / children_with_grades) if children_with_grades > 0 else 0
             
-            # Get recent notifications count
+            from app.models.notification import Notification
+            unread_notifications = Notification.query.filter_by(
+                user_id=parent.user_id,
+                read=False
+            ).count()
+
+            recent_notifications = Notification.query.filter_by(
+                user_id=parent.user_id
+            ).order_by(Notification.time.desc()).limit(5).all()
+
+            notifications_data = []
+            for n in recent_notifications:
+                notifications_data.append({
+                    'id': n.id,
+                    'title': n.title,
+                    'message': n.message,
+                    'type': n.type,
+                    'read': n.read,
+                    'time': n.time.isoformat() if n.time else None
+                })
+
+            pending_fees_total = 0.0
             try:
-                from app.models.notification import Notification
-                unread_notifications = Notification.query.filter_by(
-                    user_id=parent.user_id, 
-                    is_read=False
+                from app.services.finance.service import FeeService
+                for child in children:
+                    pending_fees_total += float(FeeService.get_student_balance(child.id) or 0)
+            except Exception:
+                pending_fees_total = 0.0
+
+            active_applications = 0
+            try:
+                from app.models.admission import AdmissionApplication
+                active_applications = AdmissionApplication.query.filter(
+                    AdmissionApplication.parent_id == parent_id,
+                    AdmissionApplication.status.in_(['draft', 'submitted', 'under_review'])
                 ).count()
-            except ImportError:
-                unread_notifications = 0
+            except Exception:
+                active_applications = 0
+
+            next_event = None
+            try:
+                from app.models.dashboard import CalendarEvent
+                now = datetime.utcnow()
+                ev = CalendarEvent.query.filter(CalendarEvent.date >= now).order_by(CalendarEvent.date.asc()).first()
+                if ev:
+                    next_event = {
+                        'id': ev.id,
+                        'title': ev.title,
+                        'date': ev.date.isoformat() if ev.date else None,
+                        'type': ev.type,
+                        'description': ev.description
+                    }
+            except Exception:
+                next_event = None
             
             return {
                 'children_count': children_count,
@@ -234,6 +279,10 @@ class ParentService:
                 'overall_attendance_rate': round(avg_attendance_rate, 2),
                 'overall_grade_average': round(avg_grade_average, 2),
                 'unread_notifications': unread_notifications,
+                'recent_notifications': notifications_data,
+                'pending_fees_total': round(pending_fees_total, 2),
+                'active_applications': active_applications,
+                'next_event': next_event,
                 'summary': {
                     'total_children': children_count,
                     'children_with_good_attendance': len([c for c in children_data if c['attendance_rate'] >= 80]),

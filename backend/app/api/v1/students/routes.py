@@ -18,6 +18,121 @@ students_schema = StudentListSchema(many=True)
 # Initialize service
 student_service = StudentService(db.session)
 
+
+@students_bp.route('/profile', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_own_student_profile():
+    user_id = get_jwt_identity()
+    student = student_service.get_student_by_user_id(int(user_id))
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+    if getattr(student, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+    return jsonify({'success': True, 'student': student_schema.dump(student)}), 200
+
+
+@students_bp.route('/dashboard', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_dashboard():
+    user_id = get_jwt_identity()
+    student = student_service.get_student_by_user_id(int(user_id))
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+    if getattr(student, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    from app.models.attendance import Attendance
+    from app.models.grade import Grade
+    from app.models.exam import Exam
+    from app.services.dashboard_service import DashboardService
+
+    now = datetime.utcnow()
+    since = now - timedelta(days=30)
+
+    total_att = Attendance.query.filter(Attendance.student_id == student.id, Attendance.date >= since).count()
+    present_att = Attendance.query.filter(
+        Attendance.student_id == student.id,
+        Attendance.date >= since,
+        Attendance.status == 'present'
+    ).count()
+    attendance_rate = round((present_att / total_att * 100) if total_att else 0, 2)
+
+    avg_grade = Grade.query.with_entities(func.avg(Grade.percentage)).filter(
+        Grade.student_id == student.id,
+        Grade.created_at >= since
+    ).scalar()
+    grade_average = round(float(avg_grade or 0), 2)
+
+    upcoming_exams = []
+    if getattr(student, 'class_id', None):
+        exams = Exam.query.filter(
+            Exam.class_id == student.class_id,
+            Exam.exam_date >= now
+        ).order_by(Exam.exam_date.asc()).limit(5).all()
+        for ex in exams:
+            upcoming_exams.append({
+                'id': ex.id,
+                'title': ex.title,
+                'exam_date': ex.exam_date.isoformat() if ex.exam_date else None,
+                'subject_id': ex.subject_id,
+                'class_id': ex.class_id
+            })
+
+    balance = 0.0
+    try:
+        from app.services.finance.service import FeeService
+        balance = float(FeeService.get_student_balance(student.id) or 0)
+    except Exception:
+        balance = 0.0
+
+    events = DashboardService.get_calendar_events(now.month - 1, now.year)
+    next_event = None
+    for e in events:
+        if e.date and e.date >= now:
+            next_event = {
+                'id': e.id,
+                'title': e.title,
+                'date': e.date.isoformat(),
+                'type': e.type,
+                'description': e.description
+            }
+            break
+
+    notifications = DashboardService.get_notifications(int(user_id), limit=5)
+    notifications_data = []
+    for n in notifications:
+        notifications_data.append({
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'type': n.type,
+            'read': n.read,
+            'time': n.time.isoformat() if n.time else None
+        })
+
+    unread_notifications = sum(1 for n in notifications if not getattr(n, 'read', False))
+
+    return jsonify({
+        'success': True,
+        'student': student_schema.dump(student),
+        'stats': {
+            'classes_count': 1 if getattr(student, 'class_id', None) else 0,
+            'attendance_rate_30d': attendance_rate,
+            'grade_average_30d': grade_average,
+            'pending_fees_balance': round(balance, 2),
+            'unread_notifications': unread_notifications
+        },
+        'upcoming_exams': upcoming_exams,
+        'next_event': next_event,
+        'recent_notifications': notifications_data
+    }), 200
+
 @students_bp.route('', methods=['GET'])  # This will match /students
 @students_bp.route('/', methods=['GET'])  # This will match /students/
 @jwt_required()

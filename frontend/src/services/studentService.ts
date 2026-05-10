@@ -33,6 +33,17 @@ export class StudentServiceError extends Error {
 }
 
 const studentService = {
+  getOwnProfile: async (): Promise<StudentProfile> => {
+    const response = await api.get('/students/profile')
+    const student = response.data?.student || response.data?.data?.student
+    return student as StudentProfile
+  },
+
+  getMyDashboard: async (): Promise<any> => {
+    const response = await api.get('/students/dashboard')
+    return response.data?.data || response.data
+  },
+
   // Get all students with pagination and filtering
   getStudents: async (params?: {
     page?: number;

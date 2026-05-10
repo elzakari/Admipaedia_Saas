@@ -121,6 +121,22 @@ const parentService = {
     }
   },
 
+  getMyDashboard: async (): Promise<ParentDashboardData> => {
+    const response = await api.get('/parents/dashboard')
+    return (
+      response.data?.data ||
+      response.data?.dashboard ||
+      response.data?.parent_dashboard ||
+      response.data
+    ) as ParentDashboardData
+  },
+
+  getMyChildren: async (): Promise<any[]> => {
+    const response = await api.get('/parents/children')
+    const data = response.data?.data || response.data
+    return data?.children || []
+  },
+
   // Get children for a parent
   getParentChildren: async (parentId: number): Promise<{ children: ParentChild[] }> => {
     try {
@@ -475,4 +491,28 @@ export interface TeacherInfo {
   subject: string;
   email: string;
   phone?: string;
+}
+
+export interface ParentDashboardData {
+  children_count: number
+  overall_attendance_rate: number
+  overall_grade_average: number
+  unread_notifications: number
+  pending_fees_total?: number
+  active_applications?: number
+  next_event?: {
+    id: string
+    title: string
+    date: string | null
+    type: string
+    description?: string | null
+  } | null
+  recent_notifications?: Array<{
+    id: string
+    title: string
+    message: string
+    type: string
+    read: boolean
+    time: string | null
+  }>
 }

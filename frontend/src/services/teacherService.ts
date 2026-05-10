@@ -148,6 +148,12 @@ export interface TeacherDashboard {
 }
 
 const teacherService = {
+  getOwnProfile: async (): Promise<Teacher> => {
+    const response = await api.get('/teachers/profile')
+    const teacher = response.data?.teacher || response.data?.data?.teacher
+    return teacherService.transformTeacherFromBackend(teacher)
+  },
+
   // Get all teachers with pagination and filtering
   getTeachers: async (params?: {
     page?: number;

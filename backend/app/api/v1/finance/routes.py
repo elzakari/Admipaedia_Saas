@@ -63,11 +63,16 @@ def get_balance(student_id):
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
     if user.role != 'admin':
-        if user.role != 'parent':
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        parent = Parent.query.filter_by(user_id=user_id).first()
-        student = Student.query.get(student_id)
-        if not parent or not student or student.parent_id != parent.id:
+        if user.role == 'parent':
+            parent = Parent.query.filter_by(user_id=user_id).first()
+            student = Student.query.get(student_id)
+            if not parent or not student or student.parent_id != parent.id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        elif user.role == 'student':
+            student = Student.query.get(student_id)
+            if not student or student.user_id != user_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        else:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     balance = FeeService.get_student_balance(student_id)
@@ -83,11 +88,16 @@ def get_ledger(student_id):
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
     if user.role != 'admin':
-        if user.role != 'parent':
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        parent = Parent.query.filter_by(user_id=user_id).first()
-        student = Student.query.get(student_id)
-        if not parent or not student or student.parent_id != parent.id:
+        if user.role == 'parent':
+            parent = Parent.query.filter_by(user_id=user_id).first()
+            student = Student.query.get(student_id)
+            if not parent or not student or student.parent_id != parent.id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        elif user.role == 'student':
+            student = Student.query.get(student_id)
+            if not student or student.user_id != user_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        else:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     fees = StudentFee.query.filter_by(student_id=student_id).all()

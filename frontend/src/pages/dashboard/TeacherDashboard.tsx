@@ -1,17 +1,52 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { teacherClasses, teacherNotifications, teacherTimetable } from '../teacher/teacherMockData';
 import { BookOpen, CalendarClock, Bell, MessageSquare, ChevronRight } from 'lucide-react';
+import teacherService from '../../services/teacherService';
+import api from '../../lib/api';
 
 const TeacherDashboard: React.FC = () => {
+  const { data: teacher } = useQuery({
+    queryKey: ['teacher-profile'],
+    queryFn: () => teacherService.getOwnProfile(),
+    staleTime: 60_000
+  })
+
+  const teacherId = teacher?.id
+
+  const { data: classesData } = useQuery({
+    queryKey: ['teacher-classes', teacherId],
+    queryFn: async () => {
+      if (!teacherId) return []
+      const res = await api.get(`/teachers/${teacherId}/classes`, { params: { per_page: 50 } })
+      return res.data?.classes || []
+    },
+    enabled: !!teacherId,
+    staleTime: 60_000
+  })
+
+  const { data: notificationsData } = useQuery({
+    queryKey: ['dashboard-notifications'],
+    queryFn: async () => {
+      const res = await api.get('/dashboard/notifications', { params: { limit: 20 } })
+      return res.data?.notifications || []
+    },
+    staleTime: 30_000
+  })
+
+  const { data: analytics } = useQuery({
+    queryKey: ['teacher-analytics', teacherId],
+    queryFn: () => (teacherId ? teacherService.getTeacherDashboardAnalytics(teacherId) : Promise.resolve(null)),
+    enabled: !!teacherId,
+    staleTime: 60_000
+  })
+
   const stats = useMemo(() => {
-    const unread = teacherNotifications.filter((n) => n.unread).length;
-    const today = new Date().toLocaleDateString(undefined, { weekday: 'short' });
-    const todayKey = today === 'Mon' || today === 'Tue' || today === 'Wed' || today === 'Thu' || today === 'Fri' ? today : 'Mon';
-    const todayClasses = teacherTimetable.filter((t) => t.day === todayKey).slice(0, 4);
-    return { unread, todayClasses };
-  }, []);
+    const unread = (notificationsData || []).filter((n: any) => !n.read).length
+    const lessons = (analytics?.upcomingLessons || []).slice(0, 4)
+    return { unread, lessons }
+  }, [analytics, notificationsData])
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -38,7 +73,7 @@ const TeacherDashboard: React.FC = () => {
               <CardDescription>Assigned to you</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{teacherClasses.length}</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{(classesData || []).length}</div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </CardContent>
           </Card>
@@ -76,10 +111,10 @@ const TeacherDashboard: React.FC = () => {
             <CardDescription>Jump straight into a class</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {stats.todayClasses.length ? stats.todayClasses.map((t) => (
-              <Link key={t.id} to={`/teacher/classes/${t.classId}`} className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.label}</div>
-                <div className="text-xs text-slate-500">{t.start}–{t.end}</div>
+            {stats.lessons.length ? stats.lessons.map((t: any) => (
+              <Link key={t.id} to="/teacher/timetable" className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.title}</div>
+                <div className="text-xs text-slate-500">{t.class_name}{t.room ? ` • ${t.room}` : ''}</div>
               </Link>
             )) : (
               <div className="text-sm text-slate-600 dark:text-slate-400">No timetable entries for today.</div>
@@ -93,14 +128,14 @@ const TeacherDashboard: React.FC = () => {
             <CardDescription>Common teacher actions</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {teacherClasses.slice(0, 4).map((c) => (
+            {(classesData || []).slice(0, 4).map((c: any) => (
               <Link
                 key={c.id}
                 to={`/teacher/classes/${c.id}`}
                 className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{c.subject}</div>
-                <div className="text-xs text-slate-500">{c.className}</div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{c.name}</div>
+                <div className="text-xs text-slate-500">{c.academic_year}</div>
               </Link>
             ))}
           </CardContent>

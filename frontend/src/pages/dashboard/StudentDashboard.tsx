@@ -1,18 +1,23 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { studentAssignments, studentClasses, studentNotifications, studentTimetable } from '../student/studentMockData';
 import { BookOpen, CalendarClock, ClipboardList, Bell, MessageSquare, ChevronRight } from 'lucide-react';
+import studentService from '../../services/studentService';
 
 const StudentDashboard: React.FC = () => {
+  const { data: dashboard, isLoading } = useQuery({
+    queryKey: ['student-dashboard'],
+    queryFn: () => studentService.getMyDashboard(),
+    staleTime: 30_000
+  })
+
   const stats = useMemo(() => {
-    const openAssignments = studentAssignments.filter((a) => a.status === 'open').length;
-    const unread = studentNotifications.filter((n) => n.unread).length;
-    const today = new Date().toLocaleDateString(undefined, { weekday: 'short' });
-    const todayKey = today === 'Mon' || today === 'Tue' || today === 'Wed' || today === 'Thu' || today === 'Fri' ? today : 'Mon';
-    const todayClasses = studentTimetable.filter((t) => t.day === todayKey).slice(0, 3);
-    return { openAssignments, unread, todayClasses };
-  }, []);
+    const unread = dashboard?.stats?.unread_notifications ?? 0
+    const classesCount = dashboard?.stats?.classes_count ?? 0
+    const upcomingExams = dashboard?.upcoming_exams || []
+    return { unread, classesCount, upcomingExams }
+  }, [dashboard])
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -36,10 +41,10 @@ const StudentDashboard: React.FC = () => {
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4 text-indigo-600" /> My Classes</CardTitle>
-              <CardDescription>{studentClasses.length} enrolled</CardDescription>
+              <CardDescription>{isLoading ? '—' : `${stats.classesCount} enrolled`}</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{studentClasses.length}</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{isLoading ? '—' : stats.classesCount}</div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </CardContent>
           </Card>
@@ -51,7 +56,7 @@ const StudentDashboard: React.FC = () => {
               <CardDescription>Pending submissions</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{stats.openAssignments}</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">0</div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </CardContent>
           </Card>
@@ -63,7 +68,7 @@ const StudentDashboard: React.FC = () => {
               <CardDescription>Announcements & alerts</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{stats.unread}</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{isLoading ? '—' : stats.unread}</div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </CardContent>
           </Card>
@@ -89,28 +94,25 @@ const StudentDashboard: React.FC = () => {
             <CardDescription>Quick look at your day</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {stats.todayClasses.length ? stats.todayClasses.map((c) => (
-              <div key={c.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{c.subject}</div>
-                <div className="text-xs text-slate-500">{c.start}–{c.end}{c.room ? ` • ${c.room}` : ''}</div>
-              </div>
-            )) : (
-              <div className="text-sm text-slate-600 dark:text-slate-400">No timetable entries for today.</div>
-            )}
+            <div className="text-sm text-slate-600 dark:text-slate-400">Timetable integration coming soon.</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming assignments</CardTitle>
-            <CardDescription>Next deadlines</CardDescription>
+            <CardTitle>Upcoming exams</CardTitle>
+            <CardDescription>Next scheduled exams</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {studentAssignments.slice(0, 4).map((a) => (
-              <Link key={a.id} to={`/student/assignments/${a.id}`} className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</div>
-                <div className="text-xs text-slate-500">Due {new Date(a.dueAt).toLocaleString()} • {a.status}</div>
-              </Link>
+            {isLoading ? (
+              <div className="text-sm text-slate-600 dark:text-slate-400">Loading…</div>
+            ) : (stats.upcomingExams.length ? stats.upcomingExams.slice(0, 4).map((e: any) => (
+              <div key={e.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{e.title}</div>
+                <div className="text-xs text-slate-500">{e.exam_date ? new Date(e.exam_date).toLocaleString() : ''}</div>
+              </div>
+            )) : (
+              <div className="text-sm text-slate-600 dark:text-slate-400">No upcoming exams.</div>
             ))}
           </CardContent>
         </Card>

@@ -1,7 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import parentService from '../../services/parentService';
 import {
   FilePlus2,
   Users,
@@ -14,6 +16,12 @@ import {
 
 const ParentDashboard: React.FC = () => {
   const navigate = useNavigate();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['parent-dashboard'],
+    queryFn: () => parentService.getMyDashboard(),
+    staleTime: 30_000
+  })
 
   const navigateTo = (to: string) => {
     navigate(to);
@@ -73,7 +81,7 @@ const ParentDashboard: React.FC = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2</div>
+            <div className="text-2xl font-bold">{isLoading ? '—' : (data?.children_count ?? 0)}</div>
             <p className="text-xs text-muted-foreground">Enrolled students</p>
           </CardContent>
         </Card>
@@ -90,7 +98,7 @@ const ParentDashboard: React.FC = () => {
             <FilePlus2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1</div>
+            <div className="text-2xl font-bold">{isLoading ? '—' : (data?.active_applications ?? 0)}</div>
             <p className="text-xs text-muted-foreground">Admission in progress</p>
           </CardContent>
         </Card>
@@ -107,7 +115,7 @@ const ParentDashboard: React.FC = () => {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">GHS 1,200</div>
+            <div className="text-2xl font-bold">{isLoading ? '—' : `GHS ${(data?.pending_fees_total ?? 0).toLocaleString()}`}</div>
             <p className="text-xs text-muted-foreground">Term 2 balance</p>
           </CardContent>
         </Card>
@@ -124,8 +132,12 @@ const ParentDashboard: React.FC = () => {
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold">PTA Meeting</div>
-            <p className="text-xs text-muted-foreground">Friday, April 15th</p>
+            <div className="text-lg font-bold">{isLoading ? '—' : (data?.next_event?.title || 'No upcoming event')}</div>
+            <p className="text-xs text-muted-foreground">
+              {isLoading
+                ? ''
+                : (data?.next_event?.date ? new Date(data.next_event.date).toLocaleDateString() : '')}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -140,22 +152,26 @@ const ParentDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { title: 'Fee Reminder', desc: 'Term 2 fees are due by April 30th', time: '2 hours ago' },
-                { title: 'Academic Report', desc: 'Karen\'s First Term report card is now available', time: '1 day ago' },
-                { title: 'School Holiday', desc: 'School will be closed on Friday for Easter', time: '2 days ago' }
-              ].map((notif, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between items-start border-b border-gray-50 pb-3 last:border-0 cursor-pointer"
-                  onClick={() => navigateTo('/notifications')}
-                >
-                  <div>
-                    <p className="font-semibold text-sm">{notif.title}</p>
-                    <p className="text-xs text-gray-500">{notif.desc}</p>
+              {isLoading ? (
+                <div className="text-sm text-gray-500">Loading…</div>
+              ) : (data?.recent_notifications?.length ? (
+                data.recent_notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className="flex justify-between items-start border-b border-gray-50 pb-3 last:border-0 cursor-pointer"
+                    onClick={() => navigateTo('/notifications')}
+                  >
+                    <div>
+                      <p className="font-semibold text-sm">{notif.title}</p>
+                      <p className="text-xs text-gray-500">{notif.message}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                      {notif.time ? new Date(notif.time).toLocaleDateString() : ''}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{notif.time}</span>
-                </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">No notifications</div>
               ))}
             </div>
           </CardContent>
@@ -166,8 +182,15 @@ const ParentDashboard: React.FC = () => {
             <CardTitle>My Children's Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px] flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-              <p className="text-sm text-gray-400">Performance Chart Placeholder</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Overall Attendance (30d)</span>
+                <span className="font-semibold">{isLoading ? '—' : `${data?.overall_attendance_rate ?? 0}%`}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Overall Grade Average</span>
+                <span className="font-semibold">{isLoading ? '—' : `${data?.overall_grade_average ?? 0}%`}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
