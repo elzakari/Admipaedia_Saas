@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 import logging
@@ -15,6 +15,32 @@ logger = logging.getLogger(__name__)
 def get_student_attendance_report(student_id):
     """Get detailed attendance report for a student."""
     try:
+        current_user_id = get_jwt_identity()
+        user = getattr(g, 'current_user', None)
+        if not user:
+            from app.models.user import User
+            user = User.query.get(int(current_user_id))
+
+        roles = getattr(g, 'user_roles', None)
+        legacy_role = getattr(user, 'role', '').lower() if user else ''
+        if not roles:
+            roles = {legacy_role} if legacy_role else set()
+
+        if 'student' in roles:
+            from app.services.student_service import StudentService
+            from app.extensions import db
+            student = StudentService(db.session).get_student_by_user_id(int(current_user_id))
+            if not student or student.id != student_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+        if 'parent' in roles:
+            from app.models.parent import Parent
+            from app.models.student import Student
+            parent = Parent.query.filter_by(user_id=current_user_id).first()
+            child = Student.query.get(student_id)
+            if not parent or not child or child.parent_id != parent.id:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
         date_from = request.args.get('date_from')
         date_to = request.args.get('date_to')
         class_id = request.args.get('class_id', type=int)
