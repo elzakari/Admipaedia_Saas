@@ -124,7 +124,7 @@ class Payment(db.Model):
     """
     Record of a payment transaction.
     """
-    __tablename__ = 'payments'
+    __tablename__ = 'student_payments'
     
     id = db.Column(db.Integer, primary_key=True)
     transaction_id = db.Column(db.String(100), unique=True, nullable=False) # Unique Ref
@@ -161,12 +161,12 @@ class PaymentAllocation(db.Model):
     __tablename__ = 'payment_allocations'
     
     id = db.Column(db.Integer, primary_key=True)
-    payment_id = db.Column(db.Integer, db.ForeignKey('payments.id'), nullable=False)
+    payment_id = db.Column(db.Integer, db.ForeignKey('student_payments.id'), nullable=False)
     student_fee_id = db.Column(db.Integer, db.ForeignKey('student_fees.id'), nullable=False)
     
     amount_allocated = db.Column(db.Numeric(10, 2), nullable=False)
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    payment = db.relationship('Payment', backref='allocations')
+    payment = db.relationship(Payment, backref='allocations')
     student_fee = db.relationship('StudentFee', backref='allocations')

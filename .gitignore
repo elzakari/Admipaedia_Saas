@@ -38,6 +38,17 @@ backend/celerybeat-schedule.*
 backend/logs/
 backend/uploads/
 
+# Local instances / dev DBs
+instance/
+backend/instance/
+*.db
+backend/*.db
+
+# Large local artifacts
+db_backup_before_subject_migration_*.sql
+New errors*.txt
+bash.exe.stackdump
+
 # Coverage outputs
 frontend/coverage/
 backend/coverage/
@@ -71,3 +82,7 @@ backend/htmlcov/
 **/*test_output*.txt
 **/out.txt
 frontend/test_results.json
+
+# Local frontend scratch outputs
+frontend/eslint_config_storage*.txt
+frontend/lint_*.txt

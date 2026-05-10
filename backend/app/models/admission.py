@@ -19,7 +19,7 @@ class AdmissionApplication(db.Model):
     
     # Payment Tracking
     payment_status = db.Column(db.String(20), default='pending') # pending, paid
-    payment_id = db.Column(db.Integer, db.ForeignKey('payments.id'), nullable=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('student_payments.id'), nullable=True)
     form_purchase_date = db.Column(db.DateTime, nullable=True)
     
     # Application Status
@@ -36,7 +36,7 @@ class AdmissionApplication(db.Model):
     # Relationships
     parent = db.relationship('Parent', backref=db.backref('applications', lazy=True))
     target_class = db.relationship('Class')
-    payment = db.relationship('Payment')
+    payment = db.relationship('app.models.finance.Payment')
 
     def __repr__(self):
         return f'<AdmissionApplication {self.id} for {self.student_first_name} {self.student_last_name}>'
