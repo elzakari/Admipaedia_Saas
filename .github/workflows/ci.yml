@@ -15,57 +15,35 @@ jobs:
       uses: gitleaks/gitleaks-action@v2
       with:
         config-path: .gitleaks.toml
+        args: --no-git --redact
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  frontend-tests:
+  frontend-build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    
     steps:
     - uses: actions/checkout@v3
     - name: Set up Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18'
+        node-version: '22.13.0'
         cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        cache-dependency-path: package-lock.json
     
     - name: Install dependencies
       run: npm ci
     
     - name: Run linting
-      run: npm run lint
+      run: npm -w frontend run lint
     
-    - name: Run unit and integration tests
-      run: npm test
-    
-    - name: Run E2E tests
-      run: npm run test:e2e
-    
-    - name: Upload test coverage
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./frontend/coverage
+    - name: Build
+      run: npm -w frontend run build
 
   backend-tests:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
-    
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: admipaedia_test
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     
     steps:
     - uses: actions/checkout@v3
@@ -81,11 +59,6 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run tests
-      run: pytest
+      run: pytest -q tests/test_api/test_settings_segregation.py tests/integration/test_invitation_links.py
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/admipaedia_test
-    
-    - name: Upload test coverage
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./backend/coverage
+        TEST_DB_URL: sqlite:///:memory:

@@ -3,13 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NotificationSettings from '../NotificationSettings';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '../ui/use-toast';
-import { settingsService } from '../../services';
+import { useToast } from '../../ui/use-toast';
+import { settingsService } from '../../../services';
 
 // Mock the dependencies
 jest.mock('@tanstack/react-query');
-jest.mock('../ui/use-toast');
-jest.mock('../../services');
+jest.mock('../../ui/use-toast');
+jest.mock('../../../services');
 
 const mockUseQuery = useQuery as jest.MockedFunction<typeof useQuery>;
 const mockUseMutation = useMutation as jest.MockedFunction<typeof useMutation>;
@@ -64,9 +64,8 @@ describe('NotificationSettings', () => {
     mockUseToast.mockReturnValue(mockToast as any);
     
     // Mock successful query
-    mockUseQuery.mockImplementation(({ queryKey, queryFn, onSuccess }: any) => {
+    mockUseQuery.mockImplementation(({ queryKey }: any) => {
       if (queryKey[0] === 'notification-settings') {
-        onSuccess?.(mockSettings);
         return {
           data: mockSettings,
           isLoading: false,

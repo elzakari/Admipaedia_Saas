@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import RegisterForm from './RegisterForm';
+import InviteOnlyRegister from './InviteOnlyRegister';
 
 const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +35,7 @@ const RegisterPage: React.FC = () => {
               </p>
             </div>
 
-            <RegisterForm />
+            <InviteOnlyRegister />
           </div>
 
           <div className="mt-6 text-center text-xs text-slate-500">

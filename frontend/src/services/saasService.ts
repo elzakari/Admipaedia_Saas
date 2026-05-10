@@ -5,6 +5,7 @@ export type SaaSTenant = {
   slug: string
   name: string
   country_code: string
+  logo_url?: string | null
   default_language?: string | null
   enabled_features?: string[] | null
   plan: string | null

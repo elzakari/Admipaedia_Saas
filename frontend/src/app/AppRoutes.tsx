@@ -15,6 +15,7 @@ import MFAVerifyPage from '../pages/auth/MFAVerifyPage';
 import MFASetupPage from '../pages/auth/MFASetupPage';
 import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
 import SchoolRegistrationPage from '../pages/saas/SchoolRegistrationPage';
+import InviteAcceptPage from '../pages/auth/InviteAcceptPage';
 
 import SuperAdminLoginPage from '../pages/super-admin/SuperAdminLoginPage';
 import SuperAdminDashboardPage from '../pages/super-admin/SuperAdminDashboardPage';
@@ -23,6 +24,7 @@ import SuperAdminUserDetailsPage from '../pages/super-admin/SuperAdminUserDetail
 import SuperAdminAuditLogsPage from '../pages/super-admin/SuperAdminAuditLogsPage';
 import SuperAdminSchoolsPage from '../pages/super-admin/SuperAdminSchoolsPage';
 import SuperAdminFinancialInsightsPage from '../pages/super-admin/SuperAdminFinancialInsightsPage';
+import SuperAdminERegistrationBillingPage from '../pages/super-admin/SuperAdminERegistrationBillingPage';
 
 // Lazy-loaded dashboard components (high priority)
 const AdminDashboard = lazy(() => import('../pages/dashboard/AdminDashboard'));
@@ -32,6 +34,8 @@ const ParentDashboard = lazy(() => import('../pages/dashboard/ParentDashboard'))
 const AdmissionsPage = lazy(() => import('../pages/portal/AdmissionsPage'));
 const AdmissionFormPage = lazy(() => import('../pages/portal/AdmissionFormPage'));
 const SystemSettingsPage = lazy(() => import('../pages/administration/SystemSettingsPage'));
+const AdminERegistrationBillingPage = lazy(() => import('../pages/billing/AdminERegistrationBillingPage'));
+const AdminInvitationsPage = lazy(() => import('../pages/administration/AdminInvitationsPage'));
 
 // Lazy-loaded main pages (medium priority)
 // Lazy imports
@@ -72,8 +76,6 @@ const SchoolProfilePage = lazy(() => import('../pages/saas/SchoolProfilePage'));
 const TeamRolesPage = lazy(() => import('../pages/saas/TeamRolesPage'));
 const BillingInvoicesPage = lazy(() => import('../pages/saas/BillingInvoicesPage'));
 const BillingPaymentsPage = lazy(() => import('../pages/saas/BillingPaymentsPage'));
-const PlatformSchoolsPage = lazy(() => import('../pages/saas/PlatformSchoolsPage'));
-const PlatformFinancialPage = lazy(() => import('../pages/saas/PlatformFinancialPage'));
 
 // Student Portal pages
 const StudentClassesPage = lazy(() => import('@/pages/student/StudentClassesPage'));
@@ -233,6 +235,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/school/register" element={<SchoolRegistrationPage />} />
+      <Route path="/invite/:inviteId" element={<InviteAcceptPage />} />
       <Route path="/auth/mfa/verify" element={<MFAVerifyPage />} />
 
       <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
@@ -259,6 +262,10 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/super-admin/audit-logs"
         element={<ProtectedRoute element={<SuperAdminAuditLogsPage />} allowedRoles={['super_admin']} componentName="Audit Logs" />}
+      />
+      <Route
+        path="/super-admin/e-registration-billing"
+        element={<ProtectedRoute element={<SuperAdminERegistrationBillingPage />} allowedRoles={['super_admin']} componentName="E-Registration Billing" />}
       />
 
       <Route
@@ -316,6 +323,28 @@ const AppRoutes: React.FC = () => {
             componentName="Admin Dashboard"
           />
         } 
+      />
+
+      <Route
+        path="/admin/e-registration-billing"
+        element={
+          <ProtectedRoute
+            element={<AdminERegistrationBillingPage />}
+            allowedRoles={['admin']}
+            componentName="Billing & E-Registration Plan"
+          />
+        }
+      />
+
+      <Route
+        path="/admin/invitations"
+        element={
+          <ProtectedRoute
+            element={<AdminInvitationsPage />}
+            allowedRoles={['admin']}
+            componentName="Invitations"
+          />
+        }
       />
       
       <Route 
@@ -813,11 +842,15 @@ const AppRoutes: React.FC = () => {
       <Route 
         path="/administration/settings" 
         element={
-          <ProtectedRoute 
-            element={<SystemSettingsPage />} 
-            allowedRoles={['admin', 'super_admin']}
-            componentName="System Settings"
-          />
+          user?.role === 'super_admin'
+            ? (
+              <ProtectedRoute
+                element={<SystemSettingsPage />}
+                allowedRoles={['super_admin']}
+                componentName="System Settings"
+              />
+            )
+            : <Navigate to="/settings" replace />
         } 
       />
 
@@ -923,7 +956,16 @@ const AppRoutes: React.FC = () => {
       <Route 
         path="/dashboard" 
         element={
-          <Navigate to={user?.role ? `/${user.role}/dashboard` : '/login'} replace />
+          <Navigate
+            to={
+              user?.role === 'super_admin'
+                ? '/super-admin'
+                : user?.role
+                  ? `/${user.role}/dashboard`
+                  : '/login'
+            }
+            replace
+          />
         } 
       />
 

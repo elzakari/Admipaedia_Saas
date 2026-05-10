@@ -135,13 +135,14 @@ const BackupSettings = () => {
   const { data: currentSettings, isLoading: settingsLoading } = useQuery({
     queryKey: ['backup-settings'],
     queryFn: () => settingsService.getBackupSettings(),
-    onSuccess: (data) => {
-      const payload = unwrap(data);
-      if (payload && typeof payload === 'object') {
-        setSettings((prev) => ({ ...prev, ...(payload as any) }));
-      }
+  } as any);
+
+  useEffect(() => {
+    const payload = unwrap(currentSettings)
+    if (payload && typeof payload === 'object') {
+      setSettings((prev) => ({ ...prev, ...(payload as any) }))
     }
-  });
+  }, [currentSettings])
 
   // Fetch backup history
   const { data: backupHistory = [], isLoading: historyLoading } = useQuery({

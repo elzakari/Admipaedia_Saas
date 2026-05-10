@@ -31,6 +31,8 @@ import {
   FilePlus2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEntitlements } from '@/hooks/useEntitlements'
+import { useSaasTenant } from '@/hooks/useSaasTenant'
 import { useTheme } from '../../contexts/ThemeContext';
 import { 
   Tooltip,
@@ -63,6 +65,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const isCasaos = theme === 'casaos';
+  const { current } = useSaasTenant()
+
+  const brandTitle =
+    user?.role === 'super_admin'
+      ? 'ADMIPEDIA'
+      : (current?.tenant?.slug?.toUpperCase() || current?.tenant?.name || 'ADMIPEDIA')
+
+  const brandLogoUrl = user?.role === 'super_admin' ? null : (current?.tenant?.logo_url || null)
 
   const toggleCollapse = () => {
     const newCollapsedState = !collapsed;
@@ -94,9 +104,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       { name: 'Super Admin', labelKey: 'navigation.dashboard', path: '/super-admin', icon: <Shield size={20} /> },
       { name: 'Users', labelKey: 'navigation.users', path: '/super-admin/users', icon: <Users size={20} /> },
       { name: 'Schools', labelKey: 'navigation.schools', path: '/super-admin/schools', icon: <Building2 size={20} /> },
+      { name: 'E-Registration Billing', labelKey: 'navigation.e_registration_billing', path: '/super-admin/e-registration-billing', icon: <CreditCard size={20} /> },
       { name: 'Financial Insights', labelKey: 'navigation.financial_oversight', path: '/super-admin/financial', icon: <BarChart3 size={20} /> },
       { name: 'Audit Logs', labelKey: 'navigation.audit_logs', path: '/super-admin/audit-logs', icon: <FileText size={20} /> },
-      { name: 'Settings', labelKey: 'common.settings', path: '/super-admin/settings', icon: <Settings size={20} /> },
+      { name: 'Platform Settings', labelKey: 'navigation.system_settings', path: '/super-admin/settings', icon: <Settings size={20} /> },
     ],
     admin: [
       { name: 'Dashboard', labelKey: 'navigation.dashboard', path: dashboardPath, icon: <LayoutDashboard size={20} /> },
@@ -108,6 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       { name: 'Exams', labelKey: 'navigation.exams', path: '/exams', icon: <FileText size={20} /> },
       { name: 'Reports', labelKey: 'navigation.reports', path: '/reports', icon: <BarChart3 size={20} /> },
       { name: 'Admissions', labelKey: 'navigation.admissions', path: '/admissions', icon: <FilePlus2 size={20} /> },
+      { name: 'Invitations', labelKey: 'navigation.invitations', path: '/admin/invitations', icon: <Share2 size={20} /> },
       { name: 'Fees', labelKey: 'navigation.fees', path: '/fees', icon: <CreditCard size={20} /> },
       { name: 'Library', labelKey: 'navigation.library', path: '/library', icon: <Library size={20} /> },
       { name: 'Schedule', labelKey: 'navigation.schedule', path: '/schedule', icon: <Calendar size={20} /> },
@@ -115,7 +127,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       { name: 'Notifications', labelKey: 'navigation.notifications', path: '/notifications', icon: <Bell size={20} /> },
       { name: 'Messages', labelKey: 'navigation.messages', path: '/messages', icon: <MessageSquare size={20} /> },
       { name: 'Administration', labelKey: 'navigation.administration', path: '/administration', icon: <Shield size={20} /> },
-      { name: 'System Settings', labelKey: 'navigation.system_settings', path: '/administration/settings', icon: <Settings size={20} /> },
       { name: 'Settings', labelKey: 'common.settings', path: '/settings', icon: <Settings size={20} /> },
     ],
     teacher: [
@@ -155,6 +166,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
     ]
   };
 
+  const { hasFeature, isLoading: entitlementsLoading } = useEntitlements()
+
+  const featureByPath: Record<string, string> = {
+    '/students': 'students.manage',
+    '/teachers': 'teachers.manage',
+    '/parents': 'parents.manage',
+    '/academics': 'academics.classes',
+    '/attendance': 'attendance.basic',
+    '/exams': 'exams.basic',
+    '/reports': 'reports.standard',
+    '/admissions': 'admissions.basic',
+    '/fees': 'fees.basic',
+    '/library': 'library.basic',
+    '/schedule': 'academics.timetable',
+    '/calendar': 'academics.timetable',
+    '/notifications': 'messaging.in_app',
+    '/messages': 'messaging.in_app',
+    '/administration': 'roles.basic'
+  }
+
   const toLinkTarget = (to: string) => {
     const queryIndex = to.indexOf('?');
     if (queryIndex < 0) return to;
@@ -187,13 +218,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
     if (pathOnly === '/administration') {
       if (location.pathname === '/administration') return true;
       if (!location.pathname.startsWith('/administration/')) return false;
-      return !location.pathname.startsWith('/administration/settings');
+      return true;
     }
 
     return location.pathname.startsWith(pathOnly);
   };
 
-  const filteredNavItems: NavItem[] = navItemsByRole[user?.role || 'user'] ?? navItemsByRole.user ?? [];
+  const baseNavItems: NavItem[] = navItemsByRole[user?.role || 'user'] ?? navItemsByRole.user ?? [];
+  const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
+    if (user?.role === 'super_admin') return true
+    const fk = featureByPath[item.path]
+    if (!fk) return true
+    if (entitlementsLoading) return true
+    return hasFeature(fk)
+  })
 
   // Quick action handlers
   const handleAddStudent = () => {
@@ -236,11 +274,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
         )}>
           {/* Logo */}
           <div className="mb-6">
-            <Link to="/dashboard">
-              <img 
-                src="/assets/images/Admipaedia_Logo.png" 
-                alt="Admipaedia Logo" 
-                className="h-8" 
+            <Link to={dashboardPath}>
+              <img
+                src={brandLogoUrl || "/assets/images/Admipaedia_Logo.png"}
+                alt={brandLogoUrl ? `${brandTitle} Logo` : "Admipaedia Logo"}
+                className="h-8"
               />
             </Link>
           </div>
@@ -364,13 +402,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
         <div className="flex flex-col h-full">
           {/* Logo/Brand */}
           <div className="p-4 mb-2">
-            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+            <Link to={dashboardPath} className="flex items-center gap-2.5 group">
               <div className="h-9 w-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-300">
-                <GraduationCap className="h-5 w-5 text-white" />
+                {brandLogoUrl ? (
+                  <img src={brandLogoUrl} alt={`${brandTitle} Logo`} className="h-5 w-5 object-contain" />
+                ) : (
+                  <GraduationCap className="h-5 w-5 text-white" />
+                )}
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-white">
-                  ADMIPEDIA
+                  {brandTitle}
                 </h1>
                 <div className="flex items-center gap-1.5">
                   <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -113,10 +113,11 @@ const SecuritySettings = () => {
   const { data: currentSettings, isLoading } = useQuery({
     queryKey: ['security-settings'],
     queryFn: () => settingsService.getSecuritySettings(),
-    onSuccess: (data) => {
-      if (data) setSettings(data);
-    }
-  });
+  } as any);
+
+  useEffect(() => {
+    if (currentSettings) setSettings(currentSettings as any)
+  }, [currentSettings])
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({

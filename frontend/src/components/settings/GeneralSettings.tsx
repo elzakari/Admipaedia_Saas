@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -46,10 +46,11 @@ const GeneralSettings = () => {
   const { data: currentSettings, isLoading } = useQuery({
     queryKey: ['general-settings'],
     queryFn: () => settingsService.getGeneralSettings(),
-    onSuccess: (data) => {
-      if (data) setSettings(data);
-    }
-  });
+  } as any);
+
+  useEffect(() => {
+    if (currentSettings) setSettings(currentSettings as any)
+  }, [currentSettings])
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({

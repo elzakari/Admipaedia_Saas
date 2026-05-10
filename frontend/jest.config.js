@@ -8,7 +8,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)': '<rootDir>/src/$1',
-    '^\\.\\./config/constants$': '<rootDir>/src/__mocks__/constants.js',
+    '^\\.\\./config/constants$': '<rootDir>/src/__mocks__/constants.ts',
     '\\.(css|less|scss|sass)': 'identity-obj-proxy'
   },
   setupFilesAfterEnv: [

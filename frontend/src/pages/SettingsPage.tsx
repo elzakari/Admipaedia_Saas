@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { Card, CardContent } from '../components/ui/card';
@@ -12,6 +12,7 @@ import SecuritySettings from '../components/settings/SecuritySettings';
 import BackupSettings from '../components/settings/BackupSettings';
 import ThemeSettings from '../components/settings/ThemeSettings';
 import AuditLogs from '../components/settings/AuditLogs';
+import AdmissionSettings from '../components/settings/AdmissionSettings';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
 import ParentGeneralSettings from '../components/settings/ParentGeneralSettings';
 import ParentNotificationPreferences from '../components/settings/ParentNotificationPreferences';
@@ -34,7 +35,7 @@ const SettingsPage = () => {
     if (user?.role === 'parent') return ['general', 'notifications', 'theme', 'privacy'] as const;
     if (user?.role === 'student') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
     if (user?.role === 'teacher') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
-    return ['general', 'users', 'academic', 'notifications', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
+    return ['general', 'users', 'academic', 'admissions', 'notifications', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
   }, [user?.role]);
 
   const paramTab = searchParams.get('tab');
@@ -89,6 +90,7 @@ const SettingsPage = () => {
       { id: 'general', name: 'General', icon: 'settings' },
       { id: 'users', name: 'User & Roles', icon: 'users' },
       { id: 'academic', name: 'Academic', icon: 'graduation' },
+      { id: 'admissions', name: 'Admissions', icon: 'file' },
       { id: 'notifications', name: 'Notifications', icon: 'bell' },
       { id: 'ai', name: 'AI Assistant', icon: 'cpu' },
       { id: 'integrations', name: 'Integrations', icon: 'integrations' },
@@ -121,7 +123,7 @@ const SettingsPage = () => {
       <div className="flex flex-col md:flex-row gap-6">
         {/* Settings Sidebar */}
         <div className="w-full md:w-64 flex-shrink-0">
-          <SettingsSidebar categories={categories as Array<{ id: string; name: string; icon: string }>} activeTab={activeTab} setActiveTab={onTabChange} />
+          <SettingsSidebar categories={categories} activeTab={activeTab} setActiveTab={onTabChange} />
         </div>
 
         {/* Settings Content */}
@@ -143,6 +145,9 @@ const SettingsPage = () => {
                 </TabsContent>
                 <TabsContent value="academic" className="p-6 m-0">
                   <AcademicConfiguration />
+                </TabsContent>
+                <TabsContent value="admissions" className="p-6 m-0">
+                  <AdmissionSettings />
                 </TabsContent>
                 <TabsContent value="notifications" className="p-6 m-0">
                   {user?.role === 'parent'

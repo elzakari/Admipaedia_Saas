@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import ParentRegisterForm from './ParentRegisterForm';
+import InviteOnlyRegister from './InviteOnlyRegister';
 
 const ParentRegisterPage: React.FC = () => {
   return (
@@ -28,7 +28,7 @@ const ParentRegisterPage: React.FC = () => {
               </p>
             </div>
 
-            <ParentRegisterForm />
+            <InviteOnlyRegister />
           </div>
 
           <div className="mt-6 text-center text-xs text-slate-500">

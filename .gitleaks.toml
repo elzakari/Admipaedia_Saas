@@ -1,9 +1,11 @@
-[allowlist]
-  description = "Global allowlist"
-  paths = [
-    "backend/.env.example",
-    "docs/SECURITY_SECRETS.md"
-  ]
+title = "ADMIPAEDIA gitleaks config"
 
-[rules]
-  # Use default builtin rules; empty here to rely on action defaults
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  "backend/.env.example",
+  "docs/SECURITY_SECRETS.md"
+]
