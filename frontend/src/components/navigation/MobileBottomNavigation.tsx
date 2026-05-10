@@ -122,7 +122,14 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
       labelKey: 'navigation.schedule',
       path: '/schedule',
       icon: <Calendar size={20} />,
-      roles: ['admin', 'parent']
+      roles: ['admin']
+    },
+    {
+      name: 'Schedule',
+      labelKey: 'navigation.schedule',
+      path: '/parent/schedule',
+      icon: <Calendar size={20} />,
+      roles: ['parent']
     },
     {
       name: 'Library',

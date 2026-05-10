@@ -68,8 +68,8 @@ export function Layout({ children, hideHeader }: LayoutProps) {
           { name: 'Dashboard', labelKey: 'navigation.dashboard', href: dashboardHref, icon: Home },
           { name: 'My Children', labelKey: 'navigation.my_children', href: '/parent-portal', icon: Users },
           { name: 'Admissions', labelKey: 'navigation.admissions', href: '/admissions', icon: FilePlus2 },
-          { name: 'Schedule', labelKey: 'navigation.schedule', href: '/schedule', icon: Calendar },
-          { name: 'Calendar', labelKey: 'navigation.calendar', href: '/calendar', icon: Calendar },
+          { name: 'Schedule', labelKey: 'navigation.schedule', href: '/parent/schedule', icon: Calendar },
+          { name: 'Calendar', labelKey: 'navigation.calendar', href: '/parent/calendar', icon: Calendar },
           { name: 'Messages', labelKey: 'navigation.messages', href: '/messages', icon: MessageSquare },
           { name: 'Notifications', labelKey: 'navigation.notifications', href: '/notifications', icon: Bell },
           { name: 'Settings', labelKey: 'navigation.settings', href: '/settings', icon: Settings }

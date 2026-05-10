@@ -51,6 +51,7 @@ const ParentManagementPage = lazy(() => import('../pages/parents/ParentManagemen
 // Lazy-loaded feature pages (lower priority)
 const LibraryPage = lazy(() => import('../pages/Library/LibraryPage'));
 const SchedulePage = lazy(() => import('../pages/Schedules/SchedulePage'));
+const ParentSchedulePage = lazy(() => import('../pages/Schedules/ParentSchedulePage'));
 const NotificationsPage = lazy(() => import('../pages/Notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const MessagesPage = lazy(() => import('../pages/Messages/MessagesPage').then(module => ({ default: module.MessagesPage })));
 const FeesPage = lazy(() => import('../pages/Fees/FeesPage').then(module => ({ default: module.FeesPage })));
@@ -60,6 +61,7 @@ const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'));
 const ExamsPage = lazy(() => import('../pages/exams/ExamsPage'));
 const ClassesPage = lazy(() => import('../pages/classes/ClassesPage'));
 const CalendarPage = lazy(() => import('../pages/calendar/CalendarPage'));
+const ParentCalendarPage = lazy(() => import('../pages/calendar/ParentCalendarPage'));
 const ExportPage = lazy(() => import('../pages/export/ExportPage'));
 const SettingsPage = lazy(() => import('../pages/SettingsPage'));
 const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
@@ -724,16 +726,40 @@ const AppRoutes: React.FC = () => {
       />
 
       <Route 
+        path="/parent/schedule" 
+        element={
+          <ProtectedRoute
+            element={<ParentSchedulePage />}
+            allowedRoles={['parent']}
+            componentName="Parent Schedule"
+          />
+        }
+      />
+
+      <Route 
+        path="/parent/calendar" 
+        element={
+          <ProtectedRoute
+            element={<ParentCalendarPage />}
+            allowedRoles={['parent']}
+            componentName="Parent Calendar"
+          />
+        }
+      />
+
+      <Route 
         path="/calendar" 
         element={
           user?.role === 'student'
             ? <Navigate to="/student/calendar" replace />
             : user?.role === 'teacher'
               ? <Navigate to="/teacher/calendar" replace />
+            : user?.role === 'parent'
+              ? <Navigate to="/parent/calendar" replace />
             : (
               <ProtectedRoute 
                 element={<CalendarPage />} 
-                allowedRoles={['admin', 'parent']}
+                allowedRoles={['admin']}
                 componentName="Calendar"
               />
             )
@@ -773,10 +799,12 @@ const AppRoutes: React.FC = () => {
             ? <Navigate to="/student/timetable" replace />
             : user?.role === 'teacher'
               ? <Navigate to="/teacher/timetable" replace />
+            : user?.role === 'parent'
+              ? <Navigate to="/parent/schedule" replace />
             : (
               <ProtectedRoute 
                 element={<SchedulePage />} 
-                allowedRoles={['admin', 'parent']}
+                allowedRoles={['admin']}
                 componentName="Schedule"
               />
             )
