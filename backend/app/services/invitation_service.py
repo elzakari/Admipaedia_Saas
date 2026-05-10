@@ -2,7 +2,7 @@ import base64
 import hmac
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from flask import current_app, request
@@ -90,7 +90,7 @@ def create_invitation_link(*, tenant_id, invitee_type: str, created_by_user_id: 
         days = 30
 
     _, nonce_hash = InvitationLink.new_nonce()
-    expires_at = datetime.utcnow() + timedelta(days=days)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=days)
 
     invite = InvitationLink(
         tenant_id=tenant_id,
@@ -113,7 +113,16 @@ def create_invitation_link(*, tenant_id, invitee_type: str, created_by_user_id: 
 
 
 def mark_expired_if_needed(invite: InvitationLink) -> bool:
-    if invite.status == 'active' and invite.expires_at and invite.expires_at < datetime.utcnow():
+    if invite.status != 'active' or not invite.expires_at:
+        return False
+
+    expires_at = invite.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    else:
+        expires_at = expires_at.astimezone(timezone.utc)
+
+    if expires_at < datetime.now(timezone.utc):
         invite.status = 'expired'
         _event(invite.id, 'expired', tenant_id=invite.tenant_id, actor_user_id=None)
         return True
