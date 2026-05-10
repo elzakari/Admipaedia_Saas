@@ -1,20 +1,64 @@
 import React, { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { teacherClasses } from './teacherMockData';
 import { ChevronRight, Users, CalendarCheck2, BadgeCheck, ClipboardList, Megaphone } from 'lucide-react';
 import { TeacherClassRosterTab } from './components/TeacherClassRosterTab';
 import { TeacherClassAttendanceTab } from './components/TeacherClassAttendanceTab';
 import { TeacherClassGradebookTab } from './components/TeacherClassGradebookTab';
 import { TeacherClassAssignmentsTab } from './components/TeacherClassAssignmentsTab';
 import { TeacherClassAnnouncementsTab } from './components/TeacherClassAnnouncementsTab';
+import classService from '../../services/classService';
+import studentService from '../../services/studentService';
 
 const TeacherClassDetailPage: React.FC = () => {
   const { classId } = useParams();
-  const cls = useMemo(() => teacherClasses.find((c) => c.id === classId) ?? null, [classId]);
+  const classIdNum = Number(classId);
 
-  if (!cls) {
+  const { data: classObj, isLoading: classLoading, error: classError } = useQuery({
+    queryKey: ['class', classIdNum],
+    queryFn: () => classService.getClassById(classIdNum),
+    enabled: Number.isFinite(classIdNum) && classIdNum > 0,
+    staleTime: 60_000
+  });
+
+  const { data: rosterData, isLoading: rosterLoading } = useQuery({
+    queryKey: ['class-roster', classIdNum],
+    queryFn: () => studentService.getStudentsByClass(classIdNum),
+    enabled: Number.isFinite(classIdNum) && classIdNum > 0,
+    staleTime: 60_000
+  });
+
+  const cls = useMemo(() => {
+    if (!classObj) return null;
+    const roster = (rosterData || []).map((s: any) => ({
+      id: String(s.id),
+      name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || 'Student',
+      status: (s.status || 'active').toLowerCase()
+    }));
+
+    return {
+      id: String(classId ?? classObj.id),
+      className: classObj.name,
+      subject: classObj.grade_level || 'Class',
+      term: classObj.academic_year,
+      room: classObj.section,
+      roster
+    } as any;
+  }, [classId, classObj, rosterData]);
+
+  if (classLoading) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">Loading…</CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (classError || !cls) {
     return (
       <div className="p-6">
         <Card>
@@ -51,7 +95,7 @@ const TeacherClassDetailPage: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-600 dark:text-slate-400">Students</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">{cls.roster.length}</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{rosterLoading ? '—' : cls.roster.length}</span>
             </div>
             <div className="text-xs text-slate-500">Actions are scoped to this class only.</div>
           </CardContent>

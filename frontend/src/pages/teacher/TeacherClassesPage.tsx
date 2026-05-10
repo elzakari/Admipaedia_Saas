@@ -1,19 +1,38 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { teacherClasses } from './teacherMockData';
 import { BookOpen, ChevronRight, Search } from 'lucide-react';
+import teacherService from '../../services/teacherService';
 
 const TeacherClassesPage: React.FC = () => {
   const [q, setQ] = useState('');
+
+  const { data: teacher } = useQuery({
+    queryKey: ['teacher-profile'],
+    queryFn: () => teacherService.getOwnProfile(),
+    staleTime: 60_000
+  });
+
+  const teacherId = (teacher as any)?.id;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['teacher-classes', teacherId],
+    queryFn: () => teacherService.getTeacherClasses(Number(teacherId), { page: 1, per_page: 50 }),
+    enabled: !!teacherId,
+    staleTime: 60_000
+  });
+
+  const classes = useMemo(() => (data as any)?.classes || [], [data]);
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return teacherClasses;
-    return teacherClasses.filter((c) => {
-      const hay = `${c.className} ${c.subject} ${c.term ?? ''}`.toLowerCase();
+    if (!query) return classes;
+    return classes.filter((c: any) => {
+      const hay = `${c.name ?? ''} ${c.academic_year ?? ''} ${c.status ?? ''}`.toLowerCase();
       return hay.includes(query);
     });
-  }, [q]);
+  }, [classes, q]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -34,19 +53,24 @@ const TeacherClassesPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filtered.map((c) => (
-          <Link key={c.id} to={`/teacher/classes/${c.id}`} className="block">
+        {isLoading ? (
+          <div className="text-sm text-slate-600">Loading…</div>
+        ) : error ? (
+          <div className="text-sm text-slate-600">Failed to load classes.</div>
+        ) : (
+          filtered.map((c: any) => (
+            <Link key={c.id} to={`/teacher/classes/${c.id}`} className="block">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-indigo-600" />
-                    {c.subject} — {c.className}
+                    {c.name}
                   </span>
                   <ChevronRight className="h-4 w-4 text-slate-400" />
                 </CardTitle>
                 <CardDescription>
-                  {c.term ?? '—'}{c.room ? ` • ${c.room}` : ''} • {c.roster.length} student(s)
+                  {c.academic_year ?? '—'}{c.status ? ` • ${c.status}` : ''}
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-sm text-slate-600 dark:text-slate-400">
@@ -54,7 +78,8 @@ const TeacherClassesPage: React.FC = () => {
               </CardContent>
             </Card>
           </Link>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
