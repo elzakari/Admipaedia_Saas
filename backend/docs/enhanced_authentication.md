@@ -97,8 +97,8 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
   "csrf_token": "abc123def456",
   "expires_in": 28800,
   "user": {
@@ -125,7 +125,7 @@ Content-Type: application/json
 #### Setup MFA
 ```http
 POST /api/v1/auth/mfa/setup
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 Content-Type: application/json
 
 {
@@ -166,7 +166,7 @@ Content-Type: application/json
 #### Get Trusted Devices
 ```http
 GET /api/v1/auth/devices/trusted
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 **Response:**
@@ -192,7 +192,7 @@ Authorization: Bearer <access_token>
 #### Revoke Trusted Device
 ```http
 DELETE /api/v1/auth/devices/trusted/{device_id}
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 ### Security Settings
@@ -200,7 +200,7 @@ Authorization: Bearer <access_token>
 #### Get Security Settings
 ```http
 GET /api/v1/auth/security/settings
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 **Response:**
@@ -224,7 +224,7 @@ Authorization: Bearer <access_token>
 #### Update Security Settings
 ```http
 PUT /api/v1/auth/security/settings
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 Content-Type: application/json
 
 {
@@ -240,7 +240,7 @@ Content-Type: application/json
 #### Get User Sessions
 ```http
 GET /api/v1/auth/sessions
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 **Response:**
@@ -264,7 +264,7 @@ Authorization: Bearer <access_token>
 #### Revoke Session
 ```http
 DELETE /api/v1/auth/sessions/{session_id}
-Authorization: Bearer <access_token>
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
 ## Database Schema

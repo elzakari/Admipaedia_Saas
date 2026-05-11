@@ -1,6 +1,6 @@
 from app.extensions import db
 from app.models.grading_system import GradingScheme, GradeBoundary, GradingStandard
-from app.models.educational_level import EducationalLevel, KeyPhase
+from app.models.educational_level import EducationalLevel
 from app import create_app
 
 def create_ghana_grading_schemes():
@@ -107,11 +107,11 @@ def create_ghana_grading_schemes():
         
         # Link schemes to appropriate educational levels
         jhs_levels = EducationalLevel.query.filter(
-            EducationalLevel.key_phase == KeyPhase.KEY_PHASE_4
+            EducationalLevel.key_phase == 'key_phase_4'
         ).all()
         
         shs_levels = EducationalLevel.query.filter(
-            EducationalLevel.key_phase == KeyPhase.KEY_PHASE_5
+            EducationalLevel.key_phase == 'key_phase_5'
         ).all()
         
         # Assign BECE to JHS3
