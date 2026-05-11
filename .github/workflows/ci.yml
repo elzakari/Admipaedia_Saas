@@ -15,7 +15,7 @@ jobs:
       uses: gitleaks/gitleaks-action@v2
       with:
         config-path: .gitleaks.toml
-        args: --redact
+        args: --no-git --redact
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -44,6 +44,20 @@ jobs:
     defaults:
       run:
         working-directory: ./backend
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: admipaedia_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     
     steps:
     - uses: actions/checkout@v4
@@ -57,8 +71,26 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+
+    - name: Wait for Postgres
+      run: |
+        python - <<'PY'
+        import time
+        import psycopg2
+        for i in range(30):
+            try:
+                psycopg2.connect('postgresql://postgres:postgres@localhost:5432/admipaedia_test').close()
+                print('Postgres is ready')
+                break
+            except Exception as e:
+                print('Waiting for Postgres...', str(e))
+                time.sleep(2)
+        else:
+            raise SystemExit('Postgres did not become ready')
+        PY
     
     - name: Run tests
       run: pytest -q tests/test_api/test_settings_segregation.py tests/integration/test_invitation_links.py
       env:
-        TEST_DB_URL: sqlite:///:memory:
+        TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/admipaedia_test
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/admipaedia_test
