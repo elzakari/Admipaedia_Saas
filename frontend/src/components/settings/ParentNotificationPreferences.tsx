@@ -14,7 +14,7 @@ type ParentNotificationPrefs = {
   events: boolean;
 };
 
-const storageKey = 'admipaedia.parent.notification_prefs.v1';
+const parentNotificationPrefsStorageNamespace = 'sms.parent.notification_prefs.v1';
 
 const defaultPrefs: ParentNotificationPrefs = {
   email: true,
@@ -31,7 +31,7 @@ const ParentNotificationPreferences: React.FC = () => {
 
   const initial = useMemo(() => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(parentNotificationPrefsStorageNamespace);
       if (!raw) return defaultPrefs;
       const parsed = JSON.parse(raw) as Partial<ParentNotificationPrefs>;
       return { ...defaultPrefs, ...parsed };
@@ -53,7 +53,7 @@ const ParentNotificationPreferences: React.FC = () => {
   const save = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(prefs));
+      localStorage.setItem(parentNotificationPrefsStorageNamespace, JSON.stringify(prefs));
       toast({
         title: 'Saved',
         description: 'Your notification preferences have been updated.'
@@ -65,7 +65,7 @@ const ParentNotificationPreferences: React.FC = () => {
 
   const reset = () => {
     setPrefs(defaultPrefs);
-    localStorage.setItem(storageKey, JSON.stringify(defaultPrefs));
+    localStorage.setItem(parentNotificationPrefsStorageNamespace, JSON.stringify(defaultPrefs));
     toast({
       title: 'Reset',
       description: 'Notification preferences were reset to defaults.'

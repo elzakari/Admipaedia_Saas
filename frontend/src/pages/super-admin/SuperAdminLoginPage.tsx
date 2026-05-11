@@ -14,6 +14,8 @@ const SuperAdminLoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const allowDevSeedHelpers = import.meta.env.DEV && import.meta.env.VITE_ENABLE_SEED_HELPERS === 'true'
+
   const canSubmit = useMemo(() => email.trim().length > 0 && password.trim().length > 0, [email, password])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,6 +47,7 @@ const SuperAdminLoginPage: React.FC = () => {
   }
 
   const bootstrapDevAccounts = async () => {
+    if (!allowDevSeedHelpers) return
     setError(null)
     try {
       await api.post('/auth/bootstrap-dev')
@@ -97,7 +100,7 @@ const SuperAdminLoginPage: React.FC = () => {
             <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </Button>
-            {import.meta.env.DEV ? (
+            {allowDevSeedHelpers ? (
               <button
                 type="button"
                 onClick={bootstrapDevAccounts}

@@ -168,31 +168,29 @@ def test_auth():
     return jsonify({"success": True, "message": "Auth service is reachable"}), 200
 
 @auth_bp.route('/login', methods=['POST'])
-# @rate_limit(limit=10, window=900, burst_limit=5)  # 10 attempts per 15 minutes, max 5 rapid attempts
-# @sanitize_request_data({'email': 'email', 'password': 'text'}) # Temporarily disable sanitize_request_data to debug
-# @security_headers()
+@rate_limit(limit=10, window=900, burst_limit=5)  # 10 attempts per 15 minutes, max 5 rapid attempts
+@sanitize_request_data({'email': 'email', 'password': 'text'})
+@security_headers()
 def login():
     """Authenticate user with enhanced security measures (MFA support)."""
-    print("--- LOGIN REQUEST START ---")
     try:
-        # Use simple validation for now
-        data = request.get_json()
-        if not data or 'email' not in data or 'password' not in data:
-            print("--- LOGIN REQUEST FAILED: DATA MISSING ---")
-            return jsonify({"success": False, "error": "Email and password required"}), 400
+        data = request.get_json() or {}
+        email = (data.get('email') or '').strip().lower()
+        password = data.get('password') or ''
+
+        if not email or not password:
+            return jsonify({"success": False, "message": "Email and password required"}), 400
             
-        logger.info("login_attempt", email=data['email'])
-        print(f"--- LOGIN ATTEMPT FOR: {data['email']} ---")
+        logger.info("login_attempt", email=email)
         
         result = EnhancedAuthService.authenticate_with_security(
-            email=data['email'],
-            password=data['password'],
+            email=email,
+            password=password,
             remember_me=data.get('remember_me', False),
             device_info=data.get('device_info')
         )
         
-        print(f"--- LOGIN RESULT: {result.get('success')} ---")
-        logger.info("login_result", email=data['email'], success=result.get('success', False))
+        logger.info("login_result", email=email, success=result.get('success', False))
         
         # Ensure status_code is a valid integer
         status_code = 200 if result.get('success', False) else 401
@@ -205,7 +203,7 @@ def login():
         
     except Exception as err:
         logger.error("login_error", error=str(err))
-        return jsonify({"success": False, "error": f"Login failed: {str(err)}"}), 500
+        return jsonify({"success": False, "message": "Login failed"}), 500
 
 
 @auth_bp.route('/bootstrap-dev', methods=['POST'])

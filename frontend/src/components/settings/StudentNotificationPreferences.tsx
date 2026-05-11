@@ -14,7 +14,7 @@ type StudentNotificationPrefs = {
   attendanceAlerts: boolean;
 };
 
-const storageKey = 'admipaedia.student.notification_prefs.v1';
+const studentNotificationPrefsStorageNamespace = 'sms.student.notification_prefs.v1';
 
 const defaults: StudentNotificationPrefs = {
   email: true,
@@ -30,7 +30,7 @@ const StudentNotificationPreferences: React.FC = () => {
 
   const initial = useMemo(() => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(studentNotificationPrefsStorageNamespace);
       if (!raw) return defaults;
       const parsed = JSON.parse(raw) as Partial<StudentNotificationPrefs>;
       return { ...defaults, ...parsed };
@@ -49,7 +49,7 @@ const StudentNotificationPreferences: React.FC = () => {
   const save = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(prefs));
+      localStorage.setItem(studentNotificationPrefsStorageNamespace, JSON.stringify(prefs));
       toast({ title: 'Saved', description: 'Your notification preferences have been updated.' });
     } finally {
       setIsSaving(false);
@@ -58,7 +58,7 @@ const StudentNotificationPreferences: React.FC = () => {
 
   const reset = () => {
     setPrefs(defaults);
-    localStorage.setItem(storageKey, JSON.stringify(defaults));
+    localStorage.setItem(studentNotificationPrefsStorageNamespace, JSON.stringify(defaults));
     toast({ title: 'Reset', description: 'Notification preferences were reset to defaults.' });
   };
 

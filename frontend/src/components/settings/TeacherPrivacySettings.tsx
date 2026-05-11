@@ -11,7 +11,7 @@ type PrivacyPrefs = {
   shareUsageData: boolean;
 };
 
-const storageKey = 'admipaedia.teacher.privacy_prefs.v1';
+const teacherPrivacyPrefsStorageNamespace = 'sms.teacher.privacy_prefs.v1';
 
 const defaults: PrivacyPrefs = {
   analytics: true,
@@ -24,7 +24,7 @@ const TeacherPrivacySettings: React.FC = () => {
 
   const initial = useMemo(() => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(teacherPrivacyPrefsStorageNamespace);
       if (!raw) return defaults;
       const parsed = JSON.parse(raw) as Partial<PrivacyPrefs>;
       return { ...defaults, ...parsed };
@@ -43,7 +43,7 @@ const TeacherPrivacySettings: React.FC = () => {
   const save = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(prefs));
+      localStorage.setItem(teacherPrivacyPrefsStorageNamespace, JSON.stringify(prefs));
       toast({ title: 'Saved', description: 'Your privacy preferences have been updated.' });
     } finally {
       setIsSaving(false);
@@ -52,7 +52,7 @@ const TeacherPrivacySettings: React.FC = () => {
 
   const reset = () => {
     setPrefs(defaults);
-    localStorage.setItem(storageKey, JSON.stringify(defaults));
+    localStorage.setItem(teacherPrivacyPrefsStorageNamespace, JSON.stringify(defaults));
     toast({ title: 'Reset', description: 'Privacy preferences were reset to defaults.' });
   };
 
