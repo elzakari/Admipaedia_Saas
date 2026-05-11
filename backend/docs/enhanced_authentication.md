@@ -97,9 +97,9 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "csrf_token": "abc123def456",
+  "access": "REDACTED",
+  "refresh": "REDACTED",
+  "csrf": "REDACTED",
   "expires_in": 28800,
   "user": {
     "id": 1,
@@ -115,7 +115,7 @@ Content-Type: application/json
 {
   "success": false,
   "mfa_required": true,
-  "mfa_token": "temp_mfa_token_123",
+  "mfa_session": "REDACTED",
   "available_methods": ["totp", "backup_code"]
 }
 ```
@@ -125,7 +125,7 @@ Content-Type: application/json
 #### Setup MFA
 ```http
 POST /api/v1/auth/mfa/setup
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <ACCESS>
 Content-Type: application/json
 
 {
