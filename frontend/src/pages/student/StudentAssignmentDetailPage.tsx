@@ -7,7 +7,7 @@ import { studentAssignments, studentClasses } from './studentMockData';
 import { ChevronRight, UploadCloud } from 'lucide-react';
 
 type SubmissionRecord = Record<string, { submittedAt: string; fileName?: string }>;
-const storageKey = 'admipaedia.student.assignment_submissions.v1';
+const submissionsStorageNamespace = 'sms.student.assignment_submissions.v1';
 
 const StudentAssignmentDetailPage: React.FC = () => {
   const { assignmentId } = useParams();
@@ -20,7 +20,7 @@ const StudentAssignmentDetailPage: React.FC = () => {
 
   const initialSubmission = useMemo(() => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(submissionsStorageNamespace);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as SubmissionRecord;
       if (!assignmentId) return null;
@@ -52,12 +52,12 @@ const StudentAssignmentDetailPage: React.FC = () => {
     const record = { submittedAt: new Date().toISOString(), fileName };
     setSubmission(record);
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(submissionsStorageNamespace);
       const parsed = (raw ? (JSON.parse(raw) as SubmissionRecord) : {}) as SubmissionRecord;
       parsed[assignment.id] = record;
-      localStorage.setItem(storageKey, JSON.stringify(parsed));
+      localStorage.setItem(submissionsStorageNamespace, JSON.stringify(parsed));
     } catch {
-      localStorage.setItem(storageKey, JSON.stringify({ [assignment.id]: record } as SubmissionRecord));
+      localStorage.setItem(submissionsStorageNamespace, JSON.stringify({ [assignment.id]: record } as SubmissionRecord));
     }
   };
 
