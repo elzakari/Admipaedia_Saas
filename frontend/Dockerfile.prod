@@ -1,41 +1,40 @@
 # Multi-stage build for production frontend
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production --prefer-offline --no-audit
+RUN npm install -g npm@9.9.4
+RUN npm --version && node --version
 
-# Copy source code
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci --legacy-peer-deps --include=dev --no-audit --no-fund
+
 COPY . .
 
-# Build the application
+ENV NODE_ENV=production
+ENV VITE_API_URL=/api
+ENV VITE_SOCKET_URL=/
+
+RUN test -x ./node_modules/.bin/vite
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine AS production
+FROM nginx:alpine
 
-# Copy custom nginx configuration
+RUN apk add --no-cache curl
+
 COPY nginx.conf /etc/nginx/nginx.conf
-
-# Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy service worker and manifest files
 COPY --from=builder /app/public/enhanced-sw.js /usr/share/nginx/html/
 COPY --from=builder /app/public/manifest.json /usr/share/nginx/html/
 COPY --from=builder /app/public/offline.html /usr/share/nginx/html/
 
-# Add health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:80/health || exit 1
-
-# Expose port
 EXPOSE 80
 
-# Start nginx
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=5 \
+  CMD curl -f http://localhost/health || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]

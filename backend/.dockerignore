@@ -3,6 +3,7 @@ __pycache__
 *.pyo
 *.pyd
 *.pyc
+.Python
 *.egg-info/
 *.egg
 
@@ -15,8 +16,10 @@ htmlcov/
 
 .env
 .env.*
+.envrc
 
 .git/
+.gitignore
 .github/
 
 venv/
@@ -27,6 +30,7 @@ dist/
 build/
 
 *.log
+logs/
 
 instance/
 uploads/
