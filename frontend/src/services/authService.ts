@@ -6,7 +6,7 @@ export interface User {
   username: string; // Added to match backend /auth/me
   first_name?: string;
   last_name?: string;
-  role: 'super_admin' | 'admin' | 'teacher' | 'student' | 'parent' | 'user';
+  role: 'super_admin' | 'super_manager' | 'admin' | 'teacher' | 'student' | 'parent' | 'user';
   is_active?: boolean;
   profile_image?: string;
   phone?: string;

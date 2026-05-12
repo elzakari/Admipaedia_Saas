@@ -225,11 +225,24 @@ def create_user():
         db.session.add(user)
         db.session.flush()  # Get user ID
 
-        # Assign role
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        actor_role = getattr(current_user, 'role', None)
+        if not actor_role and current_user:
+            if any(r.name == 'super_admin' for r in current_user.roles):
+                actor_role = 'super_admin'
+            elif any(r.name == 'super_manager' for r in current_user.roles):
+                actor_role = 'super_manager'
+
         role_name = data.get('role', 'user')
+        if role_name in ('super_admin', 'super_manager') and actor_role != 'super_admin':
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
         role = Role.query.filter_by(name=role_name).first()
         if role:
             user.roles.append(role)
+        if hasattr(user, 'role'):
+            user.role = role_name
 
         # Store password in history
         password_history = PasswordHistory(
@@ -243,7 +256,7 @@ def create_user():
         # Log security event
         log_security_event('user_created_by_admin', {
             'created_user_id': user.id,
-            'created_by': get_jwt_identity(),
+            'created_by': current_user_id,
             'email': user.email,
             'role': role_name
         })
@@ -289,9 +302,30 @@ def update_user(user_id):
                     'error': 'Username already taken'
                 }), 400
 
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        actor_role = getattr(current_user, 'role', None)
+        if not actor_role and current_user:
+            if any(r.name == 'super_admin' for r in current_user.roles):
+                actor_role = 'super_admin'
+            elif any(r.name == 'super_manager' for r in current_user.roles):
+                actor_role = 'super_manager'
+
+        target_role = getattr(user, 'role', None)
+        if not target_role:
+            if any(r.name == 'super_admin' for r in user.roles):
+                target_role = 'super_admin'
+            elif any(r.name == 'super_manager' for r in user.roles):
+                target_role = 'super_manager'
+
+        if target_role in ('super_admin', 'super_manager') and actor_role != 'super_admin':
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
         # Update user fields
         for field, value in data.items():
             if field == 'role':
+                if value in ('super_admin', 'super_manager') and actor_role != 'super_admin':
+                    return jsonify({'success': False, 'error': 'Unauthorized'}), 403
                 # Handle role update
                 # Remove existing roles
                 user.roles.clear()
@@ -300,6 +334,8 @@ def update_user(user_id):
                 role = Role.query.filter_by(name=value).first()
                 if role:
                     user.roles.append(role)
+                if hasattr(user, 'role'):
+                    user.role = value
             elif hasattr(user, field):
                 setattr(user, field, value)
 
@@ -308,7 +344,7 @@ def update_user(user_id):
         # Log security event
         log_security_event('user_updated_by_admin', {
             'updated_user_id': user.id,
-            'updated_by': get_jwt_identity(),
+            'updated_by': current_user_id,
             'updated_fields': list(data.keys())
         })
 
@@ -336,6 +372,23 @@ def delete_user(user_id):
         
         # Prevent self-deletion
         current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        actor_role = getattr(current_user, 'role', None)
+        if not actor_role and current_user:
+            if any(r.name == 'super_admin' for r in current_user.roles):
+                actor_role = 'super_admin'
+            elif any(r.name == 'super_manager' for r in current_user.roles):
+                actor_role = 'super_manager'
+
+        target_role = getattr(user, 'role', None)
+        if not target_role:
+            if any(r.name == 'super_admin' for r in user.roles):
+                target_role = 'super_admin'
+            elif any(r.name == 'super_manager' for r in user.roles):
+                target_role = 'super_manager'
+
+        if target_role in ('super_admin', 'super_manager') and actor_role != 'super_admin':
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         if str(user_id) == str(current_user_id):
             return jsonify({
                 'success': False,

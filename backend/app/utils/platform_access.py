@@ -20,7 +20,7 @@ def require_platform_super_admin():
             user = get_current_user()
             if not user:
                 return jsonify({'success': False, 'message': 'Authentication required'}), 401
-            if getattr(user, 'role', None) != 'super_admin':
+            if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
                 return jsonify({'success': False, 'message': 'Unauthorized'}), 403
             g.current_user = user
             return f(*args, **kwargs)

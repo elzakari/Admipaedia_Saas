@@ -1,6 +1,6 @@
 import api from '@/lib/api'
 
-export type SuperAdminUserRole = 'super_admin' | 'admin' | 'teacher' | 'student' | 'parent' | 'user'
+export type SuperAdminUserRole = 'super_admin' | 'super_manager' | 'admin' | 'teacher' | 'student' | 'parent' | 'user'
 export type SuperAdminUserStatus = 'active' | 'inactive'
 
 export type SuperAdminUser = {

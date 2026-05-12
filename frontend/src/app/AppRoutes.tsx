@@ -243,36 +243,36 @@ const AppRoutes: React.FC = () => {
       <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
       <Route
         path="/super-admin"
-        element={<ProtectedRoute element={<SuperAdminDashboardPage />} allowedRoles={['super_admin']} componentName="Super Admin" />}
+        element={<ProtectedRoute element={<SuperAdminDashboardPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Super Admin" />}
       />
       <Route
         path="/super-admin/schools"
-        element={<ProtectedRoute element={<SuperAdminSchoolsPage />} allowedRoles={['super_admin']} componentName="Schools" />}
+        element={<ProtectedRoute element={<SuperAdminSchoolsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Schools" />}
       />
       <Route
         path="/super-admin/financial"
-        element={<ProtectedRoute element={<SuperAdminFinancialInsightsPage />} allowedRoles={['super_admin']} componentName="Financial Insights" />}
+        element={<ProtectedRoute element={<SuperAdminFinancialInsightsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Financial Insights" />}
       />
       <Route
         path="/super-admin/users"
-        element={<ProtectedRoute element={<SuperAdminUsersPage />} allowedRoles={['super_admin']} componentName="Users" />}
+        element={<ProtectedRoute element={<SuperAdminUsersPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Users" />}
       />
       <Route
         path="/super-admin/users/:id"
-        element={<ProtectedRoute element={<SuperAdminUserDetailsPage />} allowedRoles={['super_admin']} componentName="User Details" />}
+        element={<ProtectedRoute element={<SuperAdminUserDetailsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="User Details" />}
       />
       <Route
         path="/super-admin/audit-logs"
-        element={<ProtectedRoute element={<SuperAdminAuditLogsPage />} allowedRoles={['super_admin']} componentName="Audit Logs" />}
+        element={<ProtectedRoute element={<SuperAdminAuditLogsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Audit Logs" />}
       />
       <Route
         path="/super-admin/e-registration-billing"
-        element={<ProtectedRoute element={<SuperAdminERegistrationBillingPage />} allowedRoles={['super_admin']} componentName="E-Registration Billing" />}
+        element={<ProtectedRoute element={<SuperAdminERegistrationBillingPage />} allowedRoles={['super_admin', 'super_manager']} componentName="E-Registration Billing" />}
       />
 
       <Route
         path="/app/onboarding"
-        element={<BareProtectedRoute element={<SaasOnboardingPage />} allowedRoles={['super_admin']} componentName="School Onboarding" />}
+        element={<BareProtectedRoute element={<SaasOnboardingPage />} allowedRoles={['super_admin', 'super_manager']} componentName="School Onboarding" />}
       />
       <Route
         path="/app"
@@ -874,7 +874,7 @@ const AppRoutes: React.FC = () => {
             ? (
               <ProtectedRoute
                 element={<SystemSettingsPage />}
-                allowedRoles={['super_admin']}
+                allowedRoles={['super_admin', 'super_manager']}
                 componentName="System Settings"
               />
             )
@@ -887,7 +887,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute
             element={<SystemSettingsPage />}
-            allowedRoles={['super_admin']}
+            allowedRoles={['super_admin', 'super_manager']}
             componentName="System Settings"
           />
         }

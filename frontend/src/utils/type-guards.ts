@@ -20,7 +20,7 @@ export function isUser(obj: any): obj is User {
     typeof obj.id === 'number' &&
     typeof obj.email === 'string' &&
     typeof obj.role === 'string' &&
-    ['super_admin', 'admin', 'teacher', 'student', 'parent', 'user'].includes(obj.role)
+    ['super_admin', 'super_manager', 'admin', 'teacher', 'student', 'parent', 'user'].includes(obj.role)
   );
 }
 

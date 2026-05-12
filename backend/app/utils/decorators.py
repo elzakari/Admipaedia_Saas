@@ -55,12 +55,12 @@ def role_required(roles):
                 logger.warning("user_not_found", user_id=user_id)
                 return jsonify({"error": "User not found"}), 404
                 
-            # Check if user's role is in the required roles
             if user.role not in roles:
-                logger.warning("unauthorized_access", 
-                              required_roles=roles, 
-                              user_role=user.role)
-                return jsonify({"error": "Unauthorized access"}), 403
+                if not (user.role == 'super_manager' and 'super_admin' in roles):
+                    logger.warning("unauthorized_access", 
+                                  required_roles=roles, 
+                                  user_role=user.role)
+                    return jsonify({"error": "Unauthorized access"}), 403
             
             return f(*args, **kwargs)
         return wrapper

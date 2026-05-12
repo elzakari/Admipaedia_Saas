@@ -10,7 +10,7 @@ logger = structlog.get_logger()
 def init_db():
     """Initialize database with default roles and admin user."""
     # Create default roles if they don't exist
-    roles = ['super_admin', 'admin', 'teacher', 'student', 'parent', 'user']
+    roles = ['super_admin', 'super_manager', 'admin', 'teacher', 'student', 'parent', 'user']
     for role_name in roles:
         if not Role.query.filter_by(name=role_name).first():
             role = Role(name=role_name, description=f"{role_name} role")

@@ -42,7 +42,7 @@ def resolve_tenant_for_request(require_explicit: bool = True) -> Tuple[Optional[
             return memberships[0].tenant_id, user, None
         return None, user, 'Tenant context required'
 
-    if user.role == 'super_admin':
+    if user.role in ('super_admin', 'super_manager'):
         exists = Tenant.query.filter_by(id=requested).first()
         if not exists:
             return None, user, 'Tenant not found'

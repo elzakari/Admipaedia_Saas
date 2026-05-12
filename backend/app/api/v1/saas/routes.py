@@ -25,7 +25,7 @@ def create_tenant():
     user = User.query.get(int(user_id)) if user_id else None
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
-    if getattr(user, 'role', None) != 'super_admin':
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     data = request.get_json() or {}

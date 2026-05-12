@@ -72,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       ? 'ADMIPEDIA'
       : (current?.tenant?.slug?.toUpperCase() || current?.tenant?.name || 'ADMIPEDIA')
 
-  const brandLogoUrl = user?.role === 'super_admin' ? null : (current?.tenant?.logo_url || null)
+  const brandLogoUrl = (user?.role === 'super_admin' || user?.role === 'super_manager') ? null : (current?.tenant?.logo_url || null)
 
   const toggleCollapse = () => {
     const newCollapsedState = !collapsed;
@@ -92,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
   }
 
   const dashboardPath =
-    user?.role === 'super_admin' ? '/super-admin' :
+    (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
     user?.role === 'admin' ? '/admin/dashboard' :
     user?.role === 'teacher' ? '/teacher/dashboard' :
     user?.role === 'student' ? '/student/dashboard' :
@@ -101,6 +101,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
 
   const navItemsByRole: Record<string, NavItem[]> = {
     super_admin: [
+      { name: 'Super Admin', labelKey: 'navigation.dashboard', path: '/super-admin', icon: <Shield size={20} /> },
+      { name: 'Users', labelKey: 'navigation.users', path: '/super-admin/users', icon: <Users size={20} /> },
+      { name: 'Schools', labelKey: 'navigation.schools', path: '/super-admin/schools', icon: <Building2 size={20} /> },
+      { name: 'E-Registration Billing', labelKey: 'navigation.e_registration_billing', path: '/super-admin/e-registration-billing', icon: <CreditCard size={20} /> },
+      { name: 'Financial Insights', labelKey: 'navigation.financial_oversight', path: '/super-admin/financial', icon: <BarChart3 size={20} /> },
+      { name: 'Audit Logs', labelKey: 'navigation.audit_logs', path: '/super-admin/audit-logs', icon: <FileText size={20} /> },
+      { name: 'Platform Settings', labelKey: 'navigation.system_settings', path: '/super-admin/settings', icon: <Settings size={20} /> },
+    ],
+    super_manager: [
       { name: 'Super Admin', labelKey: 'navigation.dashboard', path: '/super-admin', icon: <Shield size={20} /> },
       { name: 'Users', labelKey: 'navigation.users', path: '/super-admin/users', icon: <Users size={20} /> },
       { name: 'Schools', labelKey: 'navigation.schools', path: '/super-admin/schools', icon: <Building2 size={20} /> },
@@ -228,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
 
   const baseNavItems: NavItem[] = navItemsByRole[user?.role || 'user'] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
-    if (user?.role === 'super_admin') return true
+    if (user?.role === 'super_admin' || user?.role === 'super_manager') return true
     const fk = featureByPath[item.path]
     if (!fk) return true
     if (entitlementsLoading) return true

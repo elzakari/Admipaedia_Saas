@@ -153,6 +153,15 @@ class RBACService:
                     'permissions': ['system.admin', 'system.settings', 'system.backup', 'system.logs', 'user.create', 'user.read', 'user.update', 'user.delete', 'user.manage_roles']
                 },
                 {
+                    'name': 'super_manager',
+                    'display_name': 'Super Manager',
+                    'description': 'Full system access (except managing Super Managers)',
+                    'level': 0,
+                    'color': '#DC2626',
+                    'icon': 'shield-check',
+                    'permissions': ['system.admin', 'system.settings', 'system.backup', 'system.logs', 'user.create', 'user.read', 'user.update', 'user.delete', 'user.manage_roles']
+                },
+                {
                     'name': 'admin',
                     'display_name': 'Administrator',
                     'description': 'Administrative access to most system functions',

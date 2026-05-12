@@ -19,7 +19,7 @@ import { superAdminService, SuperAdminUser, SuperAdminUserRole } from '@/service
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
-const roleOptions: Array<{ value: SuperAdminUserRole; label: string }> = [
+const baseRoleOptions: Array<{ value: SuperAdminUserRole; label: string }> = [
   { value: 'admin', label: 'Admin' },
   { value: 'teacher', label: 'Teacher' },
   { value: 'student', label: 'Student' },
@@ -49,6 +49,12 @@ const SuperAdminUsersPage: React.FC = () => {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
+
+  const isActorSuperAdmin = currentUser?.role === 'super_admin'
+  const roleOptions = useMemo(() => {
+    if (!isActorSuperAdmin) return baseRoleOptions
+    return [{ value: 'super_manager' as const, label: 'Super Manager' }, ...baseRoleOptions]
+  }, [isActorSuperAdmin])
 
   const queryKey = useMemo(() => ({ q, role, status, page }), [q, role, status, page])
 

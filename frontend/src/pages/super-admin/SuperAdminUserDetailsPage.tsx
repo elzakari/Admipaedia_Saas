@@ -174,6 +174,8 @@ const SuperAdminUserDetailsPage: React.FC = () => {
         (() => {
           const isSelf = currentUser?.id === user.id
           const isTargetSuperAdmin = user.role === 'super_admin'
+          const isTargetSuperManager = user.role === 'super_manager'
+          const isActorSuperAdmin = currentUser?.role === 'super_admin'
           return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
@@ -192,12 +194,13 @@ const SuperAdminUserDetailsPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <label className="text-sm">Role</label>
-                  <Select value={role} onValueChange={(v) => setRole(v as SuperAdminUserRole)}>
+                  <Select value={role} onValueChange={(v) => setRole(v as SuperAdminUserRole)} disabled={isTargetSuperAdmin || (isTargetSuperManager && !isActorSuperAdmin)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="super_admin">Super admin</SelectItem>
+                      {isActorSuperAdmin ? <SelectItem value="super_admin">Super admin</SelectItem> : null}
+                      {isActorSuperAdmin ? <SelectItem value="super_manager">Super Manager</SelectItem> : null}
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="teacher">Teacher</SelectItem>
                       <SelectItem value="student">Student</SelectItem>
@@ -241,7 +244,7 @@ const SuperAdminUserDetailsPage: React.FC = () => {
               {user.status === 'active' ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full" disabled={isSelf || isTargetSuperAdmin}>
+                    <Button variant="destructive" className="w-full" disabled={isSelf || isTargetSuperAdmin || (isTargetSuperManager && !isActorSuperAdmin)}>
                       Deactivate user
                     </Button>
                   </AlertDialogTrigger>

@@ -158,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
 
         // Redirect based on role
-        if (response.user.role === 'super_admin') {
+        if (response.user.role === 'super_admin' || response.user.role === 'super_manager') {
           navigate('/super-admin');
         } else if (response.user.role === 'admin') {
           navigate('/admin/dashboard');

@@ -47,7 +47,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
   const effectiveHideHeader = hideHeader || hideGlobalHeader;
   
   const dashboardHref =
-    user?.role === 'super_admin' ? '/super-admin' :
+    (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
     user?.role === 'admin' ? '/admin/dashboard' :
     user?.role === 'teacher' ? '/teacher/dashboard' :
     user?.role === 'student' ? '/student/dashboard' :
@@ -57,6 +57,13 @@ export function Layout({ children, hideHeader }: LayoutProps) {
   const navigation = useMemo(() => {
     switch (user?.role) {
       case 'super_admin':
+        return [
+          { name: 'Dashboard', labelKey: 'navigation.dashboard', href: dashboardHref, icon: Home },
+          { name: 'Users', labelKey: 'navigation.users', href: '/super-admin/users', icon: Users },
+          { name: 'Audit Logs', labelKey: 'navigation.audit_logs', href: '/super-admin/audit-logs', icon: FilePlus2 },
+          { name: 'Settings', labelKey: 'navigation.settings', href: '/super-admin/settings', icon: Settings }
+        ];
+      case 'super_manager':
         return [
           { name: 'Dashboard', labelKey: 'navigation.dashboard', href: dashboardHref, icon: Home },
           { name: 'Users', labelKey: 'navigation.users', href: '/super-admin/users', icon: Users },

@@ -47,7 +47,7 @@ def super_admin_overview():
     actor = g.current_user
 
     total_users = db.session.query(func.count(User.id)).scalar() or 0
-    roles = ['super_admin', 'admin', 'teacher', 'student', 'parent', 'user']
+    roles = ['super_admin', 'super_manager', 'admin', 'teacher', 'student', 'parent', 'user']
     by_role = {r: 0 for r in roles}
     for role, count in db.session.query(User.role, func.count(User.id)).group_by(User.role).all():
         by_role[role or 'user'] = int(count)
@@ -202,6 +202,9 @@ def super_admin_create_user():
     if role == 'general':
         role = 'user'
 
+    if role in ('super_admin', 'super_manager') and actor.role != 'super_admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
     if not email:
         return jsonify({'success': False, 'error': 'Email is required'}), 400
 
@@ -290,6 +293,9 @@ def super_admin_update_user(user_id: int):
     target = User.query.get_or_404(user_id)
     payload = request.get_json() or {}
 
+    if target.role in ('super_admin', 'super_manager') and actor.role != 'super_admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
     if target.id == actor.id:
         if 'role' in payload and (payload.get('role') or '').strip() != 'super_admin':
             return jsonify({'success': False, 'error': 'Cannot change your own role'}), 400
@@ -319,6 +325,8 @@ def super_admin_update_user(user_id: int):
         if new_role == 'general':
             new_role = 'user'
         if new_role:
+            if new_role in ('super_admin', 'super_manager') and actor.role != 'super_admin':
+                return jsonify({'success': False, 'error': 'Unauthorized'}), 403
             target.role = new_role
             role_row = Role.query.filter_by(name=new_role).first()
             if role_row and role_row not in target.roles:
@@ -350,8 +358,8 @@ def super_admin_deactivate_user(user_id: int):
 
     if target.id == actor.id:
         return jsonify({'success': False, 'error': 'Cannot deactivate your own account'}), 400
-    if target.role == 'super_admin':
-        return jsonify({'success': False, 'error': 'Cannot deactivate a super admin account'}), 400
+    if target.role in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'error': 'Cannot deactivate this account'}), 400
 
     target.status = 'inactive'
     _audit('super_admin.user_deactivated', actor.id, {

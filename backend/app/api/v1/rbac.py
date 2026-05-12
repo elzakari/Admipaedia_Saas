@@ -337,6 +337,10 @@ def assign_role(user_id: int):
         data = schema.load(request.json)
         
         current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        current_role = getattr(current_user, 'role', None)
+        if data['role_name'] in ('super_admin', 'super_manager') and current_role != 'super_admin':
+            return error_response('Unauthorized', 403)
         success, message = RBACService.assign_role_to_user(
             user_id=user_id,
             role_name=data['role_name'],
@@ -363,6 +367,11 @@ def assign_role(user_id: int):
 def revoke_role(user_id: int, role_name: str):
     """Revoke a role from a user"""
     try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        current_role = getattr(current_user, 'role', None)
+        if role_name in ('super_admin', 'super_manager') and current_role != 'super_admin':
+            return error_response('Unauthorized', 403)
         success, message = RBACService.revoke_role_from_user(user_id, role_name)
         
         if success:
