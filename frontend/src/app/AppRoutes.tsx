@@ -1,9 +1,12 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import type { User } from '@/services/authService';
 import AppLayout from './AppLayout';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import LazyLoadingWrapper from '../components/performance/LazyLoadingWrapper';
+
+type UserRole = User['role'];
 
 // Critical pages - loaded immediately (authentication and landing)
 import LandingPage from '../pages/LandingPage';
@@ -121,7 +124,7 @@ const LoadingFallback: React.FC<{ componentName?: string }> = ({ componentName }
 // Enhanced Protected Route with performance monitoring
 function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader }: {
   element: React.ReactElement;
-  allowedRoles?: Array<'super_admin' | 'admin' | 'teacher' | 'student' | 'parent' | 'user'>;
+  allowedRoles?: Array<UserRole>;
   componentName?: string;
   hideHeader?: boolean;
 }) {
@@ -174,7 +177,7 @@ function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader 
 
 function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
   element: React.ReactElement;
-  allowedRoles?: Array<'super_admin' | 'admin' | 'teacher' | 'student' | 'parent' | 'user'>;
+  allowedRoles?: Array<UserRole>;
   componentName?: string;
 }) {
   const { user, isAuthenticated, isLoading, refreshToken } = useAuth();
