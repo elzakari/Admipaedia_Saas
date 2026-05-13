@@ -102,14 +102,14 @@ def _enable_gateway(*, name: str, country_code: str, currency: str, channels: li
         display_name=name.title(),
         country_code=country_code,
         currency=currency,
-        public_key='pk_test',
+        public_key='public_test_key',
         is_active=True,
         is_default=True,
         supported_channels=channels,
         environment='sandbox',
     )
-    gw.set_secret_key('sk_test')
-    gw.set_webhook_secret('whsec_test')
+    gw.set_secret_key('secret_test_key')
+    gw.set_webhook_secret('webhook_test_secret')
     db.session.add(gw)
     db.session.commit()
     return gw
@@ -188,9 +188,9 @@ def test_super_admin_can_upsert_gateway_without_exposing_secrets(client):
             'display_name': 'Paystack GH',
             'country_code': 'GH',
             'currency': 'GHS',
-            'public_key': 'pk_test',
-            'secret_key': 'sk_test',
-            'webhook_secret': 'whsec_test',
+            'public_key': 'public_test_key',
+            'secret_key': 'secret_test_key',
+            'webhook_secret': 'webhook_test_secret',
             'supported_channels': ['mobile_money', 'card'],
             'environment': 'sandbox',
             'is_active': True,

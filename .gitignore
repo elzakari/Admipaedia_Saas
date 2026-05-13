@@ -27,6 +27,9 @@ dist-ssr
 .trae/
 .bolt/
 
+# Nested repo mirror
+repo_atomic/
+
 # Environment files
 .env
 backend/.env

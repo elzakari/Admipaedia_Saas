@@ -175,15 +175,15 @@ export default function SuperAdminPaymentSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Public key</Label>
-                <Input value={publicKey} onChange={(e) => setPublicKey(e.target.value)} placeholder="pk_..." />
+                <Input value={publicKey} onChange={(e) => setPublicKey(e.target.value)} placeholder="Public key" />
               </div>
               <div className="space-y-2">
                 <Label>Secret key</Label>
-                <Input value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={editingId ? '********' : 'sk_...'} />
+                <Input value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={editingId ? '********' : 'Secret key'} />
               </div>
               <div className="space-y-2">
                 <Label>Webhook secret</Label>
-                <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder={editingId ? '********' : 'whsec_...'} />
+                <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder={editingId ? '********' : 'Webhook secret'} />
               </div>
               <div className="space-y-2">
                 <Label>Supported channels</Label>
