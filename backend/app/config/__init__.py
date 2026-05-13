@@ -11,7 +11,7 @@ class BaseConfig:
     """Base configuration with common settings"""
     
     # Core Flask Settings
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-change-me')
     STRICT_SLASHES = False
     
     # Database Configuration
@@ -23,7 +23,7 @@ class BaseConfig:
     INIT_DB_ON_START = os.environ.get('INIT_DB_ON_START', 'False').lower() in ('true', 'yes', '1')
     
     # JWT Configuration
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'dev-jwt-key-change-me')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_ALGORITHM = 'HS256'
@@ -44,7 +44,7 @@ class BaseConfig:
     FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
     
     # Security Configuration
-    SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT', 'security-salt-change-in-production')
+    SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT', 'dev-salt-change-me')
     
     # File Upload Configuration
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -72,7 +72,7 @@ class DevelopmentConfig(BaseConfig):
     # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL', 
-        'postgresql://postgres:Barbie198320132025@localhost:5432/admipaedia'
+        'postgresql://postgres:postgres@localhost:5432/admipaedia'
     )
     
     # Security (relaxed for development)

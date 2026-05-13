@@ -42,7 +42,7 @@ class AnnouncementsNamespace(Namespace):
             try:
                 payload = decode_token(token)
             except Exception:
-                secret = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
+                secret = os.environ.get('JWT_SECRET_KEY', 'dev-jwt-key-change-me')
                 payload = pyjwt.decode(token, secret, algorithms=['HS256'], options={"verify_aud": False})
 
             user_id = payload.get('sub')
