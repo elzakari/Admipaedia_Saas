@@ -1,0 +1,198 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import type { AxiosError } from 'axios'
+import { Sparkles } from 'lucide-react'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useToast } from '@/components/ui/use-toast'
+import billingService, { SubscriptionChangeRequest } from '@/services/billingService'
+
+export default function SuperAdminPlanRequestsPage() {
+  const { toast } = useToast()
+  const [requests, setRequests] = useState<SubscriptionChangeRequest[] | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const [status, setStatus] = useState('pending')
+
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectTarget, setRejectTarget] = useState<SubscriptionChangeRequest | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const statusVariant = (status?: string | null): 'success' | 'warning' | 'destructive' | 'secondary' | 'outline' => {
+    const s = (status || '').toLowerCase()
+    if (s === 'approved') return 'success'
+    if (s === 'rejected' || s === 'cancelled') return 'destructive'
+    if (s === 'pending') return 'warning'
+    if (!s) return 'outline'
+    return 'secondary'
+  }
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await billingService.listPlatformSubscriptionChangeRequests({ status: status === 'all' ? undefined : status })
+      setRequests(res.requests)
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({ variant: 'destructive', title: 'Failed to load requests', description: e.response?.data?.message || e.message || 'Please try again' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const rows = useMemo(() => requests || [], [requests])
+
+  async function onApprove(r: SubscriptionChangeRequest) {
+    setSaving(true)
+    try {
+      await billingService.approveSubscriptionChangeRequest(r.id)
+      toast({ title: 'Approved' })
+      await load()
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({ variant: 'destructive', title: 'Approve failed', description: e.response?.data?.message || e.message || 'Please try again' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openReject = (r: SubscriptionChangeRequest) => {
+    setRejectTarget(r)
+    setRejectNote('')
+    setRejectOpen(true)
+  }
+
+  async function onConfirmReject() {
+    if (!rejectTarget) return
+    setSaving(true)
+    try {
+      await billingService.rejectSubscriptionChangeRequest(rejectTarget.id, { note: rejectNote || undefined })
+      toast({ title: 'Rejected' })
+      setRejectOpen(false)
+      await load()
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({ variant: 'destructive', title: 'Reject failed', description: e.response?.data?.message || e.message || 'Please try again' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">Plan Requests</h1>
+          <p className="text-sm text-muted-foreground">Approve or reject school downgrade requests.</p>
+        </div>
+      </div>
+
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">pending</SelectItem>
+                <SelectItem value="approved">approved</SelectItem>
+                <SelectItem value="rejected">rejected</SelectItem>
+                <SelectItem value="all">all</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => load()} disabled={loading}>Apply</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Requests</CardTitle>
+          <div className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${rows.length} results`}</div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Created</TableHead>
+                <TableHead>Tenant</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Effective</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</TableCell>
+                  <TableCell className="max-w-[220px] truncate">{r.school_id}</TableCell>
+                  <TableCell>{r.request_type}</TableCell>
+                  <TableCell>{r.requested_plan?.name || r.requested_plan_id}</TableCell>
+                  <TableCell>{r.effective_date || '—'}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
+                  </TableCell>
+                  <TableCell className="space-x-2">
+                    {r.status === 'pending' && r.request_type === 'downgrade' ? (
+                      <>
+                        <Button size="sm" onClick={() => onApprove(r)} disabled={saving}>Approve</Button>
+                        <Button size="sm" variant="destructive" onClick={() => openReject(r)} disabled={saving}>Reject</Button>
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">No requests found.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={rejectOpen} onOpenChange={(v) => { setRejectOpen(v); if (!v) setRejectTarget(null) }}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Reject request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Note (optional)</Label>
+            <Input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Internal note" />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button type="button" variant="destructive" onClick={onConfirmReject} disabled={saving}>
+              {saving ? 'Saving…' : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+

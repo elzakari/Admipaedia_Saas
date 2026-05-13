@@ -408,6 +408,8 @@ def get_notification_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Notification provider configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -474,6 +476,8 @@ def update_notification_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Notification provider configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -495,6 +499,10 @@ def update_notification_settings_v2():
 @jwt_required()
 @role_required(['admin', 'super_admin'])
 def test_email_configuration_v2():
+    from app.utils.platform_access import get_current_user
+    actor = get_current_user()
+    if getattr(actor, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Email provider configuration is managed by the platform.'}), 403
     data = request.get_json() or {}
     email = (data.get('testEmail') or '').strip()
     if not email:
@@ -505,6 +513,10 @@ def test_email_configuration_v2():
 @jwt_required()
 @role_required(['admin', 'super_admin'])
 def test_sms_configuration_v2():
+    from app.utils.platform_access import get_current_user
+    actor = get_current_user()
+    if getattr(actor, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'SMS provider configuration is managed by the platform.'}), 403
     data = request.get_json() or {}
     phone = (data.get('testPhone') or '').strip()
     if not phone:
@@ -744,6 +756,8 @@ def get_integration_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Integration configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -762,6 +776,8 @@ def update_integration_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Integration configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -800,6 +816,8 @@ def test_integration_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Integration configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -862,6 +880,8 @@ def get_ai_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'AI provider configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:
@@ -885,6 +905,8 @@ def update_ai_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
+    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'AI provider configuration is managed by the platform.'}), 403
     if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
         return jsonify({'success': False, 'message': 'Tenant context required'}), 400
     if tenant_id is not None:

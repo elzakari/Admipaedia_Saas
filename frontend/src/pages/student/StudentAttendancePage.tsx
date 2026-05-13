@@ -1,46 +1,17 @@
 import React, { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { studentAttendance } from './studentMockData';
 import { CalendarCheck2 } from 'lucide-react';
-import api from '../../lib/api';
-import studentService from '../../services/studentService';
 
 const StudentAttendancePage: React.FC = () => {
-  const { data: profile } = useQuery({
-    queryKey: ['student-profile'],
-    queryFn: () => studentService.getOwnProfile(),
-    staleTime: 60_000
-  });
-
-  const studentId = Number((profile as any)?.id);
-
-  const { data: report, isLoading, error } = useQuery({
-    queryKey: ['student-attendance-report', studentId],
-    queryFn: async () => {
-      const to = new Date();
-      const from = new Date();
-      from.setDate(from.getDate() - 30);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      const res = await api.get(`/attendance/student/${studentId}/report`, {
-        params: { date_from: fmt(from), date_to: fmt(to) }
-      });
-      return res.data?.report;
-    },
-    enabled: Number.isFinite(studentId) && studentId > 0,
-    staleTime: 30_000
-  });
-
   const stats = useMemo(() => {
-    const s = report?.summary;
-    return {
-      present: Number(s?.present_days) || 0,
-      absent: Number(s?.absent_days) || 0,
-      late: Number(s?.late_days) || 0,
-      percentage: Number(s?.attendance_rate) || 0
-    };
-  }, [report]);
-
-  const records = useMemo(() => report?.records || [], [report]);
+    const present = studentAttendance.filter((e) => e.status === 'present').length;
+    const absent = studentAttendance.filter((e) => e.status === 'absent').length;
+    const late = studentAttendance.filter((e) => e.status === 'late').length;
+    const total = studentAttendance.length || 1;
+    const percentage = Math.round((present / total) * 100);
+    return { present, absent, late, percentage };
+  }, []);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -75,23 +46,17 @@ const StudentAttendancePage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {isLoading ? (
-              <div className="text-sm text-slate-600 dark:text-slate-400">Loading…</div>
-            ) : error ? (
-              <div className="text-sm text-slate-600 dark:text-slate-400">Failed to load attendance.</div>
-            ) : (
-              records.slice(0, 30).map((e: any) => (
-                <div key={e.id} className="flex items-start justify-between rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{e.date ? new Date(e.date).toLocaleDateString() : ''}</div>
-                    <div className="text-xs text-slate-500">{e.remarks ?? ''}</div>
-                  </div>
-                  <div className={`text-sm font-semibold ${e.status === 'present' ? 'text-emerald-600' : e.status === 'absent' ? 'text-rose-600' : 'text-amber-600'}`}>
-                    {e.status}
-                  </div>
+            {studentAttendance.map((e) => (
+              <div key={e.id} className="flex items-start justify-between rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{e.date}</div>
+                  <div className="text-xs text-slate-500">{e.note ?? ''}</div>
                 </div>
-              ))
-            )}
+                <div className={`text-sm font-semibold ${e.status === 'present' ? 'text-emerald-600' : e.status === 'absent' ? 'text-rose-600' : 'text-amber-600'}`}>
+                  {e.status}
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

@@ -1,5 +1,8 @@
 from app.extensions import db
 from app.models.tenant import Tenant, TenantMembership, PlatformInvoice, PlatformPayment
+from app.models.billing import Plan, SchoolPlanSubscription
+from app.services.integrations.token_service import ServiceTokenService
+from app.services.saas.plan_ops import assign_plan_to_tenant
 
 import uuid
 from datetime import datetime, timedelta, date
@@ -375,7 +378,9 @@ def platform_update_tenant(tenant_id, status=None, plan=None):
     if status is not None:
         tenant.status = status
     if plan is not None:
-        tenant.plan = plan
+        _, err = assign_plan_to_tenant(tenant, str(plan), actor_user_id=None)
+        if err:
+            return None, err
     db.session.commit()
     return tenant, None
 

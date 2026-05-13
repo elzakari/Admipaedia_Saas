@@ -151,28 +151,8 @@ const parentService = {
   // Get academic data for a child
   getChildAcademicData: async (childId: number): Promise<ChildAcademicData> => {
     try {
-      const response = await api.get(`/parents/children/${childId}/grades`, {
-        params: { page: 1, per_page: 50 }
-      });
-
-      const grades = response.data?.data?.grades || [];
-      const percentages = grades
-        .map((g: any) => Number(g?.percentage))
-        .filter((p: number) => Number.isFinite(p));
-      const avg = percentages.length ? percentages.reduce((a: number, b: number) => a + b, 0) / percentages.length : 0;
-      const overallPercentage = Math.round(avg * 100) / 100;
-      const overallGrade = overallPercentage >= 90 ? 'A+' : overallPercentage >= 80 ? 'A' : overallPercentage >= 70 ? 'B+' : overallPercentage >= 60 ? 'B' : overallPercentage >= 50 ? 'C+' : overallPercentage >= 40 ? 'C' : 'F';
-
-      return {
-        student_id: childId,
-        overall_grade: overallPercentage,
-        subject_grades: [],
-        recent_exams: [],
-        assignments: [],
-        overallPercentage,
-        overallGrade,
-        grades
-      } as any;
+      const response = await api.get(`/parents/children/${childId}/academic`);
+      return response.data;
     } catch (error) {
       console.error(`Error fetching academic data for child ${childId}:`, error);
       throw error;
@@ -185,29 +165,8 @@ const parentService = {
     end_date?: string;
   }): Promise<ChildAttendanceData> => {
     try {
-      const response = await api.get(`/parents/children/${childId}/attendance`, {
-        params: { page: 1, per_page: 60, ...(params || {}) }
-      });
-      const attendance = response.data?.data?.attendance || [];
-      const total = attendance.length;
-      const present = attendance.filter((a: any) => a?.status === 'present').length;
-      const percentage = total ? Math.round((present / total) * 10000) / 100 : 0;
-
-      return {
-        student_id: childId,
-        overall_rate: percentage,
-        monthly_breakdown: [],
-        recent_absences: attendance
-          .filter((a: any) => a?.status !== 'present')
-          .slice(0, 10)
-          .map((a: any) => ({
-            date: a?.date,
-            reason: a?.remarks,
-            excused: a?.status === 'excused'
-          })),
-        percentage,
-        attendance
-      } as any;
+      const response = await api.get(`/parents/children/${childId}/attendance`, { params });
+      return response.data;
     } catch (error) {
       console.error(`Error fetching attendance data for child ${childId}:`, error);
       throw error;
@@ -217,18 +176,8 @@ const parentService = {
   // Get fee data for a child
   getChildFeeData: async (childId: number): Promise<ChildFeeData> => {
     try {
-      const balanceRes = await api.get(`/finance/students/${childId}/balance`);
-      const balance = Number(balanceRes.data?.balance) || 0;
-      return {
-        student_id: childId,
-        total_fees: 0,
-        paid_amount: 0,
-        pending_amount: balance,
-        fee_structure: [],
-        payment_history: [],
-        amount: balance,
-        status: balance <= 0 ? 'paid' : 'pending'
-      } as any;
+      const response = await api.get(`/parents/children/${childId}/fees`);
+      return response.data;
     } catch (error) {
       console.error(`Error fetching fee data for child ${childId}:`, error);
       throw error;
@@ -317,16 +266,8 @@ const parentService = {
     end_date?: string;
   }): Promise<SchoolEvent[]> => {
     try {
-      if (params?.start_date || params?.end_date) {
-        const response = await api.get('/parents/events', { params });
-        return response.data?.events || [];
-      }
-
-      const now = new Date();
-      const response = await api.get('/dashboard/events', {
-        params: { month: now.getMonth() + 1, year: now.getFullYear() }
-      });
-      return response.data?.events || [];
+      const response = await api.get('/parents/events', { params });
+      return response.data.events;
     } catch (error) {
       console.error('Error fetching school events:', error);
       throw error;
@@ -336,10 +277,8 @@ const parentService = {
   // Get parent messages
   getParentMessages: async (parentId: number): Promise<MessageData[]> => {
     try {
-      const response = await api.get('/messages', {
-        params: { folder: 'inbox', page: 1, per_page: 20 }
-      });
-      return response.data?.messages || [];
+      const response = await api.get(`/parents/${parentId}/messages`);
+      return response.data.messages;
     } catch (error) {
       console.error(`Error fetching messages for parent ${parentId}:`, error);
       throw error;

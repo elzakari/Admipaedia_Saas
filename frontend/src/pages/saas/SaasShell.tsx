@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Building2, Users, Receipt, CreditCard, Shield, BarChart3, Settings2 } from 'lucide-react'
+import { Building2, Users, Receipt, CreditCard, Shield, BarChart3, Settings2, Sparkles } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -110,6 +110,7 @@ export const schoolNav: NavItem[] = [
   { label: 'Dashboard', href: '/app', icon: <BarChart3 className="h-4 w-4" /> },
   { label: 'School Profile', href: '/app/school', icon: <Settings2 className="h-4 w-4" /> },
   { label: 'Team & Roles', href: '/app/team', icon: <Users className="h-4 w-4" /> },
+  { label: 'Plan', href: '/app/billing/plan', icon: <Sparkles className="h-4 w-4" /> },
   { label: 'Invoices', href: '/app/billing/invoices', icon: <Receipt className="h-4 w-4" /> },
   { label: 'Payments', href: '/app/billing/payments', icon: <CreditCard className="h-4 w-4" /> }
 ]

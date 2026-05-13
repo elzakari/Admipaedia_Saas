@@ -6,6 +6,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.v1.saas import saas_bp
 from app.services.saas import SaaSService
 from app.utils.platform_access import require_platform_super_admin
+from app.services.integrations.token_service import ServiceTokenService, SERVICE_TYPES, current_period_ym
+from app.models.service_tokens import TenantServiceToken, TenantServiceTokenEvent, TenantServiceTokenUsage
 
 
 def _parse_date(value):
@@ -264,6 +266,136 @@ def platform_list_members(tenant_id):
     if err:
         return jsonify({'success': False, 'message': err}), 404
     return jsonify({'success': True, 'members': members}), 200
+
+
+@saas_bp.route('/platform/tenants/<tenant_id>/service-tokens', methods=['GET'])
+@require_platform_super_admin()
+def platform_list_service_tokens(tenant_id):
+    import uuid
+    try:
+        tenant_uuid = tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+    except Exception:
+        return jsonify({'success': False, 'message': 'Tenant not found'}), 404
+    ServiceTokenService.provision_for_tenant(tenant_id)
+    from app.extensions import db
+    db.session.commit()
+
+    year, month = current_period_ym()
+    tokens = TenantServiceToken.query.filter_by(tenant_id=tenant_uuid).all()
+    usage_rows = TenantServiceTokenUsage.query.filter_by(tenant_id=tenant_uuid, year=year, month=month).all()
+    usage_by_service = {u.service_type: int(u.used_count or 0) for u in usage_rows}
+
+    items = []
+    for t in tokens:
+        status = ServiceTokenService.get_status(str(t.tenant_id), t.service_type)
+        items.append({
+            'id': str(t.id),
+            'service_type': t.service_type,
+            'status': t.status,
+            'token_last4': t.token_last4,
+            'monthly_allowance': t.monthly_allowance,
+            'unlimited': bool(status.unlimited),
+            'used': int(usage_by_service.get(t.service_type, 0)),
+            'remaining': None if status.unlimited else int(status.remaining or 0),
+            'last_used_at': t.last_used_at.isoformat() if t.last_used_at else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'rotated_at': t.rotated_at.isoformat() if t.rotated_at else None,
+        })
+
+    return jsonify({'success': True, 'tokens': items, 'period': {'year': year, 'month': month}}), 200
+
+
+@saas_bp.route('/platform/tenants/<tenant_id>/service-tokens/provision', methods=['POST'])
+@require_platform_super_admin()
+def platform_provision_service_tokens(tenant_id):
+    from app.models.user import User
+    from flask_jwt_extended import get_jwt_identity
+    actor_id = get_jwt_identity()
+    actor_user_id = int(actor_id) if actor_id else None
+
+    issued = ServiceTokenService.provision_for_tenant(tenant_id, actor_user_id=actor_user_id)
+    from app.extensions import db
+    db.session.commit()
+
+    if actor_user_id:
+        from app.models.security import SecurityEvent
+        db.session.add(SecurityEvent(
+            event_type='platform.service_tokens.provisioned',
+            user_id=actor_user_id,
+            ip_address=request.remote_addr,
+            endpoint=request.path,
+            method=request.method,
+            details={'tenant_id': tenant_id, 'issued': {k: ('********' if v else None) for k, v in issued.items()}},
+            severity='info'
+        ))
+        db.session.commit()
+
+    return jsonify({'success': True, 'issued': issued}), 200
+
+
+@saas_bp.route('/platform/tenants/<tenant_id>/service-tokens/<service_type>/rotate', methods=['POST'])
+@require_platform_super_admin()
+def platform_rotate_service_token(tenant_id, service_type):
+    service_type = str(service_type or '').strip().lower()
+    if service_type not in SERVICE_TYPES:
+        return jsonify({'success': False, 'message': 'Invalid service type'}), 400
+
+    from flask_jwt_extended import get_jwt_identity
+    actor_id = get_jwt_identity()
+    actor_user_id = int(actor_id) if actor_id else None
+
+    try:
+        token_plain = ServiceTokenService.rotate_token(tenant_id, service_type, actor_user_id=actor_user_id)
+        from app.extensions import db
+        db.session.commit()
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+    if actor_user_id:
+        from app.models.security import SecurityEvent
+        from app.extensions import db
+        db.session.add(SecurityEvent(
+            event_type='platform.service_tokens.rotated',
+            user_id=actor_user_id,
+            ip_address=request.remote_addr,
+            endpoint=request.path,
+            method=request.method,
+            details={'tenant_id': tenant_id, 'service_type': service_type},
+            severity='info'
+        ))
+        db.session.commit()
+
+    return jsonify({'success': True, 'token': token_plain}), 200
+
+
+@saas_bp.route('/platform/tenants/<tenant_id>/service-tokens/events', methods=['GET'])
+@require_platform_super_admin()
+def platform_service_token_events(tenant_id):
+    service_type = (request.args.get('service_type') or '').strip().lower() or None
+    limit = request.args.get('limit', type=int) or 100
+    limit = max(1, min(limit, 500))
+
+    q = TenantServiceTokenEvent.query.filter_by(tenant_id=tenant_id)
+    if service_type:
+        q = q.filter_by(service_type=service_type)
+    rows = q.order_by(TenantServiceTokenEvent.created_at.desc()).limit(limit).all()
+    return jsonify({
+        'success': True,
+        'events': [
+            {
+                'id': str(r.id),
+                'tenant_id': str(r.tenant_id) if r.tenant_id else None,
+                'token_id': str(r.token_id) if r.token_id else None,
+                'service_type': r.service_type,
+                'event_type': r.event_type,
+                'actor_user_id': r.actor_user_id,
+                'ip_address': r.ip_address,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'details': r.details,
+            }
+            for r in rows
+        ]
+    }), 200
 
 
 @saas_bp.route('/platform/tenants/<tenant_id>/members', methods=['POST'])

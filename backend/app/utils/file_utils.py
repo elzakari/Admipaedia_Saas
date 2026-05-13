@@ -11,6 +11,7 @@ class FileUtils:
     
     ALLOWED_RESOURCE_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3'}
     RESOURCE_UPLOAD_FOLDER = 'uploads/resources'
+    PAYMENT_PROOF_UPLOAD_FOLDER = 'uploads/payments'
     
     @staticmethod
     def allowed_resource_file(filename):
@@ -43,3 +44,25 @@ class FileUtils:
         except Exception as e:
             logger.error("Error uploading resource file", error=str(e))
             return None, f"Failed to upload resource file: {str(e)}"
+
+    @staticmethod
+    def upload_payment_proof(file, payment_reference: str | None = None):
+        try:
+            if not file or not file.filename:
+                return None, "No file provided."
+            if not FileUtils.allowed_resource_file(file.filename):
+                return None, "Invalid file type."
+
+            filename = secure_filename(file.filename)
+            unique_filename = f"payment_{payment_reference or uuid.uuid4().hex}_{filename}"
+
+            upload_path = os.path.join(current_app.root_path, FileUtils.PAYMENT_PROOF_UPLOAD_FOLDER)
+            os.makedirs(upload_path, exist_ok=True)
+
+            file_path = os.path.join(upload_path, unique_filename)
+            file.save(file_path)
+
+            return f"{FileUtils.PAYMENT_PROOF_UPLOAD_FOLDER}/{unique_filename}", None
+        except Exception as e:
+            logger.error("Error uploading payment proof", error=str(e))
+            return None, f"Failed to upload payment proof: {str(e)}"

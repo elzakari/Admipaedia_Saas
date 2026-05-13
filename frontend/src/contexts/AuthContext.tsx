@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/services';
 import { User, AuthResponse } from '@/services/authService';
+import { getJwtExpirationMs } from '@/utils/jwt';
 
 type AuthContextType = {
   user: User | null;
@@ -55,8 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const refreshTokenValue = localStorage.getItem('refreshToken');
       if (!refreshTokenValue) throw new Error('No refresh token available');
 
-      console.log('Attempting to refresh token...');
-
       // Call authService.refreshToken() without parameters
       const { access_token } = await authService.refreshToken();
       // Store as 'token' consistently
@@ -80,10 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       try {
         if (!token) return;
-        const payload = token.split('.')[1];
-        if (!payload) return;
-        const tokenData = JSON.parse(atob(payload));
-        const expirationTime = tokenData.exp * 1000; // Convert to milliseconds
+        const expirationTime = getJwtExpirationMs(token);
+        if (!expirationTime) throw new Error('Invalid token');
         const currentTime = Date.now();
 
         // Calculate time until token expires (minus a buffer of 5 minutes)
@@ -120,7 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const response = await authService.login(email, password);
-      console.log('Login response:', response);
 
       // Handle MFA step
       if (response.step === 'mfa') {

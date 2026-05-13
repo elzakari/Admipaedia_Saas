@@ -4,7 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-
 ### Security
 - Enforced resource-specific RBAC permissions on critical endpoints:
   - Attendance: create, update, delete, bulk (`backend/app/api/v1/attendances/routes.py`)

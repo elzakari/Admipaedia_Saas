@@ -1,17 +1,17 @@
 import { useMemo } from 'react'
 
-import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { usePlanContext } from '@/hooks/usePlanContext'
 
 export function useEntitlements() {
-  const { current, isLoading } = useSaasTenant()
+  const { data, isLoading } = usePlanContext()
 
-  const enabled = current?.tenant?.enabled_features || null
+  const enabled = data?.features || null
 
   const hasFeature = useMemo(() => {
     return (featureKey: string) => {
       if (!featureKey) return true
-      if (!enabled || enabled.length === 0) return true
-      return enabled.includes(featureKey)
+      if (!enabled) return true
+      return Boolean(enabled[featureKey])
     }
   }, [enabled])
 

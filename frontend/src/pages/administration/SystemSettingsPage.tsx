@@ -10,9 +10,14 @@ import {
   RotateCcw,
   KeyRound,
   Building2,
-  ClipboardList
+  ClipboardList,
+  Mail,
+  MessageSquare,
+  Bot,
+  Phone
 } from 'lucide-react';
 import api from '../../lib/api';
+import platformIntegrationsService from '../../services/platformIntegrationsService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -44,6 +49,64 @@ const SystemSettingsPage: React.FC = () => {
 
   const [savingKeys, setSavingKeys] = useState<Record<string, boolean>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, number>>({});
+
+  const [emailConfig, setEmailConfig] = useState<Record<string, any>>({
+    provider_key: 'smtp',
+    display_name: 'SMTP',
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUsername: '',
+    smtpPassword: '********',
+    smtpEncryption: 'tls',
+    fromEmail: '',
+    fromName: ''
+  });
+
+  const upsertProviderMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await platformIntegrationsService.upsertProvider(payload);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-integrations-providers'] });
+      toast.success('Integration settings saved');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to save integration settings');
+    }
+  });
+
+  const updatePlanLimitsMutation = useMutation({
+    mutationFn: async (payload: { planId: number; limits: Record<string, string> }) => {
+      const res = await platformIntegrationsService.updatePlanTokenLimits(payload.planId, payload.limits);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-integrations-plan-limits'] });
+      toast.success('Token limits saved');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to save token limits');
+    }
+  });
+  const [smsConfig, setSmsConfig] = useState<Record<string, any>>({
+    provider_key: 'twilio',
+    display_name: 'Twilio',
+    smsApiKey: '********',
+    smsSenderId: ''
+  });
+  const [whatsappConfig, setWhatsappConfig] = useState<Record<string, any>>({
+    provider_key: 'twilio',
+    display_name: 'Twilio WhatsApp',
+    apiKey: '********',
+    sender: ''
+  });
+  const [aiConfig, setAiConfig] = useState<Record<string, any>>({
+    provider_key: 'openai',
+    display_name: 'OpenAI',
+    apiKey: '********',
+    model: 'gpt-4o-mini'
+  });
 
   const markSaved = (key: string) => {
     const now = Date.now();
@@ -88,6 +151,22 @@ const SystemSettingsPage: React.FC = () => {
     }
   });
 
+  const { data: providersData, isLoading: providersLoading } = useQuery({
+    queryKey: ['platform-integrations-providers'],
+    queryFn: async () => {
+      const res = await platformIntegrationsService.listProviders();
+      return res;
+    }
+  });
+
+  const { data: planLimitsData, isLoading: planLimitsLoading } = useQuery({
+    queryKey: ['platform-integrations-plan-limits'],
+    queryFn: async () => {
+      const res = await platformIntegrationsService.listPlanTokenLimits();
+      return res;
+    }
+  });
+
   const settings = useMemo(() => {
     return rawSettings || {};
   }, [rawSettings]);
@@ -112,6 +191,71 @@ const SystemSettingsPage: React.FC = () => {
 
     setSuperAdminMfaRequired(asBool((settings as any).platform_super_admin_mfa_required, false));
   }, [settings]);
+
+  const [planLimitDraft, setPlanLimitDraft] = useState<Record<string, Record<string, string>>>({});
+
+  useEffect(() => {
+    const providers = providersData?.providers || [];
+    const pick = (serviceType: string) =>
+      providers
+        .filter((p: any) => p.service_type === serviceType)
+        .sort((a: any, b: any) => Number(a.priority || 0) - Number(b.priority || 0))[0];
+
+    const email = pick('email');
+    if (email) {
+      setEmailConfig((prev) => ({
+        ...prev,
+        provider_key: email.provider_key || prev.provider_key,
+        display_name: email.display_name || prev.display_name,
+        ...(email.config || {})
+      }));
+    }
+
+    const sms = pick('sms');
+    if (sms) {
+      setSmsConfig((prev) => ({
+        ...prev,
+        provider_key: sms.provider_key || prev.provider_key,
+        display_name: sms.display_name || prev.display_name,
+        ...(sms.config || {})
+      }));
+    }
+
+    const wa = pick('whatsapp');
+    if (wa) {
+      setWhatsappConfig((prev) => ({
+        ...prev,
+        provider_key: wa.provider_key || prev.provider_key,
+        display_name: wa.display_name || prev.display_name,
+        ...(wa.config || {})
+      }));
+    }
+
+    const ai = pick('ai');
+    if (ai) {
+      setAiConfig((prev) => ({
+        ...prev,
+        provider_key: ai.provider_key || prev.provider_key,
+        display_name: ai.display_name || prev.display_name,
+        ...(ai.config || {})
+      }));
+    }
+  }, [providersData]);
+
+  useEffect(() => {
+    const plans = planLimitsData?.plans || [];
+    const next: Record<string, Record<string, string>> = {};
+    for (const p of plans as any[]) {
+      const limits = (p.token_limits || {}) as Record<string, { value: string }>;
+      next[String(p.id)] = {
+        'tokens.email.monthly': String(limits['tokens.email.monthly']?.value ?? ''),
+        'tokens.sms.monthly': String(limits['tokens.sms.monthly']?.value ?? ''),
+        'tokens.whatsapp.monthly': String(limits['tokens.whatsapp.monthly']?.value ?? ''),
+        'tokens.ai.monthly': String(limits['tokens.ai.monthly']?.value ?? '')
+      };
+    }
+    setPlanLimitDraft(next);
+  }, [planLimitsData]);
 
   // Update setting mutation
   const updateSettingMutation = useMutation({
@@ -172,7 +316,7 @@ const SystemSettingsPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="platform" className="space-y-6">
-        <TabsList className="bg-white border p-1 h-auto grid grid-cols-2 md:grid-cols-4 gap-2">
+        <TabsList className="bg-white border p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-2">
           <TabsTrigger value="platform" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
             <Settings size={16} className="mr-2" /> Platform
           </TabsTrigger>
@@ -184,6 +328,9 @@ const SystemSettingsPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="security" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
             <KeyRound size={16} className="mr-2" /> Security
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
+            <MessageSquare size={16} className="mr-2" /> Integrations
           </TabsTrigger>
         </TabsList>
 
@@ -550,6 +697,265 @@ const SystemSettingsPage: React.FC = () => {
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Reset security defaults
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Provider Configuration</CardTitle>
+              <CardDescription>Email, SMS, WhatsApp and AI providers are configured centrally and distributed via plan-based service tokens.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {providersLoading ? (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading integration providers…
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-6">
+                <div className="border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-indigo-600" />
+                      <div className="font-semibold">Email</div>
+                    </div>
+                    <Button
+                      disabled={upsertProviderMutation.isPending}
+                      onClick={() => {
+                        const { provider_key, display_name, ...cfg } = emailConfig
+                        upsertProviderMutation.mutate({
+                          scope: 'platform',
+                          service_type: 'email',
+                          provider_key,
+                          display_name,
+                          priority: 10,
+                          is_active: true,
+                          config: cfg
+                        })
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Email
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>SMTP Host</Label>
+                      <Input value={emailConfig.smtpHost || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpHost: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SMTP Port</Label>
+                      <Input value={String(emailConfig.smtpPort ?? '')} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPort: Number(e.target.value) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SMTP Username</Label>
+                      <Input value={emailConfig.smtpUsername || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpUsername: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SMTP Password</Label>
+                      <Input value={emailConfig.smtpPassword || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPassword: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>From Email</Label>
+                      <Input value={emailConfig.fromEmail || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, fromEmail: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>From Name</Label>
+                      <Input value={emailConfig.fromName || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, fromName: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-indigo-600" />
+                      <div className="font-semibold">SMS</div>
+                    </div>
+                    <Button
+                      disabled={upsertProviderMutation.isPending}
+                      onClick={() => {
+                        const { provider_key, display_name, ...cfg } = smsConfig
+                        upsertProviderMutation.mutate({
+                          scope: 'platform',
+                          service_type: 'sms',
+                          provider_key,
+                          display_name,
+                          priority: 10,
+                          is_active: true,
+                          config: cfg
+                        })
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save SMS
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Provider Key</Label>
+                      <Input value={smsConfig.provider_key || ''} onChange={(e) => setSmsConfig((p) => ({ ...p, provider_key: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sender ID</Label>
+                      <Input value={smsConfig.smsSenderId || ''} onChange={(e) => setSmsConfig((p) => ({ ...p, smsSenderId: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>API Key</Label>
+                      <Input value={smsConfig.smsApiKey || ''} onChange={(e) => setSmsConfig((p) => ({ ...p, smsApiKey: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-indigo-600" />
+                      <div className="font-semibold">WhatsApp</div>
+                    </div>
+                    <Button
+                      disabled={upsertProviderMutation.isPending}
+                      onClick={() => {
+                        const { provider_key, display_name, ...cfg } = whatsappConfig
+                        upsertProviderMutation.mutate({
+                          scope: 'platform',
+                          service_type: 'whatsapp',
+                          provider_key,
+                          display_name,
+                          priority: 10,
+                          is_active: true,
+                          config: cfg
+                        })
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save WhatsApp
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Provider Key</Label>
+                      <Input value={whatsappConfig.provider_key || ''} onChange={(e) => setWhatsappConfig((p) => ({ ...p, provider_key: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sender</Label>
+                      <Input value={whatsappConfig.sender || ''} onChange={(e) => setWhatsappConfig((p) => ({ ...p, sender: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>API Key</Label>
+                      <Input value={whatsappConfig.apiKey || ''} onChange={(e) => setWhatsappConfig((p) => ({ ...p, apiKey: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-indigo-600" />
+                      <div className="font-semibold">AI</div>
+                    </div>
+                    <Button
+                      disabled={upsertProviderMutation.isPending}
+                      onClick={() => {
+                        const { provider_key, display_name, ...cfg } = aiConfig
+                        upsertProviderMutation.mutate({
+                          scope: 'platform',
+                          service_type: 'ai',
+                          provider_key,
+                          display_name,
+                          priority: 10,
+                          is_active: true,
+                          config: cfg
+                        })
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save AI
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Provider Key</Label>
+                      <Input value={aiConfig.provider_key || ''} onChange={(e) => setAiConfig((p) => ({ ...p, provider_key: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Model</Label>
+                      <Input value={aiConfig.model || ''} onChange={(e) => setAiConfig((p) => ({ ...p, model: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>API Key</Label>
+                      <Input value={aiConfig.apiKey || ''} onChange={(e) => setAiConfig((p) => ({ ...p, apiKey: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Plan Token Allowances</CardTitle>
+              <CardDescription>Monthly token quotas for each plan tier. Use \"unlimited\" to remove quota enforcement.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {planLimitsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading plan limits…
+                </div>
+              ) : null}
+
+              <div className="space-y-4">
+                {(planLimitsData?.plans || []).map((p: any) => {
+                  const draft = planLimitDraft[String(p.id)] || {}
+                  return (
+                    <div key={p.id} className="border rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="font-semibold">{p.name} ({p.slug})</div>
+                        <Button
+                          variant="outline"
+                          disabled={updatePlanLimitsMutation.isPending}
+                          onClick={() => updatePlanLimitsMutation.mutate({ planId: Number(p.id), limits: draft })}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          Save limits
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label>Email tokens / month</Label>
+                          <Input
+                            value={draft['tokens.email.monthly'] || ''}
+                            onChange={(e) => setPlanLimitDraft((prev) => ({ ...prev, [String(p.id)]: { ...draft, 'tokens.email.monthly': e.target.value } }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>SMS tokens / month</Label>
+                          <Input
+                            value={draft['tokens.sms.monthly'] || ''}
+                            onChange={(e) => setPlanLimitDraft((prev) => ({ ...prev, [String(p.id)]: { ...draft, 'tokens.sms.monthly': e.target.value } }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>WhatsApp tokens / month</Label>
+                          <Input
+                            value={draft['tokens.whatsapp.monthly'] || ''}
+                            onChange={(e) => setPlanLimitDraft((prev) => ({ ...prev, [String(p.id)]: { ...draft, 'tokens.whatsapp.monthly': e.target.value } }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>AI tokens / month</Label>
+                          <Input
+                            value={draft['tokens.ai.monthly'] || ''}
+                            onChange={(e) => setPlanLimitDraft((prev) => ({ ...prev, [String(p.id)]: { ...draft, 'tokens.ai.monthly': e.target.value } }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>

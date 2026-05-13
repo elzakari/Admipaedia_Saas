@@ -28,7 +28,8 @@ import {
   ChevronDown,
   FileText,
   BarChart3,
-  FilePlus2
+  FilePlus2,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/hooks/useEntitlements'
@@ -106,6 +107,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       { name: 'Schools', labelKey: 'navigation.schools', path: '/super-admin/schools', icon: <Building2 size={20} /> },
       { name: 'E-Registration Billing', labelKey: 'navigation.e_registration_billing', path: '/super-admin/e-registration-billing', icon: <CreditCard size={20} /> },
       { name: 'Financial Insights', labelKey: 'navigation.financial_oversight', path: '/super-admin/financial', icon: <BarChart3 size={20} /> },
+      { name: 'Payment Settings', labelKey: 'navigation.payment_settings', path: '/super-admin/payment-settings', icon: <CreditCard size={20} /> },
+      { name: 'Payments', labelKey: 'navigation.payments', path: '/super-admin/payments', icon: <CreditCard size={20} /> },
+      { name: 'Plan Requests', labelKey: 'navigation.plan_requests', path: '/super-admin/plan-requests', icon: <Sparkles size={20} /> },
+      { name: 'Plan Pricing', labelKey: 'navigation.plan_pricing', path: '/super-admin/plan-pricing', icon: <Sparkles size={20} /> },
       { name: 'Audit Logs', labelKey: 'navigation.audit_logs', path: '/super-admin/audit-logs', icon: <FileText size={20} /> },
       { name: 'Platform Settings', labelKey: 'navigation.system_settings', path: '/super-admin/settings', icon: <Settings size={20} /> },
     ],
@@ -115,6 +120,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
       { name: 'Schools', labelKey: 'navigation.schools', path: '/super-admin/schools', icon: <Building2 size={20} /> },
       { name: 'E-Registration Billing', labelKey: 'navigation.e_registration_billing', path: '/super-admin/e-registration-billing', icon: <CreditCard size={20} /> },
       { name: 'Financial Insights', labelKey: 'navigation.financial_oversight', path: '/super-admin/financial', icon: <BarChart3 size={20} /> },
+      { name: 'Payment Settings', labelKey: 'navigation.payment_settings', path: '/super-admin/payment-settings', icon: <CreditCard size={20} /> },
+      { name: 'Payments', labelKey: 'navigation.payments', path: '/super-admin/payments', icon: <CreditCard size={20} /> },
+      { name: 'Plan Requests', labelKey: 'navigation.plan_requests', path: '/super-admin/plan-requests', icon: <Sparkles size={20} /> },
+      { name: 'Plan Pricing', labelKey: 'navigation.plan_pricing', path: '/super-admin/plan-pricing', icon: <Sparkles size={20} /> },
       { name: 'Audit Logs', labelKey: 'navigation.audit_logs', path: '/super-admin/audit-logs', icon: <FileText size={20} /> },
       { name: 'Platform Settings', labelKey: 'navigation.system_settings', path: '/super-admin/settings', icon: <Settings size={20} /> },
     ],

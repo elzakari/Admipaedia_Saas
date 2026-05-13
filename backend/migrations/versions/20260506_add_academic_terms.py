@@ -18,6 +18,11 @@ depends_on = None
 
 
 def upgrade():
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    if insp.has_table('academic_terms'):
+        return
+
     op.create_table(
         'academic_terms',
         sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
@@ -33,6 +38,10 @@ def upgrade():
 
 
 def downgrade():
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    if not insp.has_table('academic_terms'):
+        return
     op.drop_index('ix_academic_terms_tenant_id', table_name='academic_terms')
     op.drop_table('academic_terms')
 

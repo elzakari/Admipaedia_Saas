@@ -44,11 +44,6 @@ backend/instance/
 *.db
 backend/*.db
 
-# Large local artifacts
-db_backup_before_subject_migration_*.sql
-New errors*.txt
-bash.exe.stackdump
-
 # Coverage outputs
 frontend/coverage/
 backend/coverage/

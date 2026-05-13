@@ -9,6 +9,7 @@ from app.models.tenant import Tenant, TenantMembership, TenantInvitation, TENANT
 
 from .audit import audit
 from .serialization import serialize_tenant
+from app.services.saas.plan_ops import assign_plan_to_tenant
 
 
 def normalize_slug(slug: str) -> str:
@@ -52,6 +53,8 @@ def _create_tenant_and_membership(user: User, name: str, slug: str, country_code
         status='active'
     )
     db.session.add(membership)
+
+    assign_plan_to_tenant(tenant, tenant.plan or 'trial', actor_user_id=user.id)
 
     audit(
         action='tenant.created',

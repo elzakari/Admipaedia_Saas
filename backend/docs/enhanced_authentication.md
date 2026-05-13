@@ -97,9 +97,9 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "access": "REDACTED",
-  "refresh": "REDACTED",
-  "csrf": "REDACTED",
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "csrf_token": "abc123def456",
   "expires_in": 28800,
   "user": {
     "id": 1,
@@ -115,7 +115,7 @@ Content-Type: application/json
 {
   "success": false,
   "mfa_required": true,
-  "mfa_session": "REDACTED",
+  "mfa_token": "temp_mfa_token_123",
   "available_methods": ["totp", "backup_code"]
 }
 ```
@@ -125,7 +125,7 @@ Content-Type: application/json
 #### Setup MFA
 ```http
 POST /api/v1/auth/mfa/setup
-Authorization: Bearer <ACCESS>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -166,7 +166,7 @@ Content-Type: application/json
 #### Get Trusted Devices
 ```http
 GET /api/v1/auth/devices/trusted
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
 **Response:**
@@ -192,7 +192,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 #### Revoke Trusted Device
 ```http
 DELETE /api/v1/auth/devices/trusted/{device_id}
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
 ### Security Settings
@@ -200,7 +200,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 #### Get Security Settings
 ```http
 GET /api/v1/auth/security/settings
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
 **Response:**
@@ -224,7 +224,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 #### Update Security Settings
 ```http
 PUT /api/v1/auth/security/settings
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -240,7 +240,7 @@ Content-Type: application/json
 #### Get User Sessions
 ```http
 GET /api/v1/auth/sessions
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
 **Response:**
@@ -264,7 +264,7 @@ Authorization: Bearer <ACCESS_TOKEN>
 #### Revoke Session
 ```http
 DELETE /api/v1/auth/sessions/{session_id}
-Authorization: Bearer <ACCESS_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
 ## Database Schema

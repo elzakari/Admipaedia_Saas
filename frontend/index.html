@@ -17,6 +17,48 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script>
+      (function () {
+        var host = window.location.hostname;
+        var isDevHost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+        if (!isDevHost) return;
+        if (!('serviceWorker' in navigator)) return;
+        var guard = 'sw_cleanup=1';
+        if (window.location.search && window.location.search.indexOf(guard) !== -1) return;
+
+        navigator.serviceWorker
+          .getRegistrations()
+          .then(function (regs) {
+            if (!regs || regs.length === 0) return;
+            return Promise.all(
+              regs.map(function (r) {
+                return r.unregister();
+              })
+            )
+              .then(function () {
+                if (!('caches' in window)) return;
+                return caches.keys().then(function (keys) {
+                  return Promise.all(
+                    keys.map(function (k) {
+                      return caches.delete(k);
+                    })
+                  );
+                });
+              })
+              .then(function () {
+                var sep = window.location.search ? '&' : '?';
+                window.location.replace(
+                  window.location.pathname +
+                    window.location.search +
+                    sep +
+                    guard +
+                    window.location.hash
+                );
+              });
+          })
+          .catch(function () {});
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -36,6 +36,6 @@ if __name__ == '__main__':
         host=host,
         port=port,
         debug=debug,
-        use_reloader=debug,
+        use_reloader=False,
         log_output=debug
     )

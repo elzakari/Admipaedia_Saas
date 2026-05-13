@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, BarChart3, Receipt, CreditCard, UserPlus } from 'lucide-react'
+import { AlertCircle, BarChart3, Receipt, CreditCard, UserPlus, Mail, MessageSquare, Bot, MessageCircle } from 'lucide-react'
 
 import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { usePlanContext } from '@/hooks/usePlanContext'
 import saasService, { PlatformInvoice, PlatformPayment } from '@/services/saasService'
 
 export default function SchoolPortalDashboardPage() {
   const { currentTenantId, current, isLoading } = useSaasTenant()
+  const { data: planContext, isLoading: isLoadingPlanContext } = usePlanContext()
   const [invoices, setInvoices] = useState<PlatformInvoice[] | null>(null)
   const [payments, setPayments] = useState<PlatformPayment[] | null>(null)
   const [loadingData, setLoadingData] = useState(false)
@@ -53,6 +55,44 @@ export default function SchoolPortalDashboardPage() {
   const status = (current?.tenant.status || 'active').toString()
   const statusVariant = status === 'active' ? 'success' : status === 'trial' ? 'warning' : 'secondary'
 
+  const tokenUsage = planContext?.token_usage || null
+  const anyLoadingUsage = isLoadingPlanContext || !tokenUsage
+
+  const usageSummary = useMemo(() => {
+    if (!tokenUsage) return null
+    const items = [
+      { key: 'email' as const, label: 'Email', icon: Mail },
+      { key: 'sms' as const, label: 'SMS', icon: MessageSquare },
+      { key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle },
+      { key: 'ai' as const, label: 'AI', icon: Bot },
+    ]
+    return items.map((i) => {
+      const u = tokenUsage[i.key]
+      return {
+        ...i,
+        used: u?.used ?? 0,
+        allowance: u?.allowance ?? null,
+        remaining: u?.remaining ?? null,
+        unlimited: Boolean(u?.unlimited),
+      }
+    })
+  }, [tokenUsage])
+
+  const needsUpgrade = useMemo(() => {
+    if (!usageSummary) return false
+    for (const u of usageSummary) {
+      if (u.unlimited) continue
+      const allowance = typeof u.allowance === 'number' ? u.allowance : null
+      const remaining = typeof u.remaining === 'number' ? u.remaining : null
+      if (allowance === 0) return true
+      if (allowance && remaining !== null) {
+        const pct = allowance <= 0 ? 0 : remaining / allowance
+        if (pct <= 0.2) return true
+      }
+    }
+    return false
+  }, [usageSummary])
+
   return (
     <SaasShell title="School Portal" nav={schoolNav} showTenantSwitcher>
       {!isLoading && !currentTenantId ? (
@@ -74,7 +114,7 @@ export default function SchoolPortalDashboardPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="rounded-2xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -88,6 +128,47 @@ export default function SchoolPortalDashboardPage() {
                   <Badge variant="secondary">{plan}</Badge>
                   <Badge variant={statusVariant as any}>{status}</Badge>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Token usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {anyLoadingUsage ? (
+                  <div className="text-sm text-muted-foreground animate-pulse">Loading…</div>
+                ) : !usageSummary ? (
+                  <div className="text-sm text-muted-foreground">—</div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      {usageSummary.map((u) => (
+                        <div key={u.key} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <u.icon className="h-4 w-4 text-muted-foreground" />
+                            <span>{u.label}</span>
+                          </div>
+                          <div className="tabular-nums text-muted-foreground">
+                            {u.unlimited ? 'Unlimited' : u.allowance === 0 ? 'Not included' : u.remaining === null ? '0' : `${u.remaining} left`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {needsUpgrade ? (
+                      <Button asChild className="w-full">
+                        <Link to="/app/billing/invoices">View billing & upgrade</Link>
+                      </Button>
+                    ) : (
+                      <Button asChild variant="outline" className="w-full">
+                        <Link to="/app/billing/invoices">View billing</Link>
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

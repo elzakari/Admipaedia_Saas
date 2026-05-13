@@ -1,0 +1,541 @@
+from __future__ import annotations
+
+import json
+import uuid
+from datetime import datetime, date
+from typing import Any, Optional
+
+from flask import current_app
+from sqlalchemy import and_
+
+from app.extensions import db
+from app.models.billing import BillingInvoice
+from app.models.payments import Payment, PaymentGateway, new_reference
+from app.models.academic_term import AcademicTerm
+from app.models.tenant import Tenant, TenantMembership
+from app.services.adapters.payment import PaymentGatewayFactory
+from app.services.billing.pricing_service import PricingService
+from app.services.entitlements.service import EntitlementService
+
+
+class PaymentService:
+    @staticmethod
+    def _months_for_term(tenant_id, academic_term_id: int, *, min_months: int) -> int:
+        m = int(min_months or 3)
+        if m < 1:
+            m = 1
+        term = AcademicTerm.query.filter_by(id=int(academic_term_id), tenant_id=tenant_id).first()
+        if not term or not term.start_date or not term.end_date:
+            return max(3, m)
+        days = (term.end_date - term.start_date).days
+        months = int((days + 29) // 30) or 1
+        return max(months, max(3, m))
+
+    @staticmethod
+    def serialize_gateway(g: PaymentGateway) -> dict[str, Any]:
+        return {
+            'id': int(g.id),
+            'name': g.name,
+            'display_name': g.display_name,
+            'country_code': g.country_code,
+            'currency': g.currency,
+            'public_key': g.public_key,
+            'is_active': bool(g.is_active),
+            'is_default': bool(g.is_default),
+            'supported_channels': g.supported_channels or [],
+            'environment': g.environment,
+            'secret_key_set': bool(g.secret_key_encrypted),
+            'webhook_secret_set': bool(g.webhook_secret_encrypted),
+            'created_at': g.created_at.isoformat() if g.created_at else None,
+            'updated_at': g.updated_at.isoformat() if g.updated_at else None,
+        }
+
+    @staticmethod
+    def serialize_payment(p: Payment) -> dict[str, Any]:
+        return {
+            'id': int(p.id),
+            'invoice_id': int(p.invoice_id),
+            'school_id': str(p.school_id),
+            'payment_gateway_id': int(p.payment_gateway_id) if p.payment_gateway_id is not None else None,
+            'gateway_name': p.gateway_name,
+            'payment_reference': p.payment_reference,
+            'gateway_transaction_id': p.gateway_transaction_id,
+            'amount': float(p.amount) if p.amount is not None else 0.0,
+            'currency': p.currency,
+            'payment_channel': p.payment_channel,
+            'status': p.status,
+            'payment_link': p.payment_link,
+            'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+            'verified_at': p.verified_at.isoformat() if p.verified_at else None,
+            'submitted_by_user_id': p.submitted_by_user_id,
+            'reviewed_by_user_id': p.reviewed_by_user_id,
+            'review_note': p.review_note,
+            'reviewed_at': p.reviewed_at.isoformat() if p.reviewed_at else None,
+            'proof_path': p.proof_path,
+            'manual_method': p.manual_method,
+            'manual_reference': p.manual_reference,
+            'manual_paid_at': p.manual_paid_at.isoformat() if p.manual_paid_at else None,
+            'created_at': p.created_at.isoformat() if p.created_at else None,
+        }
+
+    @staticmethod
+    def serialize_invoice(inv: BillingInvoice) -> dict[str, Any]:
+        return {
+            'id': int(inv.id),
+            'invoice_number': inv.invoice_number,
+            'tenant_id': str(inv.tenant_id),
+            'plan_id': int(inv.plan_id),
+            'academic_term_id': int(inv.academic_term_id),
+            'active_student_count': int(inv.active_student_count or 0),
+            'price_per_student_snapshot': float(inv.price_per_student_snapshot or 0),
+            'billing_months': int(getattr(inv, 'billing_months', 0) or 0),
+            'subtotal': float(inv.subtotal or 0),
+            'discount_amount': float(inv.discount_amount or 0),
+            'tax_amount': float(inv.tax_amount or 0),
+            'total_amount': float(inv.total_amount or 0),
+            'currency': inv.currency,
+            'status': inv.status,
+            'due_date': inv.due_date.isoformat() if inv.due_date else None,
+            'paid_at': inv.paid_at.isoformat() if inv.paid_at else None,
+            'payment_status': inv.payment_status,
+            'payment_link': inv.payment_link,
+            'payment_reference': inv.payment_reference,
+            'gateway_name': inv.gateway_name,
+            'amount_paid': float(inv.amount_paid or 0),
+            'balance_due': float(inv.balance_due or 0),
+            'created_at': inv.created_at.isoformat() if inv.created_at else None,
+            'updated_at': inv.updated_at.isoformat() if inv.updated_at else None,
+        }
+
+    @staticmethod
+    def get_best_gateway_for_school(school_id) -> tuple[Optional[PaymentGateway], Optional[str]]:
+        selected = PaymentGatewayFactory.getBestPaymentGatewayForSchool(school_id)
+        if not selected:
+            return None, 'No payment gateway configured'
+        return selected.gateway, None
+
+    @staticmethod
+    def list_gateways() -> list[PaymentGateway]:
+        return PaymentGateway.query.order_by(PaymentGateway.name.asc(), PaymentGateway.country_code.asc().nullsfirst()).all()
+
+    @staticmethod
+    def upsert_gateway(
+        *,
+        gateway_id: Optional[int],
+        name: str,
+        display_name: Optional[str],
+        country_code: Optional[str],
+        currency: Optional[str],
+        public_key: Optional[str],
+        secret_key: Optional[str],
+        webhook_secret: Optional[str],
+        supported_channels: Optional[list[str]],
+        environment: Optional[str],
+        is_active: bool,
+        is_default: bool,
+    ) -> tuple[Optional[PaymentGateway], Optional[str]]:
+        key = (name or '').strip().lower()
+        if key not in ('paystack', 'cinetpay', 'flutterwave', 'manual'):
+            return None, 'Invalid gateway name'
+
+        cc = (country_code or '').strip().upper() or None
+        cur = (currency or '').strip().upper() or None
+
+        gw = PaymentGateway.query.get(int(gateway_id)) if gateway_id else PaymentGateway(name=key)
+        if not gw:
+            return None, 'Gateway not found'
+
+        gw.name = key
+        gw.display_name = (display_name or '').strip() or None
+        gw.country_code = cc
+        gw.currency = cur
+        gw.public_key = (public_key or '').strip() or None
+        gw.is_active = bool(is_active)
+        gw.is_default = bool(is_default)
+        gw.environment = (environment or 'sandbox').strip().lower()
+        gw.supported_channels = supported_channels or []
+
+        if secret_key and secret_key != '********':
+            gw.set_secret_key(secret_key.strip())
+        if webhook_secret and webhook_secret != '********':
+            gw.set_webhook_secret(webhook_secret.strip())
+
+        if not gateway_id:
+            db.session.add(gw)
+            db.session.flush()
+
+        if gw.is_default:
+            q = PaymentGateway.query.filter(PaymentGateway.id != gw.id, PaymentGateway.name == gw.name)
+            if gw.country_code is None:
+                q = q.filter(PaymentGateway.country_code.is_(None))
+            else:
+                q = q.filter(PaymentGateway.country_code == gw.country_code)
+            if gw.currency is None:
+                q = q.filter(PaymentGateway.currency.is_(None))
+            else:
+                q = q.filter(PaymentGateway.currency == gw.currency)
+            q.update({'is_default': False})
+
+        db.session.commit()
+        return gw, None
+
+    @staticmethod
+    def generate_invoice_for_school_term(
+        *,
+        school_id,
+        academic_term_id: int,
+        months: Optional[int] = None,
+        due_date: Optional[date] = None,
+    ) -> tuple[Optional[BillingInvoice], Optional[str]]:
+        tenant = Tenant.query.get(school_id)
+        if not tenant:
+            return None, 'School not found'
+
+        active, err = EntitlementService.getSchoolActivePlan(str(tenant.id))
+        if err or not active:
+            return None, err or 'School has no active plan'
+
+        count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), int(academic_term_id))
+        currency = (tenant.currency or active.plan.currency or 'USD').upper()
+
+        min_months = int(getattr(active.plan, 'billing_min_months', 3) or 3)
+        if months is None:
+            months_to_bill = PaymentService._months_for_term(tenant.id, int(academic_term_id), min_months=min_months)
+        else:
+            months_to_bill = int(months)
+            if months_to_bill < max(3, min_months):
+                months_to_bill = max(3, min_months)
+
+        price = PricingService.get_price_per_student_month(
+            plan=active.plan,
+            student_count=int(count),
+            country_code=tenant.country_code,
+            currency=currency,
+        )
+        subtotal = float(price) * float(count) * float(months_to_bill)
+
+        invoice = BillingInvoice.query.filter_by(tenant_id=tenant.id, academic_term_id=int(academic_term_id)).first()
+        if invoice:
+            invoice.price_per_student_snapshot = price
+            invoice.billing_months = months_to_bill
+            invoice.active_student_count = count
+            invoice.subtotal = subtotal
+            invoice.total_amount = subtotal
+            invoice.currency = currency
+            if float(invoice.amount_paid or 0) <= 0:
+                invoice.balance_due = subtotal
+                invoice.payment_status = 'unpaid'
+            db.session.commit()
+            return invoice, None
+
+        inv_no = f"BILL-{academic_term_id}-{str(tenant.id)[:8]}-{uuid.uuid4().hex[:6]}".upper()
+        invoice = BillingInvoice(
+            invoice_number=inv_no,
+            tenant_id=tenant.id,
+            plan_id=int(active.plan.id),
+            academic_term_id=int(academic_term_id),
+            price_per_student_snapshot=price,
+            billing_months=months_to_bill,
+            active_student_count=count,
+            subtotal=subtotal,
+            discount_amount=0,
+            tax_amount=0,
+            total_amount=subtotal,
+            currency=currency,
+            status='pending',
+            due_date=due_date,
+            payment_status='unpaid',
+            amount_paid=0,
+            balance_due=subtotal,
+        )
+        db.session.add(invoice)
+        db.session.commit()
+        return invoice, None
+
+    @staticmethod
+    def list_invoices_for_tenant(tenant_id) -> list[BillingInvoice]:
+        return BillingInvoice.query.filter_by(tenant_id=tenant_id).order_by(BillingInvoice.created_at.desc()).all()
+
+    @staticmethod
+    def list_payments_for_tenant(tenant_id) -> list[Payment]:
+        return Payment.query.filter_by(school_id=tenant_id).order_by(Payment.created_at.desc()).all()
+
+    @staticmethod
+    def initializeInvoicePayment(
+        *,
+        invoice_id: int,
+        user_id: int,
+        payment_channel: str,
+        return_url: Optional[str],
+        notify_url: Optional[str],
+    ) -> tuple[Optional[Payment], Optional[str]]:
+        channel = (payment_channel or '').strip().lower()
+        if channel not in ('mobile_money', 'card', 'bank_transfer', 'wallet', 'manual'):
+            return None, 'Invalid payment channel'
+
+        inv = BillingInvoice.query.filter_by(id=int(invoice_id)).with_for_update().first()
+        if not inv:
+            return None, 'Invoice not found'
+
+        if str(inv.payment_status or '').lower() == 'paid' or float(inv.balance_due or 0) <= 0:
+            return None, 'Invoice already paid'
+
+        tenant = Tenant.query.get(inv.tenant_id)
+        if not tenant:
+            return None, 'School not found'
+
+        selected = PaymentGatewayFactory.getBestPaymentGatewayForSchool(tenant.id)
+        if not selected:
+            return None, 'No payment gateway configured'
+        gw = selected.gateway
+        adapter = selected.adapter
+
+        supported = gw.supported_channels or []
+        if channel != 'manual' and supported and channel not in supported:
+            return None, 'Payment channel not supported'
+
+        ref = new_reference('PMT')
+        payment = Payment(
+            invoice_id=int(inv.id),
+            school_id=tenant.id,
+            payment_gateway_id=int(gw.id),
+            gateway_name=str(gw.name),
+            payment_reference=ref,
+            amount=float(inv.balance_due or inv.total_amount or 0),
+            currency=inv.currency,
+            payment_channel=channel,
+            status='pending',
+            submitted_by_user_id=int(user_id),
+            idempotency_key=uuid.uuid4().hex,
+        )
+        db.session.add(payment)
+        db.session.flush()
+
+        try:
+            init = adapter.initialize(gateway=gw, invoice=inv, payment=payment, return_url=return_url, notify_url=notify_url)
+        except Exception as e:
+            payment.status = 'failed'
+            payment.gateway_response = {'error': str(e)}
+            db.session.commit()
+            return None, str(e)
+
+        payment.payment_link = init.authorization_url
+        payment.gateway_transaction_id = init.gateway_transaction_id
+        payment.gateway_response = init.raw
+
+        inv.payment_reference = payment.payment_reference
+        inv.payment_link = payment.payment_link
+        inv.gateway_name = payment.gateway_name
+        inv.payment_status = 'pending'
+
+        db.session.commit()
+        return payment, None
+
+    @staticmethod
+    def apply_payment_success(payment: Payment, *, verified_amount: Optional[float], verified_currency: Optional[str]):
+        inv = BillingInvoice.query.filter_by(id=int(payment.invoice_id)).with_for_update().first()
+        if not inv:
+            return
+        if str(inv.payment_status or '').lower() == 'paid':
+            return
+        if verified_currency and str(verified_currency).upper() != str(inv.currency).upper():
+            return
+
+        expected = float(payment.amount or 0)
+        actual = float(verified_amount) if verified_amount is not None else expected
+        if expected > 0 and abs(actual - expected) > 0.01:
+            return
+
+        inv.amount_paid = float(inv.amount_paid or 0) + expected
+        inv.balance_due = max(0.0, float(inv.total_amount or 0) - float(inv.amount_paid or 0))
+        if inv.balance_due <= 0.01:
+            inv.payment_status = 'paid'
+            inv.status = 'paid'
+            inv.paid_at = datetime.utcnow()
+        else:
+            inv.payment_status = 'partially_paid'
+
+    @staticmethod
+    def verify_payment(payment_id: int) -> tuple[Optional[Payment], Optional[str]]:
+        p = Payment.query.filter_by(id=int(payment_id)).with_for_update().first()
+        if not p:
+            return None, 'Payment not found'
+
+        if str(p.status).lower() == 'successful':
+            return p, None
+
+        gw = PaymentGateway.query.get(int(p.payment_gateway_id)) if p.payment_gateway_id else None
+        if not gw:
+            return None, 'Gateway not found'
+        adapter = PaymentGatewayFactory.adapter_for(gw.name)
+        res = adapter.verify(gateway=gw, payment=p)
+
+        p.verified_at = datetime.utcnow()
+        p.gateway_response = res.raw or p.gateway_response
+        if res.paid:
+            p.status = 'successful'
+            p.paid_at = p.paid_at or datetime.utcnow()
+            if res.gateway_transaction_id:
+                p.gateway_transaction_id = res.gateway_transaction_id
+            PaymentService.apply_payment_success(p, verified_amount=res.amount, verified_currency=res.currency)
+        else:
+            p.status = 'failed'
+
+        db.session.commit()
+        return p, None
+
+    @staticmethod
+    def extract_reference_from_webhook(gateway_name: str, payload: Any) -> Optional[str]:
+        g = (gateway_name or '').strip().lower()
+        if g == 'paystack':
+            data = (payload or {}).get('data') if isinstance(payload, dict) else None
+            ref = (data or {}).get('reference') if isinstance(data, dict) else None
+            return str(ref) if ref else None
+        if g == 'flutterwave':
+            data = (payload or {}).get('data') if isinstance(payload, dict) else None
+            ref = (data or {}).get('tx_ref') or (payload or {}).get('tx_ref') if isinstance(payload, dict) else None
+            return str(ref) if ref else None
+        if g == 'cinetpay':
+            if isinstance(payload, dict):
+                ref = payload.get('cpm_trans_id') or payload.get('transaction_id')
+                return str(ref) if ref else None
+            return None
+        return None
+
+    @staticmethod
+    def handle_webhook(*, gateway_name: str, headers: dict[str, str], body: bytes) -> tuple[bool, str]:
+        gname = (gateway_name or '').strip().lower()
+        gw = PaymentGateway.query.filter_by(name=gname, is_active=True).order_by(PaymentGateway.is_default.desc()).first()
+        if not gw:
+            return False, 'Gateway not configured'
+
+        adapter = PaymentGatewayFactory.adapter_for(gw.name)
+        if not adapter.verify_webhook(gateway=gw, body=body, headers=headers):
+            return False, 'Invalid signature'
+
+        payload: Any = None
+        try:
+            payload = json.loads(body.decode('utf-8')) if body else {}
+        except Exception:
+            try:
+                from urllib.parse import parse_qs
+                parsed = parse_qs(body.decode('utf-8') if body else '')
+                payload = {k: v[0] if isinstance(v, list) and v else v for k, v in parsed.items()}
+            except Exception:
+                payload = {}
+
+        ref = PaymentService.extract_reference_from_webhook(gname, payload)
+        if not ref:
+            return True, 'No reference'
+
+        p = Payment.query.filter_by(gateway_name=gname, payment_reference=str(ref)).with_for_update().first()
+        if not p:
+            return True, 'Payment not found'
+
+        p.gateway_response = payload if isinstance(payload, dict) else {'raw': payload}
+
+        if str(p.status).lower() == 'successful':
+            db.session.commit()
+            return True, 'Already processed'
+
+        verified, _ = PaymentService.verify_payment(int(p.id))
+        if not verified:
+            db.session.commit()
+            return True, 'Verification failed'
+        return True, 'OK'
+
+    @staticmethod
+    def submit_manual_payment(
+        *,
+        invoice_id: int,
+        tenant_id,
+        user_id: int,
+        amount: float,
+        currency: str,
+        method: str,
+        reference: str,
+        paid_at: Optional[datetime],
+        proof_path: Optional[str],
+    ) -> tuple[Optional[Payment], Optional[str]]:
+        inv = BillingInvoice.query.filter_by(id=int(invoice_id), tenant_id=tenant_id).with_for_update().first()
+        if not inv:
+            return None, 'Invoice not found'
+
+        if float(inv.balance_due or 0) <= 0 or str(inv.payment_status or '').lower() == 'paid':
+            return None, 'Invoice already paid'
+
+        manual = PaymentGateway.query.filter_by(name='manual', is_active=True).order_by(PaymentGateway.is_default.desc()).first()
+        if not manual:
+            return None, 'Manual payments not enabled'
+
+        p = Payment(
+            invoice_id=int(inv.id),
+            school_id=tenant_id,
+            payment_gateway_id=int(manual.id),
+            gateway_name='manual',
+            payment_reference=new_reference('MAN'),
+            amount=float(amount),
+            currency=(currency or inv.currency or 'USD').upper(),
+            payment_channel='manual',
+            status='pending',
+            submitted_by_user_id=int(user_id),
+            manual_method=(method or '').strip().lower() or None,
+            manual_reference=(reference or '').strip() or None,
+            manual_paid_at=paid_at,
+            proof_path=proof_path,
+            idempotency_key=uuid.uuid4().hex,
+        )
+        db.session.add(p)
+        inv.payment_status = 'pending'
+        db.session.commit()
+        return p, None
+
+    @staticmethod
+    def review_manual_payment(*, payment_id: int, reviewer_id: int, approve: bool, note: Optional[str]) -> tuple[Optional[Payment], Optional[str]]:
+        p = Payment.query.filter_by(id=int(payment_id)).with_for_update().first()
+        if not p:
+            return None, 'Payment not found'
+        if str(p.gateway_name) != 'manual':
+            return None, 'Only manual payments can be reviewed'
+        if str(p.status).lower() == 'successful':
+            return p, None
+
+        p.reviewed_by_user_id = int(reviewer_id)
+        p.review_note = (note or '').strip() or None
+        p.reviewed_at = datetime.utcnow()
+        if approve:
+            p.status = 'successful'
+            p.paid_at = p.paid_at or (p.manual_paid_at or datetime.utcnow())
+            PaymentService.apply_payment_success(p, verified_amount=float(p.amount or 0), verified_currency=p.currency)
+        else:
+            p.status = 'failed'
+
+        db.session.commit()
+        return p, None
+
+    @staticmethod
+    def platform_list_payments(
+        *,
+        status: Optional[str] = None,
+        gateway: Optional[str] = None,
+        country_code: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ) -> list[Payment]:
+        q = Payment.query
+        if status:
+            q = q.filter(Payment.status == status)
+        if gateway:
+            q = q.filter(Payment.gateway_name == gateway)
+        if tenant_id:
+            q = q.filter(Payment.school_id == tenant_id)
+        if date_from:
+            q = q.filter(Payment.created_at >= datetime(date_from.year, date_from.month, date_from.day))
+        if date_to:
+            q = q.filter(Payment.created_at <= datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59))
+        if country_code:
+            cc = country_code.strip().upper()
+            q = q.join(Tenant, Tenant.id == Payment.school_id)
+            q = q.filter(Tenant.country_code == cc)
+        return q.order_by(Payment.created_at.desc()).all()

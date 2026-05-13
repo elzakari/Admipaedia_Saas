@@ -7,12 +7,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { TouchFriendlyButton } from "../../components/common/TouchFriendlyButton";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 
-import api from "../../lib/api";
-import parentService from "../../services/parentService";
+// Import mock data
+import { 
+  parentData, 
+  academicData, 
+  attendanceData, 
+  feeData, 
+  homeworkData, 
+  messagesData, 
+  schoolEvents 
+} from "../../data/parents-data";
 
-type ParentChild = any;
+type ParentChild = (typeof parentData.children)[number];
+type AcademicRecord = (typeof academicData)[keyof typeof academicData];
+type AcademicSubject = AcademicRecord['subjects'][number];
 
 // Import tab components
 import ParentChildProfile from "../../components/parents/ParentChildProfile";
@@ -34,7 +43,7 @@ export default ParentsPage;
 function ParentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [offlineMode, setOfflineMode] = useState(false);
-  const [selectedChild, setSelectedChild] = useState<string>("");
+  const [selectedChild, setSelectedChild] = useState("child1");
   const isMobile = useMediaQuery('(max-width: 640px)');
   
   // Modal states
@@ -44,108 +53,71 @@ function ParentsPage() {
   const [showReportForm, setShowReportForm] = useState(false);
   const [showComposeMessage, setShowComposeMessage] = useState(false);
 
-  const {
-    data: children,
-    isLoading,
-    error
-  } = useQuery({
-    queryKey: ["parent-children"],
-    queryFn: () => parentService.getMyChildren(),
-    staleTime: 30_000
-  });
-
-  useEffect(() => {
-    if (!selectedChild && children?.length) {
-      setSelectedChild(String(children[0].id));
-    }
-  }, [children, selectedChild]);
-
+  // Get current child's data with proper type handling and transformation
   const currentChildRaw: ParentChild | null =
-    (children || []).find((child: any) => String(child.id) === selectedChild) ??
-    ((children || []).length > 0 ? (children as any)[0] : null);
+    parentData.children.find((child) => child.id === selectedChild) ??
+    (parentData.children.length > 0 ? parentData.children[0] : null);
 
-  const childId = Number(currentChildRaw?.id);
+  // Build StudentData with safe defaults for required fields
+  const safeName =
+    typeof currentChildRaw?.name === "string" && currentChildRaw.name.trim()
+      ? currentChildRaw.name
+      : "Unknown";
 
-  const { data: feeBalance } = useQuery({
-    queryKey: ["student-fee-balance", childId],
-    queryFn: async () => {
-      const res = await api.get(`/finance/students/${childId}/balance`);
-      return Number(res.data?.balance) || 0;
-    },
-    enabled: Number.isFinite(childId) && childId > 0,
-    staleTime: 30_000
-  });
+  const currentChild = {
+    studentId: String(currentChildRaw?.admissionNumber ?? currentChildRaw?.id ?? "0"),
+    dob: String(currentChildRaw?.dateOfBirth ?? ""),
+    email: `${safeName.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
+    id: String(currentChildRaw?.id ?? "0"),
+    name: safeName,
+    photo: currentChildRaw?.photo ?? "",
+    age: typeof currentChildRaw?.age === "number" ? currentChildRaw.age : 0,
+    gender: currentChildRaw?.gender ?? "Unknown",
+    class: currentChildRaw?.class ?? "Unknown",
+    admissionNumber: String(currentChildRaw?.admissionNumber ?? ""),
+    dateOfBirth: String(currentChildRaw?.dateOfBirth ?? ""),
+    bloodGroup: currentChildRaw?.bloodGroup ?? "Unknown",
+    emergencyContact: currentChildRaw?.emergencyContact ?? "Unknown",
+    address: currentChildRaw?.address ?? "",
+    medicalConditions: Array.isArray(currentChildRaw?.medicalConditions)
+      ? currentChildRaw.medicalConditions
+      : []
+  };
 
-  const currentChild = useMemo(() => {
-    const firstName = currentChildRaw?.first_name || currentChildRaw?.firstName || '';
-    const lastName = currentChildRaw?.last_name || currentChildRaw?.lastName || '';
-    const safeName = currentChildRaw?.full_name || `${firstName} ${lastName}`.trim() || currentChildRaw?.name || 'Student';
-    const admissionNumber = String(currentChildRaw?.admission_number || currentChildRaw?.admissionNumber || '');
-    const emailBase = safeName.toLowerCase().replace(/\s+/g, ".");
+  const currentAcademicDataRaw = academicData[selectedChild as keyof typeof academicData];
+  const currentAttendanceDataRaw = attendanceData[selectedChild as keyof typeof attendanceData];
 
-    return {
-      studentId: admissionNumber || String(currentChildRaw?.id ?? "0"),
-      dob: String(currentChildRaw?.date_of_birth ?? currentChildRaw?.dateOfBirth ?? ""),
-      email: currentChildRaw?.email || `${emailBase}@school.edu`,
-      id: String(currentChildRaw?.id ?? "0"),
-      name: safeName,
-      photo: currentChildRaw?.profile_picture ?? currentChildRaw?.photo ?? "",
-      age: typeof currentChildRaw?.age === "number" ? currentChildRaw.age : 0,
-      gender: currentChildRaw?.gender ?? "Unknown",
-      class: currentChildRaw?.class_name || (currentChildRaw?.class_id ? `Class ${currentChildRaw.class_id}` : "Unknown"),
-      admissionNumber,
-      dateOfBirth: String(currentChildRaw?.date_of_birth ?? currentChildRaw?.dateOfBirth ?? ""),
-      bloodGroup: currentChildRaw?.blood_group ?? currentChildRaw?.bloodGroup ?? "Unknown",
-      emergencyContact: currentChildRaw?.emergency_contact_phone ?? currentChildRaw?.emergencyContact ?? "Unknown",
-      address: currentChildRaw?.address ?? "",
-      medicalConditions: Array.isArray(currentChildRaw?.medicalConditions)
-        ? currentChildRaw.medicalConditions
-        : []
-    };
-  }, [currentChildRaw]);
+  const currentAcademicData = {
+    ...currentAcademicDataRaw,
+    overallGrade: currentAcademicDataRaw?.currentGrade ?? "",
+    subjects: (currentAcademicDataRaw?.subjects ?? []).map((subject: AcademicSubject) => ({
+      ...subject,
+      progress: subject.score
+    })),
+    recentExams: currentAcademicDataRaw?.recentExams ?? [],
+    upcomingExams: currentAcademicDataRaw?.upcomingExams ?? [],
+    overallGPA: currentAcademicDataRaw?.overallGPA ?? 0,
+    rank: currentAcademicDataRaw?.rank ?? "",
+    attendance: currentAcademicDataRaw?.attendance ?? 0,
+    classTeacher: currentAcademicDataRaw?.classTeacher ?? "",
+    currentGrade: currentAcademicDataRaw?.currentGrade ?? ""
+  };
 
-  const currentAcademicData = useMemo(() => {
-    const overallPercentage = Number(currentChildRaw?.grade_average) || 0;
-    const overallGrade = overallPercentage >= 90 ? 'A+' : overallPercentage >= 80 ? 'A' : overallPercentage >= 70 ? 'B+' : overallPercentage >= 60 ? 'B' : overallPercentage >= 50 ? 'C+' : overallPercentage >= 40 ? 'C' : 'F';
-    return {
-      overallPercentage,
-      overallGrade,
-      overallGPA: Math.round((overallPercentage / 25) * 100) / 100,
-      rank: null,
-      subjects: [],
-      recentExams: [],
-      upcomingExams: [],
-      attendance: Number(currentChildRaw?.attendance_rate) || 0,
-      classTeacher: '',
-      currentGrade: overallGrade
-    };
-  }, [currentChildRaw]);
+  const currentAttendanceData = {
+    ...currentAttendanceDataRaw,
+    percentage: currentAttendanceDataRaw?.attendancePercentage ?? 0,
+    daysPresent: String(currentAttendanceDataRaw?.present ?? 0),
+    present: currentAttendanceDataRaw?.present ?? 0,
+    absent: currentAttendanceDataRaw?.absent ?? 0,
+    late: currentAttendanceDataRaw?.late ?? 0,
+    excused: currentAttendanceDataRaw?.excused ?? 0,
+    attendancePercentage: currentAttendanceDataRaw?.attendancePercentage ?? 0,
+    monthlyAttendance: currentAttendanceDataRaw?.monthlyAttendance ?? [],
+    recentAbsences: currentAttendanceDataRaw?.recentAbsences ?? []
+  };
 
-  const currentAttendanceData = useMemo(() => {
-    const percentage = Number(currentChildRaw?.attendance_rate) || 0;
-    return {
-      percentage,
-      daysPresent: '',
-      present: 0,
-      absent: 0,
-      late: 0,
-      excused: 0,
-      attendancePercentage: percentage,
-      monthlyAttendance: [],
-      recentAbsences: []
-    };
-  }, [currentChildRaw]);
-
-  const currentFeeData = useMemo(() => {
-    const amount = Number(feeBalance) || 0;
-    return {
-      balance: amount,
-      due: amount,
-      paid: 0,
-      total: 0,
-      status: amount <= 0 ? 'paid' : 'pending'
-    };
-  }, [feeBalance]);
+  const currentFeeData = feeData[selectedChild as keyof typeof feeData];
+  const currentHomeworkData = homeworkData[selectedChild as keyof typeof homeworkData];
   const allowedTabs = useMemo(() => ['dashboard', 'academics', 'attendance', 'fees', 'messages'], []);
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : 'dashboard';
@@ -172,28 +144,16 @@ function ParentsPage() {
 
   
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen p-6">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-        <h1 className="text-2xl font-bold text-gray-800">Loading Parent Portal</h1>
-        <p className="text-gray-600 mt-2">Please wait while we load your children's information...</p>
-      </div>
-    );
-  }
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen p-6">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-800">Data Loading Error</h1>
-        <p className="text-gray-600 mt-2">Unable to load parent data. Please try again later.</p>
-        <TouchFriendlyButton className="mt-4" onClick={() => window.location.reload()}>
-          Refresh Page
-        </TouchFriendlyButton>
-      </div>
-    );
-  }
+  // Simulate data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Handle offline mode
   useEffect(() => {
@@ -213,12 +173,27 @@ function ParentsPage() {
     };
   }, []);
 
-  if (!currentChildRaw) {
+  // Loading state
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6">
-        <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-800">No Children Found</h1>
-        <p className="text-gray-600 mt-2">No children are linked to this parent account.</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+        <h1 className="text-2xl font-bold text-gray-800">Loading Parent Portal</h1>
+        <p className="text-gray-600 mt-2">Please wait while we load your children's information...</p>
+      </div>
+    );
+  }
+
+  // If there's an error with the data, show a fallback
+  if (!currentChild || !currentAcademicData || !currentAttendanceData || !currentFeeData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-gray-800">Data Loading Error</h1>
+        <p className="text-gray-600 mt-2">Unable to load parent data. Please try again later.</p>
+        <TouchFriendlyButton className="mt-4" onClick={() => window.location.reload()}>
+          Refresh Page
+        </TouchFriendlyButton>
       </div>
     );
   }
@@ -265,14 +240,14 @@ function ParentsPage() {
               <SelectValue placeholder="Select Child" />
             </SelectTrigger>
             <SelectContent>
-              {(children || []).map((child: any) => (
-                <SelectItem key={child.id} value={String(child.id)}>
+              {parentData.children.map((child: ParentChild) => (
+                <SelectItem key={child.id} value={child.id}>
                   <div className="flex items-center">
                     <Avatar className="h-6 w-6 mr-2">
-                      <AvatarImage src={child.profile_picture || child.photo} alt={String(child.full_name || child.name || '')} />
-                      <AvatarFallback>{typeof (child.full_name || child.name) === 'string' ? String(child.full_name || child.name).charAt(0) : ''}</AvatarFallback>
+                      <AvatarImage src={child.photo} alt={String(child.name || '')} />
+                      <AvatarFallback>{typeof child.name === 'string' ? child.name.charAt(0) : ''}</AvatarFallback>
                     </Avatar>
-                    {(child.full_name || child.name || 'Student')} - {child.class_name || (child.class_id ? `Class ${child.class_id}` : 'Class')}
+                    {child.name} - Class {child.class}
                   </div>
                 </SelectItem>
               ))}
@@ -344,18 +319,22 @@ function ParentsPage() {
                 currentAcademicData={currentAcademicData}
                 currentAttendanceData={currentAttendanceData}
                 currentFeeData={currentFeeData}
-                currentHomeworkData={[]}
-                messagesData={[]}
-                schoolEvents={[]}
+                currentHomeworkData={currentHomeworkData}
+                messagesData={messagesData}
+                schoolEvents={schoolEvents}
               />
             </TabsContent>
             
             <TabsContent value="academics">
-              <AcademicsTab childId={childId} />
+              <AcademicsTab 
+                currentAcademicData={currentAcademicData}
+              />
             </TabsContent>
             
             <TabsContent value="attendance">
-              <AttendanceTab childId={childId} />
+              <AttendanceTab 
+                currentAttendanceData={currentAttendanceData}
+              />
             </TabsContent>
 
             <TabsContent value="fees">
@@ -363,7 +342,10 @@ function ParentsPage() {
             </TabsContent>
             
             <TabsContent value="messages">
-              <MessagesTab onComposeClick={() => setShowComposeMessage(true)} />
+              <MessagesTab
+                messagesData={messagesData || []}
+                onComposeClick={() => setShowComposeMessage(true)}
+              />
             </TabsContent>
           </Tabs>
         </div>

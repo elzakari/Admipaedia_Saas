@@ -20,6 +20,7 @@ class Plan(db.Model):
     features = db.Column(db.JSON().with_variant(JSONB(), 'postgresql'), nullable=True)
     benefits = db.Column(db.JSON().with_variant(JSONB(), 'postgresql'), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, server_default='true')
+    billing_min_months = db.Column(db.Integer, nullable=False, server_default='3')
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -149,6 +150,7 @@ class BillingInvoice(db.Model):
     academic_term_id = db.Column(db.Integer, db.ForeignKey('academic_terms.id'), nullable=False, index=True)
 
     price_per_student_snapshot = db.Column(db.Numeric(12, 2), nullable=False)
+    billing_months = db.Column(db.Integer, nullable=False, server_default='3')
     active_student_count = db.Column(db.Integer, nullable=False, server_default='0')
 
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, server_default='0')
@@ -189,3 +191,55 @@ class BillingInvoicePayment(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
     invoice = db.relationship('BillingInvoice', backref=db.backref('payments', lazy=True, cascade='all, delete-orphan'))
+
+
+class PlanPricingTier(db.Model):
+    __tablename__ = 'plan_pricing_tiers'
+    __table_args__ = (
+        db.Index('idx_plan_pricing_tiers_plan_country_currency_active', 'plan_id', 'country_code', 'currency', 'is_active'),
+        db.Index('idx_plan_pricing_tiers_plan_range', 'plan_id', 'min_students', 'max_students'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=False, index=True)
+
+    country_code = db.Column(db.String(2), nullable=True)
+    currency = db.Column(db.String(3), nullable=False)
+
+    min_students = db.Column(db.Integer, nullable=False)
+    max_students = db.Column(db.Integer, nullable=True)
+
+    price_per_student_month = db.Column(db.Numeric(12, 2), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, server_default=db.text('true'))
+
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    plan = db.relationship('Plan', backref=db.backref('pricing_tiers', lazy=True, cascade='all, delete-orphan'))
+
+
+class SubscriptionChangeRequest(db.Model):
+    __tablename__ = 'subscription_change_requests'
+    __table_args__ = (
+        db.Index('idx_subscription_change_school_status', 'school_id', 'status'),
+        db.Index('idx_subscription_change_status_created', 'status', 'created_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    school_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    requested_plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=False, index=True)
+    request_type = db.Column(db.String(16), nullable=False)
+    status = db.Column(db.String(16), nullable=False, server_default='pending')
+
+    effective_academic_term_id = db.Column(db.Integer, db.ForeignKey('academic_terms.id'), nullable=True)
+    effective_date = db.Column(db.Date, nullable=True)
+
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    approved_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    decision_note = db.Column(db.Text, nullable=True)
+    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    requested_plan = db.relationship('Plan', backref=db.backref('change_requests', lazy=True))

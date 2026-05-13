@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Plus, CreditCard } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
 import type { AxiosError } from 'axios'
+import { useLocation } from 'react-router-dom'
 
 import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,33 +10,33 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
-import saasService, { PlatformInvoice, PlatformPayment } from '@/services/saasService'
+import billingService, { BillingInvoice, Payment } from '@/services/billingService'
 
 export default function BillingPaymentsPage() {
   const { toast } = useToast()
   const { currentTenantId } = useSaasTenant()
+  const location = useLocation()
 
-  const [payments, setPayments] = useState<PlatformPayment[] | null>(null)
-  const [invoices, setInvoices] = useState<PlatformInvoice[] | null>(null)
+  const [payments, setPayments] = useState<Payment[] | null>(null)
+  const [invoices, setInvoices] = useState<BillingInvoice[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   const [invoiceId, setInvoiceId] = useState<string>('none')
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState('manual')
+  const [method, setMethod] = useState('bank_deposit')
   const [reference, setReference] = useState('')
   const [paidOn, setPaidOn] = useState(() => new Date().toISOString().slice(0, 10))
-  const [creating, setCreating] = useState(false)
+  const [proof, setProof] = useState<File | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   async function loadData() {
     if (!currentTenantId) return
     setLoading(true)
     try {
-      const [payRes, invRes] = await Promise.all([
-        saasService.listPayments(currentTenantId),
-        saasService.listInvoices(currentTenantId)
-      ])
+      const [payRes, invRes] = await Promise.all([billingService.listSchoolPayments(), billingService.listSchoolInvoices()])
       setPayments(payRes.payments)
       setInvoices(invRes.invoices)
     } catch (err: unknown) {
@@ -54,39 +55,75 @@ export default function BillingPaymentsPage() {
     loadData()
   }, [currentTenantId])
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const fromInvoice = params.get('invoiceId')
+    if (fromInvoice) setInvoiceId(fromInvoice)
+  }, [location.search])
+
   const total = useMemo(() => (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0), [payments])
 
-  async function onCreate(e: React.FormEvent) {
+  const statusVariant = (status?: string | null): 'success' | 'warning' | 'destructive' | 'secondary' | 'outline' => {
+    const s = (status || '').toLowerCase()
+    if (s === 'successful' || s === 'paid') return 'success'
+    if (s === 'failed' || s === 'cancelled') return 'destructive'
+    if (s === 'pending') return 'warning'
+    if (!s) return 'outline'
+    return 'secondary'
+  }
+
+  async function onSubmitManual(e: React.FormEvent) {
     e.preventDefault()
     if (!currentTenantId) return
-    setCreating(true)
+    if (!invoiceId || invoiceId === 'none') {
+      toast({ variant: 'destructive', title: 'Select an invoice', description: 'Manual payments must be linked to an invoice.' })
+      return
+    }
+    setSubmitting(true)
     try {
       const parsed = Number(amount)
       if (!Number.isFinite(parsed) || parsed <= 0) {
         toast({ variant: 'destructive', title: 'Invalid amount', description: 'Enter a positive number.' })
         return
       }
-      await saasService.recordPayment(currentTenantId, {
-        invoice_id: invoiceId === 'none' ? undefined : invoiceId,
-        amount: parsed,
-        method,
-        reference: reference || undefined,
-        paid_on: paidOn
-      })
-      setInvoiceId('none')
+
+      const inv = (invoices || []).find((i) => String(i.id) === String(invoiceId))
+      const fd = new FormData()
+      fd.append('amount', String(parsed))
+      fd.append('currency', inv?.currency || 'USD')
+      fd.append('method', method)
+      if (reference) fd.append('reference', reference)
+      if (paidOn) fd.append('paid_at', paidOn)
+      if (proof) fd.append('proof', proof)
+
+      await billingService.submitManualPayment(Number(invoiceId), fd)
       setAmount('')
+      setMethod('bank_deposit')
       setReference('')
-      toast({ title: 'Payment recorded' })
+      setProof(null)
+      toast({ title: 'Payment submitted', description: 'Awaiting approval.' })
       await loadData()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
       toast({
         variant: 'destructive',
-        title: 'Record payment failed',
+        title: 'Submit payment failed',
         description: e.response?.data?.message || e.message || 'Please try again'
       })
     } finally {
-      setCreating(false)
+      setSubmitting(false)
+    }
+  }
+
+  async function onVerify(paymentId: number) {
+    if (!currentTenantId) return
+    try {
+      const res = await billingService.verifySchoolPayment(paymentId)
+      toast({ title: 'Verification complete', description: res.payment.status })
+      await loadData()
+    } catch (err: unknown) {
+      const e = err as AxiosError<{ message?: string }>
+      toast({ variant: 'destructive', title: 'Verify failed', description: e.response?.data?.message || e.message || 'Please try again' })
     }
   }
 
@@ -97,22 +134,21 @@ export default function BillingPaymentsPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Record payment
+              Manual payment submission
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onCreate} className="grid grid-cols-1 md:grid-cols-[240px_160px_160px_1fr_180px_140px] gap-3 items-end">
+            <form onSubmit={onSubmitManual} className="grid grid-cols-1 md:grid-cols-[260px_140px_200px_1fr_170px_240px_140px] gap-3 items-end">
               <div className="space-y-2">
-                <Label>Invoice (optional)</Label>
+                <Label>Invoice</Label>
                 <Select value={invoiceId} onValueChange={setInvoiceId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="No invoice" />
+                    <SelectValue placeholder="Select invoice" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No invoice</SelectItem>
                     {(invoices || []).map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.invoice_number}
+                      <SelectItem key={i.id} value={String(i.id)}>
+                        {i.invoice_number} ({(i.balance_due || 0).toFixed(2)} {i.currency})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -124,7 +160,17 @@ export default function BillingPaymentsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="method">Method</Label>
-                <Input id="method" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="manual" />
+                <Select value={method} onValueChange={setMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank_deposit">bank_deposit</SelectItem>
+                    <SelectItem value="mobile_money_transfer">mobile_money_transfer</SelectItem>
+                    <SelectItem value="cash">cash</SelectItem>
+                    <SelectItem value="other">other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ref">Reference</Label>
@@ -134,9 +180,12 @@ export default function BillingPaymentsPage() {
                 <Label htmlFor="paidOn">Paid on</Label>
                 <Input id="paidOn" type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} required />
               </div>
-              <Button type="submit" disabled={!currentTenantId || creating}>
-                <Plus className="h-4 w-4 mr-2" />
-                {creating ? 'Saving…' : 'Record'}
+              <div className="space-y-2">
+                <Label htmlFor="proof">Proof (optional)</Label>
+                <Input id="proof" type="file" onChange={(e) => setProof(e.target.files?.[0] || null)} />
+              </div>
+              <Button type="submit" disabled={!currentTenantId || submitting}>
+                {submitting ? 'Submitting…' : 'Submit'}
               </Button>
             </form>
           </CardContent>
@@ -151,26 +200,40 @@ export default function BillingPaymentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Paid on</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead>Invoice</TableHead>
-                  <TableHead>Method</TableHead>
+                  <TableHead>Gateway</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Reference</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(payments || []).map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell>{p.paid_on}</TableCell>
-                    <TableCell>{p.invoice_id ? (invoices || []).find((i) => i.id === p.invoice_id)?.invoice_number || '—' : '—'}</TableCell>
-                    <TableCell>{p.method || '—'}</TableCell>
-                    <TableCell className="max-w-[240px] truncate">{p.reference || '—'}</TableCell>
+                    <TableCell>{p.created_at ? new Date(p.created_at).toLocaleString() : '—'}</TableCell>
+                    <TableCell>{(invoices || []).find((i) => i.id === p.invoice_id)?.invoice_number || String(p.invoice_id)}</TableCell>
+                    <TableCell>{p.gateway_name}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(p.status)}>{p.status}</Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate">{p.payment_reference || '—'}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.amount.toFixed(2)} {p.currency}</TableCell>
+                    <TableCell>
+                      {String(p.status).toLowerCase() === 'pending' && p.gateway_name !== 'manual' ? (
+                        <Button size="sm" variant="outline" onClick={() => onVerify(p.id)}>Verify</Button>
+                      ) : p.payment_link ? (
+                        <Button size="sm" variant="outline" onClick={() => window.open(p.payment_link || '', '_blank', 'noopener,noreferrer')}>Open</Button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {!loading && (payments || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-sm text-muted-foreground">No payments yet.</TableCell>
+                    <TableCell colSpan={7} className="text-sm text-muted-foreground">No payments yet.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

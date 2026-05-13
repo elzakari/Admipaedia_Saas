@@ -104,6 +104,32 @@ export type PlatformTenantDetail = {
   recent_payments: PlatformPayment[]
 }
 
+export type TenantServiceTokenSummary = {
+  id: string
+  service_type: 'email' | 'sms' | 'whatsapp' | 'ai'
+  status: string
+  token_last4: string
+  monthly_allowance: string | null
+  unlimited: boolean
+  used: number
+  remaining: number | null
+  last_used_at: string | null
+  created_at: string | null
+  rotated_at: string | null
+}
+
+export type TenantServiceTokenEvent = {
+  id: string
+  tenant_id: string | null
+  token_id: string | null
+  service_type: string
+  event_type: string
+  actor_user_id: number | null
+  ip_address: string | null
+  created_at: string | null
+  details: any
+}
+
 export type PlatformFinancialSummary = {
   invoice_total: number
   payment_total: number
@@ -228,6 +254,26 @@ const saasService = {
   async platformUpdateTenant(tenantId: string, updates: { status?: string; plan?: string }) {
     const res = await api.patch(`/saas/platform/tenants/${tenantId}`, updates)
     return res.data as { success: boolean; tenant: SaaSTenant }
+  },
+
+  async platformListServiceTokens(tenantId: string) {
+    const res = await api.get(`/saas/platform/tenants/${tenantId}/service-tokens`)
+    return res.data as { success: boolean; tokens: TenantServiceTokenSummary[]; period: { year: number; month: number } }
+  },
+
+  async platformProvisionServiceTokens(tenantId: string) {
+    const res = await api.post(`/saas/platform/tenants/${tenantId}/service-tokens/provision`, {})
+    return res.data as { success: boolean; issued: Record<string, string | null> }
+  },
+
+  async platformRotateServiceToken(tenantId: string, serviceType: string) {
+    const res = await api.post(`/saas/platform/tenants/${tenantId}/service-tokens/${serviceType}/rotate`, {})
+    return res.data as { success: boolean; token: string }
+  },
+
+  async platformListServiceTokenEvents(tenantId: string, params?: { service_type?: string; limit?: number }) {
+    const res = await api.get(`/saas/platform/tenants/${tenantId}/service-tokens/events`, { params })
+    return res.data as { success: boolean; events: TenantServiceTokenEvent[] }
   },
 
   async platformListMembers(tenantId: string) {

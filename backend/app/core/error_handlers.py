@@ -4,12 +4,42 @@ Application Error Handlers
 
 from flask import jsonify
 import structlog
+from werkzeug.exceptions import HTTPException
 
 logger = structlog.get_logger()
 
 
 def register_error_handlers(app):
     """Register application error handlers"""
+
+    @app.errorhandler(Exception)
+    def unhandled_exception(error):
+        if isinstance(error, HTTPException):
+            logger.warning("HTTP exception", error=str(error), code=getattr(error, 'code', None))
+            return (
+                jsonify(
+                    {
+                        "error": getattr(error, "name", "HTTP error"),
+                        "message": getattr(error, "description", str(error)),
+                    }
+                ),
+                getattr(error, "code", 500),
+            )
+
+        logger.exception("Unhandled exception", error=str(error))
+        if app.debug:
+            return (
+                jsonify(
+                    {
+                        "error": "Internal server error",
+                        "message": str(error),
+                        "type": error.__class__.__name__,
+                    }
+                ),
+                500,
+            )
+
+        return jsonify({"error": "Internal server error", "message": "An unexpected error occurred"}), 500
     
     @app.errorhandler(400)
     def bad_request(error):
@@ -66,7 +96,7 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_server_error(error):
         """Handle internal server errors"""
-        logger.error("Internal server error", error=str(error))
+        logger.exception("Internal server error", error=str(error))
         return jsonify({
             "error": "Internal server error",
             "message": "An unexpected error occurred"

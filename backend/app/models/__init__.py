@@ -114,6 +114,17 @@ from app.models.tenant import (
     PlatformPayment,
     TENANT_MEMBER_ROLES
 )
+from app.models.billing import (
+    Plan,
+    PlanFeature,
+    PlanLimit,
+    SchoolPlanSubscription,
+    SchoolFeatureOverride,
+    SchoolLimitOverride,
+    StudentTermRegistration,
+    SubscriptionChangeRequest,
+    PlanPricingTier
+)
 from app.models.educational_system import EducationalSystemTemplate, EducationalSystemConfig, GradeLevel
 from app.models.tenant_academic_settings import TenantAcademicSettings
 
@@ -138,3 +149,12 @@ from app.models.system_setting import SystemSetting
 
 # Academic Calendar models
 from app.models.academic_calendar import AcademicYear, Term
+
+# Platform integrations & token distribution
+from app.models.service_tokens import (
+    PlatformServiceProviderConfig,
+    TenantServiceProviderOverride,
+    TenantServiceToken,
+    TenantServiceTokenUsage,
+    TenantServiceTokenEvent
+)

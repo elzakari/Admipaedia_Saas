@@ -2,6 +2,7 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/services/authService';
+import { getJwtExpirationMs } from '@/utils/jwt';
 import AppLayout from './AppLayout';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import LazyLoadingWrapper from '../components/performance/LazyLoadingWrapper';
@@ -28,6 +29,10 @@ import SuperAdminAuditLogsPage from '../pages/super-admin/SuperAdminAuditLogsPag
 import SuperAdminSchoolsPage from '../pages/super-admin/SuperAdminSchoolsPage';
 import SuperAdminFinancialInsightsPage from '../pages/super-admin/SuperAdminFinancialInsightsPage';
 import SuperAdminERegistrationBillingPage from '../pages/super-admin/SuperAdminERegistrationBillingPage';
+import SuperAdminPaymentSettingsPage from '../pages/super-admin/SuperAdminPaymentSettingsPage';
+import SuperAdminPaymentsPage from '../pages/super-admin/SuperAdminPaymentsPage';
+import SuperAdminPlanRequestsPage from '../pages/super-admin/SuperAdminPlanRequestsPage';
+import SuperAdminPlanPricingPage from '../pages/super-admin/SuperAdminPlanPricingPage';
 
 // Lazy-loaded dashboard components (high priority)
 const AdminDashboard = lazy(() => import('../pages/dashboard/AdminDashboard'));
@@ -79,6 +84,7 @@ const SaasOnboardingPage = lazy(() => import('../pages/saas/SaasOnboardingPage')
 const SchoolPortalDashboardPage = lazy(() => import('../pages/saas/SchoolPortalDashboardPage'));
 const SchoolProfilePage = lazy(() => import('../pages/saas/SchoolProfilePage'));
 const TeamRolesPage = lazy(() => import('../pages/saas/TeamRolesPage'));
+const BillingPlanPage = lazy(() => import('../pages/saas/BillingPlanPage'));
 const BillingInvoicesPage = lazy(() => import('../pages/saas/BillingInvoicesPage'));
 const BillingPaymentsPage = lazy(() => import('../pages/saas/BillingPaymentsPage'));
 
@@ -134,15 +140,12 @@ function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader 
     const token = localStorage.getItem('token');
     if (token && isAuthenticated) {
       try {
-        const payloadPart = token.split('.')[1];
-        if (payloadPart) {
-          const tokenData = JSON.parse(atob(payloadPart));
-          const expirationTime = tokenData.exp * 1000;
-          const currentTime = Date.now();
-          const timeUntilExpiry = expirationTime - currentTime;
-          if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
-            refreshToken();
-          }
+        const expirationTime = getJwtExpirationMs(token);
+        if (!expirationTime) return;
+        const currentTime = Date.now();
+        const timeUntilExpiry = expirationTime - currentTime;
+        if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
+          refreshToken();
         }
       } catch (error) {
         console.error('Token validation error:', error);
@@ -186,15 +189,12 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
     const token = localStorage.getItem('token');
     if (token && isAuthenticated) {
       try {
-        const payloadPart = token.split('.')[1];
-        if (payloadPart) {
-          const tokenData = JSON.parse(atob(payloadPart));
-          const expirationTime = tokenData.exp * 1000;
-          const currentTime = Date.now();
-          const timeUntilExpiry = expirationTime - currentTime;
-          if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
-            refreshToken();
-          }
+        const expirationTime = getJwtExpirationMs(token);
+        if (!expirationTime) return;
+        const currentTime = Date.now();
+        const timeUntilExpiry = expirationTime - currentTime;
+        if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
+          refreshToken();
         }
       } catch (e) {
         void e;
@@ -257,6 +257,22 @@ const AppRoutes: React.FC = () => {
         element={<ProtectedRoute element={<SuperAdminFinancialInsightsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Financial Insights" />}
       />
       <Route
+        path="/super-admin/payment-settings"
+        element={<ProtectedRoute element={<SuperAdminPaymentSettingsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Payment Settings" />}
+      />
+      <Route
+        path="/super-admin/payments"
+        element={<ProtectedRoute element={<SuperAdminPaymentsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Payments" />}
+      />
+      <Route
+        path="/super-admin/plan-requests"
+        element={<ProtectedRoute element={<SuperAdminPlanRequestsPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Plan Requests" />}
+      />
+      <Route
+        path="/super-admin/plan-pricing"
+        element={<ProtectedRoute element={<SuperAdminPlanPricingPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Plan Pricing" />}
+      />
+      <Route
         path="/super-admin/users"
         element={<ProtectedRoute element={<SuperAdminUsersPage />} allowedRoles={['super_admin', 'super_manager']} componentName="Users" />}
       />
@@ -288,6 +304,10 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/app/team"
         element={<BareProtectedRoute element={<TeamRolesPage />} componentName="Team & Roles" />}
+      />
+      <Route
+        path="/app/billing/plan"
+        element={<BareProtectedRoute element={<BillingPlanPage />} componentName="Plan" />}
       />
       <Route
         path="/app/billing/invoices"

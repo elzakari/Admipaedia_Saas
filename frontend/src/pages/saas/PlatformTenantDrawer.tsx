@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import saasService, { PlatformTenantDetail } from '@/services/saasService'
+import saasService, { PlatformTenantDetail, TenantServiceTokenSummary } from '@/services/saasService'
 import { superAdminService } from '@/services/superAdminService'
+import platformPlanContextService from '@/services/platformPlanContextService'
 
 function formatMoney(amount: number, currency: string | null) {
   const code = (currency || 'USD').toUpperCase()
@@ -52,6 +53,10 @@ export function PlatformTenantDrawer({
   const [addRole, setAddRole] = useState('school_admin')
   const [addStatus, setAddStatus] = useState('active')
   const [deletingTenant, setDeletingTenant] = useState(false)
+  const [serviceTokens, setServiceTokens] = useState<TenantServiceTokenSummary[] | null>(null)
+  const [tokensLoading, setTokensLoading] = useState(false)
+  const [planContext, setPlanContext] = useState<any | null>(null)
+  const [planContextLoading, setPlanContextLoading] = useState(false)
 
   async function load() {
     if (!tenantId) return
@@ -91,18 +96,49 @@ export function PlatformTenantDrawer({
     }
   }
 
+  async function loadTokens() {
+    if (!tenantId) return
+    setTokensLoading(true)
+    try {
+      const res = await saasService.platformListServiceTokens(tenantId)
+      setServiceTokens(res.tokens)
+    } catch (e) {
+      void e
+    } finally {
+      setTokensLoading(false)
+    }
+  }
+
+  async function loadPlanContext() {
+    if (!tenantId) return
+    setPlanContextLoading(true)
+    try {
+      const res = await platformPlanContextService.getTenantPlanContext(tenantId)
+      setPlanContext(res)
+    } catch (e) {
+      void e
+      setPlanContext(null)
+    } finally {
+      setPlanContextLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (open) {
       load()
       loadMembers()
+      loadTokens()
+      loadPlanContext()
     } else {
       setDetail(null)
       setMembers(null)
+      setServiceTokens(null)
       setNextStatus('')
       setNextPlan('')
       setAddEmail('')
       setAddRole('school_admin')
       setAddStatus('active')
+      setPlanContext(null)
     }
   }, [open, tenantId])
 
@@ -130,6 +166,7 @@ export function PlatformTenantDrawer({
   }
 
   const tenant = detail?.tenant
+  const planSlug = planContext?.plan?.slug || tenant?.plan || '—'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,7 +188,7 @@ export function PlatformTenantDrawer({
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="border-slate-200">{tenant?.status || '—'}</Badge>
-                    <Badge className="bg-slate-900 text-white hover:bg-slate-900">{tenant?.plan || '—'}</Badge>
+                    <Badge className="bg-slate-900 text-white hover:bg-slate-900">{planSlug}</Badge>
                   </div>
                 </div>
 
@@ -214,6 +251,139 @@ export function PlatformTenantDrawer({
                     Save changes
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">Service tokens</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-xs text-slate-500">{tokensLoading ? 'Loading tokens…' : `Tokens: ${serviceTokens?.length ?? 0}`}</div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="bg-white"
+                      onClick={loadTokens}
+                      disabled={tokensLoading || !tenantId}
+                    >
+                      Refresh
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (!tenantId) return
+                        try {
+                          const res = await saasService.platformProvisionServiceTokens(tenantId)
+                          toast({
+                            title: 'Tokens provisioned',
+                            description: Object.entries(res.issued || {})
+                              .filter(([, v]) => Boolean(v))
+                              .map(([k]) => k)
+                              .join(', ') || 'No new tokens created'
+                          })
+                          await loadTokens()
+                        } catch (err: unknown) {
+                          const e = err as AxiosError<{ message?: string }>
+                          toast({
+                            variant: 'destructive',
+                            title: 'Provision failed',
+                            description: e.response?.data?.message || e.message || 'Please try again'
+                          })
+                        }
+                      }}
+                      disabled={tokensLoading || !tenantId}
+                    >
+                      Provision
+                    </Button>
+                  </div>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Allowance</TableHead>
+                      <TableHead>Used</TableHead>
+                      <TableHead>Remaining</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(serviceTokens || []).map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="font-medium">{t.service_type}</TableCell>
+                        <TableCell>{t.unlimited ? 'unlimited' : (t.monthly_allowance || '0')}</TableCell>
+                        <TableCell>{t.used}</TableCell>
+                        <TableCell>{t.unlimited ? '—' : (t.remaining ?? 0)}</TableCell>
+                        <TableCell className="text-xs text-slate-500">•••• {t.token_last4}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            className="bg-white"
+                            onClick={async () => {
+                              if (!tenantId) return
+                              try {
+                                const res = await saasService.platformRotateServiceToken(tenantId, t.service_type)
+                                await navigator.clipboard.writeText(res.token)
+                                toast({ title: `Rotated ${t.service_type} token`, description: 'Copied new token to clipboard' })
+                                await loadTokens()
+                              } catch (err: unknown) {
+                                const e = err as AxiosError<{ message?: string }>
+                                toast({
+                                  variant: 'destructive',
+                                  title: 'Rotation failed',
+                                  description: e.response?.data?.message || e.message || 'Please try again'
+                                })
+                              }
+                            }}
+                          >
+                            Rotate & Copy
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!tokensLoading && (serviceTokens || []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-sm text-slate-500">
+                          No tokens found. Use Provision to generate plan-based service tokens.
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200 rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-800">Plan context</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {planContextLoading ? (
+                  <div className="text-sm text-slate-500 animate-pulse">Loading…</div>
+                ) : planContext ? (
+                  <>
+                    <div className="text-sm text-slate-700">
+                      <span className="font-semibold text-slate-900">{planContext.plan?.name || '—'}</span>
+                      <span className="text-slate-500"> ({planContext.plan?.slug || '—'})</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(planContext.token_usage || {}).map(([k, v]: any) => (
+                        <div key={k} className="rounded-xl border border-slate-200 p-3">
+                          <div className="text-xs text-slate-500">{k}</div>
+                          <div className="text-sm font-semibold text-slate-900 tabular-nums">
+                            {v?.unlimited ? 'Unlimited' : `${v?.remaining ?? 0} left`}
+                          </div>
+                          <div className="text-xs text-slate-500">Used: {v?.used ?? 0}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-slate-500">No plan context available.</div>
+                )}
               </CardContent>
             </Card>
 

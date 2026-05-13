@@ -50,6 +50,7 @@ def get_student_dashboard():
     from app.models.attendance import Attendance
     from app.models.grade import Grade
     from app.models.exam import Exam
+    from app.models.dashboard import CalendarEvent
     from app.services.dashboard_service import DashboardService
 
     now = datetime.utcnow()
@@ -131,41 +132,6 @@ def get_student_dashboard():
         'upcoming_exams': upcoming_exams,
         'next_event': next_event,
         'recent_notifications': notifications_data
-    }), 200
-
-
-@students_bp.route('/grades', methods=['GET'])
-@jwt_required()
-@require_role(['student'])
-@tenant_required
-def get_student_grades():
-    user_id = get_jwt_identity()
-    student = student_service.get_student_by_user_id(int(user_id))
-    if not student:
-        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
-    if getattr(student, 'tenant_id', None) != getattr(g, 'tenant_id', None):
-        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
-
-    from app.models.grade import Grade
-    from app.schemas.grade import GradeSchema
-
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-    q = Grade.query.filter(Grade.student_id == student.id).order_by(Grade.created_at.desc())
-    paginated = q.paginate(page=page, per_page=per_page, error_out=False)
-    grades_schema = GradeSchema(many=True)
-
-    return jsonify({
-        'success': True,
-        'grades': grades_schema.dump(paginated.items),
-        'pagination': {
-            'total': paginated.total,
-            'pages': paginated.pages,
-            'page': paginated.page,
-            'per_page': paginated.per_page,
-            'next': paginated.next_num,
-            'prev': paginated.prev_num
-        }
     }), 200
 
 @students_bp.route('', methods=['GET'])  # This will match /students

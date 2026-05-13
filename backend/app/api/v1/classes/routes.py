@@ -56,55 +56,6 @@ def get_class(class_id):
         'class': class_schema.dump(class_obj)
     }), 200
 
-
-@classes_bp.route('/<int:class_id>/teachers', methods=['GET'])
-@jwt_required()
-@require_role(['admin', 'teacher', 'parent', 'student'])
-@tenant_required
-def get_class_teachers(class_id):
-    class_obj = ClassService.get_class_by_id(class_id, tenant_id=getattr(g, 'tenant_id', None))
-    if not class_obj:
-        return jsonify({'success': False, 'message': 'Class not found'}), 404
-
-    user_id = get_jwt_identity()
-    user = getattr(g, 'current_user', None)
-    if not user:
-        from app.models.user import User
-        user = User.query.get(int(user_id))
-    role = getattr(user, 'role', None)
-    tenant_id = getattr(g, 'tenant_id', None)
-
-    if role == 'parent':
-        from app.models.parent import Parent
-        from app.models.student import Student
-        parent = Parent.query.filter_by(user_id=user_id).first()
-        if not parent:
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        has_child = Student.query.filter_by(parent_id=parent.id, class_id=class_id).first()
-        if not has_child:
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    elif role == 'student':
-        from app.services.student_service import StudentService
-        from app.extensions import db
-        student = StudentService(db.session).get_student_by_user_id(int(user_id))
-        if not student or getattr(student, 'class_id', None) != class_id:
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-
-    teachers = []
-    teacher_id = getattr(class_obj, 'teacher_id', None)
-    if teacher_id:
-        from app.models.teacher import Teacher
-        teacher = Teacher.query.get(teacher_id)
-        if teacher and getattr(teacher, 'tenant_id', None) == tenant_id:
-            teachers.append({
-                'id': teacher.id,
-                'name': teacher.full_name,
-                'email': getattr(getattr(teacher, 'user', None), 'email', None),
-                'phone': getattr(teacher, 'phone_number', None),
-            })
-
-    return jsonify({'success': True, 'teachers': teachers}), 200
-
 @classes_bp.route('', methods=['POST'])  # Remove the trailing slash
 @jwt_required()
 @admin_required
