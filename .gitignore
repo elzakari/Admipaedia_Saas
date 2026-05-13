@@ -78,6 +78,11 @@ backend/htmlcov/
 **/out.txt
 frontend/test_results.json
 
+# Local crash dumps / DB exports
+bash.exe.stackdump
+db_backup_*.sql
+*_backup_*.sql
+
 # Local frontend scratch outputs
 frontend/eslint_config_storage*.txt
 frontend/lint_*.txt
