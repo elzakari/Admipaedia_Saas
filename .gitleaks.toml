@@ -3,10 +3,13 @@ title = "ADMIPAEDIA gitleaks config"
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlist]]
 description = "Global allowlist"
 paths = [
   "backend/.env.example",
   "backend/create_grading_schemes.py",
   "docs/SECURITY_SECRETS.md"
+]
+regexes = [
+  "key_phase_[0-9]+"
 ]

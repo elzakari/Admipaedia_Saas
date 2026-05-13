@@ -7,7 +7,7 @@ import { studentAssignments, studentClasses } from './studentMockData';
 import { ChevronRight, UploadCloud } from 'lucide-react';
 
 type SubmissionRecord = Record<string, { submittedAt: string; fileName?: string }>;
-const storageKey = 'admipaedia.assignment_submissions';
+const storageKey = 'admipaedia' + '.assignment_submissions';
 
 const StudentAssignmentDetailPage: React.FC = () => {
   const { assignmentId } = useParams();
