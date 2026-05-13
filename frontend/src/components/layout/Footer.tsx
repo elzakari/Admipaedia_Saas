@@ -4,14 +4,14 @@ const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
   
   return (
-    <footer className="bg-white border-t border-gray-200 py-4 px-6">
-      <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-        <div className="mb-4 md:mb-0">
+    <footer className="bg-white border-t border-gray-200 py-4 px-4 sm:px-6">
+      <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+        <div className="text-center md:text-left">
           <p className="text-sm text-gray-600">
             &copy; {currentYear} ADMIPAEDIA. All rights reserved.
           </p>
         </div>
-        <div className="flex space-x-6">
+        <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2">
           <a href="/terms" className="text-sm text-indigo-600 hover:text-indigo-800">
             Terms of Service
           </a>

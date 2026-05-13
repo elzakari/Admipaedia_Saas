@@ -57,8 +57,8 @@ const SuperAdminDashboardPage: React.FC = () => {
   }, [])
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Super Admin</h1>
           <p className="text-sm text-muted-foreground">Manage all user accounts and review actions.</p>
@@ -124,11 +124,11 @@ const SuperAdminDashboardPage: React.FC = () => {
                   <div className="space-y-3">
                     {data.recent_audit.map((ev) => (
                       <div key={ev.id} className="rounded-md border p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{ev.event_type}</div>
-                          <div className="text-xs text-muted-foreground">{ev.created_at || ''}</div>
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="text-sm font-medium break-words min-w-0">{ev.event_type}</div>
+                          <div className="text-xs text-muted-foreground shrink-0">{ev.created_at || ''}</div>
                         </div>
-                        <div className="mt-2 text-xs text-muted-foreground truncate">
+                        <div className="mt-2 text-xs text-muted-foreground break-words line-clamp-3">
                           {JSON.stringify(ev.details)}
                         </div>
                       </div>

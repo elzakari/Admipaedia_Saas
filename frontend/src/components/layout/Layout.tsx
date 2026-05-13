@@ -228,7 +228,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
       <div 
         className={cn(
           "flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
-          isMobile ? 'pb-16' : '',
+          isMobile ? 'content-with-bottom-nav' : '',
           isCasaos && "bg-transparent"
         )}
       >
