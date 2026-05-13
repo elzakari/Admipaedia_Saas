@@ -97,8 +97,8 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "access_token": "<ACCESS_TOKEN_EXAMPLE>",
+  "refresh_token": "<REFRESH_TOKEN_EXAMPLE>",
   "csrf_token": "abc123def456",
   "expires_in": 28800,
   "user": {
@@ -138,7 +138,7 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "secret_key": "JBSWY3DPEHPK3PXP",
+  "secret_key": "<BASE32_SECRET_EXAMPLE>",
   "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
   "backup_codes": [
     "12345678",
