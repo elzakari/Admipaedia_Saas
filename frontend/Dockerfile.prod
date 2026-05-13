@@ -1,23 +1,16 @@
 # Multi-stage build for production frontend
 FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/package.json
 
-# Install dependencies
-RUN if [ -f package-lock.json ]; then \
-      npm ci --legacy-peer-deps --include=dev --no-audit --no-fund; \
-    else \
-      npm install --legacy-peer-deps --include=dev --no-audit --no-fund; \
-    fi
+RUN npm ci --legacy-peer-deps --include=dev --no-audit --no-fund
 
-# Copy source code
-COPY . .
+COPY frontend ./frontend
 
-# Build the application
+WORKDIR /app/frontend
 RUN npm run build
 
 # Production stage
@@ -27,15 +20,15 @@ FROM nginx:alpine AS production
 RUN apk add --no-cache curl
 
 # Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY frontend/nginx.conf /etc/nginx/nginx.conf
 
 # Copy built application from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 
 # Copy service worker and manifest files
-COPY --from=builder /app/public/enhanced-sw.js /usr/share/nginx/html/
-COPY --from=builder /app/public/manifest.json /usr/share/nginx/html/
-COPY --from=builder /app/public/offline.html /usr/share/nginx/html/
+COPY --from=builder /app/frontend/public/enhanced-sw.js /usr/share/nginx/html/
+COPY --from=builder /app/frontend/public/manifest.json /usr/share/nginx/html/
+COPY --from=builder /app/frontend/public/offline.html /usr/share/nginx/html/
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
