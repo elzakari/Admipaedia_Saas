@@ -47,7 +47,7 @@ export function AttendanceTab({ teacherId }: AttendanceTabProps) {
                   setSelectedClass(classId);
                 }}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>

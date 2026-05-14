@@ -172,12 +172,12 @@ const SchoolSettings = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="academic">Academic</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="basic" className="min-w-[120px]">Basic Info</TabsTrigger>
+          <TabsTrigger value="academic" className="min-w-[120px]">Academic</TabsTrigger>
+          <TabsTrigger value="system" className="min-w-[120px]">System</TabsTrigger>
+          <TabsTrigger value="features" className="min-w-[120px]">Features</TabsTrigger>
+          <TabsTrigger value="branding" className="min-w-[120px]">Branding</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4">

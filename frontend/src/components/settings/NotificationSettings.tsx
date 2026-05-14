@@ -245,20 +245,20 @@ const NotificationSettings = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="email" className="flex items-center gap-2">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="email" className="flex items-center gap-2 min-w-[120px]">
             <Mail className="h-4 w-4" />
             Email
           </TabsTrigger>
-          <TabsTrigger value="sms" className="flex items-center gap-2">
+          <TabsTrigger value="sms" className="flex items-center gap-2 min-w-[120px]">
             <MessageSquare className="h-4 w-4" />
             SMS
           </TabsTrigger>
-          <TabsTrigger value="types" className="flex items-center gap-2">
+          <TabsTrigger value="types" className="flex items-center gap-2 min-w-[180px]">
             <Bell className="h-4 w-4" />
             Notification Types
           </TabsTrigger>
-          <TabsTrigger value="timing" className="flex items-center gap-2">
+          <TabsTrigger value="timing" className="flex items-center gap-2 min-w-[180px]">
             <Clock className="h-4 w-4" />
             Timing & Delivery
           </TabsTrigger>

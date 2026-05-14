@@ -138,8 +138,8 @@ export default function BillingPaymentsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onSubmitManual} className="grid grid-cols-1 md:grid-cols-[260px_140px_200px_1fr_170px_240px_140px] gap-3 items-end">
-              <div className="space-y-2">
+            <form onSubmit={onSubmitManual} className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+              <div className="space-y-2 w-full md:w-[260px]">
                 <Label>Invoice</Label>
                 <Select value={invoiceId} onValueChange={setInvoiceId}>
                   <SelectTrigger>
@@ -154,11 +154,11 @@ export default function BillingPaymentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full md:w-[140px]">
                 <Label htmlFor="amount">Amount</Label>
                 <Input id="amount" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1500" required />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full md:w-[200px]">
                 <Label htmlFor="method">Method</Label>
                 <Select value={method} onValueChange={setMethod}>
                   <SelectTrigger>
@@ -172,19 +172,19 @@ export default function BillingPaymentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full md:flex-1 md:min-w-[220px]">
                 <Label htmlFor="ref">Reference</Label>
                 <Input id="ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="TXN-123" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full md:w-[170px]">
                 <Label htmlFor="paidOn">Paid on</Label>
                 <Input id="paidOn" type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} required />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full md:w-[240px]">
                 <Label htmlFor="proof">Proof (optional)</Label>
                 <Input id="proof" type="file" onChange={(e) => setProof(e.target.files?.[0] || null)} />
               </div>
-              <Button type="submit" disabled={!currentTenantId || submitting}>
+              <Button type="submit" disabled={!currentTenantId || submitting} className="w-full md:w-[140px]">
                 {submitting ? 'Submitting…' : 'Submit'}
               </Button>
             </form>

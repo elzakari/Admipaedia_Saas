@@ -174,7 +174,7 @@ export function PlatformTenantDrawer({
         <div className="flex h-full flex-col">
           <DialogHeader className="px-6 pt-6 pb-3">
             <DialogTitle className="text-lg font-black text-slate-900">School detail</DialogTitle>
-            <div className="text-xs text-slate-500">{tenant?.id || '—'}</div>
+            <div className="text-xs text-slate-500 truncate">{tenant?.id || '—'}</div>
           </DialogHeader>
 
           <div className="flex-1 overflow-auto px-6 pb-6 space-y-6">

@@ -155,12 +155,12 @@ const StudentDetailPage: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="academics">Performance</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="risk">Risk Assessment</TabsTrigger>
-          <TabsTrigger value="parents">Parents</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="profile" className="min-w-[120px]">Profile</TabsTrigger>
+          <TabsTrigger value="academics" className="min-w-[140px]">Performance</TabsTrigger>
+          <TabsTrigger value="attendance" className="min-w-[140px]">Attendance</TabsTrigger>
+          <TabsTrigger value="risk" className="min-w-[160px]">Risk Assessment</TabsTrigger>
+          <TabsTrigger value="parents" className="min-w-[120px]">Parents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">

@@ -461,7 +461,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
                         setSelectedClass(classId);
                       }}
                     >
-                      <SelectTrigger className="w-[200px]">
+                      <SelectTrigger className="w-full sm:w-[200px]">
                         <SelectValue placeholder="Select class" />
                       </SelectTrigger>
                       <SelectContent>

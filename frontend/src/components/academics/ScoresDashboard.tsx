@@ -795,7 +795,7 @@ const ScoresDashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start no-print">
+        <TabsList className="w-full justify-start overflow-x-auto no-print">
           <TabsTrigger value="student">Student Reports</TabsTrigger>
           <TabsTrigger value="class">Class Performance</TabsTrigger>
           <TabsTrigger value="analytics">Advanced Analytics</TabsTrigger>
@@ -805,7 +805,7 @@ const ScoresDashboard = () => {
           {/* Student Report controls */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
-              <div className="w-[300px]">
+              <div className="w-full sm:w-[300px]">
                 <MultiSelect
                   placeholder="Select Students"
                   options={students.map(s => {

@@ -61,12 +61,27 @@ const TeacherClassDetailPage: React.FC = () => {
           <CardContent className="p-0">
             <Tabs defaultValue="roster" className="w-full">
               <div className="px-6 pt-6">
-                <TabsList className="grid grid-cols-5">
-                  <TabsTrigger value="roster"><Users className="h-4 w-4 mr-2" />Roster</TabsTrigger>
-                  <TabsTrigger value="attendance"><CalendarCheck2 className="h-4 w-4 mr-2" />Attendance</TabsTrigger>
-                  <TabsTrigger value="gradebook"><BadgeCheck className="h-4 w-4 mr-2" />Gradebook</TabsTrigger>
-                  <TabsTrigger value="assignments"><ClipboardList className="h-4 w-4 mr-2" />Assignments</TabsTrigger>
-                  <TabsTrigger value="announcements"><Megaphone className="h-4 w-4 mr-2" />Announcements</TabsTrigger>
+                <TabsList className="w-full justify-start overflow-x-auto">
+                  <TabsTrigger value="roster" className="min-w-[140px]">
+                    <Users className="h-4 w-4 mr-2" />
+                    Roster
+                  </TabsTrigger>
+                  <TabsTrigger value="attendance" className="min-w-[140px]">
+                    <CalendarCheck2 className="h-4 w-4 mr-2" />
+                    Attendance
+                  </TabsTrigger>
+                  <TabsTrigger value="gradebook" className="min-w-[140px]">
+                    <BadgeCheck className="h-4 w-4 mr-2" />
+                    Gradebook
+                  </TabsTrigger>
+                  <TabsTrigger value="assignments" className="min-w-[140px]">
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Assignments
+                  </TabsTrigger>
+                  <TabsTrigger value="announcements" className="min-w-[160px]">
+                    <Megaphone className="h-4 w-4 mr-2" />
+                    Announcements
+                  </TabsTrigger>
                 </TabsList>
               </div>
 

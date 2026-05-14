@@ -607,7 +607,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center space-x-2 mb-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center mb-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -615,7 +615,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
                     className="pl-8" />
                 </div>
                 <Select>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Filter by class" />
                   </SelectTrigger>
                   <SelectContent>
@@ -626,7 +626,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
                   </SelectContent>
                 </Select>
                 <Select>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>

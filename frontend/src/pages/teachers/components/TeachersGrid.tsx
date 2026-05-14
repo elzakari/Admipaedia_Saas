@@ -344,15 +344,15 @@ export function TeachersGrid({
                   <h3 className="font-bold text-lg text-indigo-900 mb-1">{formatTeacherName(teacher)}</h3>
                   <p className="text-sm font-medium text-indigo-700">{teacher.specialization || 'General Education'}</p>
                   {teacher.employeeId && (
-                    <p className="text-xs text-indigo-600 mt-1">ID: {teacher.employeeId}</p>
+                    <p className="text-xs text-indigo-600 mt-1 truncate max-w-full">ID: {teacher.employeeId}</p>
                   )}
                 </div>
 
                 {/* Contact Information */}
                 <div className="space-y-2 text-sm">
-                  <div className="flex items-center text-gray-600">
+                  <div className="flex items-center text-gray-600 min-w-0">
                     <Mail className="h-4 w-4 mr-2 text-indigo-500" />
-                    <span className="truncate">{teacher.email}</span>
+                    <span className="flex-1 min-w-0 truncate">{teacher.email}</span>
                   </div>
                   
                   {teacher.phone && (
@@ -363,9 +363,9 @@ export function TeachersGrid({
                   )}
                   
                   {teacher.address && (
-                    <div className="flex items-center text-gray-600">
+                    <div className="flex items-center text-gray-600 min-w-0">
                       <MapPin className="h-4 w-4 mr-2 text-indigo-500" />
-                      <span className="truncate">{teacher.address}</span>
+                      <span className="flex-1 min-w-0 truncate">{teacher.address}</span>
                     </div>
                   )}
                 </div>

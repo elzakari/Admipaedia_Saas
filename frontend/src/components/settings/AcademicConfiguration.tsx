@@ -338,24 +338,24 @@ const AcademicConfiguration = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="academic-year" className="flex items-center gap-2">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="academic-year" className="flex items-center gap-2 min-w-[170px]">
             <Calendar className="h-4 w-4" />
             Academic Year
           </TabsTrigger>
-          <TabsTrigger value="grading" className="flex items-center gap-2">
+          <TabsTrigger value="grading" className="flex items-center gap-2 min-w-[160px]">
             <Award className="h-4 w-4" />
             Grading System
           </TabsTrigger>
-          <TabsTrigger value="assessment" className="flex items-center gap-2">
+          <TabsTrigger value="assessment" className="flex items-center gap-2 min-w-[140px]">
             <Calculator className="h-4 w-4" />
             Assessment
           </TabsTrigger>
-          <TabsTrigger value="subjects" className="flex items-center gap-2">
+          <TabsTrigger value="subjects" className="flex items-center gap-2 min-w-[130px]">
             <BookOpen className="h-4 w-4" />
             Subjects
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
+          <TabsTrigger value="settings" className="flex items-center gap-2 min-w-[130px]">
             <Clock className="h-4 w-4" />
             Settings
           </TabsTrigger>

@@ -305,12 +305,12 @@ const StudentProfilePage: React.FC = () => {
 
       {/* Detailed Information Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="print:hidden">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="academic">Academic</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="grades">Grades</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview" className="min-w-[120px]">Overview</TabsTrigger>
+          <TabsTrigger value="personal" className="min-w-[120px]">Personal</TabsTrigger>
+          <TabsTrigger value="academic" className="min-w-[120px]">Academic</TabsTrigger>
+          <TabsTrigger value="attendance" className="min-w-[140px]">Attendance</TabsTrigger>
+          <TabsTrigger value="grades" className="min-w-[120px]">Grades</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">

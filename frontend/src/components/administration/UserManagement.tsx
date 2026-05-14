@@ -281,7 +281,7 @@ const UserManagement = () => {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start">
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
@@ -291,7 +291,7 @@ const UserManagement = () => {
           {/* User management controls */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              <div className="relative w-64">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
                   placeholder="Search users..."
@@ -301,9 +301,9 @@ const UserManagement = () => {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[130px]">
+                  <SelectTrigger className="w-full sm:w-[130px]">
                     <div className="flex items-center">
                       <Filter className="mr-2 h-4 w-4" />
                       <span>Role</span>
@@ -319,7 +319,7 @@ const UserManagement = () => {
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[130px]">
+                  <SelectTrigger className="w-full sm:w-[130px]">
                     <div className="flex items-center">
                       <Filter className="mr-2 h-4 w-4" />
                       <span>Status</span>

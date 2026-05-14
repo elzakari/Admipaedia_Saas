@@ -203,7 +203,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-30 backdrop-blur-sm lg:hidden" 
+          className="fixed inset-0 z-40 bg-black bg-opacity-30 backdrop-blur-sm md:hidden" 
           onClick={toggleSidebar}
         ></div>
       )}
@@ -212,7 +212,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
       <div 
         className={cn(
           "flex-shrink-0 transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? 'w-0 lg:w-20' : 'w-0 lg:w-64',
+          sidebarCollapsed ? 'w-0 md:w-20' : 'w-0 md:w-64',
           isCasaos && "bg-transparent"
         )}
       >
@@ -245,7 +245,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
             <div className="flex items-center gap-3 min-w-0">
               <button
                 className={cn(
-                  "lg:hidden shrink-0 rounded-xl h-9 w-9 inline-flex items-center justify-center transition-colors",
+                  "md:hidden shrink-0 rounded-xl h-9 w-9 inline-flex items-center justify-center transition-colors",
                   isCasaos ? "text-white hover:bg-white/10" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 )}
                 onClick={toggleSidebar}
@@ -379,8 +379,8 @@ export function Layout({ children, hideHeader }: LayoutProps) {
         {/* Main content area with dynamic padding */}
         <main className={cn(
           "flex-1 overflow-y-auto",
-          !effectiveHideHeader && "p-4 lg:p-6",
-          sidebarCollapsed ? 'lg:pl-4' : 'lg:pl-6',
+          !effectiveHideHeader && "px-3 py-4 sm:p-4 lg:p-6",
+          sidebarCollapsed ? 'md:pl-4' : 'md:pl-6',
           isCasaos && "bg-transparent"
         )}>
           {children}

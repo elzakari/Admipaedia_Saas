@@ -71,15 +71,15 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                     <div className="font-medium text-gray-900">
                       {parent.firstName} {parent.lastName}
                     </div>
-                    <div className="text-sm text-gray-500">ID: {parent.id}</div>
+                    <div className="text-sm text-gray-500 break-all">ID: {parent.id}</div>
                   </div>
                 </div>
               </TableCell>
               <TableCell>
                 <div className="space-y-1">
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-gray-600 min-w-0">
                     <Mail className="w-4 h-4 mr-2" />
-                    {parent.email}
+                    <span className="flex-1 min-w-0 truncate">{parent.email}</span>
                   </div>
                   {parent.phone && (
                     <div className="flex items-center text-sm text-gray-600">

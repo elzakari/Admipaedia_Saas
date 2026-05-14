@@ -416,12 +416,12 @@ const AIAnalyticsDashboard: React.FC = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="predictions">Performance Predictions</TabsTrigger>
-          <TabsTrigger value="risk">Risk Assessment</TabsTrigger>
-          <TabsTrigger value="patterns">Class Patterns</TabsTrigger>
-          <TabsTrigger value="insights">School Insights</TabsTrigger>
-          <TabsTrigger value="recommendations">AI Recommendations</TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="predictions" className="min-w-[200px]">Performance Predictions</TabsTrigger>
+          <TabsTrigger value="risk" className="min-w-[160px]">Risk Assessment</TabsTrigger>
+          <TabsTrigger value="patterns" className="min-w-[150px]">Class Patterns</TabsTrigger>
+          <TabsTrigger value="insights" className="min-w-[150px]">School Insights</TabsTrigger>
+          <TabsTrigger value="recommendations" className="min-w-[180px]">AI Recommendations</TabsTrigger>
         </TabsList>
 
         {/* Performance Predictions Tab */}

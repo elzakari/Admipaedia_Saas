@@ -224,24 +224,24 @@ const SecuritySettings = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="authentication" className="flex items-center gap-2">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="authentication" className="flex items-center gap-2 min-w-[170px]">
             <Fingerprint className="h-4 w-4" />
             Authentication
           </TabsTrigger>
-          <TabsTrigger value="login" className="flex items-center gap-2">
+          <TabsTrigger value="login" className="flex items-center gap-2 min-w-[170px]">
             <Lock className="h-4 w-4" />
             Login Security
           </TabsTrigger>
-          <TabsTrigger value="access" className="flex items-center gap-2">
+          <TabsTrigger value="access" className="flex items-center gap-2 min-w-[160px]">
             <Globe className="h-4 w-4" />
             Access Control
           </TabsTrigger>
-          <TabsTrigger value="api" className="flex items-center gap-2">
+          <TabsTrigger value="api" className="flex items-center gap-2 min-w-[150px]">
             <Key className="h-4 w-4" />
             API Security
           </TabsTrigger>
-          <TabsTrigger value="monitoring" className="flex items-center gap-2">
+          <TabsTrigger value="monitoring" className="flex items-center gap-2 min-w-[150px]">
             <Shield className="h-4 w-4" />
             Monitoring
           </TabsTrigger>

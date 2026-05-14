@@ -420,20 +420,20 @@ const IntegrationSettings = () => {
 
       {/* Integration Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="communication" className="flex items-center gap-2">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="communication" className="flex items-center gap-2 min-w-[160px]">
             <Mail className="h-4 w-4" />
             Communication
           </TabsTrigger>
-          <TabsTrigger value="payments" className="flex items-center gap-2">
+          <TabsTrigger value="payments" className="flex items-center gap-2 min-w-[130px]">
             <CreditCard className="h-4 w-4" />
             Payments
           </TabsTrigger>
-          <TabsTrigger value="storage" className="flex items-center gap-2">
+          <TabsTrigger value="storage" className="flex items-center gap-2 min-w-[130px]">
             <Cloud className="h-4 w-4" />
             Storage
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
+          <TabsTrigger value="analytics" className="flex items-center gap-2 min-w-[130px]">
             <BarChart3 className="h-4 w-4" />
             Analytics
           </TabsTrigger>

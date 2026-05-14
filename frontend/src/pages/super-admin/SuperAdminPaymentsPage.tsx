@@ -117,7 +117,7 @@ export default function SuperAdminPaymentsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-end">
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={setStatus}>
@@ -163,7 +163,7 @@ export default function SuperAdminPaymentsPage() {
               <Label>Date to</Label>
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
-            <div className="md:col-span-6 flex justify-end">
+            <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6 flex justify-end">
               <Button onClick={() => load()} disabled={loading}>Apply</Button>
             </div>
           </div>

@@ -236,7 +236,7 @@ function ParentsPage() {
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <Select value={selectedChild} onValueChange={setSelectedChild}>
-            <SelectTrigger className="w-[200px] glass-button-outline">
+          <SelectTrigger className="w-full sm:w-[200px] glass-button-outline">
               <SelectValue placeholder="Select Child" />
             </SelectTrigger>
             <SelectContent>

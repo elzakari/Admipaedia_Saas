@@ -52,7 +52,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
                 <Badge variant="outline" className={getStatusColor(parent.status)}>
                   {parent.status.toUpperCase()}
                 </Badge>
-                <span className="text-sm text-gray-500 italic shrink-0">ID: {parent.id}</span>
+                <span className="text-sm text-gray-500 italic break-all">ID: {parent.id}</span>
               </div>
             </div>
           </div>

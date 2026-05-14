@@ -724,7 +724,7 @@ export function StudentsPage() {
             </Avatar>
             <div>
               <h3 className="text-xl font-semibold">{selectedStudentData.name}</h3>
-              <p className="text-gray-600">{selectedStudentData.studentId}</p>
+              <p className="text-gray-600 break-words">{selectedStudentData.studentId}</p>
               <Badge variant={selectedStudentData.status === 'active' ? 'default' : 'secondary'}>
                 {selectedStudentData.status}
               </Badge>
@@ -732,10 +732,10 @@ export function StudentsPage() {
           </div>
 
           <Tabs value={activeInsightTab} onValueChange={setActiveInsightTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="performance">Performance</TabsTrigger>
-              <TabsTrigger value="attendance">Attendance</TabsTrigger>
-              <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="performance" className="min-w-[130px]">Performance</TabsTrigger>
+              <TabsTrigger value="attendance" className="min-w-[130px]">Attendance</TabsTrigger>
+              <TabsTrigger value="contact" className="min-w-[130px]">Contact</TabsTrigger>
             </TabsList>
             
             <TabsContent value="performance" className="space-y-4">

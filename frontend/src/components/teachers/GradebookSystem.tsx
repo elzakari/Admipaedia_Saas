@@ -201,7 +201,7 @@ export function GradebookSystem({}: GradebookSystemProps) {
                 </div>
                 <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <Select value={selectedClass} onValueChange={setSelectedClass}>
-                    <SelectTrigger className="w-[180px] glass-input">
+                    <SelectTrigger className="w-full sm:w-[180px] glass-input">
                       <SelectValue placeholder="Select class" />
                     </SelectTrigger>
                     <SelectContent>
@@ -215,7 +215,7 @@ export function GradebookSystem({}: GradebookSystemProps) {
                     onValueChange={setSelectedAssessment}
                     disabled={!assessments[selectedClass as keyof typeof assessments]?.length}
                   >
-                    <SelectTrigger className="w-[180px] glass-input">
+                    <SelectTrigger className="w-full sm:w-[180px] glass-input">
                       <SelectValue placeholder="Select assessment" />
                     </SelectTrigger>
                     <SelectContent>

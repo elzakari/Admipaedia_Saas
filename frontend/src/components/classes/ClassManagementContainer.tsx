@@ -33,7 +33,7 @@ export function ClassManagementContainer({ classId, onBack }: ClassManagementCon
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <button 
@@ -53,7 +53,7 @@ export function ClassManagementContainer({ classId, onBack }: ClassManagementCon
               value={selectedClassId?.toString()} 
               onValueChange={(value) => setSelectedClassId(Number(value))}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
@@ -73,12 +73,12 @@ export function ClassManagementContainer({ classId, onBack }: ClassManagementCon
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="students">Students</TabsTrigger>
-              <TabsTrigger value="lessons">Lessons</TabsTrigger>
-              <TabsTrigger value="announcements">Announcements</TabsTrigger>
-              <TabsTrigger value="resources">Resources</TabsTrigger>
-              <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="students" className="min-w-[120px]">Students</TabsTrigger>
+              <TabsTrigger value="lessons" className="min-w-[120px]">Lessons</TabsTrigger>
+              <TabsTrigger value="announcements" className="min-w-[140px]">Announcements</TabsTrigger>
+              <TabsTrigger value="resources" className="min-w-[120px]">Resources</TabsTrigger>
+              <TabsTrigger value="attendance" className="min-w-[120px]">Attendance</TabsTrigger>
             </TabsList>
             
             <TabsContent value="students">

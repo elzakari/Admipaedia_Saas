@@ -356,7 +356,7 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
               
               {/* Label */}
               <span className={cn(
-                'text-xs font-medium leading-none truncate max-w-full',
+                'text-[10px] sm:text-xs font-medium leading-tight text-center line-clamp-2 max-w-full',
                 'transition-colors duration-200',
                 active ? 'text-blue-600 dark:text-blue-400' : 'text-current'
               )}>
