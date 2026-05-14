@@ -30,7 +30,7 @@ jobs:
         run: |
           npm --version
           node --version
-          npm ci --legacy-peer-deps --include=dev --no-audit --no-fund
+          npm ci --workspaces=false --legacy-peer-deps --include=dev --no-audit --no-fund
         env:
           CYPRESS_INSTALL_BINARY: 0
 
