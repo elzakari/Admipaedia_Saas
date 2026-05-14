@@ -1,16 +1,13 @@
-# Multi-stage build for production frontend
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
-WORKDIR /app
+WORKDIR /app/frontend
 
-COPY package.json package-lock.json ./
-COPY frontend/package.json ./frontend/package.json
+COPY frontend/package.json frontend/package-lock.json ./
 
 RUN npm ci --legacy-peer-deps --include=dev --no-audit --no-fund
 
-COPY frontend ./frontend
+COPY frontend ./
 
-WORKDIR /app/frontend
 RUN npm run build
 
 # Production stage
