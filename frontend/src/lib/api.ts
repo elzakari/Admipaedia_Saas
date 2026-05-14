@@ -26,7 +26,10 @@ api.interceptors.request.use(
     // Performance tracking: start time
     (config as any).metadata = { startTime: performance.now() };
 
-    const token = localStorage.getItem('token'); // Changed from 'access_token' to 'token'
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('accessToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -72,7 +75,9 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken =
+          localStorage.getItem('refreshToken') ||
+          localStorage.getItem('refresh_token');
         if (refreshToken) {
           // Use direct axios call with proper headers
           const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {}, {
@@ -85,6 +90,7 @@ api.interceptors.response.use(
 
           const { access_token } = response.data;
           localStorage.setItem('token', access_token);
+          localStorage.setItem('access_token', access_token);
 
           // Update the original request with new token
           originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
@@ -93,8 +99,10 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Clear tokens and redirect to login
         localStorage.removeItem('token');
+        localStorage.removeItem('access_token');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
+        localStorage.removeItem('refresh_token');
+        window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
         return Promise.reject(refreshError);
       }
     }
