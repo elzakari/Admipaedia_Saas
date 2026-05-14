@@ -64,6 +64,93 @@ class OrphanCleanupService:
         return db.engine.dialect.identifier_preparer.quote(name)
 
     @staticmethod
+    def _tenant_tables_order():
+        inspector = inspect(db.engine)
+        table_names = inspector.get_table_names()
+        tenant_tables = []
+        tenant_tables_set = set()
+
+        for t in table_names:
+            if t == 'tenants':
+                continue
+            try:
+                cols = inspector.get_columns(t) or []
+            except Exception:
+                continue
+            if any((c.get('name') or '').lower() == 'tenant_id' for c in cols):
+                tenant_tables.append(t)
+                tenant_tables_set.add(t)
+
+        deps: dict[str, set[str]] = {t: set() for t in tenant_tables}
+        for t in tenant_tables:
+            try:
+                fks = inspector.get_foreign_keys(t) or []
+            except Exception:
+                continue
+            for fk in fks:
+                ref_table = fk.get('referred_table')
+                if ref_table in tenant_tables_set:
+                    deps[t].add(ref_table)
+
+        visited: set[str] = set()
+        visiting: set[str] = set()
+        order: list[str] = []
+
+        def visit(n: str):
+            if n in visited:
+                return
+            if n in visiting:
+                return
+            visiting.add(n)
+            for m in deps.get(n, set()):
+                visit(m)
+            visiting.remove(n)
+            visited.add(n)
+            order.append(n)
+
+        for t in tenant_tables:
+            visit(t)
+
+        return order
+
+    @staticmethod
+    def _tenant_references(tenant_uuid: uuid.UUID):
+        refs = []
+        try:
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+        except Exception:
+            return refs
+
+        for t in tables:
+            if t == 'tenants':
+                continue
+            try:
+                cols = inspector.get_columns(t) or []
+            except Exception:
+                continue
+            tenant_col = None
+            for c in cols:
+                if (c.get('name') or '').lower() == 'tenant_id':
+                    tenant_col = c.get('name')
+                    break
+            if not tenant_col:
+                continue
+            try:
+                q_table = OrphanCleanupService._quote_ident(t)
+                q_col = OrphanCleanupService._quote_ident(tenant_col)
+                cnt = db.session.execute(
+                    text(f"SELECT COUNT(*) FROM {q_table} WHERE {q_col} = :tid"),
+                    {'tid': tenant_uuid},
+                ).scalar()
+                cnt = int(cnt or 0)
+            except Exception:
+                continue
+            if cnt > 0:
+                refs.append({'table': t, 'column': tenant_col, 'count': cnt})
+        return refs
+
+    @staticmethod
     def _user_fk_references_db(user_id: int):
         blocking = []
         detachable = []
@@ -277,6 +364,65 @@ class OrphanCleanupService:
         return True, {'deleted': deletions, 'tenant_id': str(tid)}
 
     @staticmethod
+    def purge_tenant(tenant_id: str, actor_user_id: int) -> Tuple[bool, Dict[str, Any]]:
+        if not tenant_id:
+            return False, {'exists': False, 'tenant_id': None, 'can_delete': False, 'reasons': ['Tenant not found']}
+
+        tid = OrphanCleanupService._parse_tenant_id(tenant_id)
+        tenant = Tenant.query.get(tid)
+        if not tenant:
+            return False, {'exists': False, 'tenant_id': str(tid), 'can_delete': False, 'reasons': ['Tenant not found']}
+
+        deletions: Dict[str, Any] = {}
+        try:
+            ordered_tables = OrphanCleanupService._tenant_tables_order()
+        except Exception:
+            ordered_tables = []
+
+        try:
+            for table in ordered_tables:
+                q_table = OrphanCleanupService._quote_ident(table)
+                db.session.execute(
+                    text(f"DELETE FROM {q_table} WHERE tenant_id = :tid"),
+                    {'tid': tid},
+                )
+        except Exception as e:
+            db.session.rollback()
+            return False, {
+                'exists': True,
+                'tenant_id': str(tid),
+                'can_delete': False,
+                'reasons': ['Purge failed while deleting tenant data'],
+                'error': type(e).__name__,
+            }
+
+        db.session.delete(tenant)
+        deletions['tenant'] = 1
+        try:
+            db.session.flush()
+        except IntegrityError:
+            db.session.rollback()
+            remaining = OrphanCleanupService._tenant_references(tid)
+            return False, {
+                'exists': True,
+                'tenant_id': str(tid),
+                'can_delete': False,
+                'reasons': ['Tenant is still referenced by database constraints'],
+                'references': remaining,
+            }
+        except Exception as e:
+            db.session.rollback()
+            return False, {
+                'exists': True,
+                'tenant_id': str(tid),
+                'can_delete': False,
+                'reasons': ['Purge failed due to an unexpected database error'],
+                'error': type(e).__name__,
+            }
+
+        return True, {'deleted': deletions, 'tenant_id': str(tid)}
+
+    @staticmethod
     def get_orphan_user_status(user_id: int) -> Dict[str, Any]:
         user = User.query.get(user_id)
         if not user:
@@ -451,69 +597,123 @@ class OrphanCleanupService:
         if user.role == 'super_admin':
             return False, {'exists': True, 'user_id': user_id, 'can_delete': False, 'reasons': ['Cannot delete a super admin account']}
 
-        blocking_fk, detachable_fk, unknown_fk = OrphanCleanupService._user_fk_references(user_id)
-
-        deletions: Dict[str, Any] = {}
-
-        for ref in detachable_fk or []:
-            table = ref.get('table')
-            column = ref.get('column')
-            if not table or not column:
-                continue
-            q_table = OrphanCleanupService._quote_ident(str(table))
-            q_col = OrphanCleanupService._quote_ident(str(column))
-            db.session.execute(text(f"UPDATE {q_table} SET {q_col} = NULL WHERE {q_col} = :uid"), {'uid': user_id})
-
-        for ref in blocking_fk or []:
-            table = ref.get('table')
-            column = ref.get('column')
-            if not table or not column:
-                continue
-            q_table = OrphanCleanupService._quote_ident(str(table))
-            q_col = OrphanCleanupService._quote_ident(str(column))
-            db.session.execute(text(f"DELETE FROM {q_table} WHERE {q_col} = :uid"), {'uid': user_id})
-
-        deletions['tenant_memberships'] = TenantMembership.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['tenant_memberships_invited_by'] = TenantMembership.query.filter_by(invited_by_user_id=user_id).delete(synchronize_session=False)
-
-        deletions['students'] = Student.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['teachers'] = Teacher.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['parents'] = Parent.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['staff'] = Staff.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-
-        deletions['notifications'] = Notification.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['mfa_devices'] = MFADevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['trusted_devices'] = TrustedDevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['auth_attempts'] = AuthenticationAttempt.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_security_settings'] = UserSecuritySettings.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['security_audit_logs'] = SecurityAuditLog.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['staff_leaves'] = StaffLeave.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_preferences'] = UserPreferences.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_profile'] = UserProfile.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['api_keys'] = APIKey.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['password_reset_tokens'] = PasswordResetToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['password_history'] = PasswordHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['login_history'] = LoginHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['session_tokens'] = SessionToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-
-        db.session.execute(user_roles.delete().where(user_roles.c.user_id == user_id))
-        deletions['user_roles'] = True
-
-        db.session.delete(user)
-        deletions['user'] = 1
         try:
-            db.session.flush()
-        except IntegrityError:
-            db.session.rollback()
-            blocking_after, detachable_after, unknown_after = OrphanCleanupService._user_fk_references(user_id)
+            blocking_fk, detachable_fk, unknown_fk = OrphanCleanupService._user_fk_references(user_id)
+        except Exception as e:
             return False, {
                 'exists': True,
                 'user_id': user_id,
                 'can_delete': False,
-                'reasons': ['User is still referenced by database constraints'],
-                'blocking_references': blocking_after,
-                'detachable_references': detachable_after,
-                'unknown_references': unknown_after,
+                'reasons': ['Unable to resolve user references'],
+                'error': type(e).__name__,
+            }
+
+        deletions: Dict[str, Any] = {}
+        op_errors: list[dict] = []
+
+        try:
+            for ref in detachable_fk or []:
+                table = ref.get('table')
+                column = ref.get('column')
+                if not table or not column:
+                    continue
+                q_table = OrphanCleanupService._quote_ident(str(table))
+                q_col = OrphanCleanupService._quote_ident(str(column))
+                try:
+                    db.session.execute(text(f"UPDATE {q_table} SET {q_col} = NULL WHERE {q_col} = :uid"), {'uid': user_id})
+                except Exception as e:
+                    db.session.rollback()
+                    return False, {
+                        'exists': True,
+                        'user_id': user_id,
+                        'can_delete': False,
+                        'reasons': ['Purge failed while detaching references'],
+                        'failed_operation': {'op': 'detach', 'table': str(table), 'column': str(column), 'error': type(e).__name__},
+                        'unknown_references': unknown_fk,
+                    }
+
+            for ref in blocking_fk or []:
+                table = ref.get('table')
+                column = ref.get('column')
+                if not table or not column:
+                    continue
+                q_table = OrphanCleanupService._quote_ident(str(table))
+                q_col = OrphanCleanupService._quote_ident(str(column))
+                try:
+                    db.session.execute(text(f"DELETE FROM {q_table} WHERE {q_col} = :uid"), {'uid': user_id})
+                except Exception as e:
+                    db.session.rollback()
+                    return False, {
+                        'exists': True,
+                        'user_id': user_id,
+                        'can_delete': False,
+                        'reasons': ['Purge failed while deleting blocking references'],
+                        'failed_operation': {'op': 'delete', 'table': str(table), 'column': str(column), 'error': type(e).__name__},
+                        'unknown_references': unknown_fk,
+                    }
+
+            deletions['tenant_memberships'] = TenantMembership.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['tenant_memberships_invited_by'] = TenantMembership.query.filter_by(invited_by_user_id=user_id).delete(synchronize_session=False)
+
+            deletions['students'] = Student.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['teachers'] = Teacher.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['parents'] = Parent.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['staff'] = Staff.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+
+            deletions['notifications'] = Notification.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['mfa_devices'] = MFADevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['trusted_devices'] = TrustedDevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['auth_attempts'] = AuthenticationAttempt.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['user_security_settings'] = UserSecuritySettings.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['security_audit_logs'] = SecurityAuditLog.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['staff_leaves'] = StaffLeave.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['user_preferences'] = UserPreferences.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['user_profile'] = UserProfile.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['api_keys'] = APIKey.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['password_reset_tokens'] = PasswordResetToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['password_history'] = PasswordHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['login_history'] = LoginHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+            deletions['session_tokens'] = SessionToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+
+            db.session.execute(user_roles.delete().where(user_roles.c.user_id == user_id))
+            deletions['user_roles'] = True
+
+            db.session.delete(user)
+            deletions['user'] = 1
+            try:
+                db.session.flush()
+            except IntegrityError:
+                db.session.rollback()
+                blocking_after, detachable_after, unknown_after = OrphanCleanupService._user_fk_references(user_id)
+                return False, {
+                    'exists': True,
+                    'user_id': user_id,
+                    'can_delete': False,
+                    'reasons': ['User is still referenced by database constraints'],
+                    'blocking_references': blocking_after,
+                    'detachable_references': detachable_after,
+                    'unknown_references': unknown_after,
+                }
+            except Exception as e:
+                db.session.rollback()
+                return False, {
+                    'exists': True,
+                    'user_id': user_id,
+                    'can_delete': False,
+                    'reasons': ['Purge failed due to an unexpected database error'],
+                    'error': type(e).__name__,
+                    'unknown_references': unknown_fk,
+                }
+        except Exception as e:
+            db.session.rollback()
+            op_errors.append({'error': type(e).__name__})
+            return False, {
+                'exists': True,
+                'user_id': user_id,
+                'can_delete': False,
+                'reasons': ['Purge failed'],
+                'errors': op_errors,
+                'unknown_references': unknown_fk,
             }
 
         return True, {'deleted': deletions, 'user_id': user_id, 'unknown_references': unknown_fk}

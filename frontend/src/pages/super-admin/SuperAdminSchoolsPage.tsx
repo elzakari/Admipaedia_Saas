@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { Switch } from '@/components/ui/switch'
 import saasService, { Pagination, PlatformKPIs, SaaSTenant } from '@/services/saasService'
 import { PlatformTenantDrawer } from '@/pages/saas/PlatformTenantDrawer'
 import { superAdminService } from '@/services/superAdminService'
@@ -37,6 +38,7 @@ export default function SuperAdminSchoolsPage() {
   const [regAdminEmail, setRegAdminEmail] = useState('')
   const [regCountryCode, setRegCountryCode] = useState('GH')
   const [regCurrency, setRegCurrency] = useState('GHS')
+  const [regSendEmail, setRegSendEmail] = useState(true)
   const [regSubmitting, setRegSubmitting] = useState(false)
   const [regUrl, setRegUrl] = useState<string | null>(null)
   const [regExpiresAt, setRegExpiresAt] = useState<string | null>(null)
@@ -130,6 +132,7 @@ export default function SuperAdminSchoolsPage() {
                 setRegSubmitting(false)
                 setRegUrl(null)
                 setRegExpiresAt(null)
+                setRegSendEmail(true)
               }
             }}
           >
@@ -221,6 +224,14 @@ export default function SuperAdminSchoolsPage() {
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium">{t('super_admin.schools.registration_link.send_email', 'Send link by email')}</div>
+                    <div className="text-xs text-muted-foreground">{t('super_admin.schools.registration_link.send_email_hint', 'Sends the registration link to the school admin email.')}</div>
+                  </div>
+                  <Switch checked={regSendEmail} onCheckedChange={setRegSendEmail} />
+                </div>
+
                 <DialogFooter className="gap-2 sm:gap-3">
                   <div className="mr-auto text-xs text-muted-foreground">{t('super_admin.schools.registration_link.expires_hint', 'Expires in 24 hours • Single-use')}</div>
                   <Button
@@ -246,13 +257,18 @@ export default function SuperAdminSchoolsPage() {
                           school_slug: regSchoolSlug.trim() || undefined,
                           admin_email: regAdminEmail.trim(),
                           country_code: regCountryCode.trim(),
-                          currency: regCurrency.trim()
+                          currency: regCurrency.trim(),
+                          send_email: regSendEmail
                         })
                         setRegUrl(res.registration_url)
                         setRegExpiresAt(res.registration.expires_at || null)
                         toast({
                           title: t('super_admin.schools.registration_link.generated_title', 'Registration link generated'),
-                          description: t('super_admin.schools.registration_link.generated_desc', 'This link expires in 24 hours and can be used once.')
+                          description: res.email_suppressed
+                            ? t('super_admin.schools.registration_link.email_suppressed', 'Email sending is disabled. Copy and share the link manually.')
+                            : (res.email_sent && regSendEmail)
+                              ? t('super_admin.schools.registration_link.email_sent', 'Link queued for delivery to the admin email.')
+                              : t('super_admin.schools.registration_link.generated_desc', 'This link expires in 24 hours and can be used once.')
                         })
                       } catch (err: unknown) {
                         const e = err as AxiosError<{ message?: string; error?: string }>

@@ -51,6 +51,7 @@ const SuperAdminUsersPage: React.FC = () => {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
+  const [resettingUserId, setResettingUserId] = useState<number | null>(null)
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [purgeUser, setPurgeUser] = useState<SuperAdminUser | null>(null)
   const [purgeConfirmText, setPurgeConfirmText] = useState('')
@@ -391,15 +392,36 @@ const SuperAdminUsersPage: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={resettingUserId === u.id}
                             onClick={async () => {
                               try {
-                                await superAdminService.sendReset(u.id)
+                                setResettingUserId(u.id)
+                                const res = await superAdminService.sendReset(u.id)
+                                const baseTitle = t('super_admin.users.reset.sent', 'Reset email queued')
+                                if (res.email_suppressed && res.reset_url) {
+                                  toast.success(baseTitle, {
+                                    description: res.reset_url
+                                  })
+                                } else if (res.email_sent) {
+                                  toast.success(baseTitle, {
+                                    description: t('super_admin.users.reset.sent_desc', 'A reset link has been sent to the user.')
+                                  })
+                                } else {
+                                  toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
+                                    description: t('super_admin.users.reset.failed_desc', 'Email could not be sent. Please verify mail settings.')
+                                  })
+                                }
                               } catch (e) {
                                 void e
+                                toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
+                                  description: t('super_admin.users.reset.try_again', 'Please try again.')
+                                })
+                              } finally {
+                                setResettingUserId(null)
                               }
                             }}
                           >
-                            {t('super_admin.users.actions.reset', 'Reset')}
+                            {resettingUserId === u.id ? t('super_admin.users.reset.sending', 'Sending...') : t('super_admin.users.actions.reset', 'Reset')}
                           </Button>
                           {u.status === 'active' ? (
                             <AlertDialog>

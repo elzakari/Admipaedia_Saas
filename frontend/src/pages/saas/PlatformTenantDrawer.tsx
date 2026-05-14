@@ -53,6 +53,12 @@ export function PlatformTenantDrawer({
   const [addRole, setAddRole] = useState('school_admin')
   const [addStatus, setAddStatus] = useState('active')
   const [deletingTenant, setDeletingTenant] = useState(false)
+  const [purgeOpen, setPurgeOpen] = useState(false)
+  const [purgeExpected, setPurgeExpected] = useState('')
+  const [purgeConfirmText, setPurgeConfirmText] = useState('')
+  const [purgingTenant, setPurgingTenant] = useState(false)
+  const [purgeIsOrphan, setPurgeIsOrphan] = useState(false)
+  const [purgeReasons, setPurgeReasons] = useState<string[]>([])
   const [serviceTokens, setServiceTokens] = useState<TenantServiceTokenSummary[] | null>(null)
   const [tokensLoading, setTokensLoading] = useState(false)
   const [planContext, setPlanContext] = useState<any | null>(null)
@@ -167,10 +173,83 @@ export function PlatformTenantDrawer({
 
   const tenant = detail?.tenant
   const planSlug = planContext?.plan?.slug || tenant?.plan || '—'
+  const tenantSlugOrId = (tenant?.slug || tenantId || '').trim()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="left-auto top-0 right-0 h-screen w-screen max-w-2xl translate-x-0 translate-y-0 rounded-none border-l border-slate-200 bg-white text-slate-900 p-0 sm:w-[44rem]">
+        <Dialog
+          open={purgeOpen}
+          onOpenChange={(v) => {
+            setPurgeOpen(v)
+            if (!v) {
+              setPurgeConfirmText('')
+              setPurgeExpected('')
+              setPurgeReasons([])
+              setPurgeIsOrphan(false)
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Delete school</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="text-sm text-slate-600">
+                This is a permanent action. Type the confirmation text exactly to proceed.
+              </div>
+              {purgeReasons.length ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {purgeReasons.join(', ')}
+                </div>
+              ) : null}
+              <div className="text-sm">
+                Confirmation text: <span className="font-mono">{purgeExpected}</span>
+              </div>
+              <Input value={purgeConfirmText} onChange={(e) => setPurgeConfirmText(e.target.value)} />
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setPurgeOpen(false)} disabled={purgingTenant}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!purgeExpected || purgingTenant || purgeConfirmText.trim() !== purgeExpected}
+                  onClick={async () => {
+                    if (!tenantId) return
+                    try {
+                      setPurgingTenant(true)
+                      if (purgeIsOrphan) {
+                        await superAdminService.deleteOrphanTenant(tenantId)
+                      } else {
+                        await superAdminService.purgeTenant(tenantId, purgeConfirmText.trim())
+                      }
+                      toast({ title: 'School deleted' })
+                      setPurgeOpen(false)
+                      onOpenChange(false)
+                      await onChanged()
+                    } catch (err: unknown) {
+                      const e = err as AxiosError<any>
+                      const data = e.response?.data
+                      const expected = data?.expected
+                      const status = data?.status
+                      const statusReasons = Array.isArray(status?.reasons) ? status.reasons.join(', ') : null
+                      toast({
+                        variant: 'destructive',
+                        title: 'Delete failed',
+                        description: data?.error || statusReasons || (expected ? `Confirmation text: ${expected}` : null) || data?.message || e.message || 'Please try again'
+                      })
+                    } finally {
+                      setPurgingTenant(false)
+                    }
+                  }}
+                >
+                  {purgingTenant ? 'Deleting...' : 'Delete permanently'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex h-full flex-col">
           <DialogHeader className="px-6 pt-6 pb-3">
             <DialogTitle className="text-lg font-black text-slate-900">School detail</DialogTitle>
@@ -649,21 +728,13 @@ export function PlatformTenantDrawer({
                     try {
                       setDeletingTenant(true)
                       const statusRes = await superAdminService.getOrphanTenantStatus(tenantId)
-                      if (!statusRes.status.can_delete) {
-                        toast({
-                          variant: 'destructive',
-                          title: 'Cannot delete school',
-                          description: statusRes.status.reasons?.join(', ') || 'School is not orphan'
-                        })
-                        return
-                      }
-                      const name = statusRes.status.tenant?.name || tenantId
-                      const ok = window.confirm(`Delete orphan school "${name}" permanently? This cannot be undone.`)
-                      if (!ok) return
-                      await superAdminService.deleteOrphanTenant(tenantId)
-                      toast({ title: 'School deleted' })
-                      onOpenChange(false)
-                      await onChanged()
+                      const slug = statusRes.status.tenant?.slug || tenantSlugOrId || tenantId
+                      const expected = `DELETE ${slug}`
+                      setPurgeExpected(expected)
+                      setPurgeConfirmText('')
+                      setPurgeIsOrphan(Boolean(statusRes.status.can_delete))
+                      setPurgeReasons(statusRes.status.can_delete ? [] : (statusRes.status.reasons || []))
+                      setPurgeOpen(true)
                     } catch (err: unknown) {
                       const e = err as AxiosError<{ message?: string }>
                       toast({

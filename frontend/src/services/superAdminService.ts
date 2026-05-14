@@ -88,6 +88,9 @@ export type SchoolRegistrationLinkResponse = {
   success: boolean
   registration: SchoolRegistrationLink
   registration_url: string
+  email_sent?: boolean
+  email_queued?: boolean
+  email_suppressed?: boolean
 }
 
 export type OrphanTenantStatus = {
@@ -170,7 +173,9 @@ export const superAdminService = {
     return res.data
   },
 
-  sendReset: async (id: number): Promise<{ success: boolean; email_sent: boolean } > => {
+  sendReset: async (
+    id: number
+  ): Promise<{ success: boolean; email_sent: boolean; email_queued?: boolean; email_suppressed?: boolean; reset_url?: string }> => {
     const res = await api.post(`/super-admin/users/${id}/send-reset`)
     return res.data
   },
@@ -195,6 +200,7 @@ export const superAdminService = {
     country_code: string
     currency?: string
     admin_email: string
+    send_email?: boolean
   }): Promise<SchoolRegistrationLinkResponse> => {
     const res = await api.post('/super-admin/school-registration-links', payload)
     return res.data
@@ -207,6 +213,11 @@ export const superAdminService = {
 
   deleteOrphanTenant: async (tenantId: string): Promise<{ success: boolean }> => {
     const res = await api.delete(`/super-admin/orphans/tenants/${tenantId}`, { params: { confirm: true } })
+    return res.data
+  },
+
+  purgeTenant: async (tenantId: string, confirmText: string): Promise<{ success: boolean }> => {
+    const res = await api.post(`/super-admin/tenants/${tenantId}/purge`, { confirm_text: confirmText })
     return res.data
   },
 

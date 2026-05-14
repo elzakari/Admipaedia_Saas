@@ -6,6 +6,7 @@ from sqlalchemy import or_, func
 from app.extensions import db
 from app.models.security import SecurityEvent, SchoolRegistrationToken
 from app.models.user import User, Role
+from app.models.tenant import Tenant
 from app.utils.platform_access import require_platform_super_admin
 from app.services.orphan_cleanup_service import OrphanCleanupService
 
@@ -105,6 +106,7 @@ def super_admin_create_school_registration_link():
     country_code = (payload.get('country_code') or '').strip().upper()
     currency = (payload.get('currency') or 'USD').strip().upper()
     admin_email = (payload.get('admin_email') or '').strip().lower()
+    send_email_flag = bool(payload.get('send_email', True))
 
     if not school_name:
         return jsonify({'success': False, 'error': 'school_name is required'}), 400
@@ -129,6 +131,10 @@ def super_admin_create_school_registration_link():
     )
 
     frontend_url = _resolve_frontend_url()
+    if not frontend_url:
+        frontend_url = 'http://localhost:3000'
+    if 'localhost:5173' in frontend_url:
+        frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
     registration_url = f"{frontend_url}/school/register?token={token}" if frontend_url else f"/school/register?token={token}"
 
     _audit('super_admin.school_registration_link_created', actor.id, {
@@ -138,6 +144,23 @@ def super_admin_create_school_registration_link():
         'expires_at': reg.expires_at.isoformat() if reg.expires_at else None
     })
     db.session.commit()
+
+    email_sent = False
+    email_queued = False
+    if send_email_flag:
+        try:
+            from app.services.email_service import send_school_registration_email
+            email_sent = bool(send_school_registration_email(
+                user_email=admin_email,
+                registration_url=registration_url,
+                school_name=school_name,
+                expires_at=reg.expires_at.isoformat() if reg.expires_at else None,
+                async_send=True
+            ))
+            email_queued = True
+        except Exception:
+            email_sent = False
+            email_queued = False
 
     return jsonify({
         'success': True,
@@ -151,7 +174,10 @@ def super_admin_create_school_registration_link():
             'expires_at': reg.expires_at.isoformat() if reg.expires_at else None,
             'created_at': reg.created_at.isoformat() if reg.created_at else None
         },
-        'registration_url': registration_url
+        'registration_url': registration_url,
+        'email_sent': bool(email_sent),
+        'email_queued': bool(email_queued),
+        'email_suppressed': bool(current_app.config.get('MAIL_SUPPRESS_SEND'))
     }), 201
 
 
@@ -273,7 +299,12 @@ def super_admin_create_user():
                 user_agent=request.headers.get('User-Agent')
             )
             from app.services.email_service import send_password_reset_email
-            email_sent = bool(send_password_reset_email(user.email, token))
+            frontend_url = _resolve_frontend_url()
+            if not frontend_url:
+                frontend_url = 'http://localhost:3000'
+            if 'localhost:5173' in frontend_url:
+                frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+            email_sent = bool(send_password_reset_email(user.email, token, frontend_url=frontend_url, async_send=True))
             _audit('super_admin.user_reset_sent', actor.id, {
                 'target_user_id': user.id,
                 'email_sent': email_sent
@@ -415,7 +446,13 @@ def super_admin_send_password_reset(user_id: int):
     )
 
     from app.services.email_service import send_password_reset_email
-    email_sent = send_password_reset_email(target.email, token)
+    frontend_url = _resolve_frontend_url()
+    if not frontend_url:
+        frontend_url = 'http://localhost:3000'
+    if 'localhost:5173' in frontend_url:
+        frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+    email_sent = send_password_reset_email(target.email, token, frontend_url=frontend_url, async_send=True)
+    reset_url = f"{frontend_url}/reset-password?token={token}"
 
     _audit('super_admin.user_reset_sent', actor.id, {
         'target_user_id': target.id,
@@ -423,10 +460,15 @@ def super_admin_send_password_reset(user_id: int):
     })
     db.session.commit()
 
-    return jsonify({
+    payload = {
         'success': True,
-        'email_sent': bool(email_sent)
-    }), 200
+        'email_sent': bool(email_sent),
+        'email_queued': True,
+        'email_suppressed': bool(current_app.config.get('MAIL_SUPPRESS_SEND'))
+    }
+    if current_app.debug or current_app.config.get('MAIL_SUPPRESS_SEND'):
+        payload['reset_url'] = reset_url
+    return jsonify(payload), 200
 
 
 @super_admin_bp.route('/users/<int:user_id>/purge', methods=['POST'])
@@ -459,9 +501,17 @@ def super_admin_purge_user(user_id: int):
         }, severity='critical')
         db.session.commit()
         return jsonify({'success': True, 'result': result}), 200
-    except Exception:
+    except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': 'Failed to delete user'}), 500
+        try:
+            current_app.logger.exception('super_admin_purge_user failed')
+        except Exception:
+            pass
+        payload = {'success': False, 'error': 'Failed to delete user'}
+        if current_app.debug:
+            payload['detail'] = str(e)
+            payload['error_type'] = type(e).__name__
+        return jsonify(payload), 500
 
 
 @super_admin_bp.route('/audit-logs', methods=['GET'])
@@ -563,6 +613,46 @@ def super_admin_delete_orphan_tenant(tenant_id: str):
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to delete orphan tenant'}), 500
+
+
+@super_admin_bp.route('/tenants/<tenant_id>/purge', methods=['POST'])
+@require_platform_super_admin()
+def super_admin_purge_tenant(tenant_id: str):
+    actor = g.current_user
+    if actor.role != 'super_admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    target = Tenant.query.get_or_404(OrphanCleanupService._parse_tenant_id(tenant_id))
+    payload = request.get_json() or {}
+    confirm_text = (payload.get('confirm_text') or payload.get('confirmText') or '').strip()
+    expected = f"DELETE {target.slug or str(target.id)}".strip()
+    normalized_confirm = " ".join(confirm_text.split()).lower()
+    normalized_expected = " ".join(expected.split()).lower()
+    if normalized_confirm != normalized_expected:
+        return jsonify({'success': False, 'error': 'Confirmation text mismatch', 'expected': expected}), 400
+
+    try:
+        ok, result = OrphanCleanupService.purge_tenant(tenant_id, actor_user_id=actor.id)
+        if not ok:
+            return jsonify({'success': False, 'error': 'Cannot delete school', 'status': result}), 400
+
+        _audit('super_admin.tenant_purged', actor.id, {
+            'tenant_id': tenant_id,
+            'deleted': result.get('deleted')
+        }, severity='critical')
+        db.session.commit()
+        return jsonify({'success': True, 'result': result}), 200
+    except Exception as e:
+        db.session.rollback()
+        try:
+            current_app.logger.exception('super_admin_purge_tenant failed')
+        except Exception:
+            pass
+        payload = {'success': False, 'error': 'Failed to delete school'}
+        if current_app.debug:
+            payload['detail'] = str(e)
+            payload['error_type'] = type(e).__name__
+        return jsonify(payload), 500
 
 
 @super_admin_bp.route('/orphans/users/<int:user_id>', methods=['GET'])
