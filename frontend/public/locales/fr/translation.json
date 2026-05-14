@@ -381,11 +381,22 @@
       "delete": {
         "title": "Supprimer définitivement cet utilisateur ?",
         "description": "Le compte sera supprimé définitivement uniquement s’il s’agit d’un utilisateur orphelin (aucune adhésion à une école et aucun profil école).",
+        "status_failed": "Impossible de vérifier les conditions de suppression",
         "cannot_title": "Impossible de supprimer l’utilisateur",
         "not_orphan": "L’utilisateur n’est pas orphelin",
         "deleted": "Utilisateur supprimé",
         "failed": "Échec de la suppression",
         "confirm": "Supprimer définitivement"
+      },
+      "purge": {
+        "title": "Supprimer l’utilisateur",
+        "description": "Cette action est définitive. Saisissez exactement le texte de confirmation pour continuer.",
+        "confirm_label": "Texte de confirmation",
+        "confirm_placeholder": "Saisissez le texte de confirmation",
+        "confirm": "Supprimer définitivement",
+        "deleting": "Suppression...",
+        "deleted": "Utilisateur supprimé",
+        "failed": "Échec de la suppression"
       },
       "pagination": {
         "page_of": "Page {{page}} sur {{pages}}"

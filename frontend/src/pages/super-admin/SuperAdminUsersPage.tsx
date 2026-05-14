@@ -51,6 +51,10 @@ const SuperAdminUsersPage: React.FC = () => {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
+  const [purgeOpen, setPurgeOpen] = useState(false)
+  const [purgeUser, setPurgeUser] = useState<SuperAdminUser | null>(null)
+  const [purgeConfirmText, setPurgeConfirmText] = useState('')
+  const [purging, setPurging] = useState(false)
 
   const isActorSuperAdmin = currentUser?.role === 'super_admin'
   const roleOptions = useMemo(() => {
@@ -150,6 +154,86 @@ const SuperAdminUsersPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
+      <Dialog
+        open={purgeOpen}
+        onOpenChange={(v) => {
+          setPurgeOpen(v)
+          if (!v) {
+            setPurgeUser(null)
+            setPurgeConfirmText('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('super_admin.users.purge.title', 'Delete user')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground">
+              {t('super_admin.users.purge.description', 'This is a permanent action. Type the confirmation text exactly to proceed.')}
+            </div>
+            <div className="text-sm">
+              {t('super_admin.users.purge.confirm_label', 'Confirmation text')}:{' '}
+              <span className="font-mono">{purgeUser ? `DELETE ${purgeUser.email}` : ''}</span>
+            </div>
+            <Input
+              value={purgeConfirmText}
+              onChange={(e) => setPurgeConfirmText(e.target.value)}
+              placeholder={t('super_admin.users.purge.confirm_placeholder', 'Type the confirmation text')}
+            />
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setPurgeOpen(false)} disabled={purging}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={
+                  !purgeUser ||
+                  purging ||
+                  purgeConfirmText.trim() !== (purgeUser ? `DELETE ${purgeUser.email}` : '')
+                }
+                onClick={async () => {
+                  if (!purgeUser) return
+                  try {
+                    setPurging(true)
+                    await superAdminService.purgeUser(purgeUser.id, purgeConfirmText.trim())
+                    setItems((prev) => prev.filter((x) => x.id !== purgeUser.id))
+                    toast.success(t('super_admin.users.purge.deleted', 'User deleted'))
+                    setPurgeOpen(false)
+                  } catch (e) {
+                    const anyErr = e as any
+                    const data = anyErr?.response?.data
+                    const status = data?.status
+                    const statusReasons = Array.isArray(status?.reasons) ? status.reasons.join(', ') : null
+                    const statusError =
+                      statusReasons ||
+                      status?.error ||
+                      status?.message ||
+                      (typeof status === 'string' ? status : null)
+                    const expected = data?.expected
+                    toast.error(t('super_admin.users.purge.failed', 'Delete failed'), {
+                      description:
+                        data?.error ||
+                        data?.message ||
+                        statusError ||
+                        (expected ? `${t('super_admin.users.purge.confirm_label', 'Confirmation text')}: ${expected}` : null) ||
+                        anyErr?.message ||
+                        t('common.error', 'Error')
+                    })
+                  } finally {
+                    setPurging(false)
+                  }
+                }}
+              >
+                {purging
+                  ? t('super_admin.users.purge.deleting', 'Deleting...')
+                  : t('super_admin.users.purge.confirm', 'Delete permanently')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">{t('super_admin.users.title', 'Users')}</h1>
@@ -375,6 +459,7 @@ const SuperAdminUsersPage: React.FC = () => {
                                 size="sm"
                                 disabled={
                                   deletingUserId === u.id ||
+                                  !isActorSuperAdmin ||
                                   currentUser?.id === u.id ||
                                   u.role === 'super_admin'
                                 }
@@ -393,21 +478,59 @@ const SuperAdminUsersPage: React.FC = () => {
                                 <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={async () => {
+                                    const extractError = (err: unknown) => {
+                                      const anyErr = err as any
+                                      const data = anyErr?.response?.data
+                                      return (
+                                        data?.error ||
+                                        data?.message ||
+                                        anyErr?.message ||
+                                        t('common.error', 'Error')
+                                      )
+                                    }
+
                                     try {
                                       setDeletingUserId(u.id)
-                                      const statusRes = await superAdminService.getOrphanUserStatus(u.id)
+                                      let statusRes: { success: boolean; status: any }
+                                      try {
+                                        statusRes = await superAdminService.getOrphanUserStatus(u.id)
+                                      } catch (e) {
+                                        toast.error(t('super_admin.users.delete.status_failed', 'Could not check deletion conditions'), {
+                                          description: extractError(e)
+                                        })
+                                        if (isActorSuperAdmin && u.role !== 'super_admin') {
+                                          setPurgeUser(u)
+                                          setPurgeConfirmText('')
+                                          setPurgeOpen(true)
+                                        }
+                                        return
+                                      }
                                       if (!statusRes.status.can_delete) {
                                         toast.error(t('super_admin.users.delete.cannot_title', 'Cannot delete user'), {
                                           description: statusRes.status.reasons?.join(', ') || t('super_admin.users.delete.not_orphan', 'User is not an orphan')
                                         })
+                                        if (u.role !== 'super_admin') {
+                                          setPurgeUser(u)
+                                          setPurgeConfirmText('')
+                                          setPurgeOpen(true)
+                                        }
                                         return
                                       }
-                                      await superAdminService.deleteOrphanUser(u.id)
+                                      try {
+                                        await superAdminService.deleteOrphanUser(u.id)
+                                      } catch (e) {
+                                        toast.error(t('super_admin.users.delete.failed', 'Delete failed'), {
+                                          description: extractError(e)
+                                        })
+                                        return
+                                      }
                                       setItems((prev) => prev.filter((x) => x.id !== u.id))
                                       toast.success(t('super_admin.users.delete.deleted', 'User deleted'))
                                     } catch (e) {
                                       void e
-                                      toast.error(t('super_admin.users.delete.failed', 'Delete failed'))
+                                      toast.error(t('super_admin.users.delete.failed', 'Delete failed'), {
+                                        description: extractError(e)
+                                      })
                                     } finally {
                                       setDeletingUserId(null)
                                     }

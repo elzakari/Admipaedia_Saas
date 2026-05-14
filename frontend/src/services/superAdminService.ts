@@ -219,4 +219,9 @@ export const superAdminService = {
     const res = await api.delete(`/super-admin/orphans/users/${id}`, { params: { confirm: true } })
     return res.data
   },
+
+  purgeUser: async (id: number, confirmText: string): Promise<{ success: boolean }> => {
+    const res = await api.post(`/super-admin/users/${id}/purge`, { confirm_text: confirmText })
+    return res.data
+  },
 }

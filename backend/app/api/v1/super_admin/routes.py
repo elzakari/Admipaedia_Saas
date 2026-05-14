@@ -38,6 +38,17 @@ def _audit(event_type: str, actor_user_id: int, details: dict, severity: str = '
     db.session.add(event)
 
 
+def _resolve_frontend_url():
+    configured = (current_app.config.get('FRONTEND_URL') or '').strip().rstrip('/')
+    host = (request.headers.get('X-Forwarded-Host') or request.host or '').strip()
+    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or '').strip()
+    if configured and not any(x in configured for x in ('localhost', '127.0.0.1')):
+        return configured
+    if host and not any(x in host for x in ('localhost', '127.0.0.1')):
+        return f"{proto}://{host}".rstrip('/')
+    return configured
+
+
 from . import super_admin_bp
 
 
@@ -117,7 +128,7 @@ def super_admin_create_school_registration_link():
         expires_in_hours=24
     )
 
-    frontend_url = (current_app.config.get('FRONTEND_URL') or '').rstrip('/')
+    frontend_url = _resolve_frontend_url()
     registration_url = f"{frontend_url}/school/register?token={token}" if frontend_url else f"/school/register?token={token}"
 
     _audit('super_admin.school_registration_link_created', actor.id, {
@@ -418,6 +429,41 @@ def super_admin_send_password_reset(user_id: int):
     }), 200
 
 
+@super_admin_bp.route('/users/<int:user_id>/purge', methods=['POST'])
+@require_platform_super_admin()
+def super_admin_purge_user(user_id: int):
+    actor = g.current_user
+    if actor.role != 'super_admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    target = User.query.get_or_404(user_id)
+    if target.role == 'super_admin':
+        return jsonify({'success': False, 'error': 'Cannot delete a super admin account'}), 400
+
+    payload = request.get_json() or {}
+    confirm_text = (payload.get('confirm_text') or payload.get('confirmText') or '').strip()
+    expected = f"DELETE {target.email}".strip()
+    normalized_confirm = " ".join(confirm_text.split()).lower()
+    normalized_expected = " ".join(expected.split()).lower()
+    if normalized_confirm != normalized_expected:
+        return jsonify({'success': False, 'error': 'Confirmation text mismatch', 'expected': expected}), 400
+
+    try:
+        ok, result = OrphanCleanupService.purge_user(user_id, actor_user_id=actor.id)
+        if not ok:
+            return jsonify({'success': False, 'error': 'Cannot delete user', 'status': result}), 400
+
+        _audit('super_admin.user_purged', actor.id, {
+            'user_id': user_id,
+            'deleted': result.get('deleted')
+        }, severity='critical')
+        db.session.commit()
+        return jsonify({'success': True, 'result': result}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to delete user'}), 500
+
+
 @super_admin_bp.route('/audit-logs', methods=['GET'])
 @require_platform_super_admin()
 def super_admin_audit_logs():
@@ -522,9 +568,13 @@ def super_admin_delete_orphan_tenant(tenant_id: str):
 @super_admin_bp.route('/orphans/users/<int:user_id>', methods=['GET'])
 @require_platform_super_admin()
 def super_admin_get_orphan_user_status(user_id: int):
-    status = OrphanCleanupService.get_orphan_user_status(user_id)
-    code = 200 if status.get('exists') else 404
-    return jsonify({'success': True, 'status': status}), code
+    try:
+        status = OrphanCleanupService.get_orphan_user_status(user_id)
+        code = 200 if status.get('exists') else 404
+        return jsonify({'success': True, 'status': status}), code
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Failed to fetch orphan user status'}), 500
 
 
 @super_admin_bp.route('/orphans/users/<int:user_id>', methods=['DELETE'])

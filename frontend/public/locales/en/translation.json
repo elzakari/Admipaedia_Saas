@@ -382,11 +382,22 @@
       "delete": {
         "title": "Delete this user permanently?",
         "description": "This will permanently remove the account only if it is an orphan user (no school memberships and no school profile).",
+        "status_failed": "Could not check deletion conditions",
         "cannot_title": "Cannot delete user",
         "not_orphan": "User is not an orphan",
         "deleted": "User deleted",
         "failed": "Delete failed",
         "confirm": "Delete permanently"
+      },
+      "purge": {
+        "title": "Delete user",
+        "description": "This is a permanent action. Type the confirmation text exactly to proceed.",
+        "confirm_label": "Confirmation text",
+        "confirm_placeholder": "Type the confirmation text",
+        "confirm": "Delete permanently",
+        "deleting": "Deleting...",
+        "deleted": "User deleted",
+        "failed": "Delete failed"
       },
       "pagination": {
         "page_of": "Page {{page}} of {{pages}}"
