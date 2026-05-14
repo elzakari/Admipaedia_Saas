@@ -10,7 +10,7 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Secret scanning (Gitleaks)
       uses: gitleaks/gitleaks-action@v2
       env:
@@ -23,11 +23,11 @@ jobs:
         working-directory: ./frontend
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '22.13.0'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     

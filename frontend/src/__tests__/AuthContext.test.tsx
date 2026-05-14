@@ -14,6 +14,13 @@ jest.mock('../services', () => ({
   }
 }));
 
+const mockAuthService = authService as unknown as {
+  login: jest.Mock;
+  getCurrentUser: jest.Mock;
+  logout: jest.Mock;
+  refreshToken: jest.Mock;
+};
+
 // Mock localStorage
 const mockLocalStorage = {
   getItem: jest.fn(),
@@ -93,7 +100,7 @@ describe('AuthContext', () => {
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
-    (authService.getCurrentUser as jest.Mock).mockResolvedValue(mockUser);
+    mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
 
     renderWithRouter(<TestComponent />);
 
@@ -118,7 +125,7 @@ describe('AuthContext', () => {
       refresh_token: 'mock-refresh-token'
     };
 
-    jest.mocked(authService.login).mockResolvedValue(mockLoginResponse);
+    mockAuthService.login.mockResolvedValue(mockLoginResponse);
 
     renderWithRouter(<TestComponent />);
 
@@ -153,7 +160,7 @@ describe('AuthContext', () => {
       refresh_token: 'mock-refresh-token'
     };
 
-    jest.mocked(authService.login).mockResolvedValue(mockLoginResponse);
+    mockAuthService.login.mockResolvedValue(mockLoginResponse);
 
     renderWithRouter(<TestComponent />);
 
@@ -180,7 +187,7 @@ describe('AuthContext', () => {
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
-    jest.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
+    mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
 
     renderWithRouter(<TestComponent />);
 
@@ -209,7 +216,7 @@ describe('AuthContext', () => {
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
-    jest.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
+    mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
 
     renderWithRouter(<TestComponent />);
 
@@ -222,7 +229,7 @@ describe('AuthContext', () => {
 
   it('should handle authentication check failure', async () => {
     mockLocalStorage.getItem.mockReturnValue('invalid-token');
-    jest.mocked(authService.getCurrentUser).mockRejectedValue(new Error('Unauthorized'));
+    mockAuthService.getCurrentUser.mockRejectedValue(new Error('Unauthorized'));
 
     renderWithRouter(<TestComponent />);
 
