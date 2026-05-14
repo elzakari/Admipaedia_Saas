@@ -48,6 +48,7 @@ jobs:
     
     - name: Upload test coverage
       uses: codecov/codecov-action@v3
+      if: ${{ hashFiles('frontend/coverage/**') != '' }}
       with:
         directory: ./frontend/coverage
 
