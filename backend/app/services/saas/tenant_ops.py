@@ -1,6 +1,6 @@
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 
 from app.extensions import db
@@ -10,6 +10,15 @@ from app.models.tenant import Tenant, TenantMembership, TenantInvitation, TENANT
 from .audit import audit
 from .serialization import serialize_tenant
 from app.services.saas.plan_ops import assign_plan_to_tenant
+
+
+def _as_utc_naive(dt):
+    """Normalize aware/naive datetimes to naive UTC for safe comparison."""
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def normalize_slug(slug: str) -> str:
@@ -196,7 +205,7 @@ def accept_invitation(user_id: int, token: str):
         return None, 'Invitation not found'
     if invite.status != 'pending':
         return None, 'Invitation is not valid'
-    if invite.expires_at and invite.expires_at < datetime.utcnow():
+    if invite.expires_at and _as_utc_naive(invite.expires_at) < datetime.utcnow():
         invite.status = 'expired'
         db.session.commit()
         return None, 'Invitation expired'
