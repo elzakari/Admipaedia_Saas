@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { cn } from '../../lib/utils';
 import {
@@ -15,17 +15,6 @@ import { applyDocumentLanguage, markLanguageOverride, normalizeLanguage } from '
 const languages = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'pt', name: 'Português', flag: '🇵🇹' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'ar', name: 'العربية', flag: '🇸🇦', dir: 'rtl' },
-  { code: 'sw', name: 'Kiswahili', flag: '🇰🇪' },
-  { code: 'wo', name: 'Wolof', flag: '🇸🇳' },
-  { code: 'yo', name: 'Yorùbá', flag: '🇳🇬' },
-  { code: 'ha', name: 'Hausa', flag: '🇳🇬' },
-  { code: 'ig', name: 'Igbo', flag: '🇳🇬' },
-  { code: 'bm', name: 'Bamanankan', flag: '🇲🇱' },
-  { code: 'ff', name: 'Fulfulde', flag: '🇬🇳' },
-  { code: 'ak', name: 'Akan', flag: '🇬🇭' },
 ];
 
 const LanguageSwitcher: React.FC = () => {

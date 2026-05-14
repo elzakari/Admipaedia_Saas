@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -71,6 +72,7 @@ interface SchoolSettings {
 }
 
 const SchoolSettings = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('basic');
@@ -123,16 +125,16 @@ const SchoolSettings = () => {
     mutationFn: (updatedSettings: SchoolSettings) => settingsService.updateSchoolSettings(updatedSettings),
     onSuccess: () => {
       toast({
-        title: "Settings Updated",
-        description: "School settings have been updated successfully.",
+        title: t('school_settings.updated_title', 'Settings Updated'),
+        description: t('school_settings.updated_desc', 'School settings have been updated successfully.'),
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['school-settings'] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update settings",
+        title: t('common.error', 'Error'),
+        description: error.message || t('school_settings.update_failed', 'Failed to update settings'),
         variant: "destructive"
       });
     }
@@ -158,8 +160,8 @@ const SchoolSettings = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">School Settings</h2>
-          <p className="text-gray-500 dark:text-gray-400">Configure your school's information and preferences</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('school_settings.title', 'School Settings')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('school_settings.subtitle', "Configure your school's information and preferences")}</p>
         </div>
         <Button onClick={handleSave} disabled={updateSettingsMutation.isPending} className="flex items-center gap-2">
           {updateSettingsMutation.isPending ? (
@@ -167,17 +169,17 @@ const SchoolSettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+          {updateSettingsMutation.isPending ? t('school_settings.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
         </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="basic" className="min-w-[120px]">Basic Info</TabsTrigger>
-          <TabsTrigger value="academic" className="min-w-[120px]">Academic</TabsTrigger>
-          <TabsTrigger value="system" className="min-w-[120px]">System</TabsTrigger>
-          <TabsTrigger value="features" className="min-w-[120px]">Features</TabsTrigger>
-          <TabsTrigger value="branding" className="min-w-[120px]">Branding</TabsTrigger>
+          <TabsTrigger value="basic" className="min-w-[120px]">{t('school_settings.tabs.basic', 'Basic Info')}</TabsTrigger>
+          <TabsTrigger value="academic" className="min-w-[120px]">{t('school_settings.tabs.academic', 'Academic')}</TabsTrigger>
+          <TabsTrigger value="system" className="min-w-[120px]">{t('school_settings.tabs.system', 'System')}</TabsTrigger>
+          <TabsTrigger value="features" className="min-w-[120px]">{t('school_settings.tabs.features', 'Features')}</TabsTrigger>
+          <TabsTrigger value="branding" className="min-w-[120px]">{t('school_settings.tabs.branding', 'Branding')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4">
@@ -185,9 +187,9 @@ const SchoolSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <School className="h-5 w-5" />
-                School Information
+                {t('school_settings.basic.title', 'School Information')}
               </CardTitle>
-              <CardDescription>Basic information about your institution</CardDescription>
+              <CardDescription>{t('school_settings.basic.description', 'Basic information about your institution')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

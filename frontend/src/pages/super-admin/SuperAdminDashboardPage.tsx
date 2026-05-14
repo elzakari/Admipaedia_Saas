@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { superAdminService, SuperAdminOverview } from '@/services/superAdminService'
@@ -18,16 +19,8 @@ const StatCard: React.FC<{ title: string; value: number; href: string }> = ({ ti
   )
 }
 
-const roleLabel: Record<string, string> = {
-  super_admin: 'Super Admins',
-  admin: 'Admins',
-  teacher: 'Teachers',
-  student: 'Students',
-  parent: 'Parents',
-  user: 'General Users'
-}
-
 const SuperAdminDashboardPage: React.FC = () => {
+  const { t } = useTranslation()
   const [data, setData] = useState<SuperAdminOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +37,7 @@ const SuperAdminDashboardPage: React.FC = () => {
       } catch (e) {
         void e
         if (!mounted) return
-        setError('Failed to load overview')
+        setError(t('super_admin.dashboard.errors.load_failed', 'Failed to load overview'))
       } finally {
         if (!mounted) return
         setLoading(false)
@@ -60,8 +53,8 @@ const SuperAdminDashboardPage: React.FC = () => {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Super Admin</h1>
-          <p className="text-sm text-muted-foreground">Manage all user accounts and review actions.</p>
+          <h1 className="text-2xl font-semibold">{t('super_admin.dashboard.title', 'Super Admin')}</h1>
+          <p className="text-sm text-muted-foreground">{t('super_admin.dashboard.subtitle', 'Manage all user accounts and review actions.')}</p>
         </div>
       </div>
 
@@ -78,28 +71,40 @@ const SuperAdminDashboardPage: React.FC = () => {
       ) : data ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title="Total Users" value={data.total_users} href="/super-admin/users" />
-            <StatCard title="Active" value={data.by_status.active} href="/super-admin/users?status=active" />
-            <StatCard title="Inactive" value={data.by_status.inactive} href="/super-admin/users?status=inactive" />
+            <StatCard title={t('super_admin.dashboard.cards.total_users', 'Total Users')} value={data.total_users} href="/super-admin/users" />
+            <StatCard title={t('common.active', 'Active')} value={data.by_status.active} href="/super-admin/users?status=active" />
+            <StatCard title={t('common.inactive', 'Inactive')} value={data.by_status.inactive} href="/super-admin/users?status=inactive" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(data.by_role)
-              .filter(([k]) => k in roleLabel)
-              .map(([role, count]) => (
-                <StatCard
-                  key={role}
-                  title={roleLabel[role] || role}
-                  value={count}
-                  href={`/super-admin/users?role=${encodeURIComponent(role)}`}
-                />
-              ))}
+            {Object.entries(data.by_role).map(([role, count]) => (
+              <StatCard
+                key={role}
+                title={
+                  role === 'super_admin'
+                    ? t('super_admin.dashboard.roles.super_admin', 'Super Admins')
+                    : role === 'admin'
+                      ? t('super_admin.dashboard.roles.admin', 'Admins')
+                      : role === 'teacher'
+                        ? t('super_admin.dashboard.roles.teacher', 'Teachers')
+                        : role === 'student'
+                          ? t('super_admin.dashboard.roles.student', 'Students')
+                          : role === 'parent'
+                            ? t('super_admin.dashboard.roles.parent', 'Parents')
+                            : role === 'user'
+                              ? t('super_admin.dashboard.roles.user', 'General Users')
+                              : role
+                }
+                value={count}
+                href={`/super-admin/users?role=${encodeURIComponent(role)}`}
+              />
+            ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Users by role</CardTitle>
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.users_by_role', 'Users by role')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -115,11 +120,11 @@ const SuperAdminDashboardPage: React.FC = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Recent activity</CardTitle>
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.recent_activity', 'Recent activity')}</CardTitle>
               </CardHeader>
               <CardContent>
                 {data.recent_audit.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No Super Admin events yet.</div>
+                  <div className="text-sm text-muted-foreground">{t('super_admin.dashboard.empty.recent_activity', 'No Super Admin events yet.')}</div>
                 ) : (
                   <div className="space-y-3">
                     {data.recent_audit.map((ev) => (
@@ -135,7 +140,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                     ))}
                     <div>
                       <Link to="/super-admin/audit-logs" className="text-sm text-blue-600 hover:underline">
-                        View all audit logs
+                        {t('super_admin.dashboard.actions.view_all_audit_logs', 'View all audit logs')}
                       </Link>
                     </div>
                   </div>

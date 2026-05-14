@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ type TierDraft = {
 }
 
 export default function SuperAdminPlanPricingPage() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [plans, setPlans] = useState<BillingPlan[] | null>(null)
   const [selectedPlanId, setSelectedPlanId] = useState<string>('none')
@@ -55,7 +57,7 @@ export default function SuperAdminPlanPricingPage() {
       }
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Failed to load plans', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.load_plans_failed', 'Failed to load plans'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setLoading(false)
     }
@@ -69,10 +71,10 @@ export default function SuperAdminPlanPricingPage() {
       if (res.plans?.length) {
         setSelectedPlanId(String(res.plans[0].id))
       }
-      toast({ title: 'Default plans created' })
+      toast({ title: t('super_admin.plan_pricing.toasts.defaults_created', 'Default plans created') })
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Seed failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.seed_failed', 'Seed failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setLoading(false)
     }
@@ -87,7 +89,7 @@ export default function SuperAdminPlanPricingPage() {
       if (p) setMinMonths(String(p.billing_min_months || 3))
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Failed to load tiers', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.load_tiers_failed', 'Failed to load tiers'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setLoading(false)
     }
@@ -136,17 +138,17 @@ export default function SuperAdminPlanPricingPage() {
     if (!selectedPlan || !Number.isFinite(pid) || pid <= 0) return
     const m = Number(minMonths)
     if (!Number.isFinite(m) || m < 1) {
-      toast({ variant: 'destructive', title: 'Invalid minimum months', description: 'billing_min_months must be >= 1' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.invalid_min_months', 'Invalid minimum months'), description: t('super_admin.plan_pricing.errors.min_months_gte_1', 'billing_min_months must be >= 1') })
       return
     }
     setSavingMinMonths(true)
     try {
       const res = await billingService.updatePlanBillingSettings(pid, { billing_min_months: m })
       setPlans((prev) => (prev || []).map((p) => (p.id === pid ? res.plan : p)))
-      toast({ title: 'Saved', description: `Minimum months: ${m}` })
+      toast({ title: t('common.saved', 'Saved'), description: t('super_admin.plan_pricing.toasts.minimum_months', 'Minimum months: {{m}}', { m }) })
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Save failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.save_failed', 'Save failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setSavingMinMonths(false)
     }
@@ -175,10 +177,10 @@ export default function SuperAdminPlanPricingPage() {
         setTiers((prev) => [res.tier, ...(prev || [])])
       }
       setTierOpen(false)
-      toast({ title: 'Saved tier' })
+      toast({ title: t('super_admin.plan_pricing.toasts.saved_tier', 'Saved tier') })
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Save failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.save_failed', 'Save failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setTierSaving(false)
     }
@@ -189,10 +191,10 @@ export default function SuperAdminPlanPricingPage() {
     try {
       await billingService.deletePlanPricingTier(t.id)
       setTiers((prev) => (prev || []).filter((x) => x.id !== t.id))
-      toast({ title: 'Deleted tier' })
+      toast({ title: t('super_admin.plan_pricing.toasts.deleted_tier', 'Deleted tier') })
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Delete failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_pricing.errors.delete_failed', 'Delete failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_pricing.errors.try_again', 'Please try again') })
     } finally {
       setTierSaving(false)
     }
@@ -203,23 +205,23 @@ export default function SuperAdminPlanPricingPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Plan Pricing</h1>
-        <p className="text-sm text-muted-foreground">Configure per-student per-month pricing tiers by student range, country and currency.</p>
+        <h1 className="text-2xl font-semibold">{t('super_admin.plan_pricing.title', 'Plan Pricing')}</h1>
+        <p className="text-sm text-muted-foreground">{t('super_admin.plan_pricing.subtitle', 'Configure per-student per-month pricing tiers by student range, country and currency.')}</p>
       </div>
 
       <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Select plan
+            {t('super_admin.plan_pricing.select_plan.title', 'Select plan')}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-end gap-3 flex-wrap">
           <div className="space-y-2">
-            <Label>Plan</Label>
+            <Label>{t('super_admin.plan_pricing.select_plan.plan', 'Plan')}</Label>
             <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
               <SelectTrigger className="w-[260px]">
-                <SelectValue placeholder="Select plan" />
+                <SelectValue placeholder={t('super_admin.plan_pricing.select_plan.select_plan', 'Select plan')} />
               </SelectTrigger>
               <SelectContent>
                 {(plans || []).map((p) => (
@@ -230,57 +232,57 @@ export default function SuperAdminPlanPricingPage() {
           </div>
           {selectedPlan && (
             <div className="space-y-2">
-              <Label>Min billing months</Label>
+              <Label>{t('super_admin.plan_pricing.select_plan.min_billing_months', 'Min billing months')}</Label>
               <Input className="w-[160px]" value={minMonths} onChange={(e) => setMinMonths(e.target.value)} />
             </div>
           )}
           {(plans || []).length === 0 && (
             <Button variant="secondary" onClick={seedDefaults} disabled={loading}>
-              Seed default plans
+              {t('super_admin.plan_pricing.select_plan.seed_defaults', 'Seed default plans')}
             </Button>
           )}
           <Button onClick={saveBillingSettings} disabled={!selectedPlan || savingMinMonths}>
-            {savingMinMonths ? 'Saving…' : 'Save'}
+            {savingMinMonths ? t('super_admin.plan_pricing.select_plan.saving', 'Saving...') : t('common.save', 'Save')}
           </Button>
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Pricing tiers</CardTitle>
-          <Button onClick={openCreateTier} disabled={!selectedPlan}>Add tier</Button>
+          <CardTitle className="text-base">{t('super_admin.plan_pricing.tiers.title', 'Pricing tiers')}</CardTitle>
+          <Button onClick={openCreateTier} disabled={!selectedPlan}>{t('super_admin.plan_pricing.tiers.add_tier', 'Add tier')}</Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Country</TableHead>
-                <TableHead>Currency</TableHead>
-                <TableHead className="text-right">Min</TableHead>
-                <TableHead className="text-right">Max</TableHead>
-                <TableHead className="text-right">Price / student / month</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>{t('super_admin.plan_pricing.tiers.table.country', 'Country')}</TableHead>
+                <TableHead>{t('super_admin.plan_pricing.tiers.table.currency', 'Currency')}</TableHead>
+                <TableHead className="text-right">{t('super_admin.plan_pricing.tiers.table.min', 'Min')}</TableHead>
+                <TableHead className="text-right">{t('super_admin.plan_pricing.tiers.table.max', 'Max')}</TableHead>
+                <TableHead className="text-right">{t('super_admin.plan_pricing.tiers.table.price', 'Price / student / month')}</TableHead>
+                <TableHead>{t('super_admin.plan_pricing.tiers.table.status', 'Status')}</TableHead>
+                <TableHead>{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(tiers || []).map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.country_code || 'Any'}</TableCell>
-                  <TableCell>{t.currency}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.min_students}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.max_students ?? '∞'}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.price_per_student_month.toFixed(2)}</TableCell>
-                  <TableCell><Badge variant={statusVariant(t.is_active)}>{t.is_active ? 'active' : 'inactive'}</Badge></TableCell>
+              {(tiers || []).map((tier) => (
+                <TableRow key={tier.id}>
+                  <TableCell>{tier.country_code || t('super_admin.plan_pricing.tiers.any', 'Any')}</TableCell>
+                  <TableCell>{tier.currency}</TableCell>
+                  <TableCell className="text-right tabular-nums">{tier.min_students}</TableCell>
+                  <TableCell className="text-right tabular-nums">{tier.max_students ?? '∞'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{tier.price_per_student_month.toFixed(2)}</TableCell>
+                  <TableCell><Badge variant={statusVariant(tier.is_active)}>{tier.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</Badge></TableCell>
                   <TableCell className="space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => openEditTier(t)}>Edit</Button>
-                    <Button size="sm" variant="destructive" onClick={() => deleteTier(t)} disabled={tierSaving}>Delete</Button>
+                    <Button size="sm" variant="outline" onClick={() => openEditTier(tier)}>{t('common.edit', 'Edit')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => deleteTier(tier)} disabled={tierSaving}>{t('common.delete', 'Delete')}</Button>
                   </TableCell>
                 </TableRow>
               ))}
               {!loading && (tiers || []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-sm text-muted-foreground">No tiers configured yet.</TableCell>
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">{t('super_admin.plan_pricing.tiers.empty', 'No tiers configured yet.')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -291,37 +293,37 @@ export default function SuperAdminPlanPricingPage() {
       <Dialog open={tierOpen} onOpenChange={(v) => setTierOpen(v)}>
         <DialogContent className="sm:max-w-[640px]">
           <DialogHeader>
-            <DialogTitle>{tierDraft.id ? 'Edit tier' : 'Add tier'}</DialogTitle>
+            <DialogTitle>{tierDraft.id ? t('super_admin.plan_pricing.tier_dialog.edit_title', 'Edit tier') : t('super_admin.plan_pricing.tier_dialog.add_title', 'Add tier')}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Country code (optional)</Label>
-              <Input value={tierDraft.country_code} onChange={(e) => setTierDraft((p) => ({ ...p, country_code: e.target.value }))} placeholder="GH, TG, CI…" />
+              <Label>{t('super_admin.plan_pricing.tier_dialog.country_code_optional', 'Country code (optional)')}</Label>
+              <Input value={tierDraft.country_code} onChange={(e) => setTierDraft((p) => ({ ...p, country_code: e.target.value }))} placeholder={t('super_admin.plan_pricing.tier_dialog.country_code_placeholder', 'GH, TG, CI...')} />
             </div>
             <div className="space-y-2">
-              <Label>Currency</Label>
+              <Label>{t('super_admin.plan_pricing.tier_dialog.currency', 'Currency')}</Label>
               <Input value={tierDraft.currency} onChange={(e) => setTierDraft((p) => ({ ...p, currency: e.target.value }))} placeholder="XOF" />
             </div>
             <div className="space-y-2">
-              <Label>Min students</Label>
+              <Label>{t('super_admin.plan_pricing.tier_dialog.min_students', 'Min students')}</Label>
               <Input value={tierDraft.min_students} onChange={(e) => setTierDraft((p) => ({ ...p, min_students: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Max students (optional)</Label>
-              <Input value={tierDraft.max_students} onChange={(e) => setTierDraft((p) => ({ ...p, max_students: e.target.value }))} placeholder="Leave blank for no limit" />
+              <Label>{t('super_admin.plan_pricing.tier_dialog.max_students_optional', 'Max students (optional)')}</Label>
+              <Input value={tierDraft.max_students} onChange={(e) => setTierDraft((p) => ({ ...p, max_students: e.target.value }))} placeholder={t('super_admin.plan_pricing.tier_dialog.max_students_placeholder', 'Leave blank for no limit')} />
             </div>
             <div className="space-y-2">
-              <Label>Price / student / month</Label>
+              <Label>{t('super_admin.plan_pricing.tier_dialog.price', 'Price / student / month')}</Label>
               <Input value={tierDraft.price_per_student_month} onChange={(e) => setTierDraft((p) => ({ ...p, price_per_student_month: e.target.value }))} placeholder="125" />
             </div>
             <div className="flex items-center gap-3 pt-7">
               <Switch checked={tierDraft.is_active} onCheckedChange={(v) => setTierDraft((p) => ({ ...p, is_active: v }))} />
-              <span className="text-sm">Active</span>
+              <span className="text-sm">{t('common.active', 'Active')}</span>
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setTierOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={saveTier} disabled={tierSaving}>{tierSaving ? 'Saving…' : 'Save'}</Button>
+            <Button type="button" variant="outline" onClick={() => setTierOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
+            <Button type="button" onClick={saveTier} disabled={tierSaving}>{tierSaving ? t('super_admin.plan_pricing.tier_dialog.saving', 'Saving...') : t('common.save', 'Save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

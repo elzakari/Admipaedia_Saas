@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 
 const SuperAdminLoginPage: React.FC = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { login } = useAuth()
   const [email, setEmail] = useState('')
@@ -27,12 +29,12 @@ const SuperAdminLoginPage: React.FC = () => {
     try {
       const res = await login(email.trim(), password)
       if (!res.success || !res.user) {
-        setError(res.message || 'Login failed')
+        setError(res.message || t('super_admin.login.errors.login_failed', 'Login failed'))
         return
       }
 
       if (res.user.role !== 'super_admin') {
-        setError('This account is not authorized for Super Admin access.')
+        setError(t('super_admin.login.errors.not_authorized', 'This account is not authorized for Super Admin access.'))
         return
       }
 
@@ -40,7 +42,7 @@ const SuperAdminLoginPage: React.FC = () => {
     } catch (err) {
       const anyErr = err as any
       const apiError = anyErr?.response?.data?.error || anyErr?.response?.data?.message
-      setError(apiError || 'Login failed. Please check your credentials and try again.')
+      setError(apiError || t('super_admin.login.errors.login_failed_check', 'Login failed. Please check your credentials and try again.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -55,7 +57,7 @@ const SuperAdminLoginPage: React.FC = () => {
       setPassword('SuperAdmin@123')
     } catch (e) {
       void e
-      setError('Could not initialize demo accounts.')
+      setError(t('super_admin.login.errors.bootstrap_failed', 'Could not initialize demo accounts.'))
     }
   }
 
@@ -63,8 +65,8 @@ const SuperAdminLoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4">
       <Card className="w-full max-w-md border-white/10 bg-white/5 text-white shadow-xl">
         <CardHeader>
-          <CardTitle className="text-xl">Super Admin Login</CardTitle>
-          <CardDescription className="text-white/70">Sign in to manage all users securely.</CardDescription>
+          <CardTitle className="text-xl">{t('super_admin.login.title', 'Super Admin Login')}</CardTitle>
+          <CardDescription className="text-white/70">{t('super_admin.login.subtitle', 'Sign in to manage all users securely.')}</CardDescription>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -74,31 +76,31 @@ const SuperAdminLoginPage: React.FC = () => {
           ) : null}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm text-white/80" htmlFor="sa-email">Email</label>
+              <label className="text-sm text-white/80" htmlFor="sa-email">{t('auth.email', 'Email Address')}</label>
               <Input
                 id="sa-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-white/10 border-white/10 text-white placeholder:text-white/40"
-                placeholder="superadmin@admipaedia.com"
+                placeholder={t('super_admin.login.email_placeholder', 'superadmin@admipaedia.com')}
                 autoComplete="email"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm text-white/80" htmlFor="sa-password">Password</label>
+              <label className="text-sm text-white/80" htmlFor="sa-password">{t('auth.password', 'Password')}</label>
               <Input
                 id="sa-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-white/10 border-white/10 text-white placeholder:text-white/40"
-                placeholder="Your password"
+                placeholder={t('super_admin.login.password_placeholder', 'Your password')}
                 autoComplete="current-password"
               />
             </div>
             <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
+              {isSubmitting ? t('auth.signing_in', 'Signing in...') : t('auth.sign_in', 'Sign In')}
             </Button>
             {allowDevSeedHelpers ? (
               <button
@@ -107,7 +109,7 @@ const SuperAdminLoginPage: React.FC = () => {
                 className="w-full text-sm text-white/70 hover:text-white underline"
                 disabled={isSubmitting}
               >
-                Initialize dev Super Admin
+                {t('super_admin.login.init_dev_super_admin', 'Initialize dev Super Admin')}
               </button>
             ) : null}
           </form>

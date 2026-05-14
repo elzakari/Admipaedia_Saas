@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,15 +20,16 @@ import { superAdminService, SuperAdminUser, SuperAdminUserRole } from '@/service
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
-const baseRoleOptions: Array<{ value: SuperAdminUserRole; label: string }> = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'teacher', label: 'Teacher' },
-  { value: 'student', label: 'Student' },
-  { value: 'parent', label: 'Parent' },
-  { value: 'user', label: 'General user' },
+const baseRoleOptions: Array<{ value: SuperAdminUserRole; key: string; fallback: string }> = [
+  { value: 'admin', key: 'super_admin.roles.admin', fallback: 'Admin' },
+  { value: 'teacher', key: 'super_admin.roles.teacher', fallback: 'Teacher' },
+  { value: 'student', key: 'super_admin.roles.student', fallback: 'Student' },
+  { value: 'parent', key: 'super_admin.roles.parent', fallback: 'Parent' },
+  { value: 'user', key: 'super_admin.roles.user', fallback: 'General user' },
 ]
 
 const SuperAdminUsersPage: React.FC = () => {
+  const { t } = useTranslation()
   const { user: currentUser } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [items, setItems] = useState<SuperAdminUser[]>([])
@@ -53,7 +55,7 @@ const SuperAdminUsersPage: React.FC = () => {
   const isActorSuperAdmin = currentUser?.role === 'super_admin'
   const roleOptions = useMemo(() => {
     if (!isActorSuperAdmin) return baseRoleOptions
-    return [{ value: 'super_manager' as const, label: 'Super Manager' }, ...baseRoleOptions]
+    return [{ value: 'super_manager' as const, key: 'super_admin.roles.super_manager', fallback: 'Super Manager' }, ...baseRoleOptions]
   }, [isActorSuperAdmin])
 
   const queryKey = useMemo(() => ({ q, role, status, page }), [q, role, status, page])
@@ -86,7 +88,7 @@ const SuperAdminUsersPage: React.FC = () => {
       } catch (e) {
         void e
         if (!mounted) return
-        setError('Failed to load users')
+        setError(t('super_admin.users.errors.load_failed', 'Failed to load users'))
       } finally {
         if (!mounted) return
         setLoading(false)
@@ -101,7 +103,7 @@ const SuperAdminUsersPage: React.FC = () => {
   const onCreate = async () => {
     setCreateError(null)
     if (!createEmail.trim()) {
-      setCreateError('Email is required')
+      setCreateError(t('super_admin.users.errors.email_required', 'Email is required'))
       return
     }
 
@@ -125,7 +127,7 @@ const SuperAdminUsersPage: React.FC = () => {
       if (createSendReset) {
         setCreateError(null)
         if (res.email_sent === false) {
-          setCreateError('User created, but reset email was not sent (email not configured).')
+          setCreateError(t('super_admin.users.errors.reset_email_not_sent', 'User created, but reset email was not sent (email not configured).'))
         }
       }
     } catch (e) {
@@ -135,7 +137,7 @@ const SuperAdminUsersPage: React.FC = () => {
       if (Array.isArray(apiErrors) && apiErrors.length) {
         setCreateError(apiErrors.join(' '))
       } else {
-        setCreateError(apiError || 'Failed to create user')
+        setCreateError(apiError || t('super_admin.users.errors.create_failed', 'Failed to create user'))
       }
     } finally {
       setCreating(false)
@@ -150,17 +152,17 @@ const SuperAdminUsersPage: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Users</h1>
-          <p className="text-sm text-muted-foreground">Search and manage all user accounts.</p>
+          <h1 className="text-2xl font-semibold">{t('super_admin.users.title', 'Users')}</h1>
+          <p className="text-sm text-muted-foreground">{t('super_admin.users.subtitle', 'Search and manage all user accounts.')}</p>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button>Create user</Button>
+            <Button>{t('super_admin.users.actions.create_user', 'Create user')}</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Create user</DialogTitle>
+              <DialogTitle>{t('super_admin.users.create.title', 'Create user')}</DialogTitle>
             </DialogHeader>
             {createError ? (
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -169,37 +171,37 @@ const SuperAdminUsersPage: React.FC = () => {
             ) : null}
             <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
-                <label className="text-sm" htmlFor="c-email">Email</label>
+                <label className="text-sm" htmlFor="c-email">{t('auth.email', 'Email Address')}</label>
                 <Input id="c-email" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm" htmlFor="c-username">Username (optional)</label>
+                <label className="text-sm" htmlFor="c-username">{t('super_admin.users.create.username_optional', 'Username (optional)')}</label>
                 <Input id="c-username" value={createUsername} onChange={(e) => setCreateUsername(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm">Role</label>
+                <label className="text-sm">{t('super_admin.users.create.role', 'Role')}</label>
                 <Select value={createRole} onValueChange={(v) => setCreateRole(v as SuperAdminUserRole)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
+                    <SelectValue placeholder={t('super_admin.users.create.select_role', 'Select role')} />
                   </SelectTrigger>
                   <SelectContent>
                     {roleOptions.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                      <SelectItem key={r.value} value={r.value}>{t(r.key, r.fallback)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm" htmlFor="c-password">Initial password</label>
+                <label className="text-sm" htmlFor="c-password">{t('super_admin.users.create.initial_password', 'Initial password')}</label>
                 <Input id="c-password" type="password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
                 <div className="text-xs text-muted-foreground">
-                  Leave blank to auto-generate a secure password.
+                  {t('super_admin.users.create.password_hint', 'Leave blank to auto-generate a secure password.')}
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
-                  <div className="text-sm font-medium">Send reset email</div>
-                  <div className="text-xs text-muted-foreground">Sends a password reset link to the user (recommended).</div>
+                  <div className="text-sm font-medium">{t('super_admin.users.create.send_reset_email', 'Send reset email')}</div>
+                  <div className="text-xs text-muted-foreground">{t('super_admin.users.create.send_reset_email_hint', 'Sends a password reset link to the user (recommended).')}</div>
                 </div>
                 <input
                   type="checkbox"
@@ -210,8 +212,8 @@ const SuperAdminUsersPage: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-                <Button onClick={onCreate} disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
+                <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>{t('common.cancel', 'Cancel')}</Button>
+                <Button onClick={onCreate} disabled={creating}>{creating ? t('common.creating', 'Creating...') : t('common.create', 'Create')}</Button>
               </div>
             </div>
           </DialogContent>
@@ -220,29 +222,29 @@ const SuperAdminUsersPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-1">
-          <Input placeholder="Search email or username" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} />
+          <Input placeholder={t('super_admin.users.search_placeholder', 'Search email or username')} value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} />
         </div>
         <Select value={role || 'all'} onValueChange={(v) => { setRole(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Role" />
+            <SelectValue placeholder={t('super_admin.users.filters.role', 'Role')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All roles</SelectItem>
-            <SelectItem value="super_admin">Super admin</SelectItem>
+            <SelectItem value="all">{t('super_admin.users.filters.all_roles', 'All roles')}</SelectItem>
+            <SelectItem value="super_admin">{t('super_admin.roles.super_admin', 'Super admin')}</SelectItem>
             {roleOptions.map((r) => (
-              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+              <SelectItem key={r.value} value={r.value}>{t(r.key, r.fallback)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select value={status || 'all'} onValueChange={(v) => { setStatus(v === 'all' ? '' : v); setPage(1) }}>
           <SelectTrigger>
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t('super_admin.users.filters.status', 'Status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('super_admin.users.filters.all_statuses', 'All statuses')}</SelectItem>
+            <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
+            <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -257,16 +259,16 @@ const SuperAdminUsersPage: React.FC = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium">User</th>
-                  <th className="text-left px-4 py-3 font-medium">Role</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium">Created</th>
-                  <th className="text-right px-4 py-3 font-medium">Action</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.user', 'User')}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.role', 'Role')}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.status', 'Status')}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.created', 'Created')}</th>
+                  <th className="text-right px-4 py-3 font-medium">{t('common.actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">No users found</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">{t('super_admin.users.empty', 'No users found')}</td></tr>
                 ) : (
                   items.map((u) => (
                     <tr key={u.id} className="border-t">
@@ -274,12 +276,34 @@ const SuperAdminUsersPage: React.FC = () => {
                         <div className="font-medium">{u.username}</div>
                         <div className="text-muted-foreground">{u.email}</div>
                       </td>
-                      <td className="px-4 py-3">{u.role}</td>
-                      <td className="px-4 py-3">{u.status}</td>
+                      <td className="px-4 py-3">
+                        {u.role === 'super_admin'
+                          ? t('super_admin.roles.super_admin', 'Super admin')
+                          : u.role === 'super_manager'
+                            ? t('super_admin.roles.super_manager', 'Super Manager')
+                            : u.role === 'admin'
+                              ? t('super_admin.roles.admin', 'Admin')
+                              : u.role === 'teacher'
+                                ? t('super_admin.roles.teacher', 'Teacher')
+                                : u.role === 'student'
+                                  ? t('super_admin.roles.student', 'Student')
+                                  : u.role === 'parent'
+                                    ? t('super_admin.roles.parent', 'Parent')
+                                    : u.role === 'user'
+                                      ? t('super_admin.roles.user', 'General user')
+                                      : u.role}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.status === 'active'
+                          ? t('common.active', 'Active')
+                          : u.status === 'inactive'
+                            ? t('common.inactive', 'Inactive')
+                            : u.status}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground">{u.created_at ? u.created_at.slice(0, 10) : ''}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link to={`/super-admin/users/${u.id}`} className="text-blue-600 hover:underline">View</Link>
+                          <Link to={`/super-admin/users/${u.id}`} className="text-blue-600 hover:underline">{t('common.view', 'View')}</Link>
                           <Button
                             variant="outline"
                             size="sm"
@@ -291,7 +315,7 @@ const SuperAdminUsersPage: React.FC = () => {
                               }
                             }}
                           >
-                            Reset
+                            {t('super_admin.users.actions.reset', 'Reset')}
                           </Button>
                           {u.status === 'active' ? (
                             <AlertDialog>
@@ -301,18 +325,18 @@ const SuperAdminUsersPage: React.FC = () => {
                                   size="sm"
                                   disabled={currentUser?.id === u.id || u.role === 'super_admin'}
                                 >
-                                  Deactivate
+                                  {t('super_admin.users.actions.deactivate', 'Deactivate')}
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Deactivate this user?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t('super_admin.users.deactivate.title', 'Deactivate this user?')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This will block sign-in for this account until it is reactivated.
+                                    {t('super_admin.users.deactivate.description', 'This will block sign-in for this account until it is reactivated.')}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={async () => {
                                       try {
@@ -323,7 +347,7 @@ const SuperAdminUsersPage: React.FC = () => {
                                       }
                                     }}
                                   >
-                                    Deactivate
+                                    {t('super_admin.users.actions.deactivate', 'Deactivate')}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -340,7 +364,7 @@ const SuperAdminUsersPage: React.FC = () => {
                                 }
                               }}
                             >
-                              Reactivate
+                              {t('super_admin.users.actions.reactivate', 'Reactivate')}
                             </Button>
                           )}
 
@@ -355,41 +379,41 @@ const SuperAdminUsersPage: React.FC = () => {
                                   u.role === 'super_admin'
                                 }
                               >
-                                Delete
+                                {t('common.delete', 'Delete')}
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this user permanently?</AlertDialogTitle>
+                                <AlertDialogTitle>{t('super_admin.users.delete.title', 'Delete this user permanently?')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently remove the account only if it is an orphan user (no school memberships and no school profile).
+                                  {t('super_admin.users.delete.description', 'This will permanently remove the account only if it is an orphan user (no school memberships and no school profile).')}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={async () => {
                                     try {
                                       setDeletingUserId(u.id)
                                       const statusRes = await superAdminService.getOrphanUserStatus(u.id)
                                       if (!statusRes.status.can_delete) {
-                                        toast.error('Cannot delete user', {
-                                          description: statusRes.status.reasons?.join(', ') || 'User is not an orphan'
+                                        toast.error(t('super_admin.users.delete.cannot_title', 'Cannot delete user'), {
+                                          description: statusRes.status.reasons?.join(', ') || t('super_admin.users.delete.not_orphan', 'User is not an orphan')
                                         })
                                         return
                                       }
                                       await superAdminService.deleteOrphanUser(u.id)
                                       setItems((prev) => prev.filter((x) => x.id !== u.id))
-                                      toast.success('User deleted')
+                                      toast.success(t('super_admin.users.delete.deleted', 'User deleted'))
                                     } catch (e) {
                                       void e
-                                      toast.error('Delete failed')
+                                      toast.error(t('super_admin.users.delete.failed', 'Delete failed'))
                                     } finally {
                                       setDeletingUserId(null)
                                     }
                                   }}
                                 >
-                                  Delete permanently
+                                  {t('super_admin.users.delete.confirm', 'Delete permanently')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -403,10 +427,10 @@ const SuperAdminUsersPage: React.FC = () => {
             </table>
           </div>
           <div className="flex items-center justify-between px-4 py-3 border-t bg-background">
-            <div className="text-xs text-muted-foreground">Page {page} of {pages}</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.users.pagination.page_of', 'Page {{page}} of {{pages}}', { page, pages })}</div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
-              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => Math.min(pages, p + 1))}>Next</Button>
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t('common.prev', 'Prev')}</Button>
+              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => Math.min(pages, p + 1))}>{t('common.next', 'Next')}</Button>
             </div>
           </div>
         </div>

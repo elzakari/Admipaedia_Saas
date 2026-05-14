@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast'
 import billingService, { SubscriptionChangeRequest } from '@/services/billingService'
 
 export default function SuperAdminPlanRequestsPage() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [requests, setRequests] = useState<SubscriptionChangeRequest[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -41,7 +43,7 @@ export default function SuperAdminPlanRequestsPage() {
       setRequests(res.requests)
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Failed to load requests', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_requests.errors.load_failed', 'Failed to load requests'), description: e.response?.data?.message || e.message || t('super_admin.plan_requests.errors.try_again', 'Please try again') })
     } finally {
       setLoading(false)
     }
@@ -57,11 +59,11 @@ export default function SuperAdminPlanRequestsPage() {
     setSaving(true)
     try {
       await billingService.approveSubscriptionChangeRequest(r.id)
-      toast({ title: 'Approved' })
+      toast({ title: t('common.approved', 'Approved') })
       await load()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Approve failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_requests.errors.approve_failed', 'Approve failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_requests.errors.try_again', 'Please try again') })
     } finally {
       setSaving(false)
     }
@@ -78,12 +80,12 @@ export default function SuperAdminPlanRequestsPage() {
     setSaving(true)
     try {
       await billingService.rejectSubscriptionChangeRequest(rejectTarget.id, { note: rejectNote || undefined })
-      toast({ title: 'Rejected' })
+      toast({ title: t('common.rejected', 'Rejected') })
       setRejectOpen(false)
       await load()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Reject failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.plan_requests.errors.reject_failed', 'Reject failed'), description: e.response?.data?.message || e.message || t('super_admin.plan_requests.errors.try_again', 'Please try again') })
     } finally {
       setSaving(false)
     }
@@ -93,8 +95,8 @@ export default function SuperAdminPlanRequestsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Plan Requests</h1>
-          <p className="text-sm text-muted-foreground">Approve or reject school downgrade requests.</p>
+          <h1 className="text-2xl font-semibold">{t('super_admin.plan_requests.title', 'Plan Requests')}</h1>
+          <p className="text-sm text-muted-foreground">{t('super_admin.plan_requests.subtitle', 'Approve or reject school downgrade requests.')}</p>
         </div>
       </div>
 
@@ -102,44 +104,44 @@ export default function SuperAdminPlanRequestsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Filters
+            {t('super_admin.plan_requests.filters.title', 'Filters')}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-end gap-3 flex-wrap">
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label>{t('super_admin.plan_requests.filters.status', 'Status')}</Label>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder={t('super_admin.plan_requests.filters.select_status', 'Select status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">pending</SelectItem>
-                <SelectItem value="approved">approved</SelectItem>
-                <SelectItem value="rejected">rejected</SelectItem>
-                <SelectItem value="all">all</SelectItem>
+                <SelectItem value="pending">{t('common.pending', 'Pending')}</SelectItem>
+                <SelectItem value="approved">{t('common.approved', 'Approved')}</SelectItem>
+                <SelectItem value="rejected">{t('common.rejected', 'Rejected')}</SelectItem>
+                <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => load()} disabled={loading}>Apply</Button>
+          <Button onClick={() => load()} disabled={loading}>{t('common.apply', 'Apply')}</Button>
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Requests</CardTitle>
-          <div className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${rows.length} results`}</div>
+          <CardTitle className="text-base">{t('super_admin.plan_requests.table.title', 'Requests')}</CardTitle>
+          <div className="text-sm text-muted-foreground">{loading ? t('common.loading', 'Loading...') : t('super_admin.plan_requests.table.results', '{{count}} results', { count: rows.length })}</div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Created</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Effective</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.created', 'Created')}</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.tenant', 'Tenant')}</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.type', 'Type')}</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.plan', 'Plan')}</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.effective', 'Effective')}</TableHead>
+                <TableHead>{t('super_admin.plan_requests.table.status', 'Status')}</TableHead>
+                <TableHead>{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -156,8 +158,8 @@ export default function SuperAdminPlanRequestsPage() {
                   <TableCell className="space-x-2">
                     {r.status === 'pending' && r.request_type === 'downgrade' ? (
                       <>
-                        <Button size="sm" onClick={() => onApprove(r)} disabled={saving}>Approve</Button>
-                        <Button size="sm" variant="destructive" onClick={() => openReject(r)} disabled={saving}>Reject</Button>
+                        <Button size="sm" onClick={() => onApprove(r)} disabled={saving}>{t('common.approved', 'Approved')}</Button>
+                        <Button size="sm" variant="destructive" onClick={() => openReject(r)} disabled={saving}>{t('common.rejected', 'Rejected')}</Button>
                       </>
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
@@ -167,7 +169,7 @@ export default function SuperAdminPlanRequestsPage() {
               ))}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-sm text-muted-foreground">No requests found.</TableCell>
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">{t('super_admin.plan_requests.empty', 'No requests found.')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -178,16 +180,16 @@ export default function SuperAdminPlanRequestsPage() {
       <Dialog open={rejectOpen} onOpenChange={(v) => { setRejectOpen(v); if (!v) setRejectTarget(null) }}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Reject request</DialogTitle>
+            <DialogTitle>{t('super_admin.plan_requests.reject.title', 'Reject request')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Note (optional)</Label>
-            <Input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Internal note" />
+            <Label>{t('super_admin.plan_requests.reject.note_optional', 'Note (optional)')}</Label>
+            <Input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder={t('super_admin.plan_requests.reject.note_placeholder', 'Internal note')} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
             <Button type="button" variant="destructive" onClick={onConfirmReject} disabled={saving}>
-              {saving ? 'Saving…' : 'Reject'}
+              {saving ? t('super_admin.plan_requests.reject.saving', 'Saving...') : t('common.rejected', 'Rejected')}
             </Button>
           </DialogFooter>
         </DialogContent>

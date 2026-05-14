@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { BarChart3, RefreshCcw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +13,7 @@ import { PlatformFinancialInvoicesTab } from '@/pages/saas/PlatformFinancialInvo
 import { PlatformFinancialPaymentsTab } from '@/pages/saas/PlatformFinancialPaymentsTab'
 
 export default function SuperAdminFinancialInsightsPage() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [summary, setSummary] = useState<PlatformFinancialSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -27,8 +29,8 @@ export default function SuperAdminFinancialInsightsPage() {
       const e = err as AxiosError<{ message?: string }>
       toast({
         variant: 'destructive',
-        title: 'Failed to load financial summary',
-        description: e.response?.data?.message || e.message || 'Please try again'
+        title: t('super_admin.financial.errors.load_failed', 'Failed to load financial summary'),
+        description: e.response?.data?.message || e.message || t('super_admin.financial.errors.try_again', 'Please try again')
       })
     } finally {
       setLoading(false)
@@ -43,12 +45,12 @@ export default function SuperAdminFinancialInsightsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Financial Insights</h1>
-          <p className="text-sm text-muted-foreground">Platform-wide invoicing, payments, and outstanding balances.</p>
+          <h1 className="text-2xl font-semibold">{t('super_admin.financial.title', 'Financial Insights')}</h1>
+          <p className="text-sm text-muted-foreground">{t('super_admin.financial.subtitle', 'Platform-wide invoicing, payments, and outstanding balances.')}</p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
           <RefreshCcw className="h-4 w-4 mr-2" />
-          Refresh
+          {t('common.refresh', 'Refresh')}
         </Button>
       </div>
 
@@ -57,12 +59,12 @@ export default function SuperAdminFinancialInsightsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              Total Invoiced
+              {t('super_admin.financial.cards.total_invoiced', 'Total Invoiced')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{loading || !summary ? '—' : summary.invoice_total.toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground">Across all schools</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.financial.cards.across_all_schools', 'Across all schools')}</div>
           </CardContent>
         </Card>
 
@@ -70,12 +72,12 @@ export default function SuperAdminFinancialInsightsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              Total Paid
+              {t('super_admin.financial.cards.total_paid', 'Total Paid')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{loading || !summary ? '—' : summary.payment_total.toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground">Across all schools</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.financial.cards.across_all_schools', 'Across all schools')}</div>
           </CardContent>
         </Card>
 
@@ -83,26 +85,26 @@ export default function SuperAdminFinancialInsightsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              Outstanding
+              {t('super_admin.financial.cards.outstanding', 'Outstanding')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{loading || !summary ? '—' : summary.outstanding_total.toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground">Invoice total minus payments</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.financial.cards.outstanding_hint', 'Invoice total minus payments')}</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Financial overview</CardTitle>
+          <CardTitle>{t('super_admin.financial.sections.overview', 'Financial overview')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="schools">
             <TabsList>
-              <TabsTrigger value="schools">By school</TabsTrigger>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="schools">{t('super_admin.financial.tabs.by_school', 'By school')}</TabsTrigger>
+              <TabsTrigger value="invoices">{t('super_admin.financial.tabs.invoices', 'Invoices')}</TabsTrigger>
+              <TabsTrigger value="payments">{t('super_admin.financial.tabs.payments', 'Payments')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="schools">

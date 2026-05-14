@@ -9,7 +9,7 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: 'en',
-    supportedLngs: ['en', 'fr', 'pt', 'es', 'ar', 'sw', 'wo', 'yo', 'ha', 'ig', 'bm', 'ff', 'ak'],
+    supportedLngs: ['en', 'fr'],
     debug: process.env.NODE_ENV === 'development',
     
     interpolation: {

@@ -18,6 +18,24 @@
     "export": "Export",
     "performance": "Performance",
     "actions": "Actions",
+    "saved": "Saved",
+    "back": "Back",
+    "close": "Close",
+    "create": "Create",
+    "creating": "Creating...",
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View",
+    "apply": "Apply",
+    "clear": "Clear",
+    "prev": "Prev",
+    "next": "Next",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "all": "All",
     "logout_button": "Terminate Session",
     "commands": "Commands",
     "search_placeholder": "Search anything... (Ctrl+K)",
@@ -112,7 +130,12 @@
     "reports": "Reports",
     "users": "Users",
     "schools": "Schools",
+    "e_registration_billing": "E-Registration Billing",
     "financial_oversight": "Financial Insights",
+    "payment_settings": "Payment Settings",
+    "payments": "Payments",
+    "plan_requests": "Plan Requests",
+    "plan_pricing": "Plan Pricing",
     "audit_logs": "Audit Logs",
     "system_settings": "System Settings",
     "admissions": "Admissions",
@@ -203,6 +226,595 @@
       "analytics": "Analytics",
       "performance": "Performance",
       "realtime": "Real-time"
+    }
+  },
+  "platform_settings": {
+    "loading": "Loading system settings...",
+    "title": "Platform Settings",
+    "subtitle": "Configure global platform parameters, tenant defaults, and licensing",
+    "integrations_saved": "Integration settings saved",
+    "integrations_save_failed": "Failed to save integration settings",
+    "tabs": {
+      "platform": "Platform",
+      "tenancy": "Tenancy",
+      "licensing": "Licensing",
+      "security": "Security",
+      "integrations": "Integrations"
+    },
+    "platform": {
+      "title": "Platform Configuration",
+      "description": "Global operational parameters (not school-specific)",
+      "maintenance_mode": {
+        "title": "Maintenance Mode",
+        "description": "Temporarily disable user access platform-wide",
+        "confirm": "Enable Maintenance Mode? This may block normal user access."
+      },
+      "support_email": "Support email",
+      "terms_url": "Terms of Service URL",
+      "privacy_url": "Privacy Policy URL",
+      "allow_public_registration": {
+        "title": "Allow Public Registration",
+        "description": "If disabled, registration is invite-only"
+      },
+      "reset_defaults": "Reset platform defaults"
+    },
+    "tenancy": {
+      "title": "Tenant Defaults",
+      "description": "Defaults applied when creating new schools",
+      "default_country_code": "Default country code",
+      "select_country": "Select country",
+      "default_timezone": "Default timezone",
+      "select_timezone": "Select timezone",
+      "default_language": "Default language",
+      "select_language": "Select language",
+      "default_currency": "Default currency",
+      "select_currency": "Select currency"
+    }
+  },
+  "school_settings": {
+    "title": "School Settings",
+    "subtitle": "Configure your school's information and preferences",
+    "save_changes": "Save Changes",
+    "saving": "Saving...",
+    "updated_title": "Settings Updated",
+    "updated_desc": "School settings have been updated successfully.",
+    "update_failed": "Failed to update settings",
+    "tabs": {
+      "basic": "Basic Info",
+      "academic": "Academic",
+      "system": "System",
+      "features": "Features",
+      "branding": "Branding"
+    },
+    "basic": {
+      "title": "School Information",
+      "description": "Basic information about your institution"
+    }
+  },
+  "super_admin": {
+    "login": {
+      "title": "Super Admin Login",
+      "subtitle": "Sign in to manage all users securely.",
+      "email_placeholder": "superadmin@admipaedia.com",
+      "password_placeholder": "Your password",
+      "init_dev_super_admin": "Initialize dev Super Admin",
+      "errors": {
+        "login_failed": "Login failed",
+        "login_failed_check": "Login failed. Please check your credentials and try again.",
+        "not_authorized": "This account is not authorized for Super Admin access.",
+        "bootstrap_failed": "Could not initialize demo accounts."
+      }
+    },
+    "roles": {
+      "super_admin": "Super admin",
+      "super_manager": "Super Manager",
+      "admin": "Admin",
+      "teacher": "Teacher",
+      "student": "Student",
+      "parent": "Parent",
+      "user": "General user"
+    },
+    "dashboard": {
+      "title": "Super Admin",
+      "subtitle": "Manage all user accounts and review actions.",
+      "errors": {
+        "load_failed": "Failed to load overview"
+      },
+      "cards": {
+        "total_users": "Total Users"
+      },
+      "roles": {
+        "super_admin": "Super Admins",
+        "admin": "Admins",
+        "teacher": "Teachers",
+        "student": "Students",
+        "parent": "Parents",
+        "user": "General Users"
+      },
+      "sections": {
+        "users_by_role": "Users by role",
+        "recent_activity": "Recent activity"
+      },
+      "empty": {
+        "recent_activity": "No Super Admin events yet."
+      },
+      "actions": {
+        "view_all_audit_logs": "View all audit logs"
+      }
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Search and manage all user accounts.",
+      "actions": {
+        "create_user": "Create user",
+        "reset": "Reset",
+        "deactivate": "Deactivate",
+        "reactivate": "Reactivate"
+      },
+      "create": {
+        "title": "Create user",
+        "username_optional": "Username (optional)",
+        "role": "Role",
+        "select_role": "Select role",
+        "initial_password": "Initial password",
+        "password_hint": "Leave blank to auto-generate a secure password.",
+        "send_reset_email": "Send reset email",
+        "send_reset_email_hint": "Sends a password reset link to the user (recommended)."
+      },
+      "search_placeholder": "Search email or username",
+      "filters": {
+        "role": "Role",
+        "status": "Status",
+        "all_roles": "All roles",
+        "all_statuses": "All statuses"
+      },
+      "table": {
+        "user": "User",
+        "role": "Role",
+        "status": "Status",
+        "created": "Created"
+      },
+      "empty": "No users found",
+      "deactivate": {
+        "title": "Deactivate this user?",
+        "description": "This will block sign-in for this account until it is reactivated."
+      },
+      "delete": {
+        "title": "Delete this user permanently?",
+        "description": "This will permanently remove the account only if it is an orphan user (no school memberships and no school profile).",
+        "cannot_title": "Cannot delete user",
+        "not_orphan": "User is not an orphan",
+        "deleted": "User deleted",
+        "failed": "Delete failed",
+        "confirm": "Delete permanently"
+      },
+      "pagination": {
+        "page_of": "Page {{page}} of {{pages}}"
+      },
+      "errors": {
+        "load_failed": "Failed to load users",
+        "email_required": "Email is required",
+        "reset_email_not_sent": "User created, but reset email was not sent (email not configured).",
+        "create_failed": "Failed to create user"
+      }
+    },
+    "user_details": {
+      "title": "User details",
+      "subtitle": "Edit account status and role safely.",
+      "saving": "Saving...",
+      "save_changes": "Save changes",
+      "sections": {
+        "profile": "Profile",
+        "actions": "Actions"
+      },
+      "fields": {
+        "username": "Username",
+        "role": "Role",
+        "status": "Status",
+        "created": "Created",
+        "last_login": "Last login"
+      },
+      "actions": {
+        "send_reset": "Send password reset email",
+        "deactivate": "Deactivate user",
+        "reactivate": "Reactivate user"
+      },
+      "messages": {
+        "deactivated": "User deactivated",
+        "reactivated": "User reactivated",
+        "reset_sent": "Reset email sent",
+        "reset_not_sent": "Reset email not sent (email disabled?)"
+      },
+      "errors": {
+        "invalid_user_id": "Invalid user id",
+        "load_failed": "Failed to load user",
+        "save_failed": "Failed to save",
+        "deactivate_failed": "Failed to deactivate user",
+        "reactivate_failed": "Failed to reactivate user",
+        "reset_failed": "Failed to send reset email"
+      }
+    },
+    "audit_logs": {
+      "title": "Audit logs",
+      "subtitle": "Immutable record of Super Admin actions.",
+      "search_placeholder": "Search event, endpoint, details",
+      "filters": {
+        "event_type": "Event type",
+        "all_events": "All events"
+      },
+      "table": {
+        "time": "Time",
+        "event": "Event",
+        "severity": "Severity",
+        "target": "Target",
+        "details": "Details"
+      },
+      "empty": "No logs found",
+      "pagination": {
+        "page_of": "Page {{page}} of {{pages}}"
+      },
+      "errors": {
+        "load_failed": "Failed to load audit logs"
+      }
+    },
+    "schools": {
+      "title": "Schools",
+      "subtitle": "Manage schools and platform access.",
+      "errors": {
+        "load_failed": "Failed to load schools",
+        "try_again": "Please try again"
+      },
+      "registration_link": {
+        "generate": "Generate registration link",
+        "dialog_title": "Create a school registration link",
+        "dialog_description": "Generates a single-use link that expires in 24 hours. The school admin uses it to set their password and create the school workspace.",
+        "school_name": "School name",
+        "school_name_placeholder": "ADMIPAEDIA School",
+        "school_slug_optional": "School slug (optional)",
+        "school_slug_placeholder": "admipaedia-school",
+        "slug_hint": "Leave blank to auto-generate from the school name",
+        "suggested": "suggested",
+        "use_suggested": "Use",
+        "admin_email": "School admin email",
+        "admin_email_placeholder": "admin@school.com",
+        "admin_email_hint": "This email will become the school admin login.",
+        "email_ok": "Looks good.",
+        "email_invalid": "Enter a valid email address.",
+        "country_code": "Country code",
+        "country_code_hint": "Use a 2-letter ISO code (e.g. GH).",
+        "currency": "Currency",
+        "currency_hint": "Use a 3-letter currency (e.g. GHS).",
+        "expires_hint": "Expires in 24 hours • Single-use",
+        "generated_title": "Registration link generated",
+        "generated_desc": "This link expires in 24 hours and can be used once.",
+        "generate_failed": "Failed to generate link",
+        "generating": "Generating...",
+        "link_label": "Registration link",
+        "expires": "Expires",
+        "expires_24h": "Expires in 24 hours",
+        "copied": "Copied link",
+        "copy_failed": "Copy failed",
+        "copy_manual": "Please copy the link manually.",
+        "copy": "Copy",
+        "open": "Open"
+      },
+      "kpis": {
+        "total_schools": "Total Schools",
+        "new_30d": "New (30d): {{count}}",
+        "suspended": "Suspended: {{count}}",
+        "invoiced": "Invoiced",
+        "invoices_count": "Invoices: {{count}}",
+        "outstanding": "Outstanding",
+        "paid": "Paid: {{amount}}"
+      },
+      "filters": {
+        "search_placeholder": "Name, slug, or domain",
+        "status": "Status",
+        "plan": "Plan",
+        "country": "Country",
+        "apply": "Apply filters"
+      },
+      "status": {
+        "trial": "Trial",
+        "suspended": "Suspended"
+      },
+      "plan": {
+        "trial": "Trial",
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "table": {
+        "title": "Schools",
+        "showing": "Showing {{shown}} / {{total}}",
+        "school": "School",
+        "status": "Status",
+        "plan": "Plan",
+        "country": "Country",
+        "created": "Created",
+        "empty": "No schools found."
+      }
+    },
+    "payment_settings": {
+      "title": "Payment Settings",
+      "subtitle": "Configure payment gateways by country and currency.",
+      "actions": {
+        "add_gateway": "Add gateway"
+      },
+      "dialog": {
+        "edit_title": "Edit gateway",
+        "add_title": "Add gateway"
+      },
+      "form": {
+        "name": "Name",
+        "select_gateway": "Select gateway",
+        "display_name": "Display name",
+        "display_name_placeholder": "Paystack Ghana",
+        "country_code": "Country code",
+        "currency": "Currency",
+        "public_key": "Public key",
+        "secret_key": "Secret key",
+        "webhook_secret": "Webhook secret",
+        "supported_channels": "Supported channels",
+        "supported_channels_placeholder": "mobile_money,card,bank_transfer,wallet,manual",
+        "environment": "Environment",
+        "select_environment": "Select env",
+        "default": "Default"
+      },
+      "saving": "Saving...",
+      "gateways": {
+        "title": "Gateways",
+        "configured": "{{count}} configured"
+      },
+      "table": {
+        "name": "Name",
+        "country": "Country",
+        "currency": "Currency",
+        "env": "Env",
+        "channels": "Channels",
+        "status": "Status"
+      },
+      "badges": {
+        "default": "default"
+      },
+      "empty": "No gateways configured.",
+      "errors": {
+        "load_failed": "Failed to load gateways",
+        "save_failed": "Save failed",
+        "try_again": "Please try again"
+      }
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Monitor gateway payments and approve manual submissions.",
+      "filters": {
+        "title": "Filters",
+        "status": "Status",
+        "gateway": "Gateway",
+        "country": "Country",
+        "tenant_id": "Tenant ID",
+        "tenant_id_placeholder": "UUID",
+        "date_from": "Date from",
+        "date_to": "Date to"
+      },
+      "status": {
+        "successful": "Successful",
+        "failed": "Failed"
+      },
+      "table": {
+        "title": "Payments",
+        "results": "{{count}} results",
+        "created": "Created",
+        "tenant": "Tenant",
+        "invoice": "Invoice",
+        "gateway": "Gateway",
+        "channel": "Channel",
+        "status": "Status",
+        "amount": "Amount"
+      },
+      "actions": {
+        "verify": "Verify"
+      },
+      "review": {
+        "approve_title": "Approve manual payment",
+        "reject_title": "Reject manual payment",
+        "note_optional": "Note (optional)",
+        "note_placeholder": "Internal note",
+        "saving": "Saving..."
+      },
+      "empty": "No payments found.",
+      "toasts": {
+        "verified": "Verified"
+      },
+      "errors": {
+        "load_failed": "Failed to load payments",
+        "verify_failed": "Verify failed",
+        "review_failed": "Review failed",
+        "try_again": "Please try again"
+      }
+    },
+    "plan_requests": {
+      "title": "Plan Requests",
+      "subtitle": "Approve or reject school downgrade requests.",
+      "filters": {
+        "title": "Filters",
+        "status": "Status",
+        "select_status": "Select status"
+      },
+      "table": {
+        "title": "Requests",
+        "results": "{{count}} results",
+        "created": "Created",
+        "tenant": "Tenant",
+        "type": "Type",
+        "plan": "Plan",
+        "effective": "Effective",
+        "status": "Status"
+      },
+      "reject": {
+        "title": "Reject request",
+        "note_optional": "Note (optional)",
+        "note_placeholder": "Internal note",
+        "saving": "Saving..."
+      },
+      "empty": "No requests found.",
+      "errors": {
+        "load_failed": "Failed to load requests",
+        "approve_failed": "Approve failed",
+        "reject_failed": "Reject failed",
+        "try_again": "Please try again"
+      }
+    },
+    "plan_pricing": {
+      "title": "Plan Pricing",
+      "subtitle": "Configure per-student per-month pricing tiers by student range, country and currency.",
+      "select_plan": {
+        "title": "Select plan",
+        "plan": "Plan",
+        "select_plan": "Select plan",
+        "min_billing_months": "Min billing months",
+        "seed_defaults": "Seed default plans",
+        "saving": "Saving..."
+      },
+      "tiers": {
+        "title": "Pricing tiers",
+        "add_tier": "Add tier",
+        "any": "Any",
+        "empty": "No tiers configured yet.",
+        "table": {
+          "country": "Country",
+          "currency": "Currency",
+          "min": "Min",
+          "max": "Max",
+          "price": "Price / student / month",
+          "status": "Status"
+        }
+      },
+      "tier_dialog": {
+        "edit_title": "Edit tier",
+        "add_title": "Add tier",
+        "country_code_optional": "Country code (optional)",
+        "country_code_placeholder": "GH, TG, CI...",
+        "currency": "Currency",
+        "min_students": "Min students",
+        "max_students_optional": "Max students (optional)",
+        "max_students_placeholder": "Leave blank for no limit",
+        "price": "Price / student / month",
+        "saving": "Saving..."
+      },
+      "toasts": {
+        "defaults_created": "Default plans created",
+        "minimum_months": "Minimum months: {{m}}",
+        "saved_tier": "Saved tier",
+        "deleted_tier": "Deleted tier"
+      },
+      "errors": {
+        "load_plans_failed": "Failed to load plans",
+        "load_tiers_failed": "Failed to load tiers",
+        "seed_failed": "Seed failed",
+        "invalid_min_months": "Invalid minimum months",
+        "min_months_gte_1": "billing_min_months must be >= 1",
+        "save_failed": "Save failed",
+        "delete_failed": "Delete failed",
+        "try_again": "Please try again"
+      }
+    },
+    "e_registration_billing": {
+      "title": "E-Registration Billing",
+      "subtitle": "Platform-level visibility and controls",
+      "card_title": "Platform View",
+      "card_body": "School-level billing configuration belongs in the School Admin portal. This view is reserved for platform-wide reporting and policy controls."
+    },
+    "financial": {
+      "title": "Financial Insights",
+      "subtitle": "Platform-wide invoicing, payments, and outstanding balances.",
+      "cards": {
+        "total_invoiced": "Total Invoiced",
+        "total_paid": "Total Paid",
+        "outstanding": "Outstanding",
+        "across_all_schools": "Across all schools",
+        "outstanding_hint": "Invoice total minus payments"
+      },
+      "sections": {
+        "overview": "Financial overview"
+      },
+      "tabs": {
+        "by_school": "By school",
+        "invoices": "Invoices",
+        "payments": "Payments"
+      },
+      "errors": {
+        "load_failed": "Failed to load financial summary",
+        "try_again": "Please try again"
+      }
+    }
+  }
+  ,
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "about": "About",
+      "contact": "Contact",
+      "open_menu": "Open menu"
+    },
+    "actions": {
+      "login": "Login",
+      "register": "Register",
+      "standard_registration": "Standard Registration",
+      "register_as_parent": "Register as Parent"
+    },
+    "hero": {
+      "title": "Welcome to ADMIPAEDIA",
+      "subtitle": "The comprehensive school management system designed to streamline administrative tasks, enhance communication, and improve educational outcomes."
+    },
+    "features": {
+      "title": "Key Features",
+      "items": {
+        "student_management": {
+          "title": "Student Management",
+          "description": "Track student information, attendance, and academic performance with ease."
+        },
+        "teacher_portal": {
+          "title": "Teacher Portal",
+          "description": "Empower teachers with tools to manage classes, assignments, and grades."
+        },
+        "admin_dashboard": {
+          "title": "Administrative Dashboard",
+          "description": "Get a comprehensive overview of your institution with powerful analytics."
+        }
+      }
+    },
+    "about": {
+      "title": "About ADMIPAEDIA",
+      "p1": "ADMIPAEDIA is a comprehensive school management system designed to streamline administrative tasks, enhance communication between teachers, students, and parents, and improve educational outcomes.",
+      "p2": "Our platform provides powerful tools for managing student information, tracking academic performance, scheduling classes, and much more. With ADMIPAEDIA, educational institutions can focus more on teaching and less on administrative overhead."
+    },
+    "contact": {
+      "title": "Contact Us",
+      "get_in_touch": {
+        "title": "Get in Touch",
+        "body": "Have questions about ADMIPAEDIA? Our team is here to help. Reach out to us and we'll get back to you as soon as possible."
+      },
+      "demo": {
+        "title": "Request a Demo",
+        "body": "Want to see ADMIPAEDIA in action? Schedule a demo with one of our product specialists.",
+        "cta": "Schedule Demo"
+      }
+    },
+    "footer": {
+      "rights": "All rights reserved."
+    },
+    "modals": {
+      "login": {
+        "title": "Login to Your Account",
+        "no_account": "Don't have an account?",
+        "register_here": "Register here"
+      },
+      "register": {
+        "title": "Create Your Account",
+        "have_account": "Already have an account?",
+        "login_here": "Login here"
+      }
     }
   }
 }

@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Menu, ChevronRight, LogIn, UserPlus, ChevronDown } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import LoginForm from '../pages/auth/LoginForm';
 import RegisterForm from '../pages/auth/RegisterForm';
 import OfflineIndicator from '../components/common/OfflineIndicator';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 // FloatingPaths component for the animated background
 function FloatingPaths({ position }: { position: number }) {
@@ -51,11 +53,23 @@ function FloatingPaths({ position }: { position: number }) {
 }
 
 const LandingPage: React.FC = () => {
+  const { t } = useTranslation();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showRegisterOptions, setShowRegisterOptions] = useState(false);
+  const registerMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const heroTitle = useMemo(() => t('landing.hero.title', 'Welcome to ADMIPAEDIA'), [t]);
+  const heroSubtitle = useMemo(
+    () =>
+      t(
+        'landing.hero.subtitle',
+        'The comprehensive school management system designed to streamline administrative tasks, enhance communication, and improve educational outcomes.'
+      ),
+    [t]
+  );
 
   useEffect(() => {
     const isOpen = showLoginModal || showRegisterModal;
@@ -70,7 +84,7 @@ const LandingPage: React.FC = () => {
   }, [showLoginModal, showRegisterModal]);
   
   // Animation for the title text
-  const titleWords = "Welcome to ADMIPAEDIA".split(" ");
+  const titleWords = heroTitle.split(" ");
 
   // Handle scroll effect for header
   useEffect(() => {
@@ -87,11 +101,39 @@ const LandingPage: React.FC = () => {
     };
   }, [scrolled]);
 
+  useEffect(() => {
+    const previous = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'smooth';
+    return () => {
+      document.documentElement.style.scrollBehavior = previous;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showRegisterOptions) return;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (registerMenuRef.current && !registerMenuRef.current.contains(target)) {
+        setShowRegisterOptions(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowRegisterOptions(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showRegisterOptions]);
+
   // Navigation items
   const navItems = [
-    { name: 'Features', href: '#features' },
-    { name: 'About', href: '#about' },
-    { name: 'Contact', href: '#contact' },
+    { name: t('landing.nav.features', 'Features'), href: '#features' },
+    { name: t('landing.nav.about', 'About'), href: '#about' },
+    { name: t('landing.nav.contact', 'Contact'), href: '#contact' },
   ];
 
   return (
@@ -111,7 +153,7 @@ const LandingPage: React.FC = () => {
               <img 
                 src="/assets/images/Admipaedia_Logo.png" 
                 alt="Admipaedia Logo" 
-                className="h-10 mr-3"
+                className="h-10 mr-3 drop-shadow-sm"
               />
               <span className={`text-xl font-bold ${scrolled ? 'text-indigo-700' : 'text-indigo-700'}`}>ADMIPAEDIA</span>
             </div>
@@ -123,24 +165,30 @@ const LandingPage: React.FC = () => {
                   key={item.name}
                   href={item.href}
                   className={`font-medium transition-colors ${scrolled ? 'text-gray-700 hover:text-indigo-700' : 'text-indigo-700 hover:text-indigo-900'}`}
+                  onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
                 </a>
               ))}
+              <div className="pl-2">
+                <LanguageSwitcher />
+              </div>
               <button 
                 className={`font-medium transition-colors flex items-center gap-2 ${scrolled ? 'text-gray-700 hover:text-indigo-700' : 'text-indigo-700 hover:text-indigo-900'}`}
                 onClick={() => setShowLoginModal(true)}
               >
                 <LogIn size={18} />
-                <span>Login</span>
+                <span>{t('landing.actions.login', 'Login')}</span>
               </button>
-              <div className="relative">
+              <div className="relative" ref={registerMenuRef}>
                 <button 
                   className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${scrolled ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                   onClick={() => setShowRegisterOptions(!showRegisterOptions)}
+                  aria-haspopup="menu"
+                  aria-expanded={showRegisterOptions}
                 >
                   <UserPlus size={18} />
-                  <span>Register</span>
+                  <span>{t('landing.actions.register', 'Register')}</span>
                   <ChevronDown size={16} />
                 </button>
                 {showRegisterOptions && (
@@ -150,14 +198,14 @@ const LandingPage: React.FC = () => {
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-100"
                       onClick={() => setShowRegisterOptions(false)}
                     >
-                      Standard Registration
+                      {t('landing.actions.standard_registration', 'Standard Registration')}
                     </RouterLink>
                     <RouterLink 
                       to="/parent-register"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-100"
                       onClick={() => setShowRegisterOptions(false)}
                     >
-                      Register as Parent
+                      {t('landing.actions.register_as_parent', 'Register as Parent')}
                     </RouterLink>
                   </div>
                 )}
@@ -168,6 +216,7 @@ const LandingPage: React.FC = () => {
             <button 
               className="md:hidden text-indigo-700"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={t('landing.nav.open_menu', 'Open menu')}
             >
               <Menu size={24} />
             </button>
@@ -194,6 +243,9 @@ const LandingPage: React.FC = () => {
                     {item.name}
                   </a>
                 ))}
+                <div className="pt-1">
+                  <LanguageSwitcher />
+                </div>
                 <button 
                   className="block w-full text-left font-medium text-gray-700 hover:text-indigo-700 flex items-center gap-2"
                   onClick={() => {
@@ -202,7 +254,7 @@ const LandingPage: React.FC = () => {
                   }}
                 >
                   <LogIn size={18} />
-                  <span>Login</span>
+                  <span>{t('landing.actions.login', 'Login')}</span>
                 </button>
                 <div className="space-y-2">
                   <RouterLink 
@@ -211,7 +263,7 @@ const LandingPage: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <UserPlus size={18} />
-                    <span>Standard Registration</span>
+                    <span>{t('landing.actions.standard_registration', 'Standard Registration')}</span>
                   </RouterLink>
                   <RouterLink 
                     to="/parent-register"
@@ -219,7 +271,7 @@ const LandingPage: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <UserPlus size={18} />
-                    <span>Register as Parent</span>
+                    <span>{t('landing.actions.register_as_parent', 'Register as Parent')}</span>
                   </RouterLink>
                 </div>
               </div>
@@ -265,10 +317,9 @@ const LandingPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
-              className="text-lg text-gray-700 mb-8"
+              className="text-lg text-gray-700 mb-8 leading-relaxed"
             >
-              The comprehensive school management system designed to streamline administrative tasks,
-              enhance communication, and improve educational outcomes.
+              {heroSubtitle}
             </motion.p>
             
             <div className="flex flex-col sm:flex-row gap-4">
@@ -288,7 +339,7 @@ const LandingPage: React.FC = () => {
                   onClick={() => setShowLoginModal(true)}
                 >
                   <LogIn size={18} />
-                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">Login</span>
+                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">{t('landing.actions.login', 'Login')}</span>
                   <span className="ml-2 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
                     →
                   </span>
@@ -311,7 +362,7 @@ const LandingPage: React.FC = () => {
                   onClick={() => setShowRegisterModal(true)}
                 >
                   <UserPlus size={18} />
-                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">Register</span>
+                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">{t('landing.actions.register', 'Register')}</span>
                   <span className="ml-2 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
                     →
                   </span>
@@ -342,7 +393,7 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* Features Section */}
-      <div id="features" className="bg-white py-16 px-4 md:px-8 relative z-10">
+      <div id="features" className="bg-white py-16 px-4 md:px-8 relative z-10 scroll-mt-28">
         <div className="max-w-6xl mx-auto">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -351,24 +402,24 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl font-bold text-center text-gray-900 mb-12"
           >
-            Key Features
+            {t('landing.features.title', 'Key Features')}
           </motion.h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
-                title: 'Student Management',
-                description: 'Track student information, attendance, and academic performance with ease.',
+                title: t('landing.features.items.student_management.title', 'Student Management'),
+                description: t('landing.features.items.student_management.description', 'Track student information, attendance, and academic performance with ease.'),
                 icon: '👨‍🎓',
               },
               {
-                title: 'Teacher Portal',
-                description: 'Empower teachers with tools to manage classes, assignments, and grades.',
+                title: t('landing.features.items.teacher_portal.title', 'Teacher Portal'),
+                description: t('landing.features.items.teacher_portal.description', 'Empower teachers with tools to manage classes, assignments, and grades.'),
                 icon: '👩‍🏫',
               },
               {
-                title: 'Administrative Dashboard',
-                description: 'Get a comprehensive overview of your institution with powerful analytics.',
+                title: t('landing.features.items.admin_dashboard.title', 'Administrative Dashboard'),
+                description: t('landing.features.items.admin_dashboard.description', 'Get a comprehensive overview of your institution with powerful analytics.'),
                 icon: '📊',
               },
             ].map((feature, index) => (
@@ -390,7 +441,7 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* About Section */}
-      <div id="about" className="py-16 px-4 md:px-8 relative z-10">
+      <div id="about" className="py-16 px-4 md:px-8 relative z-10 scroll-mt-28">
         <div className="max-w-6xl mx-auto">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -399,7 +450,7 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl font-bold text-center text-gray-900 mb-12"
           >
-            About ADMIPAEDIA
+            {t('landing.about.title', 'About ADMIPAEDIA')}
           </motion.h2>
           
           <motion.div
@@ -410,17 +461,17 @@ const LandingPage: React.FC = () => {
             className="bg-white p-8 rounded-xl shadow-sm"
           >
             <p className="text-gray-700 mb-4">
-              ADMIPAEDIA is a comprehensive school management system designed to streamline administrative tasks, enhance communication between teachers, students, and parents, and improve educational outcomes.
+              {t('landing.about.p1', 'ADMIPAEDIA is a comprehensive school management system designed to streamline administrative tasks, enhance communication between teachers, students, and parents, and improve educational outcomes.')}
             </p>
             <p className="text-gray-700">
-              Our platform provides powerful tools for managing student information, tracking academic performance, scheduling classes, and much more. With ADMIPAEDIA, educational institutions can focus more on teaching and less on administrative overhead.
+              {t('landing.about.p2', 'Our platform provides powerful tools for managing student information, tracking academic performance, scheduling classes, and much more. With ADMIPAEDIA, educational institutions can focus more on teaching and less on administrative overhead.')}
             </p>
           </motion.div>
         </div>
       </div>
 
       {/* Contact Section */}
-      <div id="contact" className="bg-indigo-50 py-16 px-4 md:px-8 relative z-10">
+      <div id="contact" className="bg-indigo-50 py-16 px-4 md:px-8 relative z-10 scroll-mt-28">
         <div className="max-w-6xl mx-auto">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
@@ -429,7 +480,7 @@ const LandingPage: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-3xl font-bold text-center text-gray-900 mb-12"
           >
-            Contact Us
+            {t('landing.contact.title', 'Contact Us')}
           </motion.h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -440,9 +491,9 @@ const LandingPage: React.FC = () => {
               transition={{ duration: 0.5 }}
               className="bg-white p-6 rounded-xl shadow-sm"
             >
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Get in Touch</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">{t('landing.contact.get_in_touch.title', 'Get in Touch')}</h3>
               <p className="text-gray-700 mb-6">
-                Have questions about ADMIPAEDIA? Our team is here to help. Reach out to us and we'll get back to you as soon as possible.
+                {t('landing.contact.get_in_touch.body', "Have questions about ADMIPAEDIA? Our team is here to help. Reach out to us and we'll get back to you as soon as possible.")}
               </p>
               <div className="space-y-4">
                 <div className="flex items-center">
@@ -467,12 +518,12 @@ const LandingPage: React.FC = () => {
               transition={{ duration: 0.5 }}
               className="bg-white p-6 rounded-xl shadow-sm"
             >
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Request a Demo</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">{t('landing.contact.demo.title', 'Request a Demo')}</h3>
               <p className="text-gray-700 mb-6">
-                Want to see ADMIPAEDIA in action? Schedule a demo with one of our product specialists.
+                {t('landing.contact.demo.body', 'Want to see ADMIPAEDIA in action? Schedule a demo with one of our product specialists.')}
               </p>
               <button className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
-                <span>Schedule Demo</span>
+                <span>{t('landing.contact.demo.cta', 'Schedule Demo')}</span>
                 <ChevronRight size={16} className="ml-1" />
               </button>
             </motion.div>
@@ -492,11 +543,11 @@ const LandingPage: React.FC = () => {
             <span className="text-xl font-bold">ADMIPAEDIA</span>
           </div>
           <div className="flex flex-col md:flex-row items-center md:space-x-8">
-            <a href="#features" className="text-gray-300 hover:text-white mb-2 md:mb-0">Features</a>
-            <a href="#about" className="text-gray-300 hover:text-white mb-2 md:mb-0">About</a>
-            <a href="#contact" className="text-gray-300 hover:text-white mb-2 md:mb-0">Contact</a>
+            <a href="#features" className="text-gray-300 hover:text-white mb-2 md:mb-0">{t('landing.nav.features', 'Features')}</a>
+            <a href="#about" className="text-gray-300 hover:text-white mb-2 md:mb-0">{t('landing.nav.about', 'About')}</a>
+            <a href="#contact" className="text-gray-300 hover:text-white mb-2 md:mb-0">{t('landing.nav.contact', 'Contact')}</a>
           </div>
-          <p>&copy; {new Date().getFullYear()} ADMIPAEDIA. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} ADMIPAEDIA. {t('landing.footer.rights', 'All rights reserved.')}</p>
         </div>
       </footer>
 
@@ -504,7 +555,7 @@ const LandingPage: React.FC = () => {
       <AnimatePresence>
         {showLoginModal && (
           <Modal
-            title="Login to Your Account"
+            title={t('landing.modals.login.title', 'Login to Your Account')}
             onClose={() => setShowLoginModal(false)}
             logo="/assets/images/Admipaedia_Logo.png"
           >
@@ -513,7 +564,7 @@ const LandingPage: React.FC = () => {
                 <LoginForm onSuccess={() => setShowLoginModal(false)} />
                 <div className="mt-4 text-center">
                   <p className="text-gray-600">
-                    Don't have an account?{' '}
+                    {t('landing.modals.login.no_account', "Don't have an account?")}{' '}
                     <button
                       className="text-indigo-600 hover:text-indigo-800 font-medium"
                       onClick={() => {
@@ -521,7 +572,7 @@ const LandingPage: React.FC = () => {
                         setTimeout(() => setShowRegisterModal(true), 100);
                       }}
                     >
-                      Register here
+                      {t('landing.modals.login.register_here', 'Register here')}
                     </button>
                   </p>
                 </div>
@@ -535,7 +586,7 @@ const LandingPage: React.FC = () => {
       <AnimatePresence>
         {showRegisterModal && (
           <Modal
-            title="Create Your Account"
+            title={t('landing.modals.register.title', 'Create Your Account')}
             onClose={() => setShowRegisterModal(false)}
             logo="/assets/images/Admipaedia_Logo.png"
           >
@@ -544,7 +595,7 @@ const LandingPage: React.FC = () => {
                 <RegisterForm onSuccess={() => setShowRegisterModal(false)} />
                 <div className="mt-4 text-center">
                   <p className="text-gray-600">
-                    Already have an account?{' '}
+                    {t('landing.modals.register.have_account', 'Already have an account?')}{' '}
                     <button
                       className="text-indigo-600 hover:text-indigo-800 font-medium"
                       onClick={() => {
@@ -552,7 +603,7 @@ const LandingPage: React.FC = () => {
                         setTimeout(() => setShowLoginModal(true), 100);
                       }}
                     >
-                      Login here
+                      {t('landing.modals.register.login_here', 'Login here')}
                     </button>
                   </p>
                 </div>

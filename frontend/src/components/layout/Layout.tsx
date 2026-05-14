@@ -142,17 +142,23 @@ export function Layout({ children, hideHeader }: LayoutProps) {
 
   const pageTitle = useMemo(() => {
     const path = location.pathname;
-    const exactTitleKeys: Record<string, string> = {
-      '/super-admin': 'navigation.dashboard',
-      '/super-admin/users': 'navigation.users',
-      '/super-admin/schools': 'navigation.schools',
-      '/super-admin/financial': 'navigation.financial_oversight',
-      '/super-admin/audit-logs': 'navigation.audit_logs',
-      '/super-admin/settings': 'navigation.settings',
+    const exactTitleKeys: Record<string, { key: string; fallback: string }> = {
+      '/super-admin': { key: 'navigation.dashboard', fallback: 'Dashboard' },
+      '/super-admin/users': { key: 'navigation.users', fallback: 'Users' },
+      '/super-admin/schools': { key: 'navigation.schools', fallback: 'Schools' },
+      '/super-admin/e-registration-billing': { key: 'navigation.e_registration_billing', fallback: 'E-Registration Billing' },
+      '/super-admin/financial': { key: 'navigation.financial_oversight', fallback: 'Financial Insights' },
+      '/super-admin/payment-settings': { key: 'navigation.payment_settings', fallback: 'Payment Settings' },
+      '/super-admin/payments': { key: 'navigation.payments', fallback: 'Payments' },
+      '/super-admin/plan-requests': { key: 'navigation.plan_requests', fallback: 'Plan Requests' },
+      '/super-admin/plan-pricing': { key: 'navigation.plan_pricing', fallback: 'Plan Pricing' },
+      '/super-admin/audit-logs': { key: 'navigation.audit_logs', fallback: 'Audit Logs' },
+      '/super-admin/settings': { key: 'navigation.system_settings', fallback: 'Platform Settings' },
     };
 
     if (path.startsWith('/super-admin/users/')) return t('profile.user_details', 'User Details');
-    if (exactTitleKeys[path]) return t(exactTitleKeys[path], '');
+    const exact = exactTitleKeys[path];
+    if (exact) return t(exact.key, exact.fallback);
     if (path.endsWith('/dashboard')) return t('navigation.dashboard', 'Dashboard');
     const last = path.split('/').filter(Boolean).pop() || 'Dashboard';
     return last

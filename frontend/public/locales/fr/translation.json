@@ -18,6 +18,24 @@
     "export": "Exporter",
     "performance": "Performance",
     "actions": "Actions",
+    "saved": "Enregistré",
+    "back": "Retour",
+    "close": "Fermer",
+    "create": "Créer",
+    "creating": "Création...",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "view": "Voir",
+    "apply": "Appliquer",
+    "clear": "Effacer",
+    "prev": "Précédent",
+    "next": "Suivant",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "pending": "En attente",
+    "approved": "Approuvé",
+    "rejected": "Rejeté",
+    "all": "Tout",
     "logout_button": "TERMINER LA SESSION",
     "commands": "Commandes",
     "search_placeholder": "Rechercher... (Ctrl+K)",
@@ -112,7 +130,12 @@
     "reports": "Rapports",
     "users": "Utilisateurs",
     "schools": "Écoles",
+    "e_registration_billing": "Facturation e-inscription",
     "financial_oversight": "Aperçu financier",
+    "payment_settings": "Paramètres de paiement",
+    "payments": "Paiements",
+    "plan_requests": "Demandes de forfait",
+    "plan_pricing": "Tarification des forfaits",
     "audit_logs": "Journaux d'audit",
     "system_settings": "Paramètres système",
     "export": "Exporter",
@@ -202,6 +225,595 @@
       "analytics": "Analyses",
       "performance": "Performance",
       "realtime": "Temps réel"
+    }
+  },
+  "platform_settings": {
+    "loading": "Chargement des paramètres système...",
+    "title": "Paramètres de la plateforme",
+    "subtitle": "Configurez les paramètres globaux de la plateforme, les valeurs par défaut des écoles et la licence",
+    "integrations_saved": "Paramètres d’intégration enregistrés",
+    "integrations_save_failed": "Impossible d’enregistrer les paramètres d’intégration",
+    "tabs": {
+      "platform": "Plateforme",
+      "tenancy": "Multi‑tenant",
+      "licensing": "Licence",
+      "security": "Sécurité",
+      "integrations": "Intégrations"
+    },
+    "platform": {
+      "title": "Configuration de la plateforme",
+      "description": "Paramètres opérationnels globaux (non spécifiques à une école)",
+      "maintenance_mode": {
+        "title": "Mode maintenance",
+        "description": "Désactiver temporairement l’accès des utilisateurs à toute la plateforme",
+        "confirm": "Activer le mode maintenance ? Cela peut bloquer l’accès normal des utilisateurs."
+      },
+      "support_email": "E-mail de support",
+      "terms_url": "URL des conditions d’utilisation",
+      "privacy_url": "URL de la politique de confidentialité",
+      "allow_public_registration": {
+        "title": "Autoriser l’inscription publique",
+        "description": "Si désactivé, l’inscription se fait uniquement par invitation"
+      },
+      "reset_defaults": "Réinitialiser les valeurs par défaut"
+    },
+    "tenancy": {
+      "title": "Valeurs par défaut des écoles",
+      "description": "Paramètres appliqués lors de la création de nouvelles écoles",
+      "default_country_code": "Code pays par défaut",
+      "select_country": "Sélectionner un pays",
+      "default_timezone": "Fuseau horaire par défaut",
+      "select_timezone": "Sélectionner un fuseau horaire",
+      "default_language": "Langue par défaut",
+      "select_language": "Sélectionner une langue",
+      "default_currency": "Devise par défaut",
+      "select_currency": "Sélectionner une devise"
+    }
+  },
+  "school_settings": {
+    "title": "Paramètres de l’école",
+    "subtitle": "Configurez les informations et les préférences de votre établissement",
+    "save_changes": "Enregistrer",
+    "saving": "Enregistrement...",
+    "updated_title": "Paramètres enregistrés",
+    "updated_desc": "Les paramètres de l’école ont été mis à jour avec succès.",
+    "update_failed": "Impossible de mettre à jour les paramètres",
+    "tabs": {
+      "basic": "Infos de base",
+      "academic": "Académique",
+      "system": "Système",
+      "features": "Fonctionnalités",
+      "branding": "Marque"
+    },
+    "basic": {
+      "title": "Informations de l’école",
+      "description": "Informations de base sur votre établissement"
+    }
+  },
+  "super_admin": {
+    "login": {
+      "title": "Connexion Super Admin",
+      "subtitle": "Connectez-vous pour gérer tous les utilisateurs en toute sécurité.",
+      "email_placeholder": "superadmin@admipaedia.com",
+      "password_placeholder": "Votre mot de passe",
+      "init_dev_super_admin": "Initialiser le Super Admin (dev)",
+      "errors": {
+        "login_failed": "Échec de la connexion",
+        "login_failed_check": "Échec de la connexion. Vérifiez vos identifiants et réessayez.",
+        "not_authorized": "Ce compte n’est pas autorisé à accéder au portail Super Admin.",
+        "bootstrap_failed": "Impossible d’initialiser les comptes de démonstration."
+      }
+    },
+    "roles": {
+      "super_admin": "Super admin",
+      "super_manager": "Super Manager",
+      "admin": "Admin",
+      "teacher": "Enseignant",
+      "student": "Élève",
+      "parent": "Parent",
+      "user": "Utilisateur général"
+    },
+    "dashboard": {
+      "title": "Super Admin",
+      "subtitle": "Gérez tous les comptes utilisateurs et consultez les actions.",
+      "errors": {
+        "load_failed": "Impossible de charger l’aperçu"
+      },
+      "cards": {
+        "total_users": "Total utilisateurs"
+      },
+      "roles": {
+        "super_admin": "Super admins",
+        "admin": "Admins",
+        "teacher": "Enseignants",
+        "student": "Élèves",
+        "parent": "Parents",
+        "user": "Utilisateurs généraux"
+      },
+      "sections": {
+        "users_by_role": "Utilisateurs par rôle",
+        "recent_activity": "Activité récente"
+      },
+      "empty": {
+        "recent_activity": "Aucun événement Super Admin pour le moment."
+      },
+      "actions": {
+        "view_all_audit_logs": "Voir tous les journaux d’audit"
+      }
+    },
+    "users": {
+      "title": "Utilisateurs",
+      "subtitle": "Recherchez et gérez tous les comptes utilisateurs.",
+      "actions": {
+        "create_user": "Créer un utilisateur",
+        "reset": "Réinitialiser",
+        "deactivate": "Désactiver",
+        "reactivate": "Réactiver"
+      },
+      "create": {
+        "title": "Créer un utilisateur",
+        "username_optional": "Nom d’utilisateur (optionnel)",
+        "role": "Rôle",
+        "select_role": "Sélectionner un rôle",
+        "initial_password": "Mot de passe initial",
+        "password_hint": "Laissez vide pour générer automatiquement un mot de passe sécurisé.",
+        "send_reset_email": "Envoyer un e-mail de réinitialisation",
+        "send_reset_email_hint": "Envoie un lien de réinitialisation du mot de passe à l’utilisateur (recommandé)."
+      },
+      "search_placeholder": "Rechercher par e-mail ou nom d’utilisateur",
+      "filters": {
+        "role": "Rôle",
+        "status": "Statut",
+        "all_roles": "Tous les rôles",
+        "all_statuses": "Tous les statuts"
+      },
+      "table": {
+        "user": "Utilisateur",
+        "role": "Rôle",
+        "status": "Statut",
+        "created": "Créé"
+      },
+      "empty": "Aucun utilisateur trouvé",
+      "deactivate": {
+        "title": "Désactiver cet utilisateur ?",
+        "description": "Cela bloquera la connexion de ce compte jusqu’à sa réactivation."
+      },
+      "delete": {
+        "title": "Supprimer définitivement cet utilisateur ?",
+        "description": "Le compte sera supprimé définitivement uniquement s’il s’agit d’un utilisateur orphelin (aucune adhésion à une école et aucun profil école).",
+        "cannot_title": "Impossible de supprimer l’utilisateur",
+        "not_orphan": "L’utilisateur n’est pas orphelin",
+        "deleted": "Utilisateur supprimé",
+        "failed": "Échec de la suppression",
+        "confirm": "Supprimer définitivement"
+      },
+      "pagination": {
+        "page_of": "Page {{page}} sur {{pages}}"
+      },
+      "errors": {
+        "load_failed": "Impossible de charger les utilisateurs",
+        "email_required": "L’e-mail est requis",
+        "reset_email_not_sent": "Utilisateur créé, mais l’e-mail de réinitialisation n’a pas été envoyé (e-mail non configuré).",
+        "create_failed": "Impossible de créer l’utilisateur"
+      }
+    },
+    "user_details": {
+      "title": "Détails utilisateur",
+      "subtitle": "Modifiez le statut et le rôle du compte en toute sécurité.",
+      "saving": "Enregistrement...",
+      "save_changes": "Enregistrer les modifications",
+      "sections": {
+        "profile": "Profil",
+        "actions": "Actions"
+      },
+      "fields": {
+        "username": "Nom d’utilisateur",
+        "role": "Rôle",
+        "status": "Statut",
+        "created": "Créé",
+        "last_login": "Dernière connexion"
+      },
+      "actions": {
+        "send_reset": "Envoyer l’e-mail de réinitialisation",
+        "deactivate": "Désactiver l’utilisateur",
+        "reactivate": "Réactiver l’utilisateur"
+      },
+      "messages": {
+        "deactivated": "Utilisateur désactivé",
+        "reactivated": "Utilisateur réactivé",
+        "reset_sent": "E-mail de réinitialisation envoyé",
+        "reset_not_sent": "E-mail de réinitialisation non envoyé (e-mail désactivé ?)"
+      },
+      "errors": {
+        "invalid_user_id": "Identifiant utilisateur invalide",
+        "load_failed": "Impossible de charger l’utilisateur",
+        "save_failed": "Échec de l’enregistrement",
+        "deactivate_failed": "Impossible de désactiver l’utilisateur",
+        "reactivate_failed": "Impossible de réactiver l’utilisateur",
+        "reset_failed": "Impossible d’envoyer l’e-mail de réinitialisation"
+      }
+    },
+    "audit_logs": {
+      "title": "Journaux d’audit",
+      "subtitle": "Historique immuable des actions Super Admin.",
+      "search_placeholder": "Rechercher événement, endpoint, détails",
+      "filters": {
+        "event_type": "Type d’événement",
+        "all_events": "Tous les événements"
+      },
+      "table": {
+        "time": "Heure",
+        "event": "Événement",
+        "severity": "Sévérité",
+        "target": "Cible",
+        "details": "Détails"
+      },
+      "empty": "Aucun journal trouvé",
+      "pagination": {
+        "page_of": "Page {{page}} sur {{pages}}"
+      },
+      "errors": {
+        "load_failed": "Impossible de charger les journaux d’audit"
+      }
+    },
+    "schools": {
+      "title": "Écoles",
+      "subtitle": "Gérez les écoles et l’accès à la plateforme.",
+      "errors": {
+        "load_failed": "Impossible de charger les écoles",
+        "try_again": "Veuillez réessayer"
+      },
+      "registration_link": {
+        "generate": "Générer un lien d’inscription",
+        "dialog_title": "Créer un lien d’inscription d’école",
+        "dialog_description": "Génère un lien à usage unique qui expire dans 24 heures. L’admin de l’école l’utilise pour définir son mot de passe et créer l’espace de travail.",
+        "school_name": "Nom de l’école",
+        "school_name_placeholder": "École ADMIPAEDIA",
+        "school_slug_optional": "Slug de l’école (optionnel)",
+        "school_slug_placeholder": "admipaedia-ecole",
+        "slug_hint": "Laissez vide pour générer automatiquement à partir du nom de l’école",
+        "suggested": "suggestion",
+        "use_suggested": "Utiliser",
+        "admin_email": "E-mail de l’admin de l’école",
+        "admin_email_placeholder": "admin@ecole.com",
+        "admin_email_hint": "Cet e-mail deviendra l’identifiant de connexion de l’admin de l’école.",
+        "email_ok": "Correct.",
+        "email_invalid": "Saisissez une adresse e-mail valide.",
+        "country_code": "Code pays",
+        "country_code_hint": "Utilisez un code ISO à 2 lettres (ex. GH).",
+        "currency": "Devise",
+        "currency_hint": "Utilisez une devise à 3 lettres (ex. XOF).",
+        "expires_hint": "Expire dans 24 heures • Usage unique",
+        "generated_title": "Lien d’inscription généré",
+        "generated_desc": "Ce lien expire dans 24 heures et ne peut être utilisé qu’une seule fois.",
+        "generate_failed": "Impossible de générer le lien",
+        "generating": "Génération...",
+        "link_label": "Lien d’inscription",
+        "expires": "Expire",
+        "expires_24h": "Expire dans 24 heures",
+        "copied": "Lien copié",
+        "copy_failed": "Échec de la copie",
+        "copy_manual": "Veuillez copier le lien manuellement.",
+        "copy": "Copier",
+        "open": "Ouvrir"
+      },
+      "kpis": {
+        "total_schools": "Total écoles",
+        "new_30d": "Nouvelles (30j) : {{count}}",
+        "suspended": "Suspendues : {{count}}",
+        "invoiced": "Facturé",
+        "invoices_count": "Factures : {{count}}",
+        "outstanding": "Impayés",
+        "paid": "Payé : {{amount}}"
+      },
+      "filters": {
+        "search_placeholder": "Nom, slug, ou domaine",
+        "status": "Statut",
+        "plan": "Forfait",
+        "country": "Pays",
+        "apply": "Appliquer les filtres"
+      },
+      "status": {
+        "trial": "Essai",
+        "suspended": "Suspendu"
+      },
+      "plan": {
+        "trial": "Essai",
+        "basic": "Basique",
+        "pro": "Pro",
+        "enterprise": "Entreprise"
+      },
+      "table": {
+        "title": "Écoles",
+        "showing": "Affichage {{shown}} / {{total}}",
+        "school": "École",
+        "status": "Statut",
+        "plan": "Forfait",
+        "country": "Pays",
+        "created": "Créé",
+        "empty": "Aucune école trouvée."
+      }
+    },
+    "payment_settings": {
+      "title": "Paramètres de paiement",
+      "subtitle": "Configurez les passerelles de paiement par pays et devise.",
+      "actions": {
+        "add_gateway": "Ajouter une passerelle"
+      },
+      "dialog": {
+        "edit_title": "Modifier la passerelle",
+        "add_title": "Ajouter une passerelle"
+      },
+      "form": {
+        "name": "Nom",
+        "select_gateway": "Sélectionner une passerelle",
+        "display_name": "Nom d’affichage",
+        "display_name_placeholder": "Paystack Ghana",
+        "country_code": "Code pays",
+        "currency": "Devise",
+        "public_key": "Clé publique",
+        "secret_key": "Clé secrète",
+        "webhook_secret": "Secret webhook",
+        "supported_channels": "Canaux supportés",
+        "supported_channels_placeholder": "mobile_money,card,bank_transfer,wallet,manual",
+        "environment": "Environnement",
+        "select_environment": "Sélectionner l’environnement",
+        "default": "Par défaut"
+      },
+      "saving": "Enregistrement...",
+      "gateways": {
+        "title": "Passerelles",
+        "configured": "{{count}} configurées"
+      },
+      "table": {
+        "name": "Nom",
+        "country": "Pays",
+        "currency": "Devise",
+        "env": "Env",
+        "channels": "Canaux",
+        "status": "Statut"
+      },
+      "badges": {
+        "default": "défaut"
+      },
+      "empty": "Aucune passerelle configurée.",
+      "errors": {
+        "load_failed": "Impossible de charger les passerelles",
+        "save_failed": "Échec de l’enregistrement",
+        "try_again": "Veuillez réessayer"
+      }
+    },
+    "payments": {
+      "title": "Paiements",
+      "subtitle": "Surveillez les paiements et validez les soumissions manuelles.",
+      "filters": {
+        "title": "Filtres",
+        "status": "Statut",
+        "gateway": "Passerelle",
+        "country": "Pays",
+        "tenant_id": "ID tenant",
+        "tenant_id_placeholder": "UUID",
+        "date_from": "Date de début",
+        "date_to": "Date de fin"
+      },
+      "status": {
+        "successful": "Réussi",
+        "failed": "Échoué"
+      },
+      "table": {
+        "title": "Paiements",
+        "results": "{{count}} résultats",
+        "created": "Créé",
+        "tenant": "Tenant",
+        "invoice": "Facture",
+        "gateway": "Passerelle",
+        "channel": "Canal",
+        "status": "Statut",
+        "amount": "Montant"
+      },
+      "actions": {
+        "verify": "Vérifier"
+      },
+      "review": {
+        "approve_title": "Approuver le paiement manuel",
+        "reject_title": "Rejeter le paiement manuel",
+        "note_optional": "Note (optionnel)",
+        "note_placeholder": "Note interne",
+        "saving": "Enregistrement..."
+      },
+      "empty": "Aucun paiement trouvé.",
+      "toasts": {
+        "verified": "Vérifié"
+      },
+      "errors": {
+        "load_failed": "Impossible de charger les paiements",
+        "verify_failed": "Échec de la vérification",
+        "review_failed": "Échec de la revue",
+        "try_again": "Veuillez réessayer"
+      }
+    },
+    "plan_requests": {
+      "title": "Demandes de forfait",
+      "subtitle": "Approuvez ou rejetez les demandes de rétrogradation des écoles.",
+      "filters": {
+        "title": "Filtres",
+        "status": "Statut",
+        "select_status": "Sélectionner un statut"
+      },
+      "table": {
+        "title": "Demandes",
+        "results": "{{count}} résultats",
+        "created": "Créé",
+        "tenant": "Tenant",
+        "type": "Type",
+        "plan": "Forfait",
+        "effective": "Effectif",
+        "status": "Statut"
+      },
+      "reject": {
+        "title": "Rejeter la demande",
+        "note_optional": "Note (optionnel)",
+        "note_placeholder": "Note interne",
+        "saving": "Enregistrement..."
+      },
+      "empty": "Aucune demande trouvée.",
+      "errors": {
+        "load_failed": "Impossible de charger les demandes",
+        "approve_failed": "Échec de l’approbation",
+        "reject_failed": "Échec du rejet",
+        "try_again": "Veuillez réessayer"
+      }
+    },
+    "plan_pricing": {
+      "title": "Tarification des forfaits",
+      "subtitle": "Configurez des paliers de tarification par élève et par mois selon la taille, le pays et la devise.",
+      "select_plan": {
+        "title": "Sélectionner un forfait",
+        "plan": "Forfait",
+        "select_plan": "Sélectionner un forfait",
+        "min_billing_months": "Mois minimum de facturation",
+        "seed_defaults": "Créer les forfaits par défaut",
+        "saving": "Enregistrement..."
+      },
+      "tiers": {
+        "title": "Paliers de tarification",
+        "add_tier": "Ajouter un palier",
+        "any": "Tous",
+        "empty": "Aucun palier configuré.",
+        "table": {
+          "country": "Pays",
+          "currency": "Devise",
+          "min": "Min",
+          "max": "Max",
+          "price": "Prix / élève / mois",
+          "status": "Statut"
+        }
+      },
+      "tier_dialog": {
+        "edit_title": "Modifier le palier",
+        "add_title": "Ajouter un palier",
+        "country_code_optional": "Code pays (optionnel)",
+        "country_code_placeholder": "GH, TG, CI...",
+        "currency": "Devise",
+        "min_students": "Élèves min",
+        "max_students_optional": "Élèves max (optionnel)",
+        "max_students_placeholder": "Laissez vide pour illimité",
+        "price": "Prix / élève / mois",
+        "saving": "Enregistrement..."
+      },
+      "toasts": {
+        "defaults_created": "Forfaits par défaut créés",
+        "minimum_months": "Mois minimum : {{m}}",
+        "saved_tier": "Palier enregistré",
+        "deleted_tier": "Palier supprimé"
+      },
+      "errors": {
+        "load_plans_failed": "Impossible de charger les forfaits",
+        "load_tiers_failed": "Impossible de charger les paliers",
+        "seed_failed": "Échec de la création",
+        "invalid_min_months": "Mois minimum invalide",
+        "min_months_gte_1": "billing_min_months doit être >= 1",
+        "save_failed": "Échec de l’enregistrement",
+        "delete_failed": "Échec de la suppression",
+        "try_again": "Veuillez réessayer"
+      }
+    },
+    "e_registration_billing": {
+      "title": "Facturation e-inscription",
+      "subtitle": "Visibilité et contrôles au niveau plateforme",
+      "card_title": "Vue plateforme",
+      "card_body": "La configuration de facturation au niveau école se fait dans le portail Admin École. Cette vue est réservée au reporting et aux contrôles de politique au niveau plateforme."
+    },
+    "financial": {
+      "title": "Aperçu financier",
+      "subtitle": "Factures, paiements et impayés à l’échelle de la plateforme.",
+      "cards": {
+        "total_invoiced": "Total facturé",
+        "total_paid": "Total payé",
+        "outstanding": "Impayés",
+        "across_all_schools": "Toutes les écoles",
+        "outstanding_hint": "Total factures moins paiements"
+      },
+      "sections": {
+        "overview": "Aperçu financier"
+      },
+      "tabs": {
+        "by_school": "Par école",
+        "invoices": "Factures",
+        "payments": "Paiements"
+      },
+      "errors": {
+        "load_failed": "Impossible de charger le résumé financier",
+        "try_again": "Veuillez réessayer"
+      }
+    }
+  }
+  ,
+  "landing": {
+    "nav": {
+      "features": "Fonctionnalités",
+      "about": "À propos",
+      "contact": "Contact",
+      "open_menu": "Ouvrir le menu"
+    },
+    "actions": {
+      "login": "Connexion",
+      "register": "S’inscrire",
+      "standard_registration": "Inscription standard",
+      "register_as_parent": "S’inscrire en tant que parent"
+    },
+    "hero": {
+      "title": "Bienvenue sur ADMIPAEDIA",
+      "subtitle": "Le système complet de gestion scolaire conçu pour simplifier l’administration, améliorer la communication et renforcer les résultats éducatifs."
+    },
+    "features": {
+      "title": "Fonctionnalités clés",
+      "items": {
+        "student_management": {
+          "title": "Gestion des élèves",
+          "description": "Suivez facilement les informations, la présence et les performances académiques des élèves."
+        },
+        "teacher_portal": {
+          "title": "Portail enseignant",
+          "description": "Donnez aux enseignants les outils pour gérer les classes, les devoirs et les notes."
+        },
+        "admin_dashboard": {
+          "title": "Tableau de bord administratif",
+          "description": "Obtenez une vue d’ensemble de votre établissement grâce à des analyses puissantes."
+        }
+      }
+    },
+    "about": {
+      "title": "À propos d’ADMIPAEDIA",
+      "p1": "ADMIPAEDIA est un système complet de gestion scolaire conçu pour simplifier les tâches administratives, améliorer la communication entre enseignants, élèves et parents, et renforcer les résultats éducatifs.",
+      "p2": "Notre plateforme offre des outils puissants pour gérer les informations des élèves, suivre les performances, planifier les cours et bien plus encore. Avec ADMIPAEDIA, les établissements peuvent se concentrer davantage sur l’enseignement et moins sur l’administratif."
+    },
+    "contact": {
+      "title": "Nous contacter",
+      "get_in_touch": {
+        "title": "Entrer en contact",
+        "body": "Vous avez des questions sur ADMIPAEDIA ? Notre équipe est là pour vous aider. Contactez-nous et nous vous répondrons dès que possible."
+      },
+      "demo": {
+        "title": "Demander une démo",
+        "body": "Envie de voir ADMIPAEDIA en action ? Planifiez une démo avec l’un de nos spécialistes produit.",
+        "cta": "Planifier une démo"
+      }
+    },
+    "footer": {
+      "rights": "Tous droits réservés."
+    },
+    "modals": {
+      "login": {
+        "title": "Connexion à votre compte",
+        "no_account": "Vous n’avez pas de compte ?",
+        "register_here": "Inscrivez-vous ici"
+      },
+      "register": {
+        "title": "Créer votre compte",
+        "have_account": "Vous avez déjà un compte ?",
+        "login_here": "Connectez-vous ici"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { Settings2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import billingService, { PaymentGateway } from '@/services/billingService'
 const gatewayNames = ['paystack', 'cinetpay', 'flutterwave', 'manual'] as const
 
 export default function SuperAdminPaymentSettingsPage() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [gateways, setGateways] = useState<PaymentGateway[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -44,7 +46,7 @@ export default function SuperAdminPaymentSettingsPage() {
       setGateways(res.gateways)
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Failed to load gateways', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.payment_settings.errors.load_failed', 'Failed to load gateways'), description: e.response?.data?.message || e.message || t('super_admin.payment_settings.errors.try_again', 'Please try again') })
     } finally {
       setLoading(false)
     }
@@ -115,12 +117,12 @@ export default function SuperAdminPaymentSettingsPage() {
       }
       if (editingId) await billingService.updateGateway(editingId, payload)
       else await billingService.createGateway(payload)
-      toast({ title: 'Saved' })
+      toast({ title: t('common.saved', 'Saved') })
       setOpen(false)
       await load()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      toast({ variant: 'destructive', title: 'Save failed', description: e.response?.data?.message || e.message || 'Please try again' })
+      toast({ variant: 'destructive', title: t('super_admin.payment_settings.errors.save_failed', 'Save failed'), description: e.response?.data?.message || e.message || t('super_admin.payment_settings.errors.try_again', 'Please try again') })
     } finally {
       setSaving(false)
     }
@@ -130,27 +132,27 @@ export default function SuperAdminPaymentSettingsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Payment Settings</h1>
-          <p className="text-sm text-muted-foreground">Configure payment gateways by country and currency.</p>
+          <h1 className="text-2xl font-semibold">{t('super_admin.payment_settings.title', 'Payment Settings')}</h1>
+          <p className="text-sm text-muted-foreground">{t('super_admin.payment_settings.subtitle', 'Configure payment gateways by country and currency.')}</p>
         </div>
 
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm() }}>
           <DialogTrigger asChild>
             <Button onClick={openNew}>
               <Settings2 className="h-4 w-4 mr-2" />
-              Add gateway
+              {t('super_admin.payment_settings.actions.add_gateway', 'Add gateway')}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[760px]">
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Edit gateway' : 'Add gateway'}</DialogTitle>
+              <DialogTitle>{editingId ? t('super_admin.payment_settings.dialog.edit_title', 'Edit gateway') : t('super_admin.payment_settings.dialog.add_title', 'Add gateway')}</DialogTitle>
             </DialogHeader>
             <form onSubmit={onSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>{t('super_admin.payment_settings.form.name', 'Name')}</Label>
                 <Select value={name} onValueChange={(v: any) => setName(v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select gateway" />
+                    <SelectValue placeholder={t('super_admin.payment_settings.form.select_gateway', 'Select gateway')} />
                   </SelectTrigger>
                   <SelectContent>
                     {gatewayNames.map((g) => (
@@ -162,38 +164,38 @@ export default function SuperAdminPaymentSettingsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Display name</Label>
-                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Paystack Ghana" />
+                <Label>{t('super_admin.payment_settings.form.display_name', 'Display name')}</Label>
+                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('super_admin.payment_settings.form.display_name_placeholder', 'Paystack Ghana')} />
               </div>
               <div className="space-y-2">
-                <Label>Country code</Label>
+                <Label>{t('super_admin.payment_settings.form.country_code', 'Country code')}</Label>
                 <Input value={countryCode} onChange={(e) => setCountryCode(e.target.value.toUpperCase())} placeholder="GH" maxLength={2} />
               </div>
               <div className="space-y-2">
-                <Label>Currency</Label>
+                <Label>{t('super_admin.payment_settings.form.currency', 'Currency')}</Label>
                 <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="GHS" maxLength={3} />
               </div>
               <div className="space-y-2">
-                <Label>Public key</Label>
-                <Input value={publicKey} onChange={(e) => setPublicKey(e.target.value)} placeholder="Public key" />
+                <Label>{t('super_admin.payment_settings.form.public_key', 'Public key')}</Label>
+                <Input value={publicKey} onChange={(e) => setPublicKey(e.target.value)} placeholder={t('super_admin.payment_settings.form.public_key', 'Public key')} />
               </div>
               <div className="space-y-2">
-                <Label>Secret key</Label>
-                <Input value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={editingId ? '********' : 'Secret key'} />
+                <Label>{t('super_admin.payment_settings.form.secret_key', 'Secret key')}</Label>
+                <Input value={secretKey} onChange={(e) => setSecretKey(e.target.value)} placeholder={editingId ? '********' : t('super_admin.payment_settings.form.secret_key', 'Secret key')} />
               </div>
               <div className="space-y-2">
-                <Label>Webhook secret</Label>
-                <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder={editingId ? '********' : 'Webhook secret'} />
+                <Label>{t('super_admin.payment_settings.form.webhook_secret', 'Webhook secret')}</Label>
+                <Input value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder={editingId ? '********' : t('super_admin.payment_settings.form.webhook_secret', 'Webhook secret')} />
               </div>
               <div className="space-y-2">
-                <Label>Supported channels</Label>
-                <Input value={supportedChannels} onChange={(e) => setSupportedChannels(e.target.value)} placeholder="mobile_money,card,bank_transfer,wallet,manual" />
+                <Label>{t('super_admin.payment_settings.form.supported_channels', 'Supported channels')}</Label>
+                <Input value={supportedChannels} onChange={(e) => setSupportedChannels(e.target.value)} placeholder={t('super_admin.payment_settings.form.supported_channels_placeholder', 'mobile_money,card,bank_transfer,wallet,manual')} />
               </div>
               <div className="space-y-2">
-                <Label>Environment</Label>
+                <Label>{t('super_admin.payment_settings.form.environment', 'Environment')}</Label>
                 <Select value={environment} onValueChange={(v: any) => setEnvironment(v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select env" />
+                    <SelectValue placeholder={t('super_admin.payment_settings.form.select_environment', 'Select env')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sandbox">sandbox</SelectItem>
@@ -204,16 +206,16 @@ export default function SuperAdminPaymentSettingsPage() {
               <div className="flex items-end gap-6">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(Boolean(v))} />
-                  Active
+                  {t('common.active', 'Active')}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={isDefault} onCheckedChange={(v) => setIsDefault(Boolean(v))} />
-                  Default
+                  {t('super_admin.payment_settings.form.default', 'Default')}
                 </label>
               </div>
               <DialogFooter className="md:col-span-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
+                <Button type="submit" disabled={saving}>{saving ? t('super_admin.payment_settings.saving', 'Saving...') : t('common.save', 'Save')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -222,20 +224,20 @@ export default function SuperAdminPaymentSettingsPage() {
 
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Gateways</CardTitle>
-          <div className="text-sm text-muted-foreground">{loading ? 'Loading…' : `${rows.length} configured`}</div>
+          <CardTitle className="text-base">{t('super_admin.payment_settings.gateways.title', 'Gateways')}</CardTitle>
+          <div className="text-sm text-muted-foreground">{loading ? t('common.loading', 'Loading...') : t('super_admin.payment_settings.gateways.configured', '{{count}} configured', { count: rows.length })}</div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Country</TableHead>
-                <TableHead>Currency</TableHead>
-                <TableHead>Env</TableHead>
-                <TableHead>Channels</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.name', 'Name')}</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.country', 'Country')}</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.currency', 'Currency')}</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.env', 'Env')}</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.channels', 'Channels')}</TableHead>
+                <TableHead>{t('super_admin.payment_settings.table.status', 'Status')}</TableHead>
+                <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,17 +249,17 @@ export default function SuperAdminPaymentSettingsPage() {
                   <TableCell>{g.environment}</TableCell>
                   <TableCell className="max-w-[320px] truncate">{(g.supported_channels || []).join(', ') || '—'}</TableCell>
                   <TableCell className="space-x-2">
-                    <Badge variant={g.is_active ? 'success' : 'secondary'}>{g.is_active ? 'active' : 'inactive'}</Badge>
-                    {g.is_default && <Badge variant="outline">default</Badge>}
+                    <Badge variant={g.is_active ? 'success' : 'secondary'}>{g.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</Badge>
+                    {g.is_default && <Badge variant="outline">{t('super_admin.payment_settings.badges.default', 'default')}</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(g)}>Edit</Button>
+                    <Button size="sm" variant="outline" onClick={() => openEdit(g)}>{t('common.edit', 'Edit')}</Button>
                   </TableCell>
                 </TableRow>
               ))}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-sm text-muted-foreground">No gateways configured.</TableCell>
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">{t('super_admin.payment_settings.empty', 'No gateways configured.')}</TableCell>
                 </TableRow>
               )}
             </TableBody>

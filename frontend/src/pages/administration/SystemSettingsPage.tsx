@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { 
   Settings, 
   Save, 
@@ -28,6 +29,7 @@ import { Switch } from '../../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 
 const SystemSettingsPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
   const [supportEmail, setSupportEmail] = useState<string>('');
@@ -69,10 +71,10 @@ const SystemSettingsPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-integrations-providers'] });
-      toast.success('Integration settings saved');
+      toast.success(t('platform_settings.integrations_saved', 'Integration settings saved'));
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to save integration settings');
+      toast.error(error.response?.data?.message || t('platform_settings.integrations_save_failed', 'Failed to save integration settings'));
     }
   });
 
@@ -303,7 +305,7 @@ const SystemSettingsPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="h-12 w-12 text-indigo-600 animate-spin" />
-        <p className="mt-4 text-gray-500">Loading system settings...</p>
+        <p className="mt-4 text-gray-500">{t('platform_settings.loading', 'Loading system settings...')}</p>
       </div>
     );
   }
@@ -311,49 +313,49 @@ const SystemSettingsPage: React.FC = () => {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Platform Settings</h1>
-        <p className="text-gray-500 mt-1">Configure global platform parameters, tenant defaults, and licensing</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('platform_settings.title', 'Platform Settings')}</h1>
+        <p className="text-gray-500 mt-1">{t('platform_settings.subtitle', 'Configure global platform parameters, tenant defaults, and licensing')}</p>
       </div>
 
       <Tabs defaultValue="platform" className="space-y-6">
         <TabsList className="bg-white border p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-2">
           <TabsTrigger value="platform" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
-            <Settings size={16} className="mr-2" /> Platform
+            <Settings size={16} className="mr-2" /> {t('platform_settings.tabs.platform', 'Platform')}
           </TabsTrigger>
           <TabsTrigger value="tenancy" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
-            <Building2 size={16} className="mr-2" /> Tenancy
+            <Building2 size={16} className="mr-2" /> {t('platform_settings.tabs.tenancy', 'Tenancy')}
           </TabsTrigger>
           <TabsTrigger value="licensing" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
-            <ClipboardList size={16} className="mr-2" /> Licensing
+            <ClipboardList size={16} className="mr-2" /> {t('platform_settings.tabs.licensing', 'Licensing')}
           </TabsTrigger>
           <TabsTrigger value="security" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
-            <KeyRound size={16} className="mr-2" /> Security
+            <KeyRound size={16} className="mr-2" /> {t('platform_settings.tabs.security', 'Security')}
           </TabsTrigger>
           <TabsTrigger value="integrations" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
-            <MessageSquare size={16} className="mr-2" /> Integrations
+            <MessageSquare size={16} className="mr-2" /> {t('platform_settings.tabs.integrations', 'Integrations')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="platform" className="animate-in fade-in duration-300">
           <Card>
             <CardHeader>
-              <CardTitle>Platform Configuration</CardTitle>
-              <CardDescription>Global operational parameters (not school-specific)</CardDescription>
+              <CardTitle>{t('platform_settings.platform.title', 'Platform Configuration')}</CardTitle>
+              <CardDescription>{t('platform_settings.platform.description', 'Global operational parameters (not school-specific)')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div>
-                  <p className="font-medium text-sm">Maintenance Mode</p>
-                  <p className="text-xs text-gray-500">Temporarily disable user access platform-wide</p>
+                  <p className="font-medium text-sm">{t('platform_settings.platform.maintenance_mode.title', 'Maintenance Mode')}</p>
+                  <p className="text-xs text-gray-500">{t('platform_settings.platform.maintenance_mode.description', 'Temporarily disable user access platform-wide')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {isSaving('maintenance_mode') ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : null}
-                  {isSaved('maintenance_mode') ? <span className="text-xs text-emerald-600">Saved</span> : null}
+                  {isSaved('maintenance_mode') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</span> : null}
                   <Switch
                     checked={maintenanceMode}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        const ok = confirm('Enable Maintenance Mode? This may block normal user access.');
+                        const ok = confirm(t('platform_settings.platform.maintenance_mode.confirm', 'Enable Maintenance Mode? This may block normal user access.'));
                         if (!ok) return;
                       }
                       setMaintenanceMode(checked);
@@ -365,46 +367,46 @@ const SystemSettingsPage: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Support email</Label>
+                  <Label>{t('platform_settings.platform.support_email', 'Support email')}</Label>
                   <Input
                     placeholder="support@admipaedia.com"
                     value={supportEmail}
                     onChange={(e) => setSupportEmail(e.target.value)}
                     onBlur={() => handleUpdateTextSetting('platform_support_email', supportEmail.trim())}
                   />
-                  {isSaved('platform_support_email') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('platform_support_email') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Terms of Service URL</Label>
+                  <Label>{t('platform_settings.platform.terms_url', 'Terms of Service URL')}</Label>
                   <Input
                     placeholder="https://admipaedia.com/terms"
                     value={termsUrl}
                     onChange={(e) => setTermsUrl(e.target.value)}
                     onBlur={() => handleUpdateTextSetting('platform_terms_url', termsUrl.trim())}
                   />
-                  {isSaved('platform_terms_url') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('platform_terms_url') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Privacy Policy URL</Label>
+                  <Label>{t('platform_settings.platform.privacy_url', 'Privacy Policy URL')}</Label>
                   <Input
                     placeholder="https://admipaedia.com/privacy"
                     value={privacyUrl}
                     onChange={(e) => setPrivacyUrl(e.target.value)}
                     onBlur={() => handleUpdateTextSetting('platform_privacy_url', privacyUrl.trim())}
                   />
-                  {isSaved('platform_privacy_url') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('platform_privacy_url') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                   <div>
-                    <p className="font-medium text-sm">Allow Public Registration</p>
-                    <p className="text-xs text-gray-500">If disabled, registration is invite-only</p>
+                    <p className="font-medium text-sm">{t('platform_settings.platform.allow_public_registration.title', 'Allow Public Registration')}</p>
+                    <p className="text-xs text-gray-500">{t('platform_settings.platform.allow_public_registration.description', 'If disabled, registration is invite-only')}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     {isSaving('platform_allow_public_registration') ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : null}
-                    {isSaved('platform_allow_public_registration') ? <span className="text-xs text-emerald-600">Saved</span> : null}
+                    {isSaved('platform_allow_public_registration') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</span> : null}
                     <Switch
                       checked={allowPublicRegistration}
                       onCheckedChange={(checked) => {
@@ -427,7 +429,7 @@ const SystemSettingsPage: React.FC = () => {
                   }}
                 >
                   <RotateCcw className="h-4 w-4 mr-2" />
-                  Reset platform defaults
+                  {t('platform_settings.platform.reset_defaults', 'Reset platform defaults')}
                 </Button>
               </div>
             </CardContent>
@@ -437,13 +439,13 @@ const SystemSettingsPage: React.FC = () => {
         <TabsContent value="tenancy">
           <Card>
             <CardHeader>
-              <CardTitle>Tenant Defaults</CardTitle>
-              <CardDescription>Defaults applied when creating new schools</CardDescription>
+              <CardTitle>{t('platform_settings.tenancy.title', 'Tenant Defaults')}</CardTitle>
+              <CardDescription>{t('platform_settings.tenancy.description', 'Defaults applied when creating new schools')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Default country code</Label>
+                  <Label>{t('platform_settings.tenancy.default_country_code', 'Default country code')}</Label>
                   <Select
                     value={defaultCountryCode}
                     onValueChange={(v) => {
@@ -452,7 +454,7 @@ const SystemSettingsPage: React.FC = () => {
                     }}
                   >
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select country" />
+                      <SelectValue placeholder={t('platform_settings.tenancy.select_country', 'Select country')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="GH">Ghana (GH)</SelectItem>
@@ -462,11 +464,11 @@ const SystemSettingsPage: React.FC = () => {
                       <SelectItem value="US">United States (US)</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSaved('tenancy_default_country_code') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('tenancy_default_country_code') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default timezone</Label>
+                  <Label>{t('platform_settings.tenancy.default_timezone', 'Default timezone')}</Label>
                   <Select
                     value={defaultTimezone}
                     onValueChange={(v) => {
@@ -475,7 +477,7 @@ const SystemSettingsPage: React.FC = () => {
                     }}
                   >
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select timezone" />
+                      <SelectValue placeholder={t('platform_settings.tenancy.select_timezone', 'Select timezone')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Africa/Accra">Africa/Accra</SelectItem>
@@ -485,11 +487,11 @@ const SystemSettingsPage: React.FC = () => {
                       <SelectItem value="UTC">UTC</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSaved('tenancy_default_timezone') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('tenancy_default_timezone') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default language</Label>
+                  <Label>{t('platform_settings.tenancy.default_language', 'Default language')}</Label>
                   <Select
                     value={defaultLanguage}
                     onValueChange={(v) => {
@@ -498,18 +500,18 @@ const SystemSettingsPage: React.FC = () => {
                     }}
                   >
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select language" />
+                      <SelectValue placeholder={t('platform_settings.tenancy.select_language', 'Select language')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="en">English</SelectItem>
                       <SelectItem value="fr">Français</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSaved('tenancy_default_language') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('tenancy_default_language') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default currency</Label>
+                  <Label>{t('platform_settings.tenancy.default_currency', 'Default currency')}</Label>
                   <Select
                     value={defaultCurrency}
                     onValueChange={(v) => {
@@ -518,7 +520,7 @@ const SystemSettingsPage: React.FC = () => {
                     }}
                   >
                     <SelectTrigger className="bg-white">
-                      <SelectValue placeholder="Select currency" />
+                      <SelectValue placeholder={t('platform_settings.tenancy.select_currency', 'Select currency')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="GHS">GHS</SelectItem>
@@ -527,7 +529,7 @@ const SystemSettingsPage: React.FC = () => {
                       <SelectItem value="GBP">GBP</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSaved('tenancy_default_currency') ? <div className="text-xs text-emerald-600">Saved</div> : null}
+                  {isSaved('tenancy_default_currency') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
                 </div>
 
                 <div className="space-y-2">
