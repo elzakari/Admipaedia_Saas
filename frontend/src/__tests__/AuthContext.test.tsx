@@ -117,7 +117,7 @@ describe('AuthContext', () => {
       refresh_token: 'mock-refresh-token'
     };
 
-    vi.mocked(authService.login).mockResolvedValue(mockLoginResponse);
+    jest.mocked(authService.login).mockResolvedValue(mockLoginResponse);
 
     renderWithRouter(<TestComponent />);
 
@@ -151,7 +151,7 @@ describe('AuthContext', () => {
       refresh_token: 'mock-refresh-token'
     };
 
-    vi.mocked(authService.login).mockResolvedValue(mockLoginResponse);
+    jest.mocked(authService.login).mockResolvedValue(mockLoginResponse);
 
     renderWithRouter(<TestComponent />);
 
@@ -178,7 +178,7 @@ describe('AuthContext', () => {
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
-    vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
+    jest.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
 
     renderWithRouter(<TestComponent />);
 
@@ -207,7 +207,7 @@ describe('AuthContext', () => {
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
-    vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
+    jest.mocked(authService.getCurrentUser).mockResolvedValue(mockUser);
 
     renderWithRouter(<TestComponent />);
 
@@ -220,7 +220,7 @@ describe('AuthContext', () => {
 
   it('should handle authentication check failure', async () => {
     mockLocalStorage.getItem.mockReturnValue('invalid-token');
-    vi.mocked(authService.getCurrentUser).mockRejectedValue(new Error('Unauthorized'));
+    jest.mocked(authService.getCurrentUser).mockRejectedValue(new Error('Unauthorized'));
 
     renderWithRouter(<TestComponent />);
 

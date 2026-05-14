@@ -1,19 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import authService from '../services/authService';
 import api from '../lib/api';
 import { User } from '../types/auth.types';
 
 // Mock the api module
-vi.mock('../lib/api');
-const mockApi = vi.mocked(api);
+jest.mock('../lib/api');
+const mockApi = jest.mocked(api);
 
 describe('AuthService', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('login', () => {
