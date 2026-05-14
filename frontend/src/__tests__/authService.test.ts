@@ -5,7 +5,7 @@ import { User } from '../types/auth.types';
 
 // Mock the api module
 jest.mock('../lib/api');
-const mockApi = jest.mocked(api);
+const mockApi = api as unknown as { post: jest.Mock; get: jest.Mock };
 
 describe('AuthService', () => {
   beforeEach(() => {

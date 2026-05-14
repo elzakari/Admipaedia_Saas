@@ -107,6 +107,7 @@ describe('AuthContext', () => {
 
   it('should handle login successfully', async () => {
     const mockLoginResponse = {
+      success: true,
       user: {
         id: 1,
         username: 'testuser',
@@ -141,6 +142,7 @@ describe('AuthContext', () => {
 
   it('should redirect admin users to admin dashboard', async () => {
     const mockLoginResponse = {
+      success: true,
       user: {
         id: 1,
         username: 'admin',
