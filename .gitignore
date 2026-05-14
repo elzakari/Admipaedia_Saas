@@ -89,3 +89,5 @@ db_backup_*.sql
 # Local frontend scratch outputs
 frontend/eslint_config_storage*.txt
 frontend/lint_*.txt
+frontend/missing-deps.txt
+frontend/scan-missing-deps.js
