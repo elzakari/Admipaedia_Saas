@@ -10,7 +10,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 test('renders subjects management table and controls', () => {
   render(<SubjectsManagement />, { wrapper: Wrapper as any })
-  expect(screen.getByText(/Subjects/i)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: /Subjects/i })).toBeInTheDocument()
   expect(screen.getByPlaceholderText(/Search/i)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /Add Subject/i })).toBeInTheDocument()
 })

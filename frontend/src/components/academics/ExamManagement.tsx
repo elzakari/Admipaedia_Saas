@@ -129,7 +129,7 @@ const ExamManagement: React.FC = () => {
   const { gradingScheme } = useGradingScheme();
 
   // Extract data from query results with proper null checks
-  const classes = classesQuery.data?.classes || [];
+  const classes = classesQuery.data?.data || [];
   const subjects = subjectsQuery.data?.subjects || [];
 
   // Bulk actions configuration
@@ -247,13 +247,14 @@ const ExamManagement: React.FC = () => {
         return null;
       }
       
-      const { exams } = await examService.getExams({
+      const examsResponse = await examService.getExams({
         class_id: classId,
         date_from: examDate.split('T')[0],
         date_to: examDate.split('T')[0]
       });
       
-      const otherExams = examId ? exams.filter(exam => exam.id !== examId) : exams;
+      const examsForDay = examsResponse.data || [];
+      const otherExams = examId ? examsForDay.filter(exam => exam.id !== examId) : examsForDay;
       
       const examDateTime = new Date(examDate);
       const examEndTime = new Date(examDateTime.getTime() + (examData.duration || 60) * 60000);

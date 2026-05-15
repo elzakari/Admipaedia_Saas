@@ -73,14 +73,14 @@ export function withLazyLoading<P extends object>(
   loadingComponent?: React.ComponentType,
   errorComponent?: React.ComponentType<{ error: Error; resetErrorBoundary: () => void }>
 ) {
-  const LazyComponent = lazy(() => Promise.resolve({ default: Component }));
+  const LazyComponent = lazy(async () => ({ default: Component as ComponentType<any> }));
   
   return (props: P) => (
     <LazyLoadingWrapper
-      fallback={loadingComponent ? <loadingComponent /> : undefined}
+      fallback={loadingComponent ? React.createElement(loadingComponent) : undefined}
       errorFallback={errorComponent}
     >
-      <LazyComponent {...props} />
+      <LazyComponent {...(props as any)} />
     </LazyLoadingWrapper>
   );
 }

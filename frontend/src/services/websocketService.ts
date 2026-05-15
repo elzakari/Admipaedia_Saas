@@ -150,12 +150,19 @@ export const useWebSocket = (namespace: string = '/', options?: {
 }) => {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<unknown>(null);
   const ws = WebSocketService.getInstance(namespace);
 
   useEffect(() => {
     const unsubscribeStatus = ws.onStatusChange((newStatus) => {
       setStatus(newStatus);
       setIsConnected(newStatus === 'connected');
+      if (newStatus === 'connected') {
+        setError(null);
+      }
+      if (newStatus === 'error') {
+        setError((prev) => prev ?? new Error('WebSocket connection error'));
+      }
 
       if (newStatus === 'connected' && options?.onConnect) {
         options.onConnect();
@@ -205,6 +212,7 @@ export const useWebSocket = (namespace: string = '/', options?: {
   return {
     status,
     isConnected,
+    error,
     socket: socketAdapter,
     subscribe,
     sendMessage,

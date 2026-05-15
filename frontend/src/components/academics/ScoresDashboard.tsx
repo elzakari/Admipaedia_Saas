@@ -1092,7 +1092,7 @@ const ScoresDashboard = () => {
                       <div className="flex-1 text-center">
                         <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">Present</div>
                         <div style={{ color: themeColors.secondary }} className="merriweather text-[22px] font-black leading-none tracking-tight">
-                          {(gradeReport.attendance?.present_days || 0) + (gradeReport.attendance?.late_days || 0)}
+                          {(gradeReport.attendance?.present_days || 0) + (((gradeReport.attendance as any)?.late_days as number | undefined) || 0)}
                         </div>
                       </div>
                       <div className="w-[1.5px] bg-[#b8dece]/50 self-stretch mx-1"></div>

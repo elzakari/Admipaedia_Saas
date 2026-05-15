@@ -217,7 +217,7 @@ const NotificationSettings = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div data-testid="loading-spinner" className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -333,7 +333,7 @@ const NotificationSettings = () => {
                     <div className="space-y-2">
                       <Label htmlFor="smtp-encryption">Encryption</Label>
                       <Select value={settings.smtpEncryption} onValueChange={(value) => handleInputChange('smtpEncryption', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger id="smtp-encryption">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -422,7 +422,7 @@ const NotificationSettings = () => {
                     <div className="space-y-2">
                       <Label htmlFor="sms-provider">SMS Provider</Label>
                       <Select value={settings.smsProvider} onValueChange={(value) => handleInputChange('smsProvider', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger id="sms-provider">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

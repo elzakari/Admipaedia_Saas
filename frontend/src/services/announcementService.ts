@@ -63,7 +63,7 @@ export interface AnnouncementFilters {
 
 const announcementService = {
   // Get announcements with pagination and filtering
-  getAnnouncements: async (filters: AnnouncementFilters = {}): Promise<PaginatedResponse<Announcement>> => {
+  getAnnouncements: async (filters: AnnouncementFilters = {}): Promise<{ announcements: Announcement[]; pagination: any }> => {
     try {
       const response = await api.get('/announcements', { params: filters });
       const data = response.data || {};
@@ -75,7 +75,7 @@ const announcementService = {
         pages: data.pages || 1
       };
 
-      return { announcements, pagination } as any;
+      return { announcements, pagination };
     } catch (error) {
       console.error('Error fetching announcements:', error);
       throw error;

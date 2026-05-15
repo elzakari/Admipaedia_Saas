@@ -186,11 +186,11 @@ export default function SuperAdminPlanPricingPage() {
     }
   }
 
-  async function deleteTier(t: PlanPricingTier) {
+  async function deleteTier(tier: PlanPricingTier) {
     setTierSaving(true)
     try {
-      await billingService.deletePlanPricingTier(t.id)
-      setTiers((prev) => (prev || []).filter((x) => x.id !== t.id))
+      await billingService.deletePlanPricingTier(tier.id)
+      setTiers((prev) => (prev || []).filter((x) => x.id !== tier.id))
       toast({ title: t('super_admin.plan_pricing.toasts.deleted_tier', 'Deleted tier') })
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>

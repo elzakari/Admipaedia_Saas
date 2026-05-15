@@ -230,7 +230,7 @@ export function AssignmentManagement() {
       ...formData,
       class_id: parseInt(formData.class_id),
       subject_id: parseInt(formData.subject_id),
-      total_points: parseInt(formData.total_points.toString()),
+      total_marks: parseInt(formData.total_points.toString()),
       teacher_id: 1, // This would come from auth context in a real app
     };
     
@@ -253,7 +253,7 @@ export function AssignmentManagement() {
       class_id: assignment.class_id.toString(),
       subject_id: assignment.subject_id.toString(),
       due_date: new Date(assignment.due_date),
-      total_points: assignment.total_points,
+      total_points: ((assignment as any).total_points ?? (assignment as any).total_marks) || 100,
       assignment_type: assignment.assignment_type
     });
     setSelectedDate(new Date(assignment.due_date));
@@ -478,8 +478,8 @@ export function AssignmentManagement() {
                             <TableCell>
                               <Badge 
                                 className={cn(
-                                  assignment.status === 'active' ? 'bg-green-100 text-green-800' : 
-                                  assignment.status === 'archived' ? 'bg-gray-100 text-gray-800' : ''
+                                  (assignment.status as any) === 'active' ? 'bg-green-100 text-green-800' : 
+                                  (assignment.status as any) === 'archived' ? 'bg-gray-100 text-gray-800' : ''
                                 )}
                               >
                                 {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
@@ -574,7 +574,7 @@ export function AssignmentManagement() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {submission.score !== null ? `${submission.score}/${assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading)?.total_points || 100}` : 'Not graded'}
+                              {submission.score !== null ? `${submission.score}/${(((assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_points ?? (assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_marks) || 100)}` : 'Not graded'}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end space-x-2">
@@ -636,7 +636,7 @@ export function AssignmentManagement() {
                 value={gradeData.score}
                 onChange={handleGradeInputChange}
                 min="0"
-                max={assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading)?.total_points || 100}
+                max={(((assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_points ?? (assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_marks) || 100)}
               />
             </div>
             
@@ -713,7 +713,7 @@ export function AssignmentManagement() {
                       {submission.status === 'graded' && (
                         <div>
                           <h3 className="font-medium">Grade</h3>
-                          <p>{submission.score} / {assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading)?.total_points || 100}</p>
+                          <p>{submission.score} / {(((assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_points ?? (assignmentsData?.data?.find(a => a.id === selectedAssignmentForGrading) as any)?.total_marks) || 100)}</p>
                           
                           <h3 className="font-medium mt-4">Feedback</h3>
                           <div className="p-4 border rounded-md bg-muted/50 whitespace-pre-wrap">

@@ -41,6 +41,7 @@ export interface Teacher {
   dateOfBirth?: string;
   qualification?: string;
   departmentId?: string;
+  employeeId?: string;
   profileImage?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -74,6 +75,8 @@ export interface TeacherClass {
   academicYear: string;
   isClassTeacher: boolean;
   assignedDate: string;
+  studentCount?: number;
+  nextSession?: string;
 }
 
 // Teacher subject assignment types

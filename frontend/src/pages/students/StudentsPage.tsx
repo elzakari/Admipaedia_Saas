@@ -456,6 +456,7 @@ export function StudentsPage() {
             size="sm"
             variant="outline"
             onClick={() => handleEditStudent(student)}
+            data-testid={`edit-student-${student.id}`}
           >
             <Pencil className="h-4 w-4" />
           </TouchFriendlyButton>
@@ -463,6 +464,7 @@ export function StudentsPage() {
             size="sm"
             variant="outline"
             onClick={() => handleDeleteStudent(student)}
+            data-testid={`delete-student-${student.id}`}
           >
             <Trash className="h-4 w-4" />
           </TouchFriendlyButton>
@@ -533,6 +535,7 @@ export function StudentsPage() {
           value={selectedGrade}
           onChange={(e) => setSelectedGrade(e.target.value)}
           className="px-3 py-2 border rounded-md"
+          data-testid="grade-filter"
         >
           <option value="All">All Grades</option>
           <option value="Grade 1">Grade 1</option>
@@ -546,6 +549,7 @@ export function StudentsPage() {
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
           className="px-3 py-2 border rounded-md"
+          data-testid="status-filter"
         >
           <option value="All">All Status</option>
           <option value="active">Active</option>

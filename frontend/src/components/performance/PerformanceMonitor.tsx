@@ -59,7 +59,7 @@ export const PerformanceMonitor: React.FC<{
     try {
       // Navigation timing
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      const loadTime = navigation.loadEventEnd - navigation.navigationStart;
+      const loadTime = navigation.loadEventEnd - navigation.startTime;
 
       // Memory usage (if available)
       const memoryInfo = (performance as any).memory;

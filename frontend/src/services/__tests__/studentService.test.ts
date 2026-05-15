@@ -1,29 +1,20 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// Define the mock axios instance first
-const mockAxiosInstance = {
+const mockAxiosInstance = vi.hoisted(() => ({
   interceptors: {
-    request: { use: jest.fn(), eject: jest.fn() },
-    response: { use: jest.fn(), eject: jest.fn() }
+    request: { use: vi.fn(), eject: vi.fn() },
+    response: { use: vi.fn(), eject: vi.fn() }
   },
-  get: jest.fn(),
-  post: jest.fn(),
-  put: jest.fn(),
-  delete: jest.fn(),
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
   defaults: { headers: { common: {} } }
-};
+}));
 
-// Mock axios BEFORE any imports that use api.ts
-jest.mock('axios', () => ({
-  create: jest.fn(() => mockAxiosInstance),
-  get: jest.fn(),
-  post: jest.fn(),
-  put: jest.fn(),
-  delete: jest.fn(),
-  interceptors: {
-    request: { use: jest.fn(), eject: jest.fn() },
-    response: { use: jest.fn(), eject: jest.fn() }
-  }
+vi.mock('@/lib/api', () => ({
+  default: mockAxiosInstance,
+  api: mockAxiosInstance
 }));
 
 // Now import the services using aliases
@@ -33,7 +24,7 @@ const { getStudents, createStudent, updateStudent, deleteStudent } = studentServ
 
 describe('Student Service', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getStudents', () => {
@@ -73,14 +64,21 @@ describe('Student Service', () => {
         date_of_birth: '2010-01-01',
         gender: 'female'
       };
-      const mockResponse = { data: { student: { id: 2, ...newStudent } } };
+      const { password: _password, ...studentPayload } = newStudent;
+      const mockResponse = { data: { data: { id: 2, ...studentPayload } } };
 
       (api.post as any).mockResolvedValue(mockResponse);
 
       const result = await createStudent(newStudent);
 
-      expect(api.post).toHaveBeenCalledWith('/students', newStudent);
-      expect(result.data).toEqual(mockResponse.data.student);
+      expect(api.post).toHaveBeenCalledWith('/enhanced-students/create-with-user', {
+        student: studentPayload,
+        user: {
+          email: newStudent.email,
+          password: newStudent.password
+        }
+      });
+      expect(result.data).toEqual(mockResponse.data.data);
     });
   });
 

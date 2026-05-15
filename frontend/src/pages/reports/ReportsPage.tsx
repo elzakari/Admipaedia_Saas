@@ -23,7 +23,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('academic');
-  const [selectedReport, setSelectedReport] = useState('grades');
+  const [selectedReport, setSelectedReport] = useState<NonNullable<ReportFilter['reportType']>>('grades');
   const [dateRange, setDateRange] = useState('current');
   const [classFilter, setClassFilter] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('all');
@@ -99,8 +99,8 @@ const ReportsPage: React.FC = () => {
       const filters: ReportFilter = {
         reportType: selectedReport,
         dateRange: getDateRange(),
-        classFilter: classFilter !== 'all' ? classFilter : undefined,
-        subjectFilter: subjectFilter !== 'all' ? subjectFilter : undefined
+        classFilter: classFilter !== 'all' ? Number(classFilter) : undefined,
+        subjectFilter: subjectFilter !== 'all' ? [Number(subjectFilter)] : undefined
       };
 
       let report: ReportData;
@@ -125,16 +125,14 @@ const ReportsPage: React.FC = () => {
       setReportData(report);
       toast({
         title: 'Report Generated',
-        description: 'Your report has been generated successfully.',
-        id: ''
+        description: 'Your report has been generated successfully.'
       });
     } catch (error) {
       console.error('Error generating report:', error);
       toast({
         title: 'Error',
         description: 'Failed to generate report. Please try again.',
-        variant: 'destructive',
-        id: ''
+        variant: 'destructive'
       });
     } finally {
       setIsLoading(false);
@@ -159,16 +157,14 @@ const ReportsPage: React.FC = () => {
       
       toast({
         title: 'Export Successful',
-        description: `Report exported as ${format.toUpperCase()} successfully.`,
-        id: ''
+        description: `Report exported as ${format.toUpperCase()} successfully.`
       });
     } catch (error) {
       console.error('Error exporting report:', error);
       toast({
         title: 'Export Failed',
         description: 'Failed to export report. Please try again.',
-        variant: 'destructive',
-        id: ''
+        variant: 'destructive'
       });
     } finally {
       setIsExporting(false);
@@ -196,8 +192,7 @@ const ReportsPage: React.FC = () => {
       toast({
         title: 'Print Failed',
         description: 'Failed to prepare report for printing. Please try again.',
-        variant: 'destructive',
-        id: ''
+        variant: 'destructive'
       });
     } finally {
       setIsExporting(false);
@@ -609,7 +604,12 @@ const ReportsPage: React.FC = () => {
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/5">
                   <label className="block text-sm font-medium mb-1">Report Type</label>
-                  <Select value={selectedReport} onValueChange={setSelectedReport}>
+                  <Select
+                    value={selectedReport}
+                    onValueChange={(value) =>
+                      setSelectedReport(value as NonNullable<ReportFilter["reportType"]>)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select report type" />
                     </SelectTrigger>
@@ -855,7 +855,12 @@ const ReportsPage: React.FC = () => {
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/3">
                   <label className="block text-sm font-medium mb-1">Report Type</label>
-                  <Select value={selectedReport} onValueChange={setSelectedReport}>
+                  <Select
+                    value={selectedReport}
+                    onValueChange={(value) =>
+                      setSelectedReport(value as NonNullable<ReportFilter["reportType"]>)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select report type" />
                     </SelectTrigger>

@@ -1,12 +1,13 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { jest } from '@jest/globals';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import PerformanceMonitor from '../PerformanceMonitor';
 
 // Mock performance API
 const mockPerformance = {
-  getEntriesByType: jest.fn(),
-  getEntriesByName: jest.fn(),
+  now: () => Date.now(),
+  getEntriesByType: vi.fn(),
+  getEntriesByName: vi.fn(),
   memory: {
     usedJSHeapSize: 50 * 1024 * 1024,
     totalJSHeapSize: 100 * 1024 * 1024
@@ -34,13 +35,32 @@ Object.defineProperty(navigator, 'connection', {
 
 describe('PerformanceMonitor', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
+    
+    // Restore window.performance and navigator.connection
+    Object.defineProperty(window, 'performance', {
+      value: mockPerformance,
+      writable: true
+    });
+    
+    Object.defineProperty(navigator, 'connection', {
+      value: {
+        downlink: 10,
+        effectiveType: '4g'
+      },
+      writable: true
+    });
+
     mockPerformance.getEntriesByType.mockImplementation((type) => {
       if (type === 'navigation') return [mockNavigation];
       if (type === 'resource') return [];
       return [];
     });
     mockPerformance.getEntriesByName.mockReturnValue([{ startTime: 1800 }]);
+  });
+  
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders performance monitor correctly', async () => {
@@ -123,14 +143,13 @@ describe('PerformanceMonitor', () => {
   });
 
   it('expands metric details on click', async () => {
-    render(<PerformanceMonitor showTrends={true} />);
+    render(<PerformanceMonitor showTrends={true} refreshInterval={10} />);
     
     await waitFor(() => {
-      const metricCard = screen.getByText('Page Load Time').closest('[role="button"]');
-      if (metricCard) {
-        fireEvent.click(metricCard);
-      }
+      expect(screen.getByText('Page Load Time')).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByText('Page Load Time'));
     
     // Should show trend chart
     await waitFor(() => {

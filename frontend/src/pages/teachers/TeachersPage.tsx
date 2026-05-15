@@ -66,6 +66,7 @@ interface TeacherFiltersType {
   experience?: string;
   qualification?: string;
   specialization?: string; // Added missing property
+  search?: string;
 }
 
 // Loading Component

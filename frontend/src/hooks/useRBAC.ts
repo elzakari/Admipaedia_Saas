@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useContext } from 'react';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { rbacApi } from '../services/rbacApi';
 import {
   RBACRole,

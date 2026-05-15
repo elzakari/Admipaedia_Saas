@@ -176,7 +176,8 @@ export const queueDataForSync = async (storeName: string, data: unknown, token: 
             syncTag = 'sync-data';
         }
 
-        await registration.sync.register(syncTag);
+        const regAny = registration as any;
+        await regAny.sync.register(syncTag);
         console.log(`[Offline] Registered sync tag: ${syncTag}`);
       } catch (syncError) {
         console.warn('[Offline] Background sync registration failed, will retry on next load:', syncError);

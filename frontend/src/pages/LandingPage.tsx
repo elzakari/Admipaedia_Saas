@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Menu, ChevronRight, LogIn, UserPlus, ChevronDown } from 'lucide-react';
+import { X, Menu, ChevronRight, LogIn, UserPlus, ChevronDown, Phone, Mail, Globe, MessageCircle } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LoginForm from '../pages/auth/LoginForm';
@@ -483,30 +483,73 @@ const LandingPage: React.FC = () => {
             {t('landing.contact.title', 'Contact Us')}
           </motion.h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white p-6 rounded-xl shadow-sm"
+              className="bg-white p-5 rounded-xl shadow-sm border border-indigo-50"
             >
               <h3 className="text-xl font-semibold text-gray-900 mb-4">{t('landing.contact.get_in_touch.title', 'Get in Touch')}</h3>
-              <p className="text-gray-700 mb-6">
+              <p className="text-sm text-gray-600 mb-6">
                 {t('landing.contact.get_in_touch.body', "Have questions about ADMIPAEDIA? Our team is here to help. Reach out to us and we'll get back to you as soon as possible.")}
               </p>
               <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                    📧
+                <div className="flex items-center group">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-4 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                    <MessageCircle size={20} />
                   </div>
-                  <span className="text-gray-700">info@admipaedia.com</span>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Primary Support (WhatsApp)</p>
+                    <a href="https://wa.me/4915215374837" className="text-sm text-gray-700 hover:text-indigo-600 transition-colors font-semibold" target="_blank" rel="noopener noreferrer">
+                      +49 15215374837
+                    </a>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                    📱
+
+                <div className="flex items-center group">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-4 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                    <Phone size={20} />
                   </div>
-                  <span className="text-gray-700">+1 (555) 123-4567</span>
+                  <div className="flex flex-col">
+                    <div>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Ghana Representative</p>
+                      <a href="tel:+233555092842" className="text-sm text-gray-700 hover:text-indigo-600 transition-colors font-semibold">
+                        +233 555092842
+                      </a>
+                    </div>
+                    <div className="mt-1">
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Togo Representative</p>
+                      <a href="tel:+22898976767" className="text-sm text-gray-700 hover:text-indigo-600 transition-colors font-semibold">
+                        +228 98976767
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center group">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-4 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                    <Mail size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Email Support</p>
+                    <a href="mailto:support@easymsdigit.com" className="text-sm text-gray-700 hover:text-indigo-600 transition-colors font-semibold">
+                      support@easymsdigit.com
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center group">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-4 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                    <Globe size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Official Website</p>
+                    <a href="https://easymsdigit.com" className="text-sm text-gray-700 hover:text-indigo-600 transition-colors font-semibold" target="_blank" rel="noopener noreferrer">
+                      https://easymsdigit.com
+                    </a>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -516,16 +559,21 @@ const LandingPage: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white p-6 rounded-xl shadow-sm"
+              className="bg-white p-5 rounded-xl shadow-sm border border-indigo-50 flex flex-col"
             >
               <h3 className="text-xl font-semibold text-gray-900 mb-4">{t('landing.contact.demo.title', 'Request a Demo')}</h3>
-              <p className="text-gray-700 mb-6">
+              <p className="text-sm text-gray-600 mb-6 flex-grow">
                 {t('landing.contact.demo.body', 'Want to see ADMIPAEDIA in action? Schedule a demo with one of our product specialists.')}
               </p>
-              <button className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
-                <span>{t('landing.contact.demo.cta', 'Schedule Demo')}</span>
-                <ChevronRight size={16} className="ml-1" />
-              </button>
+              <a 
+                href="https://wa.me/4915215374837?text=Hello,%20I%20would%20like%20to%20schedule%20a%20demo%20for%20ADMIPAEDIA."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center group/btn hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg"
+              >
+                <span className="font-medium">{t('landing.contact.demo.cta', 'Schedule Demo')}</span>
+                <ChevronRight size={18} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
+              </a>
             </motion.div>
           </div>
         </div>

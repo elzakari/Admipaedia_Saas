@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import subjectService, { Subject } from '../../services/subjectService';
 import { toast } from 'sonner';
+import { useMediaQuery } from 'react-responsive';
 
 const SubjectsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,8 +52,8 @@ const SubjectsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   
   // Responsive hooks
-  const isMobile = useMediaQuery('(max-width: 640px)');
-  const isTablet = useMediaQuery('(min-width: 641px) and (max-width: 1023px)');
+  const isMobile = useMediaQuery({ query: '(max-width: 640px)' });
+  const isTablet = useMediaQuery({ query: '(min-width: 641px) and (max-width: 1023px)' });
   
   // Auto-adjust view mode based on screen size
   useEffect(() => {

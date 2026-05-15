@@ -12,17 +12,18 @@ type ToastProps = {
 export function useToast() {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
 
-  const toast = useCallback((props: Omit<ToastProps, "id">) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    const newToast = { ...props, id } as ToastProps;
+  const toast = useCallback((props: Omit<ToastProps, "id"> & { id?: string }) => {
+    const id = props.id ?? Math.random().toString(36).substring(2, 9);
+    const { id: _id, ...rest } = props;
+    const newToast = { ...rest, id } as ToastProps;
 
     setToasts((prevToasts) => [...prevToasts, newToast]);
 
     // Auto dismiss
-    if (props.duration !== Infinity) {
+    if (rest.duration !== Infinity) {
       setTimeout(() => {
         setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
-      }, props.duration || 5000);
+      }, rest.duration || 5000);
     }
 
     return id;

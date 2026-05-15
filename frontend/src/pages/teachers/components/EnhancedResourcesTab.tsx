@@ -189,8 +189,7 @@ export function EnhancedResourcesTab({ teacherId }: EnhancedResourcesTabProps) {
         setShowUploadModal(true);
         toast({
           title: "Upload Resource",
-          description: "Opening resource upload form...",
-          id: ''
+          description: "Opening resource upload form..."
         });
         break;
       case 'export':
@@ -210,8 +209,7 @@ export function EnhancedResourcesTab({ teacherId }: EnhancedResourcesTabProps) {
         
         toast({
           title: "Export Successful",
-          description: "Resources data has been exported to CSV",
-          id: ''
+          description: "Resources data has been exported to CSV"
         });
         break;
       case 'print':
@@ -219,8 +217,7 @@ export function EnhancedResourcesTab({ teacherId }: EnhancedResourcesTabProps) {
         window.print();
         toast({
           title: "Print Initiated",
-          description: "Preparing resources list for printing",
-          id: ''
+          description: "Preparing resources list for printing"
         });
         break;
       case 'share':
@@ -228,8 +225,7 @@ export function EnhancedResourcesTab({ teacherId }: EnhancedResourcesTabProps) {
         navigator.clipboard.writeText(window.location.href);
         toast({
           title: "Link Copied",
-          description: "Resources page URL copied to clipboard",
-          id: ''
+          description: "Resources page URL copied to clipboard"
         });
         break;
       default:

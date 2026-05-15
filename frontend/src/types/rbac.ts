@@ -162,9 +162,9 @@ export interface UserWithRBAC {
   username: string;
   email: string;
   role?: string; // Legacy role field
-  status: string;
-  created_at: string;
-  updated_at: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
   last_login?: string;
   role_assignments?: UserRoleAssignment[];
   permission_grants?: PermissionGrant[];
@@ -342,7 +342,7 @@ export interface UseRBACReturn {
   hasAllPermissions: (permissions: string[]) => boolean;
   
   // Resource access checking
-  canAccessResource: (resourceType: ResourceType, resourceId: string, permission: string) => boolean;
+  canAccessResource: (resourceType: ResourceType, resourceId: string, permission: string) => Promise<boolean>;
   
   // Loading states
   loading: boolean;

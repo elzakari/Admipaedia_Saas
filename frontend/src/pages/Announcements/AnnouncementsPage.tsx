@@ -200,15 +200,15 @@ const AnnouncementsPage: React.FC = () => {
   };
   
   // Render mobile filter menu
-  // Update line 155 to fix the type error
-  const renderMobileFilterMenu = () => (
-    <Menu onClick={({ key }: { key: string }) => handleTabChange(key)}>  
-      <Menu.Item key="all">All Announcements</Menu.Item>
-      <Menu.Item key="scheduled">Scheduled</Menu.Item>
-      <Menu.Item key="email">Email Notifications</Menu.Item>
-      <Menu.Item key="calendar">Calendar View</Menu.Item>
-    </Menu>
-  );
+  const mobileFilterMenu = {
+    items: [
+      { key: 'all', label: 'All Announcements' },
+      { key: 'scheduled', label: 'Scheduled' },
+      { key: 'email', label: 'Email Notifications' },
+      { key: 'calendar', label: 'Calendar View' }
+    ],
+    onClick: ({ key }: { key: string }) => handleTabChange(key)
+  };
   
   return (
     <div className="announcements-page p-4 md:p-6">
@@ -235,7 +235,7 @@ const AnnouncementsPage: React.FC = () => {
           />
           
           {isMobile ? (
-            <Dropdown overlay={renderMobileFilterMenu()} trigger={['click']}>
+            <Dropdown menu={mobileFilterMenu as any} trigger={['click']}>
               <Button icon={<FilterOutlined />} />
             </Dropdown>
           ) : null}

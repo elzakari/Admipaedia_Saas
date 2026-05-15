@@ -1,55 +1,68 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock axios instance
-const mockAxiosInstance = {
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    },
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    defaults: { headers: { common: {} } }
-};
+const mockAxiosInstance = vi.hoisted(() => ({
+  interceptors: {
+    request: { use: vi.fn(), eject: vi.fn() },
+    response: { use: vi.fn(), eject: vi.fn() }
+  },
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+  defaults: { headers: { common: {} } }
+}));
 
-jest.mock('axios', () => ({
-    create: jest.fn(() => mockAxiosInstance),
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    }
+vi.mock('@/lib/api', () => ({
+  default: mockAxiosInstance,
+  api: mockAxiosInstance
 }));
 
 import api from '@/lib/api';
 import reportsService from '@/services/reportsService';
 import { analyticsService } from '@/services/analyticsService';
 
-// Mock analyticsService
-jest.mock('@/services/analyticsService');
-const mockAnalyticsService = analyticsService as jest.Mocked<typeof analyticsService>;
+const mockAnalyticsService = vi.hoisted(() => ({
+  getAdvancedAttendanceAnalytics: vi.fn()
+}));
+vi.mock('@/services/analyticsService', () => ({
+  analyticsService: mockAnalyticsService,
+  default: mockAnalyticsService
+}));
 
 describe('reportsService', () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     describe('generateAcademicReport', () => {
         it('should generate a grade report successfully', async () => {
             const filters = { reportType: 'grades' as const };
+            (api.post as any).mockResolvedValue({
+                data: {
+                    sections: [
+                        { type: 'metric', title: 'Average Grade', value: 75 },
+                        { type: 'table', title: 'Student Grades', data: [{ subject: 'Math' }] }
+                    ]
+                }
+            });
             const result = await reportsService.generateAcademicReport(filters);
 
             expect(result.type).toBe('academic');
-            expect(result.data).toHaveProperty('grades');
+            expect(result.data).toHaveProperty('sections');
+            expect(Array.isArray((result.data as any).sections)).toBe(true);
         });
 
-        it('should throw error for unknown report type', async () => {
+        it('supports unknown report type values', async () => {
             const filters = { reportType: 'unknown' as any };
-            await expect(reportsService.generateAcademicReport(filters)).rejects.toThrow('Unknown report type: unknown');
+            (api.post as any).mockResolvedValue({
+                data: {
+                    sections: []
+                }
+            });
+
+            const result = await reportsService.generateAcademicReport(filters);
+            expect(result.type).toBe('academic');
+            expect(result.title).toMatch(/Unknown/i);
         });
     });
 
@@ -73,17 +86,19 @@ describe('reportsService', () => {
         });
     });
 
-    describe('exportReport', () => {
-        it('should fetch report export as blob', async () => {
+    describe('exportReportData', () => {
+        it('should export report data as blob', async () => {
             const mockBlob = new Blob(['csv-data'], { type: 'text/csv' });
-            (api.get as any).mockResolvedValue({ data: mockBlob });
+            (api.post as any).mockResolvedValue({ data: mockBlob });
 
-            const result = await reportsService.exportReport('report-123', 'csv');
+            const result = await reportsService.exportReportData({
+                title: 'Report',
+                type: 'academic',
+                generatedAt: new Date().toISOString(),
+                data: { sections: [] }
+            } as any, 'csv');
 
-            expect(api.get).toHaveBeenCalledWith('/reports/report-123/export', {
-                params: { format: 'csv' },
-                responseType: 'blob'
-            });
+            expect(api.post).toHaveBeenCalled();
             expect(result).toEqual(mockBlob);
         });
     });

@@ -25,7 +25,7 @@ import {
   UserCheck,
   AlertTriangle
 } from 'lucide-react';
-import { authService } from '../../services';
+import { rbacApi } from '../../services/rbacApi';
 
 interface Role {
   id: number;
@@ -107,13 +107,34 @@ const UserRoleManagement = () => {
   // Fetch roles
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => authService.getRoles(),
+    queryFn: async () => {
+      const res = await rbacApi.getAllRoles();
+      const list = res.data || [];
+      return list.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description || '',
+        permissions: (r.permissions || []).map((p) => p.name),
+        userCount: r.user_count || 0,
+        isSystem: r.is_system,
+        createdAt: r.created_at
+      })) as Role[];
+    },
     staleTime: 5 * 60 * 1000
   });
 
   // Create role mutation
   const createRoleMutation = useMutation({
-    mutationFn: (roleData: any) => authService.createRole(roleData),
+    mutationFn: async (roleData: any) => {
+      const res = await rbacApi.createRole({
+        name: roleData.name,
+        display_name: roleData.name,
+        description: roleData.description,
+        permission_names: roleData.permissions
+      });
+      if (!res.success) throw new Error(res.message || 'Failed to create role');
+      return res;
+    },
     onSuccess: () => {
       toast({
         title: "Role Created",
@@ -135,7 +156,16 @@ const UserRoleManagement = () => {
 
   // Update role mutation
   const updateRoleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => authService.updateRole(id, data),
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await rbacApi.updateRole(id, {
+        name: data.name,
+        display_name: data.name,
+        description: data.description,
+        permission_names: data.permissions
+      });
+      if (!res.success) throw new Error(res.message || 'Failed to update role');
+      return res;
+    },
     onSuccess: () => {
       toast({
         title: "Role Updated",
@@ -157,7 +187,11 @@ const UserRoleManagement = () => {
 
   // Delete role mutation
   const deleteRoleMutation = useMutation({
-    mutationFn: (roleId: number) => authService.deleteRole(roleId),
+    mutationFn: async (roleId: number) => {
+      const res = await rbacApi.deleteRole(roleId);
+      if (!res.success) throw new Error(res.message || 'Failed to delete role');
+      return res;
+    },
     onSuccess: () => {
       toast({
         title: "Role Deleted",

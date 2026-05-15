@@ -1,7 +1,7 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useCreateStudent, useUpdateStudent } from "@/hooks/useStudents";
 import { useToast } from "@/components/ui/use-toast";
-import { Student } from "@/services/studentService";
+import type { Student } from "@/types/student.types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { TouchFriendlyButton } from "../common/TouchFriendlyButton";
 import MobileOptimizedInput from "../common/MobileOptimizedInput";
@@ -664,15 +664,16 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         if (!formData.last_name?.trim()) stepErrors.last_name = 'Last name is required';
         if (!formData.date_of_birth?.trim()) stepErrors.date_of_birth = 'Date of birth is required';
         if (!formData.gender?.trim()) stepErrors.gender = 'Gender is required';
-        break;
-
-      case 1: // Contact Information
+        
         if (formData.email?.trim()) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(formData.email.trim())) {
             stepErrors.email = 'Please enter a valid email address';
           }
         }
+        break;
+
+      case 1: // Contact Information
         if (formData.phone?.trim()) {
           const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,15}$/;
           if (!phoneRegex.test(formData.phone.trim())) {

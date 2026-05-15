@@ -6,9 +6,9 @@ import StudentList from '../StudentList';
 import { studentService } from '../../../services';
 
 // Mock the service
-jest.mock('../../../services', () => ({
+vi.mock('../../../services', () => ({
   studentService: {
-    getStudents: jest.fn()
+    getStudents: vi.fn()
   }
 }));
 
@@ -32,12 +32,12 @@ const createWrapper = () => {
 
 describe('StudentList Integration', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   test('fetches and displays students', async () => {
     // Mock the service response
-    (studentService.getStudents as jest.Mock).mockResolvedValueOnce({
+    (studentService.getStudents as any).mockResolvedValueOnce({
       students: [
         { id: 1, name: 'John Doe', admission_number: 'A12345', email: 'john@example.com' },
         { id: 2, name: 'Jane Smith', admission_number: 'A12346', email: 'jane@example.com' }
@@ -62,7 +62,7 @@ describe('StudentList Integration', () => {
 
   test('handles error state', async () => {
     // Mock the service to throw an error
-    (studentService.getStudents as jest.Mock).mockRejectedValueOnce(new Error('Failed to fetch'));
+    (studentService.getStudents as any).mockRejectedValueOnce(new Error('Failed to fetch'));
 
     render(<StudentList />, { wrapper: createWrapper() });
 

@@ -77,8 +77,7 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
       case 'refresh':
         toast({
           title: "Refreshing Insights",
-          description: "Generating new AI insights...",
-          id: ''
+          description: "Generating new AI insights..."
         });
         // Here you would typically call the loadInsights function again
         break;
@@ -99,8 +98,7 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
         
         toast({
           title: "Export Successful",
-          description: "AI Analytics data has been exported to CSV",
-          id: ''
+          description: "AI Analytics data has been exported to CSV"
         });
         break;
       case 'print':
@@ -108,8 +106,7 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
         window.print();
         toast({
           title: "Print Initiated",
-          description: "Preparing AI insights for printing",
-          id: ''
+          description: "Preparing AI insights for printing"
         });
         break;
       case 'share':
@@ -117,8 +114,7 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
         navigator.clipboard.writeText(window.location.href);
         toast({
           title: "Link Copied",
-          description: "AI Analytics page URL copied to clipboard",
-          id: ''
+          description: "AI Analytics page URL copied to clipboard"
         });
         break;
       default:

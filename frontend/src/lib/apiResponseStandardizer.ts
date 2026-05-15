@@ -3,30 +3,9 @@
  * Ensures consistent response format across all API services
  */
 
-export interface StandardApiResponse<T> {
-  data: T;
-  success: boolean;
-  message?: string;
-  errors?: Record<string, string[]>;
-  pagination?: {
-    total: number;
-    total_pages: number;
-    current_page: number;
-    per_page: number;
-  };
-}
+import type { Pagination, StandardApiResponse, StandardPaginatedResponse } from '@/types/api-responses.types';
 
-export interface StandardPaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    total: number;
-    total_pages: number;
-    current_page: number;
-    per_page: number;
-  };
-  success: boolean;
-  message?: string;
-}
+export type { Pagination, StandardApiResponse, StandardPaginatedResponse };
 
 /**
  * Custom error class for API errors
@@ -98,11 +77,13 @@ export class ApiResponseStandardizer {
    */
   static standardizePaginatedResponse<T>(response: any, itemsKey?: string): StandardPaginatedResponse<T> {
     let items: T[] = [];
-    let pagination = {
+    let pagination: Pagination = {
       total: 0,
       total_pages: 0,
       current_page: 1,
-      per_page: 10
+      per_page: 10,
+      has_next: false,
+      has_prev: false
     };
 
     if (response.data) {
@@ -117,11 +98,15 @@ export class ApiResponseStandardizer {
 
       // Extract pagination
       if (response.data.pagination) {
+        const total_pages = response.data.pagination.total_pages || 0;
+        const current_page = response.data.pagination.current_page || 1;
         pagination = {
           total: response.data.pagination.total || 0,
-          total_pages: response.data.pagination.total_pages || 0,
-          current_page: response.data.pagination.current_page || 1,
-          per_page: response.data.pagination.per_page || 10
+          total_pages,
+          current_page,
+          per_page: response.data.pagination.per_page || 10,
+          has_next: response.data.pagination.has_next ?? (total_pages > 0 ? current_page < total_pages : false),
+          has_prev: response.data.pagination.has_prev ?? (current_page > 1)
         };
       }
     }

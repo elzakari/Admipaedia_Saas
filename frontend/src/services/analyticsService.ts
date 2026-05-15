@@ -83,6 +83,21 @@ export interface EngagementAnalytics {
 
 export interface TeacherAnalytics {
   teacher_id: number;
+  performance?: {
+    performance_trend?: Array<{ date: string; average_grade?: number; grade?: number }>;
+    grade_distribution?: Record<string, number>;
+    [key: string]: any;
+  };
+  attendance?: {
+    trend_data?: Record<string, any>;
+    attendance_trend?: Array<{ date: string; present?: number; absent?: number; late?: number; rate?: number }>;
+    [key: string]: any;
+  };
+  engagement?: {
+    [key: string]: any;
+  };
+  students_at_risk?: any[];
+  assignments?: any;
   class_performance: Array<{
     class_name: string;
     average_grade: number;

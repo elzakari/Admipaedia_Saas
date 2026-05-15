@@ -351,7 +351,7 @@ export default function SuperAdminSchoolsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{kpis ? kpis.tenants_total : '—'}</div>
-            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.new_30d', 'New (30d): {{count}}', { count: kpis ? kpis.tenants_new_last_30d : '—' })}</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.new_30d', 'New (30d): {{count}}', { count: Number(kpis?.tenants_new_last_30d ?? 0) })}</div>
           </CardContent>
         </Card>
         <Card>
@@ -363,7 +363,7 @@ export default function SuperAdminSchoolsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{kpis ? (kpis.tenants_by_status.active || 0) : '—'}</div>
-            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.suspended', 'Suspended: {{count}}', { count: kpis ? (kpis.tenants_by_status.suspended || 0) : '—' })}</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.suspended', 'Suspended: {{count}}', { count: Number(kpis?.tenants_by_status?.suspended ?? 0) })}</div>
           </CardContent>
         </Card>
         <Card>
@@ -372,7 +372,7 @@ export default function SuperAdminSchoolsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{kpis ? kpis.invoice_total.toFixed(2) : '—'}</div>
-            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.invoices_count', 'Invoices: {{count}}', { count: kpis ? kpis.invoices_count : '—' })}</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.schools.kpis.invoices_count', 'Invoices: {{count}}', { count: Number(kpis?.invoices_count ?? 0) })}</div>
           </CardContent>
         </Card>
         <Card>

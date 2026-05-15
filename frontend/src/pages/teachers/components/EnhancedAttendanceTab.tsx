@@ -85,7 +85,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
       try {
         setIsClassesLoading(true);
         const response = await classService.getClassesByTeacher(teacherId);
-        setClasses(response.classes.map(cls => ({
+        setClasses(response.data.map(cls => ({
           id: cls.id,
           name: `${cls.name} - Grade ${cls.grade_level}${cls.section ? cls.section : ''}`
         })));
@@ -97,7 +97,6 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
         toast({
           title: "Error",
           description: "Failed to load classes. Please try again.",
-          id: ''
         });
       }
     };
@@ -208,7 +207,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
         if (attendanceData?.attendance) {
           const headers = "Date,Status,Note\n";
           const rows = attendanceData.attendance.map(record => 
-            `${record.date},${record.status},${record.note || ''}`
+            `${record.date},${record.status},${record.notes || (record as any).note || ''}`
           ).join('\n');
           
           const csvContent = headers + rows;
@@ -223,14 +222,12 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
           
           toast({
             title: "Export Successful",
-            description: "Attendance data has been exported to CSV",
-            id: ''
+            description: "Attendance data has been exported to CSV"
           });
         } else {
           toast({
             title: "Export Failed",
-            description: "No attendance data available to export",
-            id: ''
+            description: "No attendance data available to export"
           });
         }
         break;
@@ -239,8 +236,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
         window.print();
         toast({
           title: "Print Initiated",
-          description: "Preparing attendance report for printing",
-          id: ''
+          description: "Preparing attendance report for printing"
         });
         break;
       case 'share':
@@ -248,8 +244,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
         navigator.clipboard.writeText(window.location.href);
         toast({
           title: "Link Copied",
-          description: "Attendance page URL copied to clipboard",
-          id: ''
+          description: "Attendance page URL copied to clipboard"
         });
         break;
       default:

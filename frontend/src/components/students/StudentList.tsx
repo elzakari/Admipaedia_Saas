@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, Pencil, Trash2, MoreHorizontal, Clock, Mail, Phone, GraduationCap, CheckCircle, AlertCircle, XCircle, Printer } from "lucide-react";
+import { Eye, Pencil, Trash2, MoreHorizontal, Clock, Mail, Phone, GraduationCap, CheckCircle, AlertCircle, XCircle, Printer, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
@@ -66,7 +66,18 @@ const StudentList: React.FC<StudentListProps> = ({
           </tr>
         </thead>
         <tbody>
-          {students.map((student) => (
+          {students.length === 0 ? (
+            <tr>
+              <td colSpan={hasSelectionFeature ? 8 : 7} className="p-8 text-center text-slate-500">
+                <div className="flex flex-col items-center justify-center space-y-3">
+                  <Users className="h-12 w-12 text-slate-300" />
+                  <p className="text-lg font-medium">No students found</p>
+                  <p className="text-sm">There are no students matching your current criteria.</p>
+                </div>
+              </td>
+            </tr>
+          ) : (
+            students.map((student) => (
             <tr
               key={student.id}
               className={`border-b hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
@@ -245,7 +256,7 @@ const StudentList: React.FC<StudentListProps> = ({
                 </div>
               </td>
             </tr>
-          ))}
+          )))}
         </tbody>
       </table>
     </div>

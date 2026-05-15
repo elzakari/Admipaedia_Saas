@@ -7,25 +7,27 @@ import StudentDetailPage from '../pages/StudentDetailPage';
 import { AuthProvider } from '../../../contexts/AuthContext';
 
 // Mock API calls
-jest.mock('../../../services/studentService', () => ({
-  getStudents: jest.fn().mockResolvedValue({
+vi.mock('../../../services/studentService', () => ({
+  default: {
+    getStudents: vi.fn().mockResolvedValue({
     students: [
       { id: 1, name: 'John Doe', admission_number: 'ADM001', class_id: 1 },
       { id: 2, name: 'Jane Smith', admission_number: 'ADM002', class_id: 1 }
     ],
     pagination: { total: 2, pages: 1 }
-  }),
-  getStudentById: jest.fn().mockImplementation((id) => {
-    return Promise.resolve({
-      id,
-      name: id === 1 ? 'John Doe' : 'Jane Smith',
-      admission_number: id === 1 ? 'ADM001' : 'ADM002',
-      email: id === 1 ? 'john@example.com' : 'jane@example.com',
-      date_of_birth: '2005-01-01',
-      gender: id === 1 ? 'male' : 'female',
-      class_id: 1
-    });
-  })
+    }),
+    getStudentById: vi.fn().mockImplementation((id) => {
+      return Promise.resolve({
+        id,
+        name: id === 1 ? 'John Doe' : 'Jane Smith',
+        admission_number: id === 1 ? 'ADM001' : 'ADM002',
+        email: id === 1 ? 'john@example.com' : 'jane@example.com',
+        date_of_birth: '2005-01-01',
+        gender: id === 1 ? 'male' : 'female',
+        class_id: 1
+      });
+    })
+  }
 }));
 
 const queryClient = new QueryClient({

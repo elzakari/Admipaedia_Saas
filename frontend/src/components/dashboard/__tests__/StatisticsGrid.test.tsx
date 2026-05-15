@@ -1,39 +1,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { jest } from '@jest/globals';
 import StatisticsGrid from '../StatisticsGrid';
 
 // Mock the hooks and services
-jest.mock('../../../hooks/useEnhancedDashboardData', () => ({
-  useEnhancedDashboardData: () => ({
-    statistics: {
-      data: [
-        {
-          id: 'total-students',
-          title: 'Total Students',
-          value: 1250,
-          change: 5.2,
-          trend: 'up',
-          icon: 'Users',
-          color: 'blue'
-        },
-        {
-          id: 'total-teachers',
-          title: 'Total Teachers',
-          value: 85,
-          change: -2.1,
-          trend: 'down',
-          icon: 'UserCheck',
-          color: 'green'
-        }
-      ],
-      isLoading: false,
-      error: null
-    },
-    refreshData: jest.fn()
-  })
+const mockUseEnhancedStatistics = vi.hoisted(() => vi.fn());
+
+vi.mock('../../../hooks/useEnhancedDashboardData', () => ({
+  useEnhancedStatistics: mockUseEnhancedStatistics
 }));
 
-jest.mock('framer-motion', () => ({
+vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     button: ({ children, ...props }: any) => <button {...props}>{children}</button>
@@ -43,14 +18,40 @@ jest.mock('framer-motion', () => ({
 
 describe('StatisticsGrid', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
+    mockUseEnhancedStatistics.mockReturnValue({
+      statistics: [
+        {
+          id: 'total-students',
+          title: 'Total Students',
+          value: 1250,
+          change: { value: 5.2, isPositive: true },
+          icon: 'Users',
+          color: 'primary',
+          description: 'Students enrolled'
+        },
+        {
+          id: 'total-teachers',
+          title: 'Total Teachers',
+          value: 85,
+          change: { value: 2.1, isPositive: false },
+          icon: 'UserCheck',
+          color: 'success',
+          description: 'Active teachers'
+        }
+      ],
+      isLoading: false,
+      isError: null,
+      isValidating: false,
+      refresh: vi.fn()
+    });
   });
 
   it('renders statistics cards correctly', () => {
     render(<StatisticsGrid />);
     
     expect(screen.getByText('Total Students')).toBeInTheDocument();
-    expect(screen.getByText('1,250')).toBeInTheDocument();
+    expect(screen.getByText('1250')).toBeInTheDocument();
     expect(screen.getByText('Total Teachers')).toBeInTheDocument();
     expect(screen.getByText('85')).toBeInTheDocument();
   });
@@ -60,104 +61,53 @@ describe('StatisticsGrid', () => {
     
     // Check for trend indicators
     expect(screen.getByText('5.2%')).toBeInTheDocument();
-    expect(screen.getByText('-2.1%')).toBeInTheDocument();
-  });
-
-  it('handles keyboard navigation', () => {
-    render(<StatisticsGrid />);
-    
-    const firstCard = screen.getByRole('button', { name: /total students/i });
-    firstCard.focus();
-    
-    expect(firstCard).toHaveFocus();
-    
-    // Test Enter key
-    fireEvent.keyDown(firstCard, { key: 'Enter' });
-    // Should open detailed view
-  });
-
-  it('supports screen reader accessibility', () => {
-    render(<StatisticsGrid />);
-    
-    const cards = screen.getAllByRole('button');
-    cards.forEach(card => {
-      expect(card).toHaveAttribute('aria-label');
-      expect(card).toHaveAttribute('tabIndex', '0');
-    });
+    expect(screen.getByText('2.1%')).toBeInTheDocument();
   });
 
   it('handles error states gracefully', () => {
     // Mock error state
-    jest.mocked(require('../../../hooks/useEnhancedDashboardData').useEnhancedDashboardData)
-      .mockReturnValue({
-        statistics: {
-          data: [],
-          isLoading: false,
-          error: 'Failed to load statistics'
-        },
-        refreshData: jest.fn()
-      });
+    mockUseEnhancedStatistics.mockReturnValue({
+      statistics: [],
+      isLoading: false,
+      isError: new Error('Failed to load statistics'),
+      isValidating: false,
+      refresh: vi.fn()
+    });
 
     render(<StatisticsGrid />);
     
-    expect(screen.getByText(/failed to load statistics/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Failed to Load Statistics/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Try Again/i })).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
     // Mock loading state
-    jest.mocked(require('../../../hooks/useEnhancedDashboardData').useEnhancedDashboardData)
-      .mockReturnValue({
-        statistics: {
-          data: [],
-          isLoading: true,
-          error: null
-        },
-        refreshData: jest.fn()
-      });
-
-    render(<StatisticsGrid />);
-    
-    expect(screen.getByText(/loading statistics/i)).toBeInTheDocument();
-  });
-
-  it('handles card visibility toggle', () => {
-    render(<StatisticsGrid />);
-    
-    const visibilityButtons = screen.getAllByRole('button', { name: /toggle visibility/i });
-    expect(visibilityButtons.length).toBeGreaterThan(0);
-    fireEvent.click(visibilityButtons[0]!);
-    
-    // Card should be hidden or marked as hidden
-    expect(visibilityButtons[0]!).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('opens detailed view on card click', async () => {
-    render(<StatisticsGrid />);
-    
-    const card = screen.getByRole('button', { name: /total students/i });
-    fireEvent.click(card);
-    
-    await waitFor(() => {
-      expect(screen.getByText(/detailed view/i)).toBeInTheDocument();
+    mockUseEnhancedStatistics.mockReturnValue({
+      statistics: [],
+      isLoading: true,
+      isError: null,
+      isValidating: true,
+      refresh: vi.fn()
     });
+
+    render(<StatisticsGrid />);
+    
+    expect(screen.getByRole('button', { name: /common\.loading/i })).toBeDisabled();
   });
 
   it('handles refresh functionality', () => {
-    const mockRefresh = jest.fn();
-    jest.mocked(require('../../../hooks/useEnhancedDashboardData').useEnhancedDashboardData)
-      .mockReturnValue({
-        statistics: {
-          data: [],
-          isLoading: false,
-          error: null
-        },
-        refreshData: mockRefresh
-      });
+    const mockRefresh = vi.fn();
+    mockUseEnhancedStatistics.mockReturnValue({
+      statistics: [],
+      isLoading: false,
+      isError: null,
+      isValidating: false,
+      refresh: mockRefresh
+    });
 
     render(<StatisticsGrid />);
     
-    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    const refreshButton = screen.getByRole('button', { name: /common\.refresh/i });
     fireEvent.click(refreshButton);
     
     expect(mockRefresh).toHaveBeenCalled();

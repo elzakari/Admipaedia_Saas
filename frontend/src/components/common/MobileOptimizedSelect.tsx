@@ -17,6 +17,7 @@ interface MobileOptimizedSelectProps {
   options: SelectOption[];
   value?: string;
   onChange?: (value: string) => void;
+  leftIcon?: React.ReactNode;
   error?: string;
   helperText?: string;
   disabled?: boolean;
@@ -28,6 +29,8 @@ interface MobileOptimizedSelectProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   onClear?: () => void;
+  id?: string;
+  name?: string;
 }
 
 const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
@@ -36,6 +39,7 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
   options,
   value,
   onChange,
+  leftIcon,
   error,
   helperText,
   disabled = false,
@@ -46,7 +50,9 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
   variant = 'default',
   size = 'md',
   className,
-  onClear
+  onClear,
+  id,
+  name
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +63,7 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
   const isMobile = useMediaQuery('(max-width: 768px)');
   
   const selectedOption = options.find(option => option.value === value);
+  const inputId = id || name || (label ? `select-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
   
   // Get design system classes
   const formClasses = getFormClasses();
@@ -131,14 +138,17 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
   return (
     <div className={cn('ds-form-field', formClasses.field)} ref={selectRef}>
       {label && (
-        <label className={cn(
-          'ds-form-label',
-          formClasses.label,
-          'mb-2 transition-colors',
-          error ? 'text-error-600' : 'text-foreground-secondary',
-          isFocused && !error && 'text-primary-600',
-          required && 'ds-form-label-required'
-        )}>
+        <label 
+          htmlFor={inputId}
+          className={cn(
+            'ds-form-label',
+            formClasses.label,
+            'mb-2 transition-colors',
+            error ? 'text-error-600' : 'text-foreground-secondary',
+            isFocused && !error && 'text-primary-600',
+            required && 'ds-form-label-required'
+          )}
+        >
           {label}
           {required && <span className="text-error-500 ml-1">*</span>}
         </label>
@@ -146,9 +156,12 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
       
       <div className="relative">
         <button
+          id={inputId}
           type="button"
           onClick={handleToggle}
           disabled={disabled || loading}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
           className={cn(
             'ds-select',
             error ? 'ds-select-error' : formClasses.select,
@@ -163,12 +176,19 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
             className
           )}
         >
-          <span className={cn(
-            'truncate font-medium',
-            !selectedOption && 'text-slate-400 dark:text-slate-500'
-          )}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
+          <div className="flex items-center min-w-0 flex-1">
+            {leftIcon && (
+              <span className="mr-2 flex-shrink-0 text-foreground-secondary">
+                {leftIcon}
+              </span>
+            )}
+            <span className={cn(
+              'truncate font-medium',
+              !selectedOption && 'text-slate-400 dark:text-slate-500'
+            )}>
+              {selectedOption ? selectedOption.label : placeholder}
+            </span>
+          </div>
           
           <div className="flex items-center space-x-1 ml-2">
             {loading && (
@@ -221,7 +241,7 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
               </div>
             )}
             
-            <div className="py-1">
+            <div className="py-1" role="listbox">
               {Object.entries(groupedOptions).map(([groupName, groupOptions]) => (
                 <div key={groupName}>
                   {groupName !== 'default' && (
@@ -234,6 +254,8 @@ const MobileOptimizedSelect: React.FC<MobileOptimizedSelectProps> = ({
                     <button
                       key={option.value}
                       type="button"
+                      role="option"
+                      aria-selected={selectedOption?.value === option.value}
                       onClick={() => handleSelect(option.value)}
                       disabled={option.disabled}
                       className={cn(

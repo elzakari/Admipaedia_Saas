@@ -242,7 +242,8 @@ export const RealTimeChatComponent: React.FC<RealTimeChatProps> = ({
   // Render message component
   const renderMessage = (msg: ChatMessage, index: number) => {
     const isOwnMessage = msg.sender_id === user?.id;
-    const showAvatar = index === 0 || messagesData?.messages[index - 1]?.sender_id !== msg.sender_id;
+    const list = ((messagesData as any)?.messages || (messagesData as any)?.data || []) as ChatMessage[];
+    const showAvatar = index === 0 || list[index - 1]?.sender_id !== msg.sender_id;
 
     return (
       <motion.div
@@ -382,7 +383,7 @@ export const RealTimeChatComponent: React.FC<RealTimeChatProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {messagesData?.messages?.map((msg, index) => renderMessage(msg, index))}
+              {(((messagesData as any)?.messages || (messagesData as any)?.data || []) as ChatMessage[])?.map((msg, index) => renderMessage(msg, index))}
               
               {/* Typing indicators */}
               {typingUsers.length > 0 && (

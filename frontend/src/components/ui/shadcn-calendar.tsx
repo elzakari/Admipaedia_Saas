@@ -51,7 +51,7 @@ export function ShadcnCalendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
+      } as any}
       components={{
         // Replace IconLeft and IconRight with Chevron
         Chevron: ({ orientation, ...props }) => {

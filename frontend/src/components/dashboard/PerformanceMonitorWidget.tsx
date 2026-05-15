@@ -166,7 +166,7 @@ const PerformanceMonitorWidget: React.FC = () => {
                           "flex items-center gap-1.5 px-2 py-0.5 rounded-full border",
                           theme === 'light' ? 'bg-white border-slate-200' : 'bg-white/5 border-white/10'
                         )}>
-                            {theme === 'dark' || theme === 'casaos' ? <Moon className={cn("w-2.5 h-2.5", theme === 'light' ? 'text-indigo-600' : 'text-indigo-300')} /> : <Sun className={cn("w-2.5 h-2.5", theme === 'light' ? 'text-amber-600' : 'text-amber-300')} />}
+                            {theme === 'dark' || theme === 'casaos' ? <Moon className={cn("w-2.5 h-2.5", 'text-indigo-300')} /> : <Sun className={cn("w-2.5 h-2.5", theme === 'light' ? 'text-amber-600' : 'text-amber-300')} />}
                             <span className={cn("text-[9px] font-black uppercase", theme === 'light' ? 'text-slate-800' : 'text-slate-200')}>
                               {theme}
                             </span>

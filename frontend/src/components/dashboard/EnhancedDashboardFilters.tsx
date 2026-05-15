@@ -195,7 +195,6 @@ const EnhancedDashboardFilters: React.FC<EnhancedDashboardFiltersProps> = ({
                   mode="single"
                   selected={value ? new Date(value) : undefined}
                   onSelect={(date: Date | undefined) => handleFilterChange(filter.id, date?.toISOString())}
-                  initialFocus
                 />
               </PopoverContent>
             </Popover>

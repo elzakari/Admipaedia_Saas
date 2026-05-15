@@ -117,7 +117,7 @@ const SchoolSettings = () => {
   });
 
   useEffect(() => {
-    if (currentSettings) setSettings(currentSettings)
+    if (currentSettings) setSettings(currentSettings as any)
   }, [currentSettings])
 
   // Update settings mutation

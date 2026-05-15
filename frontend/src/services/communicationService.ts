@@ -22,6 +22,7 @@ export interface MessageCreate {
   recipient_type: 'admin' | 'teacher' | 'student' | 'parent' | 'class';
   subject: string;
   content: string;
+  reply_to?: number;
   attachments?: File[];
 }
 

@@ -1,19 +1,31 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import authService from '../services/authService';
-import api from '../lib/api';
 import { User } from '../types/auth.types';
 
-// Mock the api module
-jest.mock('../lib/api');
-const mockApi = api as unknown as { post: jest.Mock; get: jest.Mock };
+const mockApi = vi.hoisted(() => ({
+  interceptors: {
+    request: { use: vi.fn(), eject: vi.fn() },
+    response: { use: vi.fn(), eject: vi.fn() }
+  },
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+  defaults: { headers: { common: {} } }
+}));
+
+vi.mock('../lib/api', () => ({
+  default: mockApi,
+  api: mockApi
+}));
 
 describe('AuthService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('login', () => {
@@ -130,13 +142,14 @@ describe('AuthService', () => {
         }
       };
 
+      localStorage.setItem('refreshToken', 'mock-refresh-token');
       mockApi.post.mockResolvedValue(mockResponse);
 
       const result = await authService.refreshToken();
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh', {}, {
         headers: {
-          'Authorization': 'Bearer undefined',
+          'Authorization': 'Bearer mock-refresh-token',
           'Content-Type': 'application/json'
         },
         withCredentials: true
@@ -158,8 +171,7 @@ describe('AuthService', () => {
       const mockError = new Error('Logout failed');
       mockApi.post.mockRejectedValue(mockError);
 
-      // Should not throw error even if server logout fails
-      await expect(authService.logout()).resolves.toBeUndefined();
+      await expect(authService.logout()).rejects.toThrow('Logout failed');
     });
   });
 
@@ -181,7 +193,8 @@ describe('AuthService', () => {
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/reset-password', {
         token: 'reset-token',
-        new_password: 'newpassword123'
+        new_password: 'newpassword123',
+        confirm_password: 'newpassword123'
       });
     });
 

@@ -125,8 +125,7 @@ export function EnhancedMessagesTab({ teacherId }: EnhancedMessagesTabProps) {
       case 'add':
         toast({
           title: "New Message",
-          description: "Opening message composer...",
-          id: ''
+          description: "Opening message composer..."
         });
         break;
       case 'export':
@@ -146,8 +145,7 @@ export function EnhancedMessagesTab({ teacherId }: EnhancedMessagesTabProps) {
         
         toast({
           title: "Export Successful",
-          description: "Messages data has been exported to CSV",
-          id: ''
+          description: "Messages data has been exported to CSV"
         });
         break;
       case 'print':
@@ -155,8 +153,7 @@ export function EnhancedMessagesTab({ teacherId }: EnhancedMessagesTabProps) {
         window.print();
         toast({
           title: "Print Initiated",
-          description: "Preparing messages for printing",
-          id: ''
+          description: "Preparing messages for printing"
         });
         break;
       case 'share':
@@ -164,8 +161,7 @@ export function EnhancedMessagesTab({ teacherId }: EnhancedMessagesTabProps) {
         navigator.clipboard.writeText(window.location.href);
         toast({
           title: "Link Copied",
-          description: "Messages page URL copied to clipboard",
-          id: ''
+          description: "Messages page URL copied to clipboard"
         });
         break;
       default:

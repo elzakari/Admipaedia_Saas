@@ -1,7 +1,8 @@
 // Create or update MessageTeacher.tsx
-import { useState, useEffect, SetStateAction } from 'react';
+import { useState, useEffect } from 'react';
 import { useWebSocket } from '../../services/websocketService';
 import parentService from '../../services/parentService';
+import type { MessageData, TeacherInfo } from '../../services/parentService';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
@@ -15,43 +16,39 @@ interface MessageTeacherProps {
   onClose: () => void;
 }
 
-interface Message {
-  id: number;
-  sender_id: number;
-  recipient_id: number;
-  subject: string;
-  content: string;
-  created_at: string;
-  read: boolean;
-}
-
 const MessageTeacher = ({ currentChild, currentAcademicData, onClose }: MessageTeacherProps) => {
   const [message, setMessage] = useState('');
   const [subject, setSubject] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
-  const [recentMessages, setRecentMessages] = useState<Message[]>([]);
+  const [recentMessages, setRecentMessages] = useState<MessageData[]>([]);
   const { toast } = useToast();
   
   // Connect to WebSocket for real-time messaging
-  const { sendMessage, isConnected, subscribe } = useWebSocket('/messages', (data) => {
-    // Handle incoming messages
-    if (data.type === 'new_message') {
-      handleNewMessage(data.data);
-    }
-  });
+  const { sendMessage, isConnected, subscribe } = useWebSocket('/messages');
   
   // Handle new incoming message
-  const handleNewMessage = (messageData: Message) => {
+  const handleNewMessage = (messageData: any) => {
+    const senderId = Number(messageData?.sender_id ?? messageData?.senderId ?? messageData?.sender?.id ?? 0);
+    const normalized: MessageData = {
+      id: Number(messageData?.id ?? Date.now()),
+      subject: String(messageData?.subject ?? ''),
+      message: String(messageData?.content ?? messageData?.message ?? ''),
+      sender: String(messageData?.sender ?? ''),
+      recipient: String(messageData?.recipient ?? ''),
+      date: String(messageData?.created_at ?? messageData?.date ?? new Date().toISOString()),
+      read: Boolean(messageData?.read ?? messageData?.is_read ?? false),
+    };
+
     // Only add to recent messages if it's from the selected teacher
-    if (messageData.sender_id === selectedTeacher) {
-      setRecentMessages(prev => [messageData, ...prev]);
+    if (senderId && senderId === selectedTeacher) {
+      setRecentMessages(prev => [normalized, ...prev]);
       
       // Show toast notification
       toast({
         title: 'New message received',
-        description: `${messageData.subject}`,
+        description: `${normalized.subject}`,
         variant: 'default',
         id: ''
       });
@@ -64,8 +61,8 @@ const MessageTeacher = ({ currentChild, currentAcademicData, onClose }: MessageT
     if (currentChild?.class_id) {
       setIsLoading(true);
       parentService.getTeachersForClass(currentChild.class_id)
-        .then((data: { teachers: SetStateAction<any[]>; }) => {
-          setTeachers(data.teachers);
+        .then((data) => {
+          setTeachers(data);
           setIsLoading(false);
         })
         .catch((err: any) => {
@@ -80,8 +77,8 @@ const MessageTeacher = ({ currentChild, currentAcademicData, onClose }: MessageT
     if (selectedTeacher && currentChild?.parent_id) {
       setIsLoading(true);
       parentService.getRecentMessages(currentChild.parent_id, selectedTeacher)
-        .then((data: { messages: SetStateAction<Message[]>; }) => {
-          setRecentMessages(data.messages);
+        .then((data) => {
+          setRecentMessages(data);
           setIsLoading(false);
         })
         .catch((err: any) => {
@@ -120,9 +117,7 @@ const MessageTeacher = ({ currentChild, currentAcademicData, onClose }: MessageT
       });
       
       // Add the sent message to the recent messages list
-      if (response.message) {
-        setRecentMessages(prev => [response.message, ...prev]);
-      }
+      setRecentMessages(prev => [response, ...prev]);
       
       // Clear form
       setMessage('');

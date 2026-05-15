@@ -65,15 +65,11 @@ export function TeacherDashboardAnalytics({
     isLoading,
     error,
     refetch
-  } = useQuery({
+  } = useQuery<TeacherAnalytics>({
     queryKey: ['teacherAnalytics', teacherId, selectedClass, selectedPeriod],
     queryFn: () => analyticsService.getTeacherAnalytics(teacherId),
     enabled: !!teacherId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    onError: (error: any) => {
-      console.error('Failed to fetch teacher analytics:', error);
-      toast.error('Failed to load analytics data');
-    }
+    staleTime: 5 * 60 * 1000
   });
 
   // Transform data for charts

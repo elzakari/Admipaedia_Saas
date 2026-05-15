@@ -101,7 +101,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
       phone: teacher.phone || '',
       address: teacher.address || '',
       dateOfBirth: teacher.dateOfBirth || '',
-      gender: teacher.gender || 'male',
+      gender: (teacher as any).gender || 'male',
       nationality: (teacher as any).nationality || '',
       bloodGroup: (teacher as any).bloodGroup || '',
       qualification: teacher.qualification || '',

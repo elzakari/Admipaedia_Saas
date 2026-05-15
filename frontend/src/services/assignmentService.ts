@@ -11,6 +11,7 @@ export interface Assignment {
   teacher_id: number;
   due_date: string;
   total_marks: number;
+  total_points?: number;
   assignment_type: 'homework' | 'project' | 'quiz' | 'exam';
   status: 'draft' | 'published' | 'closed';
   instructions?: string;
@@ -51,6 +52,8 @@ export interface Submission {
   feedback?: string;
   status: 'submitted' | 'graded' | 'late';
 }
+
+export type AssignmentSubmission = Submission;
 
 export interface SubmissionCreate {
   content: string;
@@ -135,6 +138,26 @@ const assignmentService = {
       return ApiResponseStandardizer.standardizeSingleResponse<void>(response);
     } catch (error) {
       console.error(`Error deleting assignment ${id}:`, error);
+      ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getSubmissions: async (assignmentId: number): Promise<AssignmentSubmission[]> => {
+    try {
+      const response = await api.get(`/assignments/${assignmentId}/submissions`);
+      return (response.data?.data || response.data?.submissions || response.data || []) as AssignmentSubmission[];
+    } catch (error) {
+      console.error(`Error fetching submissions for assignment ${assignmentId}:`, error);
+      ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  gradeSubmission: async (submissionId: number, data: SubmissionGrade): Promise<StandardApiResponse<AssignmentSubmission>> => {
+    try {
+      const response = await api.post(`/assignments/submissions/${submissionId}/grade`, data);
+      return ApiResponseStandardizer.standardizeSingleResponse<AssignmentSubmission>(response, 'submission');
+    } catch (error) {
+      console.error(`Error grading submission ${submissionId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
     }
   },

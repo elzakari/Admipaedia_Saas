@@ -19,13 +19,13 @@ export interface ReportFilter {
   // Add missing properties
   reportType?: 'grades' | 'progress' | 'transcripts' | 'class-performance';
   dateRange?: {
-    start: string;
-    end: string;
+    start?: string;
+    end?: string;
     from?: string;
     to?: string;
   };
-  classFilter?: number | number[];
-  subjectFilter?: number[];
+  classFilter?: number | number[] | string;
+  subjectFilter?: number[] | string;
 }
 
 // Base report data interface
@@ -35,6 +35,7 @@ export interface ReportData {
   type: string;
   generatedAt: string;
   data: Record<string, unknown>;
+  report_data?: unknown;
   metadata?: {
     totalRecords: number;
     filters: ReportFilter;
@@ -208,6 +209,7 @@ class ReportsService {
   // Generate Academic Reports
   async generateAcademicReport(filters: ReportFilter): Promise<ReportData> {
     try {
+      const reportType = filters.reportType || 'grades';
       const dateFrom = filters.dateRange?.from || (filters.dateRange as any)?.start;
       const dateTo = filters.dateRange?.to || (filters.dateRange as any)?.end;
       const classId = Array.isArray(filters.classFilter) ? filters.classFilter[0] : filters.classFilter;
@@ -275,7 +277,7 @@ class ReportsService {
       const dateTo = filters.dateRange?.to || filters.dateRange?.end;
 
       const response = await analyticsService.getAdvancedAttendanceAnalytics(
-        classId,
+        classId && classId !== 'all' ? Number(classId) : undefined,
         dateFrom,
         dateTo
       );

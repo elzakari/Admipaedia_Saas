@@ -159,11 +159,11 @@ export default function SchoolPortalDashboardPage() {
                       ))}
                     </div>
                     {needsUpgrade ? (
-                      <Button asChild className="w-full">
+                      <Button className="w-full">
                         <Link to="/app/billing/invoices">View billing & upgrade</Link>
                       </Button>
                     ) : (
-                      <Button asChild variant="outline" className="w-full">
+                      <Button variant="outline" className="w-full">
                         <Link to="/app/billing/invoices">View billing</Link>
                       </Button>
                     )}
@@ -208,13 +208,13 @@ export default function SchoolPortalDashboardPage() {
               <CardTitle className="text-base">Quick actions</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3">
-              <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Link to="/app/team">
                   <UserPlus className="h-4 w-4" />
                   Invite team member
                 </Link>
               </Button>
-              <Button asChild className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto">
                 <Link to="/app/billing/invoices">
                   <Receipt className="h-4 w-4" />
                   Create invoice

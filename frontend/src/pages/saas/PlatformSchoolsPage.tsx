@@ -137,7 +137,7 @@ export default function PlatformSchoolsPage() {
               <Building2 className="h-5 w-5" />
               Schools
             </CardTitle>
-            <Button variant="outline" className="bg-white" onClick={load} disabled={loading}>
+            <Button variant="outline" className="bg-white" onClick={() => load()} disabled={loading}>
               <RefreshCcw className="h-4 w-4 mr-2" />
               Refresh
             </Button>

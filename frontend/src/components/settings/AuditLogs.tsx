@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -107,7 +107,8 @@ const AuditLogs = () => {
       page: currentPage,
       pageSize,
       ...filters
-    })
+    }),
+    placeholderData: keepPreviousData
   });
 
   const auditLogs: AuditLog[] = (auditResp as any)?.data ?? [];
@@ -170,7 +171,9 @@ const AuditLogs = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      const result = await refetch();
+      const err = (result as any)?.error as any;
+      if (err) throw err;
       toast({ title: "Logs Refreshed", description: "Audit logs have been refreshed successfully.", variant: "default" });
     } catch (error: any) {
       toast({ title: "Refresh Failed", description: error.message || "Failed to refresh audit logs", variant: "destructive" });
@@ -374,7 +377,7 @@ const AuditLogs = () => {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select value={filters.category} onValueChange={(value) => handleFilterChange('category', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="category">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -389,7 +392,7 @@ const AuditLogs = () => {
               <div className="space-y-2">
                 <Label htmlFor="severity">Severity</Label>
                 <Select value={filters.severity} onValueChange={(value) => handleFilterChange('severity', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="severity">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -405,7 +408,7 @@ const AuditLogs = () => {
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -420,7 +423,7 @@ const AuditLogs = () => {
               <div className="space-y-2">
                 <Label htmlFor="userRole">User Role</Label>
                 <Select value={filters.userRole} onValueChange={(value) => handleFilterChange('userRole', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger id="userRole">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

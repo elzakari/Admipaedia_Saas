@@ -63,7 +63,7 @@ const SettingsPage = () => {
         { id: 'notifications', name: 'Notifications', icon: 'bell' },
         { id: 'theme', name: 'Theme', icon: 'palette' },
         { id: 'privacy', name: 'Privacy', icon: 'shield' }
-      ] as const;
+      ];
     }
 
     if (user?.role === 'student') {
@@ -73,7 +73,7 @@ const SettingsPage = () => {
         { id: 'theme', name: 'Theme', icon: 'palette' },
         { id: 'privacy', name: 'Privacy', icon: 'shield' },
         { id: 'security', name: 'Security', icon: 'lock' }
-      ] as const;
+      ];
     }
 
     if (user?.role === 'teacher') {
@@ -83,7 +83,7 @@ const SettingsPage = () => {
         { id: 'theme', name: 'Theme', icon: 'palette' },
         { id: 'privacy', name: 'Privacy', icon: 'shield' },
         { id: 'security', name: 'Security', icon: 'lock' }
-      ] as const;
+      ];
     }
 
     return [
@@ -98,7 +98,7 @@ const SettingsPage = () => {
       { id: 'backup', name: 'Backup & Restore', icon: 'database' },
       { id: 'theme', name: 'Theme', icon: 'palette' },
       { id: 'audit', name: 'Audit Logs', icon: 'file' }
-    ] as const;
+    ];
   }, [user?.role]);
 
   const onTabChange = (nextTab: string) => {

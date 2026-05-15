@@ -550,7 +550,11 @@ const AcademicConfiguration = () => {
                           <TableCell className="text-right">
                             {editingGrade === grade.id ? (
                               <div className="flex gap-1">
-                                <Button size="sm" onClick={handleGradeSave}>
+                                <Button 
+                                  size="sm" 
+                                  onClick={handleGradeSave}
+                                  data-testid={`save-grade-${grade.id}`}
+                                >
                                   <CheckCircle className="h-3 w-3" />
                                 </Button>
                                 <Button size="sm" variant="outline" onClick={handleGradeCancel}>
@@ -558,7 +562,12 @@ const AcademicConfiguration = () => {
                                 </Button>
                               </div>
                             ) : (
-                              <Button size="sm" variant="ghost" onClick={() => handleGradeEdit(grade.id)}>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => handleGradeEdit(grade.id)}
+                                data-testid={`edit-grade-${grade.id}`}
+                              >
                                 <Edit className="h-3 w-3" />
                               </Button>
                             )}

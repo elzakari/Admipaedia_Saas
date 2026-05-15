@@ -132,11 +132,12 @@ export function MessagesPage() {
         page: 1,
         per_page: 100
       }).then(data => {
+        const list: Message[] = (data as any).messages || (data as any).data || [];
         // Filter messages for the selected conversation on the client side
-        const filteredMessages = data.messages?.filter(message => {
+        const filteredMessages = list.filter(message => {
           const participantId = filter === 'sent' ? message.recipient_id : message.sender_id;
           return participantId === selectedConversation.participant_id;
-        }) || [];
+        });
         return filteredMessages;
       });
     },
@@ -177,7 +178,7 @@ export function MessagesPage() {
       return acc;
     }, {} as Record<number, any>);
     
-    return Object.values(grouped).map(group => ({
+    return Object.values(grouped).map((group: any) => ({
       ...group,
       last_message: group.messages[group.messages.length - 1]
     })) as ConversationGroup[];

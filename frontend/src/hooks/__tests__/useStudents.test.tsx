@@ -3,10 +3,18 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { useStudents } from '../useStudents';
-import * as studentService from '../../services/studentService';
+import studentService from '../../services/studentService';
 
-jest.mock('../../services/studentService');
-const mockStudentService = studentService as jest.Mocked<typeof studentService>;
+jest.mock('../../services/studentService', () => ({
+  __esModule: true,
+  default: {
+    getStudents: jest.fn(),
+  },
+}));
+
+const mockStudentService = studentService as unknown as {
+  getStudents: jest.Mock;
+};
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -27,11 +35,11 @@ describe('useStudents Hook', () => {
 
   it('fetches students successfully', async () => {
     const mockStudents = {
-      students: [
+      data: [
         { id: '1', name: 'John Doe', email: 'john@example.com' },
         { id: '2', name: 'Jane Smith', email: 'jane@example.com' }
       ],
-      pagination: { total: 2, page: 1, pages: 1 }
+      pagination: { total: 2, current_page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false }
     };
 
     mockStudentService.getStudents.mockResolvedValue(mockStudents);
@@ -78,8 +86,8 @@ describe('useStudents Hook', () => {
 
   it('refetches data when refetch is called', async () => {
     const mockStudents = {
-      students: [{ id: '1', name: 'John Doe', email: 'john@example.com' }],
-      pagination: { total: 1, page: 1, pages: 1 }
+      data: [{ id: '1', name: 'John Doe', email: 'john@example.com' }],
+      pagination: { total: 1, current_page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false }
     };
 
     mockStudentService.getStudents.mockResolvedValue(mockStudents);

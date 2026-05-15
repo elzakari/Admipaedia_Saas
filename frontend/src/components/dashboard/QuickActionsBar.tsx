@@ -67,7 +67,7 @@ export default function QuickActionsBar({ onOpenCommandPalette }: QuickActionsBa
               >
                 <Icon className="h-4 w-4" />
                 {!isMobile && (
-                  <span className="text-sm font-medium">{t(action.labelKey || '', action.label)}</span>
+                  <span className="text-sm font-medium">{String(t(action.labelKey || '', action.label))}</span>
                 )}
                 {action.shortcut && !isMobile && (
                   <Badge variant="secondary" className="text-[10px] font-mono ml-1 opacity-70 border-0 bg-gray-100 dark:bg-white/5">
@@ -96,10 +96,10 @@ export default function QuickActionsBar({ onOpenCommandPalette }: QuickActionsBa
           </TooltipTrigger>
           <TooltipContent>
             <div className="text-center">
-              <p className="font-medium">{t(action.labelKey || '', action.label)}</p>
+              <p className="font-medium">{String(t(action.labelKey || '', action.label))}</p>
               {(action.descriptionKey || action.description) && (
                 <p className="text-xs text-gray-500 mt-1">
-                  {t(action.descriptionKey || '', action.description || '')}
+                  {String(t(action.descriptionKey || '', action.description || ''))}
                 </p>
               )}
               {action.shortcut && (
@@ -122,9 +122,9 @@ export default function QuickActionsBar({ onOpenCommandPalette }: QuickActionsBa
               <Command className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{t('dashboard.quick_actions.title')}</h3>
+              <h3 className="font-semibold text-gray-900">{String(t('dashboard.quick_actions.title'))}</h3>
               <p className="text-sm text-gray-500">
-                {t('dashboard.quick_actions.subtitle')}
+                {String(t('dashboard.quick_actions.subtitle'))}
               </p>
             </div>
           </div>

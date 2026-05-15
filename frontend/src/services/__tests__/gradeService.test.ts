@@ -1,43 +1,37 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock axios instance
-const mockAxiosInstance = {
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    },
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    defaults: { headers: { common: {} } }
-};
+const mockAxiosInstance = vi.hoisted(() => ({
+  interceptors: {
+    request: { use: vi.fn(), eject: vi.fn() },
+    response: { use: vi.fn(), eject: vi.fn() }
+  },
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+  defaults: { headers: { common: {} } }
+}));
 
-jest.mock('axios', () => ({
-    create: jest.fn(() => mockAxiosInstance),
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    }
+vi.mock('@/lib/api', () => ({
+  default: mockAxiosInstance,
+  api: mockAxiosInstance
 }));
 
 import api from '@/lib/api';
 import gradeService from '@/services/gradeService';
 import { queueDataForSync, STORES } from '@/utils/offline';
 
-// Mock offline utilities
-jest.mock('@/utils/offline');
-const mockQueueDataForSync = queueDataForSync as jest.MockedFunction<typeof queueDataForSync>;
+const mockQueueDataForSync = vi.hoisted(() => vi.fn());
+vi.mock('@/utils/offline', async () => {
+  const actual: any = await vi.importActual('@/utils/offline');
+  return { ...actual, queueDataForSync: mockQueueDataForSync };
+});
 
 describe('gradeService', () => {
     const originalOnLine = navigator.onLine;
 
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         Object.defineProperty(navigator, 'onLine', {
             configurable: true,
             value: true,

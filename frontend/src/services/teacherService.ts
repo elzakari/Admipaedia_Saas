@@ -45,6 +45,7 @@ export interface Teacher {
   dateOfBirth?: string;
   qualification?: string;
   departmentId?: string;
+  employeeId?: string;
   profileImage?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -310,6 +311,21 @@ const teacherService = {
     }
   },
 
+  markAttendance: async (teacherId: number, data: { date: string; status: 'present' | 'absent' | 'late'; note?: string }): Promise<TeacherAttendance> => {
+    try {
+      const response = await api.post(`/teachers/${teacherId}/attendance`, {
+        date: data.date,
+        status: data.status,
+        notes: data.note
+      });
+      const standardized = ApiResponseStandardizer.standardizeSingleResponse<TeacherAttendance>(response, 'attendance');
+      return standardized.data;
+    } catch (error) {
+      console.error(`Error marking attendance for teacher ${teacherId}:`, error);
+      ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
   getTeacherStats: async (teacherId: number): Promise<any> => {
     try {
       const response = await api.get(`/teachers/${teacherId}/stats`);
@@ -382,6 +398,26 @@ const teacherService = {
     } catch (error) {
       console.error(`Error removing subject assignment for teacher ${teacherId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getPendingGrades: async (teacherId: number): Promise<any[]> => {
+    try {
+      const response = await api.get(`/teachers/${teacherId}/pending-grades`);
+      const data = response.data?.data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (_error) {
+      return [];
+    }
+  },
+
+  getRecentMessages: async (teacherId: number, limit: number = 10): Promise<Array<{ read?: boolean }>> => {
+    try {
+      const response = await api.get(`/teachers/${teacherId}/messages`, { params: { limit } });
+      const data = response.data?.data || response.data;
+      return Array.isArray(data) ? data : [];
+    } catch (_error) {
+      return [];
     }
   },
 

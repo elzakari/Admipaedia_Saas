@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { studentService } from '../../services/studentService';
+import studentService from '../../services/studentService';
 import { useToast } from '../../components/ui/use-toast';
 
 const StudentEditPage: React.FC = () => {
@@ -33,8 +33,7 @@ const StudentEditPage: React.FC = () => {
         toast({
             title: "Error",
             description: "Failed to fetch student data",
-            variant: "destructive",
-            id: ''
+            variant: "destructive"
         });
       } finally {
         setLoading(false);
@@ -60,16 +59,14 @@ const StudentEditPage: React.FC = () => {
       toast({
         title: "Success",
         description: "Student updated successfully",
-        variant: "default",
-        id: ''
+        variant: "default"
       });
       navigate(`/students/${id}`);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update student",
-        variant: "destructive",
-        id: ''
+        variant: "destructive"
       });
     } finally {
       setSaving(false);

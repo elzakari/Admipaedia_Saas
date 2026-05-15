@@ -155,10 +155,13 @@ const MobileOptimizedInput: React.FC<MobileOptimizedInputProps> = ({
     outlined: 'ds-input-outlined border-2 bg-transparent'
   };
 
+  const inputId = props.id || props.name;
+
   return (
     <div className={cn('ds-form-field', formClasses.field)}>
       {label && (
         <label 
+          htmlFor={inputId}
           className={cn(
             'ds-form-label',
             formClasses.label,
@@ -182,6 +185,7 @@ const MobileOptimizedInput: React.FC<MobileOptimizedInputProps> = ({
         
         <input
           ref={inputRef}
+          id={inputId}
           type={inputType}
           value={value}
           onChange={handleChange}

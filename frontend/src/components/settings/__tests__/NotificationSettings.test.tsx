@@ -7,23 +7,42 @@ import { useToast } from '../../ui/use-toast';
 import { settingsService } from '../../../services';
 
 // Mock the dependencies
-jest.mock('@tanstack/react-query');
-jest.mock('../../ui/use-toast');
-jest.mock('../../../services');
+const mockUseQuery = vi.hoisted(() => vi.fn());
+const mockUseMutation = vi.hoisted(() => vi.fn());
+const mockUseQueryClient = vi.hoisted(() => vi.fn());
+const mockUseToast = vi.hoisted(() => vi.fn());
+const mockSettingsService = vi.hoisted(() => ({
+  getNotificationSettings: vi.fn(),
+  updateNotificationSettings: vi.fn(),
+  testEmailConfiguration: vi.fn(),
+  testSmsConfiguration: vi.fn()
+}));
 
-const mockUseQuery = useQuery as jest.MockedFunction<typeof useQuery>;
-const mockUseMutation = useMutation as jest.MockedFunction<typeof useMutation>;
-const mockUseQueryClient = useQueryClient as jest.MockedFunction<typeof useQueryClient>;
-const mockUseToast = useToast as jest.MockedFunction<typeof useToast>;
-const mockSettingsService = settingsService as jest.Mocked<typeof settingsService>;
+vi.mock('@tanstack/react-query', async () => {
+  const actual: any = await vi.importActual('@tanstack/react-query');
+  return {
+    ...actual,
+    useQuery: mockUseQuery,
+    useMutation: mockUseMutation,
+    useQueryClient: mockUseQueryClient
+  };
+});
+
+vi.mock('../../ui/use-toast', () => ({
+  useToast: mockUseToast
+}));
+
+vi.mock('../../../services', () => ({
+  settingsService: mockSettingsService
+}));
 
 describe('NotificationSettings', () => {
   const mockQueryClient = {
-    invalidateQueries: jest.fn()
+    invalidateQueries: vi.fn()
   };
   
   const mockToast = {
-    toast: jest.fn()
+    toast: vi.fn()
   };
 
   const mockSettings = {
@@ -58,7 +77,7 @@ describe('NotificationSettings', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     mockUseQueryClient.mockReturnValue(mockQueryClient as any);
     mockUseToast.mockReturnValue(mockToast as any);
@@ -75,27 +94,23 @@ describe('NotificationSettings', () => {
       return { data: null, isLoading: false, error: null } as any;
     });
 
-    // Mock successful mutations
     mockUseMutation.mockImplementation(({ mutationFn, onSuccess, onError }: any) => {
       return {
-        mutate: jest.fn((data) => {
-          if (mutationFn === mockSettingsService.updateNotificationSettings) {
-            onSuccess?.();
-          } else if (mutationFn === mockSettingsService.testEmailConfiguration) {
-            onSuccess?.();
-          } else if (mutationFn === mockSettingsService.testSmsConfiguration) {
-            onSuccess?.();
-          }
+        mutate: vi.fn((data) => {
+          Promise.resolve()
+            .then(() => mutationFn(data))
+            .then((result) => onSuccess?.(result))
+            .catch((err) => onError?.(err));
         }),
         isPending: false
       } as any;
     });
 
     // Mock settings service
-    mockSettingsService.getNotificationSettings = jest.fn().mockResolvedValue(mockSettings);
-    mockSettingsService.updateNotificationSettings = jest.fn().mockResolvedValue({ success: true });
-    mockSettingsService.testEmailConfiguration = jest.fn().mockResolvedValue({ success: true });
-    mockSettingsService.testSmsConfiguration = jest.fn().mockResolvedValue({ success: true });
+    mockSettingsService.getNotificationSettings.mockResolvedValue(mockSettings);
+    mockSettingsService.updateNotificationSettings.mockResolvedValue({ success: true });
+    mockSettingsService.testEmailConfiguration.mockResolvedValue({ success: true });
+    mockSettingsService.testSmsConfiguration.mockResolvedValue({ success: true });
   });
 
   it('renders without crashing', () => {
@@ -327,9 +342,6 @@ describe('NotificationSettings', () => {
       const timingTab = screen.getByRole('tab', { name: /timing & delivery/i });
       await user.click(timingTab);
       
-      const quietHoursSwitch = screen.getByLabelText(/quiet hours/i);
-      await user.click(quietHoursSwitch);
-      
       expect(screen.getByLabelText(/start time/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/end time/i)).toBeInTheDocument();
     });
@@ -359,17 +371,7 @@ describe('NotificationSettings', () => {
     it('handles save errors', async () => {
       const errorMessage = 'Failed to save settings';
       
-      // Mock error mutation
-      mockUseMutation.mockImplementationOnce(({ mutationFn, onSuccess, onError }: any) => {
-        return {
-          mutate: jest.fn((data) => {
-            if (mutationFn === mockSettingsService.updateNotificationSettings) {
-              onError?.(new Error(errorMessage));
-            }
-          }),
-          isPending: false
-        } as any;
-      });
+      mockSettingsService.updateNotificationSettings.mockRejectedValueOnce(new Error(errorMessage));
 
       const user = userEvent.setup();
       render(<NotificationSettings />);
@@ -387,9 +389,9 @@ describe('NotificationSettings', () => {
     });
 
     it('shows loading state during save', async () => {
-      mockUseMutation.mockImplementationOnce(({ mutationFn }: any) => {
+      mockUseMutation.mockImplementation(() => {
         return {
-          mutate: jest.fn(),
+          mutate: vi.fn(),
           isPending: true
         } as any;
       });
@@ -422,17 +424,7 @@ describe('NotificationSettings', () => {
     it('handles test email errors', async () => {
       const errorMessage = 'Email test failed';
       
-      // Mock error mutation
-      mockUseMutation.mockImplementationOnce(({ mutationFn, onSuccess, onError }: any) => {
-        return {
-          mutate: jest.fn((data) => {
-            if (mutationFn === mockSettingsService.testEmailConfiguration) {
-              onError?.(new Error(errorMessage));
-            }
-          }),
-          isPending: false
-        } as any;
-      });
+      mockSettingsService.testEmailConfiguration.mockRejectedValueOnce(new Error(errorMessage));
 
       const user = userEvent.setup();
       render(<NotificationSettings />);

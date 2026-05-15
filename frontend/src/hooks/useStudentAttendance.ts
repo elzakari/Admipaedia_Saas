@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import attendanceService from '../services/attendanceService';
 
 // Keys for React Query cache
@@ -58,6 +58,6 @@ export const useStudentAttendanceHistory = (studentId: number, params?: {
       ...params
     }),
     enabled: !!studentId,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 };

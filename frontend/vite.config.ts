@@ -98,6 +98,7 @@ export default defineConfig({
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@services': path.resolve(__dirname, './src/services'),
       '@types': path.resolve(__dirname, './src/types'),
+      '@jest/globals': path.resolve(__dirname, './src/test/jest-globals.ts'),
     },
   },
 
@@ -152,5 +153,13 @@ export default defineConfig({
         additionalData: `@import "@/styles/variables.scss";`
       }
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts', './src/test/vitest.setup.ts'],
+    css: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
+    testTimeout: 10000
   }
 })

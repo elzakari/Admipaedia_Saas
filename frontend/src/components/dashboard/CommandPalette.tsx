@@ -138,15 +138,15 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900 truncate">
-                        {t(item.labelKey || '', item.label)}
+                        {String(t(item.labelKey || '', item.label))}
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {t(`navigation.${result.type}`)}
+                        {String(t(`navigation.${result.type}`))}
                       </Badge>
                     </div>
                     {(item.descriptionKey || item.description) && (
                       <p className="text-sm text-gray-500 truncate mt-1">
-                        {t(item.descriptionKey || '', item.description || '')}
+                        {String(t(item.descriptionKey || '', item.description || ''))}
                       </p>
                     )}
                     {result.matchedKeywords.length > 0 && (

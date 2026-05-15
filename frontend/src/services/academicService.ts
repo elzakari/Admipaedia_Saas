@@ -3,10 +3,13 @@ import api from '../lib/api';
 // Define pagination interfaces
 export interface Pagination {
   total: number;
-  pages: number;
-  page: number;
+  pages?: number;
+  page?: number;
   per_page: number;
   total_pages?: number;
+  current_page?: number;
+  has_next?: boolean;
+  has_prev?: boolean;
 }
 
 export interface StandardPaginatedResponse<T> {

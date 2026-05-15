@@ -3,7 +3,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from './AuthContext';
 import { rbacApi } from '../services/rbacApi';
 import {
   RBACContextType,

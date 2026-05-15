@@ -10,31 +10,17 @@ import AttendanceHeatmap from '../../components/students/analytics/AttendanceHea
 import StudentRiskAssessment from '../../components/students/analytics/StudentRiskAssessment';
 import { useApiCall } from '../../hooks/useApiCall';
 import studentService from '../../services/studentService';
-
-interface Student {
-  id: number;
-  name: string;
-  email: string;
-  admission_number: string;
-  class_name: string;
-  gender: string;
-  date_of_birth: string;
-  address: string;
-  phone: string;
-  parent_name: string;
-  parent_phone: string;
-  parent_email: string;
-  enrollment_date: string;
-  status: 'active' | 'inactive' | 'graduated';
-  profile_image?: string;
-}
+import type { Student } from '../../types/student.types';
 
 const StudentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState('profile');
   
   const { data: student, isLoading, error, execute: fetchStudent } = useApiCall(
-    () => studentService.getStudentById(Number(id)),
+    async () => {
+      const res = await studentService.getStudentById(Number(id));
+      return res.data;
+    },
     { immediate: true }
   );
 
@@ -65,6 +51,8 @@ const StudentDetailPage: React.FC = () => {
     return <div className="text-center py-12">Student not found</div>;
   }
 
+  const displayName = student.full_name || student.name || student.display_name;
+
   return (
     <div className="container mx-auto py-6">
       {/* Header */}
@@ -72,13 +60,13 @@ const StudentDetailPage: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
             {student.profile_image ? (
-              <img src={student.profile_image} alt={student.name} className="w-16 h-16 rounded-full object-cover" />
+              <img src={student.profile_image} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
             ) : (
               <User className="h-8 w-8 text-gray-500" />
             )}
           </div>
           <div>
-            <h1 className="text-3xl font-bold">{student.name}</h1>
+            <h1 className="text-3xl font-bold">{displayName}</h1>
             <div className="flex items-center space-x-2 mt-1">
               <Badge className={getStatusColor(student.status)}>
                 {student.status}
@@ -174,7 +162,7 @@ const StudentDetailPage: React.FC = () => {
                   <h3 className="text-lg font-medium mb-4">Personal Information</h3>
                   <div className="space-y-4">
                     <div>
-                      <span className="font-medium">Full Name:</span> {student.name}
+                      <span className="font-medium">Full Name:</span> {displayName}
                     </div>
                     <div>
                       <span className="font-medium">Email:</span> {student.email}

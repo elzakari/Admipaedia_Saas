@@ -85,8 +85,7 @@ export function EnhancedClassesTab({ teacherId }: EnhancedClassesTabProps) {
     // Implementation would go here
     toast({
       title: "Schedule Updated",
-      description: "Class schedule has been updated successfully.",
-      id: ''
+      description: "Class schedule has been updated successfully."
     });
     // Refresh data
     queryClient.invalidateQueries({ queryKey: ['teacherClasses', teacherId] });
@@ -356,14 +355,12 @@ export function EnhancedClassesTab({ teacherId }: EnhancedClassesTabProps) {
           setSelectedClass(null);
         }}
         classData={selectedClass}
-        teacherId={teacherId}
         onSuccess={() => {
           // In a real app, you would invalidate the query cache here
           queryClient.invalidateQueries({ queryKey: ['teacherClasses', teacherId] });
           toast({
             title: selectedClass ? "Class Updated" : "Class Created",
-            description: `The class has been ${selectedClass ? 'updated' : 'created'} successfully.`,
-            id: ''
+            description: `The class has been ${selectedClass ? 'updated' : 'created'} successfully.`
           });
           setShowClassModal(false);
           setSelectedClass(null);

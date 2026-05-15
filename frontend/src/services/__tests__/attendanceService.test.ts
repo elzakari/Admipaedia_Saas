@@ -1,43 +1,37 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock axios instance
-const mockAxiosInstance = {
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    },
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    defaults: { headers: { common: {} } }
-};
+const mockAxiosInstance = vi.hoisted(() => ({
+  interceptors: {
+    request: { use: vi.fn(), eject: vi.fn() },
+    response: { use: vi.fn(), eject: vi.fn() }
+  },
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+  defaults: { headers: { common: {} } }
+}));
 
-jest.mock('axios', () => ({
-    create: jest.fn(() => mockAxiosInstance),
-    get: jest.fn(),
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-    interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() }
-    }
+vi.mock('@/lib/api', () => ({
+  default: mockAxiosInstance,
+  api: mockAxiosInstance
 }));
 
 import api from '@/lib/api';
 import attendanceService from '@/services/attendanceService';
 import { queueDataForSync, STORES } from '@/utils/offline';
 
-// Mock offline utilities
-jest.mock('@/utils/offline');
-const mockQueueDataForSync = queueDataForSync as jest.MockedFunction<typeof queueDataForSync>;
+const mockQueueDataForSync = vi.hoisted(() => vi.fn());
+vi.mock('@/utils/offline', async () => {
+  const actual: any = await vi.importActual('@/utils/offline');
+  return { ...actual, queueDataForSync: mockQueueDataForSync };
+});
 
 describe('attendanceService', () => {
     const originalOnLine = navigator.onLine;
 
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         Object.defineProperty(navigator, 'onLine', {
             configurable: true,
             value: true,
@@ -54,18 +48,18 @@ describe('attendanceService', () => {
 
     describe('getAttendances', () => {
         it('should fetch attendances successfully', async () => {
+            const mockAttendances = [{ id: 1, status: 'present' }];
             const mockData = {
-                results: [{ id: 1, status: 'present' }],
-                total: 1,
-                page: 1,
-                per_page: 20
+                attendances: mockAttendances,
+                pagination: { total: 1, pages: 1, page: 1, per_page: 20, next: null, prev: null }
             };
             (api.get as any).mockResolvedValue({ data: mockData });
 
             const result = await attendanceService.getAttendances({ page: 1 });
 
             expect(api.get).toHaveBeenCalledWith('/attendances', { params: { page: 1 } });
-            expect(result).toEqual(mockData);
+            expect(result.data).toEqual(mockAttendances);
+            expect(result.pagination).toEqual(mockData.pagination);
         });
     });
 
@@ -80,7 +74,7 @@ describe('attendanceService', () => {
 
         it('should create attendance successfully when online', async () => {
             const mockResponse = { id: 10, ...attendanceData };
-            (api.post as any).mockResolvedValue({ data: mockResponse });
+            (api.post as any).mockResolvedValue({ data: { attendance: mockResponse } });
 
             const result = await attendanceService.createAttendance(attendanceData);
 
@@ -108,11 +102,16 @@ describe('attendanceService', () => {
 
         it('should create bulk attendance successfully when online', async () => {
             const mockResponse = [{ id: 1, ...bulkData.attendance_records[0] }];
-            (api.post as any).mockResolvedValue({ data: mockResponse });
+            (api.post as any).mockResolvedValue({ data: { attendances: mockResponse } });
 
             const result = await attendanceService.bulkCreateAttendance(bulkData);
 
-            expect(api.post).toHaveBeenCalledWith('/attendances/bulk', bulkData);
+            expect(api.post).toHaveBeenCalledWith('/attendances/bulk', {
+                class_id: bulkData.class_id,
+                subject_id: bulkData.subject_id,
+                date: bulkData.date,
+                attendances: bulkData.attendance_records
+            });
             expect(result).toEqual(mockResponse);
         });
 

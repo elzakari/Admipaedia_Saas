@@ -14,7 +14,6 @@ import { useBulkOperations } from '@/hooks/useBulkOperations';
 import { Upload, Download, FileSpreadsheet, Calculator, Users, BookOpen, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { examService } from '@/services/examService';
-import { examService } from '@/services/examService';
 import { classService } from '@/services/classService';
 import { subjectService } from '@/services/subjectService';
 import { studentService } from '@/services/studentService';
@@ -61,7 +60,6 @@ export const BulkGradeEntry: React.FC<BulkGradeEntryProps> = ({
   const [selectedClass, setSelectedClass] = useState<number | null>(classId || null);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(subjectId || null);
   const [gradeEntries, setGradeEntries] = useState<GradeEntryRow[]>([]);
-  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [validationResults, setValidationResults] = useState<any>(null);
 

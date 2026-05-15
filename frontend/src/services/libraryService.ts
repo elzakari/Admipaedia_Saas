@@ -18,6 +18,8 @@ export interface LibraryBorrowerTypeData {
   type: string;
   count: number;
   percentage: number;
+  name?: string;
+  value?: number;
 }
 
 export interface LibraryPopularBookData {
@@ -26,6 +28,8 @@ export interface LibraryPopularBookData {
   author: string;
   category: string;
   borrowCount: number;
+  borrows?: number;
+  name?: string;
   rating: number;
 }
 
@@ -52,6 +56,8 @@ export interface LibraryStats {
   returnRate: number;
   overdueRate: number;
   popularCategories: string[];
+  currentlyOut?: number;
+  totalFines?: number;
 }
 
 export type LibraryBook = {

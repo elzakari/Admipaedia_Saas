@@ -116,10 +116,13 @@ const MobileOptimizedTextarea: React.FC<MobileOptimizedTextareaProps> = ({
     outlined: 'border-2 border-gray-300 bg-transparent focus:border-blue-500'
   };
 
+  const textareaId = props.id || props.name;
+
   return (
     <div className="w-full">
       {label && (
         <label 
+          htmlFor={textareaId}
           className={cn(
             'block text-sm font-medium mb-2 transition-colors',
             currentError ? 'text-red-600' : 'text-gray-700',
@@ -134,6 +137,7 @@ const MobileOptimizedTextarea: React.FC<MobileOptimizedTextareaProps> = ({
       <div className="relative">
         <textarea
           ref={textareaRef}
+          id={textareaId}
           value={value}
           onChange={handleChange}
           onFocus={handleFocus}

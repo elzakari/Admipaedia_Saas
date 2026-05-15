@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Tabs, TabsContent } from '@components/common/tabs';
-import { Card, CardContent } from '@components/common/card';
-import GeneralSettings from '@components/settings/GeneralSettings';
-import UserRoleManagement from '@components/settings/UserRoleManagement';
-import AcademicConfiguration from '@components/settings/AcademicConfiguration';
-import SecuritySettings from '@components/settings/SecuritySettings';
-import BackupSettings from '@components/settings/BackupSettings';
-import ThemeSettings from '@components/settings/ThemeSettings';
-import AuditLogs from '@components/settings/AuditLogs';
-import SettingsSidebar from '@components/settings/SettingsSidebar';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import GeneralSettings from '@/components/settings/GeneralSettings';
+import UserRoleManagement from '@/components/settings/UserRoleManagement';
+import AcademicConfiguration from '@/components/settings/AcademicConfiguration';
+import SecuritySettings from '@/components/settings/SecuritySettings';
+import BackupSettings from '@/components/settings/BackupSettings';
+import ThemeSettings from '@/components/settings/ThemeSettings';
+import AuditLogs from '@/components/settings/AuditLogs';
+import SettingsSidebar from '@/components/settings/SettingsSidebar';
 
 type SettingsTab = 
   | 'general' 
@@ -47,7 +47,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab = 'general' }) =
       <div className="flex flex-col md:flex-row gap-6">
         {/* Settings Sidebar */}
         <div className="w-full md:w-64 flex-shrink-0">
-          <SettingsSidebar categories={categories} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <SettingsSidebar categories={categories} activeTab={activeTab} setActiveTab={(tab) => setActiveTab(tab as SettingsTab)} />
         </div>
 
         {/* Settings Content */}

@@ -3,7 +3,7 @@ import { useEnhancedCalendarEvents } from '../../hooks/useEnhancedDashboardData'
 import { DashboardFiltersState } from '../../hooks/useDashboardFilters';
 import dashboardService, { CalendarEvent } from '../../services/dashboardService';
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Clock, AlertCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -236,7 +236,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
                         <div className="flex items-center gap-2 mt-0.5">
                           <div className="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
                             <Clock className="h-2.5 w-2.5" />
-                            {event.time || 'All day'}
+                            {(event as any).time || (event as any).start_time || 'All day'}
                           </div>
                         </div>
                       </div>

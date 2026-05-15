@@ -3,7 +3,8 @@ import { AITeacherService } from "../../../services/aiTeacherService";
 import classService, { Class } from "../../../services/classService";
 import gradeService, { Grade } from "../../../services/gradeService";
 import examService from "../../../services/examService";
-import studentService, { Student } from "../../../services/studentService";
+import studentService from "../../../services/studentService";
+import type { Student } from "../../../types/student.types";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { Badge } from "../../../components/ui/badge";
@@ -58,6 +59,7 @@ interface Assessment {
 interface StudentGrade {
   id: number;
   name: string;
+  gradeId?: number;
   grade?: number;
   previousGrade?: number;
   change?: string;
@@ -103,13 +105,12 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
       try {
         setClassesLoading(true);
         const response = await classService.getClasses();
-        setClasses(response.classes);
+        setClasses(response.data);
       } catch (error) {
         console.error('Failed to load classes:', error);
         toast({
           title: "Error",
           description: "Failed to load classes. Please try again.",
-          id: '',
           variant: "destructive"
         });
       } finally {
@@ -128,7 +129,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
         const response = await examService.getExams();
         
         // Transform exam data to match Assessment interface
-        const formattedAssessments = response.exams.map(exam => ({
+        const formattedAssessments = response.data.map(exam => ({
           id: exam.id,
           name: exam.title,
           class: exam.class_?.name || 'Unknown Class',
@@ -224,9 +225,10 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
           const response = await studentService.getStudents({ class_id: selectedClassId });
           
           // Get grades for these students if an assessment is selected
-          let studentGrades: StudentGrade[] = response.students.map((student: Student) => ({
+          let studentGrades: StudentGrade[] = response.data.map((student: Student) => ({
             id: student.id,
             name: student.full_name || `${student.first_name} ${student.last_name}`,
+            gradeId: undefined,
             grade: undefined,
             previousGrade: undefined,
             change: undefined
@@ -240,11 +242,12 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
               
               // Match grades with students
               studentGrades = studentGrades.map(student => {
-                const grade = gradesResponse.grades.find((g: any) => g.student_id === student.id);
+                const grade = gradesResponse.find((g: any) => g.student_id === student.id);
                 if (grade) {
                   return {
                     ...student,
-                    grade: grade.score,
+                    gradeId: grade.id,
+                    grade: grade.score ?? grade.marks_obtained,
                     // We don't have previous grades in the API, so this is a placeholder
                     previousGrade: undefined,
                     change: undefined
@@ -297,12 +300,17 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
       // If we have an assessment selected, update the grade in the backend
       if (selectedAssessment) {
         const assessmentId = parseInt(selectedAssessment);
-        await gradeService.updateGrade(studentId, { score: grade });
+        const target = students.find((s) => s.id === studentId);
+        if (target?.gradeId) {
+          await examService.updateGrade(target.gradeId, { marks_obtained: grade });
+        } else {
+          const created = await examService.createGrade({ student_id: studentId, exam_id: assessmentId, marks_obtained: grade });
+          setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, gradeId: created.id } : s)));
+        }
         
         toast({
           title: "Grade Updated",
-          description: "Student grade has been updated successfully.",
-          id: ''
+          description: "Student grade has been updated successfully."
         });
       }
     } catch (error) {
@@ -310,7 +318,6 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
       toast({
         title: "Error",
         description: "Failed to update grade. Please try again.",
-        id: '',
         variant: "destructive"
       });
     }
@@ -356,8 +363,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
       setAssessmentModalOpen(false);
       toast({
         title: "Assessment Added",
-        description: `${newAssessment.name} for ${assessment.class} has been added.`,
-        id: ''
+        description: `${newAssessment.name} for ${assessment.class} has been added.`
       });
       
       // Reset form
@@ -374,7 +380,6 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
       toast({
         title: "Error",
         description: "Failed to create assessment. Please try again.",
-        id: '',
         variant: "destructive"
       });
     }
@@ -414,8 +419,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
         
         toast({
           title: "Export Successful",
-          description: "Grades data has been exported to CSV",
-          id: ''
+          description: "Grades data has been exported to CSV"
         });
         break;
       case 'print':
@@ -423,8 +427,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
         window.print();
         toast({
           title: "Print Initiated",
-          description: "Preparing grades report for printing",
-          id: ''
+          description: "Preparing grades report for printing"
         });
         break;
       case 'share':
@@ -432,8 +435,7 @@ export function EnhancedGradesTab({ teacherId }: EnhancedGradesTabProps) {
         navigator.clipboard.writeText(window.location.href);
         toast({
           title: "Link Copied",
-          description: "Grades page URL copied to clipboard",
-          id: ''
+          description: "Grades page URL copied to clipboard"
         });
         break;
       default:

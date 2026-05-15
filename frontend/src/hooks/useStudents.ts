@@ -50,7 +50,7 @@ export const useUpdateStudent = () => {
       studentService.updateStudent(id, data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['student', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['student', data.data.id] });
     },
   });
 };

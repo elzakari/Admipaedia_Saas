@@ -1,4 +1,6 @@
 // User related types
+import type { Pagination, StandardApiResponse, StandardPaginatedResponse } from './api-responses.types';
+
 export interface User {
   id: string;
   name: string;
@@ -12,29 +14,6 @@ export enum UserRole {
   TEACHER = 'TEACHER',
   STUDENT = 'STUDENT',
   PARENT = 'PARENT'
-}
-
-// Standardized API Response types (aligned with ApiResponseStandardizer)
-export interface Pagination {
-  total: number;
-  total_pages: number;
-  current_page: number;
-  per_page: number;
-}
-
-export interface StandardApiResponse<T> {
-  data: T;
-  success: boolean;
-  message?: string;
-  errors?: Record<string, string[]>;
-  pagination?: Pagination;
-}
-
-export interface StandardPaginatedResponse<T> {
-  data: T[];
-  pagination: Pagination;
-  success: boolean;
-  message?: string;
 }
 
 // Legacy API Response types (for backward compatibility)
@@ -103,6 +82,7 @@ export interface Subject {
   department_id?: number;
   department?: { id: number; name: string; code: string };
   credit_hours: number;
+  credits?: number;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;

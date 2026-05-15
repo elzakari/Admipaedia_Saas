@@ -202,8 +202,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Event Created",
         description: "Calendar event has been created successfully.",
-        variant: "default",
-        id: ''
+        variant: "default"
       });
       setShowEventDialog(false);
       // Refresh events
@@ -213,8 +212,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to create event. Please try again.",
-        variant: "destructive",
-        id: ''
+        variant: "destructive"
       });
     }
   };
@@ -233,8 +231,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Event Updated",
         description: "Calendar event has been updated successfully.",
-        variant: "default",
-        id: ''
+        variant: "default"
       });
       setCurrentEvent(null);
       // Refresh events
@@ -244,8 +241,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to update event. Please try again.",
-        variant: "destructive",
-        id: ''
+        variant: "destructive"
       });
     }
   };
@@ -259,8 +255,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Event Deleted",
         description: "Calendar event has been deleted successfully.",
-        variant: "default",
-        id: ''
+        variant: "default"
       });
       setCurrentEvent(null);
       // Refresh events
@@ -270,8 +265,7 @@ const CalendarPage: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to delete event. Please try again.",
-        variant: "destructive",
-        id: ''
+        variant: "destructive"
       });
     }
   };

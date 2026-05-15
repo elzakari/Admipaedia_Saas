@@ -8,6 +8,7 @@ export interface Subject {
   description?: string;
   department?: string;
   credit_hours?: number;
+  credits?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
