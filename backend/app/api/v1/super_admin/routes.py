@@ -484,21 +484,36 @@ def super_admin_purge_user(user_id: int):
 
     payload = request.get_json() or {}
     confirm_text = (payload.get('confirm_text') or payload.get('confirmText') or '').strip()
-    expected = f"DELETE {target.email}".strip()
     normalized_confirm = " ".join(confirm_text.split()).lower()
-    normalized_expected = " ".join(expected.split()).lower()
-    if normalized_confirm != normalized_expected:
-        return jsonify({'success': False, 'error': 'Confirmation text mismatch', 'expected': expected}), 400
+    expected_delete = f"DELETE {target.email}".strip()
+    expected_anonymize = f"ANONYMIZE {target.email}".strip()
+    normalized_expected_delete = " ".join(expected_delete.split()).lower()
+    normalized_expected_anonymize = " ".join(expected_anonymize.split()).lower()
+
+    mode = 'delete'
+    if normalized_confirm == normalized_expected_anonymize:
+        mode = 'anonymize'
+    elif normalized_confirm != normalized_expected_delete:
+        return jsonify({'success': False, 'error': 'Confirmation text mismatch', 'expected': expected_delete, 'expected_anonymize': expected_anonymize}), 400
 
     try:
-        ok, result = OrphanCleanupService.purge_user(user_id, actor_user_id=actor.id)
+        if mode == 'anonymize':
+            ok, result = OrphanCleanupService.anonymize_user(user_id, actor_user_id=actor.id)
+        else:
+            ok, result = OrphanCleanupService.purge_user(user_id, actor_user_id=actor.id)
         if not ok:
-            return jsonify({'success': False, 'error': 'Cannot delete user', 'status': result}), 400
+            status_payload = dict(result or {})
+            status_payload['expected_anonymize'] = expected_anonymize
+            status_payload['can_anonymize'] = True
+            return jsonify({'success': False, 'error': 'Cannot delete user', 'status': status_payload}), 400
 
-        _audit('super_admin.user_purged', actor.id, {
-            'user_id': user_id,
-            'deleted': result.get('deleted')
-        }, severity='critical')
+        if mode == 'anonymize':
+            _audit('super_admin.user_anonymized', actor.id, {'user_id': user_id}, severity='warning')
+        else:
+            _audit('super_admin.user_purged', actor.id, {
+                'user_id': user_id,
+                'deleted': result.get('deleted')
+            }, severity='critical')
         db.session.commit()
         return jsonify({'success': True, 'result': result}), 200
     except Exception as e:
@@ -653,6 +668,14 @@ def super_admin_purge_tenant(tenant_id: str):
             payload['detail'] = str(e)
             payload['error_type'] = type(e).__name__
         return jsonify(payload), 500
+
+
+@super_admin_bp.route('/tenants/<tenant_id>/purge-status', methods=['GET'])
+@require_platform_super_admin()
+def super_admin_get_tenant_purge_status(tenant_id: str):
+    status = OrphanCleanupService.get_tenant_purge_status(tenant_id)
+    code = 200 if status.get('exists') else 404
+    return jsonify({'success': True, 'status': status}), code
 
 
 @super_admin_bp.route('/orphans/users/<int:user_id>', methods=['GET'])

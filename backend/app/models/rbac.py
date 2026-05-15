@@ -3,11 +3,21 @@ Enhanced Role-Based Access Control (RBAC) Models
 Provides comprehensive permission management, role hierarchies, and access control
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Set
 from app.extensions import db
 import json
 from enum import Enum
+
+
+def _as_utc_aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 # Association tables for many-to-many relationships
 role_permissions = db.Table('role_permissions',
@@ -239,7 +249,7 @@ class UserRoleAssignment(db.Model):
         if not self.is_active:
             return False
         
-        if self.expires_at and self.expires_at < datetime.utcnow():
+        if self.expires_at and _as_utc_aware(self.expires_at) < _utcnow():
             return False
         
         return True
@@ -281,7 +291,7 @@ class PermissionGrant(db.Model):
         if not self.is_active:
             return False
         
-        if self.expires_at and self.expires_at < datetime.utcnow():
+        if self.expires_at and _as_utc_aware(self.expires_at) < _utcnow():
             return False
         
         return True

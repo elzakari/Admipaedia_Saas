@@ -2,7 +2,7 @@
 Session Token model for JWT token management and revocation
 """
 from app.extensions import db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 class SessionToken(db.Model):
@@ -71,10 +71,18 @@ class SessionToken(db.Model):
         self.last_used_at = datetime.utcnow()
         db.session.commit()
     
+    @staticmethod
+    def _as_utc_aware(dt: datetime) -> datetime:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
     @property
     def is_expired(self):
         """Check if token is expired"""
-        return datetime.utcnow() > self.expires_at
+        now = datetime.now(timezone.utc)
+        exp = self._as_utc_aware(self.expires_at)
+        return now > exp
     
     @property
     def is_valid(self):
@@ -112,8 +120,9 @@ class SessionToken(db.Model):
     @classmethod
     def cleanup_expired_tokens(cls):
         """Clean up expired tokens (should be run periodically)"""
+        now = datetime.utcnow()
         expired_tokens = cls.query.filter(
-            cls.expires_at < datetime.utcnow(),
+            cls.expires_at < now,
             cls.is_revoked == False
         ).all()
         
@@ -125,12 +134,13 @@ class SessionToken(db.Model):
     @classmethod
     def get_user_active_sessions(cls, user_id):
         """Get all active sessions for a user"""
+        now = datetime.utcnow()
         return cls.query.filter_by(
             user_id=user_id,
             is_revoked=False,
             token_type='access'
         ).filter(
-            cls.expires_at > datetime.utcnow()
+            cls.expires_at > now
         ).all()
     
     def to_dict(self):

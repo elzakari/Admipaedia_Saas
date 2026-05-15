@@ -14,6 +14,12 @@ export function usePlanContext() {
       setIsLoading(false)
       return
     }
+    if (!localStorage.getItem('saas_current_tenant_id')) {
+      setData(null)
+      setError(null)
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     setError(null)
     try {

@@ -5,13 +5,19 @@ from app.services.integrations.token_service import ServiceTokenService
 from app.services.saas.plan_ops import assign_plan_to_tenant
 
 import uuid
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 
 from .serialization import serialize_invoice, serialize_payment, serialize_tenant
 from .tenant_ops import get_tenant_for_user
+
+
+def _as_utc_aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def list_invoices(user_id: int, tenant_id):
@@ -213,9 +219,17 @@ def platform_kpis():
         plan_counts[t.plan] = plan_counts.get(t.plan, 0) + 1
         country_counts[t.country_code] = country_counts.get(t.country_code, 0) + 1
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=30)
-    new_last_30d = sum(1 for t in tenants if t.created_at and t.created_at >= cutoff)
+    new_last_30d = 0
+    for t in tenants:
+        if not t.created_at:
+            continue
+        try:
+            if _as_utc_aware(t.created_at) >= cutoff:
+                new_last_30d += 1
+        except Exception:
+            continue
 
     invoice_total = db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).scalar() or 0
     payment_total = db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).scalar() or 0

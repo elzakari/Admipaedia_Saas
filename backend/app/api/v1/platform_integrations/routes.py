@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import smtplib
+import ssl
+from email.message import EmailMessage
+
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
@@ -41,6 +45,76 @@ def _merge_secrets(existing: dict | None, incoming: dict | None) -> dict | None:
             continue
         merged[k] = v
     return merged
+
+
+def _has_secret(v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, str) and v.strip() == '':
+        return False
+    if v == '********':
+        return False
+    return True
+
+
+def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
+    host = str(cfg.get('smtpHost') or cfg.get('smtp_host') or '').strip()
+    port = cfg.get('smtpPort') or cfg.get('smtp_port')
+    username = str(cfg.get('smtpUsername') or cfg.get('smtp_username') or '').strip()
+    password = cfg.get('smtpPassword') or cfg.get('smtp_password')
+    enc = str(cfg.get('smtpEncryption') or cfg.get('smtp_encryption') or 'tls').strip().lower()
+    from_email = str(cfg.get('fromEmail') or cfg.get('from_email') or '').strip()
+    from_name = str(cfg.get('fromName') or cfg.get('from_name') or '').strip()
+
+    to_email = str(params.get('to_email') or params.get('toEmail') or '').strip()
+    subject = str(params.get('subject') or 'ADMIPAEDIA test email').strip()
+    message = str(params.get('message') or 'This is a test message from ADMIPAEDIA.').strip()
+
+    if not host:
+        return False, 'SMTP host is required'
+    try:
+        port = int(port or 0)
+    except Exception:
+        port = 0
+    if port <= 0:
+        return False, 'SMTP port is required'
+    if not from_email:
+        return False, 'From email is required'
+
+    context = ssl.create_default_context()
+    server = None
+    try:
+        timeout = 12
+        if enc == 'ssl':
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
+        else:
+            server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+            if enc == 'tls':
+                server.starttls(context=context)
+
+        if username:
+            if not _has_secret(password):
+                return False, 'SMTP password is required'
+            server.login(username, str(password))
+
+        if to_email:
+            msg = EmailMessage()
+            msg['Subject'] = subject
+            msg['From'] = f'{from_name} <{from_email}>' if from_name else from_email
+            msg['To'] = to_email
+            msg.set_content(message or '')
+            server.send_message(msg)
+            return True, f'Test email sent to {to_email}'
+
+        return True, 'SMTP connection verified'
+    except Exception as e:
+        return False, str(e)
+    finally:
+        try:
+            if server:
+                server.quit()
+        except Exception:
+            pass
 
 
 @jwt_required()
@@ -218,5 +292,82 @@ def update_plan_token_limits(plan_id: int):
         db.session.add(ev)
         db.session.commit()
 
-    return jsonify({'success': True}), 200
+
+
+@jwt_required()
+@require_platform_super_admin()
+def test_provider_config():
+    data = request.get_json() or {}
+    scope = str(data.get('scope') or 'platform').strip().lower()
+    tenant_id = str(data.get('tenant_id') or '').strip() or None
+    service_type = str(data.get('service_type') or '').strip().lower()
+    provider_key = str(data.get('provider_key') or '').strip()
+    incoming_cfg = data.get('config') if isinstance(data.get('config'), dict) else None
+    params = data.get('params') if isinstance(data.get('params'), dict) else {}
+
+    if not service_type:
+        return jsonify({'success': False, 'message': 'service_type is required'}), 400
+    if not provider_key:
+        return jsonify({'success': False, 'message': 'provider_key is required'}), 400
+
+    row = None
+    if scope == 'tenant':
+        if not tenant_id:
+            return jsonify({'success': False, 'message': 'tenant_id is required for tenant scope'}), 400
+        row = TenantServiceProviderOverride.query.filter_by(tenant_id=tenant_id, service_type=service_type, provider_key=provider_key).first()
+    else:
+        row = PlatformServiceProviderConfig.query.filter_by(service_type=service_type, provider_key=provider_key).first()
+
+    existing_cfg = row.get_config() if row else {}
+    cfg = _merge_secrets(existing_cfg, incoming_cfg) if incoming_cfg is not None else existing_cfg
+    cfg = cfg or {}
+
+    supported = True
+    ok = False
+    message = ''
+
+    if service_type == 'email' and provider_key == 'smtp':
+        ok, message = _test_smtp_email(cfg, params)
+    elif service_type in ('sms', 'whatsapp', 'ai'):
+        supported = False
+        if service_type == 'sms':
+            if not _has_secret(cfg.get('smsApiKey') or cfg.get('apiKey') or cfg.get('api_key')):
+                message = 'API key is required'
+            elif not str(cfg.get('smsSenderId') or cfg.get('sender') or '').strip():
+                message = 'Sender ID is required'
+            else:
+                ok = True
+                message = 'Configuration looks valid. Live test is not available for this provider yet.'
+        elif service_type == 'whatsapp':
+            if not _has_secret(cfg.get('apiKey') or cfg.get('api_key')):
+                message = 'API key is required'
+            elif not str(cfg.get('sender') or '').strip():
+                message = 'Sender is required'
+            else:
+                ok = True
+                message = 'Configuration looks valid. Live test is not available for this provider yet.'
+        else:
+            if not _has_secret(cfg.get('apiKey') or cfg.get('api_key')):
+                message = 'API key is required'
+            elif not str(cfg.get('model') or '').strip():
+                message = 'Model is required'
+            else:
+                ok = True
+                message = 'Configuration looks valid. Live test is not available for this provider yet.'
+    else:
+        supported = False
+        message = 'Live test is not available for this provider yet.'
+
+    return jsonify({
+        'success': True,
+        'result': {
+            'scope': scope,
+            'tenant_id': tenant_id,
+            'service_type': service_type,
+            'provider_key': provider_key,
+            'supported': bool(supported),
+            'ok': bool(ok),
+            'message': message,
+        }
+    }), 200
 

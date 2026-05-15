@@ -49,7 +49,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { logger } from '@/utils/logger';
 import { userService } from '@/services';
-import type { User as ServiceUser, AuditLog as ServiceAuditLog, UserCreate } from '@/services/userService';
+import type { UserCreate } from '@/services/userService';
 
 // Local interface extending service type for UI display
 interface DisplayUser {
@@ -69,13 +69,6 @@ interface DisplayAuditLog {
   details: string;
   timestamp: string;
   ipAddress: string;
-}
-
-interface NewUserData {
-  username: string;
-  email: string;
-  password: string;
-  role: string;
 }
 
 // API functions replaced by userService
@@ -100,7 +93,7 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading, error: usersError } = useQuery({
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useQuery<DisplayUser[]>({
     queryKey: ['users'],
     queryFn: async () => {
       const response = await userService.getUsers({ per_page: 100 });
@@ -119,7 +112,7 @@ const UserManagement = () => {
   });
 
   // Fetch audit logs
-  const { data: auditLogs = [], isLoading: auditLoading } = useQuery({
+  const { data: auditLogs = [], isLoading: auditLoading } = useQuery<DisplayAuditLog[]>({
     queryKey: ['auditLogs'],
     queryFn: async () => {
       const response = await userService.getAuditLogs({ per_page: 50 });
@@ -187,7 +180,7 @@ const UserManagement = () => {
   };
 
   // Handle update user status
-  const handleUpdateUserStatus = async (userId: number, status: string) => {
+  const handleUpdateUserStatus = async (userId: number, status: 'Active' | 'Inactive') => {
     try {
       logger.info('Updating user status', { userId, status }, 'UserManagement');
 
@@ -280,6 +273,49 @@ const UserManagement = () => {
 
   return (
     <div className="space-y-6">
+      <Dialog open={showAuditLogsModal} onOpenChange={setShowAuditLogsModal}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>User Audit Logs</DialogTitle>
+            <DialogDescription>Recent activity for the selected user.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>IP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedUserAuditLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-medium">{log.action}</TableCell>
+                    <TableCell>{log.details}</TableCell>
+                    <TableCell>{formatDate(log.timestamp)}</TableCell>
+                    <TableCell>{log.ipAddress}</TableCell>
+                  </TableRow>
+                ))}
+                {selectedUserAuditLogs.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                      No audit logs found for this user.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAuditLogsModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -456,20 +492,43 @@ const UserManagement = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.status === 'Active' ? 'default' : 'secondary'}>
+                          <Badge
+                            variant={user.status === 'Active' ? 'default' : 'secondary'}
+                            className="cursor-pointer"
+                            onClick={() =>
+                              handleUpdateUserStatus(user.id, user.status === 'Active' ? 'Inactive' : 'Active')
+                            }
+                          >
                             {user.status}
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(user.last_login)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="View audit logs"
+                              onClick={() => handleGetAuditLogs(user.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" title="Edit user">
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" title="Reset password">
                               <Lock className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" title="Delete user">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Delete user"
+                              onClick={() => {
+                                if (window.confirm('Delete this user? This action cannot be undone.')) {
+                                  handleDeleteUser(user.id);
+                                }
+                              }}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

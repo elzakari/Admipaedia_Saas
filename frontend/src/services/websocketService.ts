@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL } from '../config/constants';
+import { SOCKET_BASE_URL } from '../config/constants';
 
 // Message handler type
 type SubscriptionHandler = (data: any) => void;
@@ -40,12 +40,13 @@ class WebSocketService {
     const token = localStorage.getItem('token');
 
     // Construct full URL
-    const url = `${API_BASE_URL}${this.namespace}`;
+    const url = `${SOCKET_BASE_URL}${this.namespace}`;
 
     this.socket = io(url, {
+      path: '/socket.io',
       auth: { token },
       query: token ? { token } : {},
-      transports: ['polling', 'websocket'],
+      transports: import.meta.env.PROD ? ['websocket', 'polling'] : ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,

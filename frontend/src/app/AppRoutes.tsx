@@ -34,98 +34,112 @@ import SuperAdminPaymentsPage from '../pages/super-admin/SuperAdminPaymentsPage'
 import SuperAdminPlanRequestsPage from '../pages/super-admin/SuperAdminPlanRequestsPage';
 import SuperAdminPlanPricingPage from '../pages/super-admin/SuperAdminPlanPricingPage';
 
+const lazyPage = (importer: () => Promise<any>) =>
+  lazy(async () => {
+    const mod: any = await importer();
+    return { default: (mod.default ?? mod) as React.ComponentType<any> };
+  });
+
 // Lazy-loaded dashboard components (high priority)
-const AdminDashboard = lazy(() => import('../pages/dashboard/AdminDashboard'));
-const TeacherDashboard = lazy(() => import('../pages/dashboard/TeacherDashboard'));
-const StudentDashboard = lazy(() => import('../pages/dashboard/StudentDashboard'));
-const ParentDashboard = lazy(() => import('../pages/dashboard/ParentDashboard'));
-const AdmissionsPage = lazy(() => import('../pages/portal/AdmissionsPage'));
-const AdmissionFormPage = lazy(() => import('../pages/portal/AdmissionFormPage'));
-const SystemSettingsPage = lazy(() => import('../pages/administration/SystemSettingsPage'));
-const AdminERegistrationBillingPage = lazy(() => import('../pages/billing/AdminERegistrationBillingPage'));
-const AdminInvitationsPage = lazy(() => import('../pages/administration/AdminInvitationsPage'));
+const AdminDashboard = lazyPage(() => import('../pages/dashboard/AdminDashboard'));
+const TeacherDashboard = lazyPage(() => import('../pages/dashboard/TeacherDashboard'));
+const StudentDashboard = lazyPage(() => import('../pages/dashboard/StudentDashboard'));
+const ParentDashboard = lazyPage(() => import('../pages/dashboard/ParentDashboard'));
+const AdmissionsPage = lazyPage(() => import('../pages/portal/AdmissionsPage'));
+const AdmissionFormPage = lazyPage(() => import('../pages/portal/AdmissionFormPage'));
+const SystemSettingsPage = lazyPage(() => import('../pages/administration/SystemSettingsPage'));
+const AdminERegistrationBillingPage = lazyPage(() => import('../pages/billing/AdminERegistrationBillingPage'));
+const AdminInvitationsPage = lazyPage(() => import('../pages/administration/AdminInvitationsPage'));
 
 // Lazy-loaded main pages (medium priority)
 // Lazy imports
-const StudentsPage = lazy(() => import('../pages/students/StudentsPage'));
+const StudentsPage = lazyPage(() => import('../pages/students/StudentsPage'));
 // const StudentDetailPage = lazy(() => import('../pages/students/StudentDetailPage')); // Unused
-const StudentProfilePage = lazy(() => import('../pages/students/StudentProfilePage'));
-const StudentEditPage = lazy(() => import('../pages/students/StudentEditPage'));
-const AcademicsPage = lazy(() => import('../pages/academics/AcademicsPage'));
-const TeachersPage = lazy(() => import('../pages/teachers/TeachersPage'));
-const ParentsPage = lazy(() => import('../pages/parents/ParentsPage'));
-const ParentManagementPage = lazy(() => import('../pages/parents/ParentManagementPage'));
+const StudentProfilePage = lazyPage(() => import('../pages/students/StudentProfilePage'));
+const StudentEditPage = lazyPage(() => import('../pages/students/StudentEditPage'));
+const AcademicsPage = lazyPage(() => import('../pages/academics/AcademicsPage'));
+const TeachersPage = lazyPage(() => import('../pages/teachers/TeachersPage'));
+const ParentsPage = lazyPage(() => import('../pages/parents/ParentsPage'));
+const ParentManagementPage = lazyPage(() => import('../pages/parents/ParentManagementPage'));
 
 // Lazy-loaded feature pages (lower priority)
-const LibraryPage = lazy(() => import('../pages/Library/LibraryPage'));
-const SchedulePage = lazy(() => import('../pages/Schedules/SchedulePage'));
-const ParentSchedulePage = lazy(() => import('../pages/Schedules/ParentSchedulePage'));
-const NotificationsPage = lazy(() => import('../pages/Notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
-const MessagesPage = lazy(() => import('../pages/Messages/MessagesPage').then(module => ({ default: module.MessagesPage })));
-const FeesPage = lazy(() => import('../pages/Fees/FeesPage').then(module => ({ default: module.FeesPage })));
-const AdministrationPage = lazy(() => import('../pages/administration/AdministrationPage'));
-const AttendancePage = lazy(() => import('../pages/attendance/AttendancePage'));
-const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'));
-const ExamsPage = lazy(() => import('../pages/exams/ExamsPage'));
-const ClassesPage = lazy(() => import('../pages/classes/ClassesPage'));
-const CalendarPage = lazy(() => import('../pages/calendar/CalendarPage'));
-const ParentCalendarPage = lazy(() => import('../pages/calendar/ParentCalendarPage'));
-const ExportPage = lazy(() => import('../pages/export/ExportPage'));
-const SettingsPage = lazy(() => import('../pages/SettingsPage'));
-const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'));
-const AnnouncementsPage = lazy(() => import('../pages/Announcements/AnnouncementsPage'));
-const HelpPage = lazy(() => import('../pages/help/HelpPage'));
-const GuidesPage = lazy(() => import('../pages/help/GuidesPage'));
-const TermsPage = lazy(() => import('../pages/legal/TermsPage'));
-const PrivacyPage = lazy(() => import('../pages/legal/PrivacyPage'));
+const LibraryPage = lazyPage(() => import('../pages/Library/LibraryPage'));
+const SchedulePage = lazyPage(() => import('../pages/Schedules/SchedulePage'));
+const ParentSchedulePage = lazyPage(() => import('../pages/Schedules/ParentSchedulePage'));
+const NotificationsPage = lazy(() =>
+  import('../pages/Notifications/NotificationsPage').then((module: any) => ({ default: module.NotificationsPage as any }))
+);
+const MessagesPage = lazy(() =>
+  import('../pages/Messages/MessagesPage').then((module: any) => ({ default: module.MessagesPage as any }))
+);
+const FeesPage = lazy(() =>
+  import('../pages/Fees/FeesPage').then((module: any) => ({ default: module.FeesPage as any }))
+);
+const AdministrationPage = lazyPage(() => import('../pages/administration/AdministrationPage'));
+const AttendancePage = lazyPage(() => import('../pages/attendance/AttendancePage'));
+const ReportsPage = lazyPage(() => import('../pages/reports/ReportsPage'));
+const ExamsPage = lazyPage(() => import('../pages/exams/ExamsPage'));
+const ClassesPage = lazyPage(() => import('../pages/classes/ClassesPage'));
+const CalendarPage = lazyPage(() => import('../pages/calendar/CalendarPage'));
+const ParentCalendarPage = lazyPage(() => import('../pages/calendar/ParentCalendarPage'));
+const ExportPage = lazyPage(() => import('../pages/export/ExportPage'));
+const SettingsPage = lazyPage(() => import('../pages/SettingsPage'));
+const ProfilePage = lazyPage(() => import('../pages/profile/ProfilePage'));
+const AnnouncementsPage = lazyPage(() => import('../pages/Announcements/AnnouncementsPage'));
+const HelpPage = lazyPage(() => import('../pages/help/HelpPage'));
+const GuidesPage = lazyPage(() => import('../pages/help/GuidesPage'));
+const TermsPage = lazyPage(() => import('../pages/legal/TermsPage'));
+const PrivacyPage = lazyPage(() => import('../pages/legal/PrivacyPage'));
 
 // SaaS pages
-const SaasOnboardingPage = lazy(() => import('../pages/saas/SaasOnboardingPage'));
-const SchoolPortalDashboardPage = lazy(() => import('../pages/saas/SchoolPortalDashboardPage'));
-const SchoolProfilePage = lazy(() => import('../pages/saas/SchoolProfilePage'));
-const TeamRolesPage = lazy(() => import('../pages/saas/TeamRolesPage'));
-const BillingPlanPage = lazy(() => import('../pages/saas/BillingPlanPage'));
-const BillingInvoicesPage = lazy(() => import('../pages/saas/BillingInvoicesPage'));
-const BillingPaymentsPage = lazy(() => import('../pages/saas/BillingPaymentsPage'));
+const SaasOnboardingPage = lazyPage(() => import('../pages/saas/SaasOnboardingPage'));
+const SchoolPortalDashboardPage = lazyPage(() => import('../pages/saas/SchoolPortalDashboardPage'));
+const SchoolProfilePage = lazyPage(() => import('../pages/saas/SchoolProfilePage'));
+const TeamRolesPage = lazyPage(() => import('../pages/saas/TeamRolesPage'));
+const BillingPlanPage = lazyPage(() => import('../pages/saas/BillingPlanPage'));
+const BillingInvoicesPage = lazyPage(() => import('../pages/saas/BillingInvoicesPage'));
+const BillingPaymentsPage = lazyPage(() => import('../pages/saas/BillingPaymentsPage'));
 
 // Student Portal pages
-const StudentClassesPage = lazy(() => import('@/pages/student/StudentClassesPage'));
-const StudentClassDetailPage = lazy(() => import('@/pages/student/StudentClassDetailPage'));
-const StudentAssignmentsPage = lazy(() => import('@/pages/student/StudentAssignmentsPage'));
-const StudentAssignmentDetailPage = lazy(() => import('@/pages/student/StudentAssignmentDetailPage'));
-const StudentGradesPage = lazy(() => import('@/pages/student/StudentGradesPage'));
-const StudentAttendancePage = lazy(() => import('@/pages/student/StudentAttendancePage'));
-const StudentTimetablePage = lazy(() => import('@/pages/student/StudentTimetablePage'));
-const StudentCalendarPage = lazy(() => import('@/pages/student/StudentCalendarPage'));
-const StudentMessagesPage = lazy(() => import('@/pages/student/StudentMessagesPage'));
-const StudentNotificationsPage = lazy(() => import('@/pages/student/StudentNotificationsPage'));
+const StudentClassesPage = lazyPage(() => import('@/pages/student/StudentClassesPage'));
+const StudentClassDetailPage = lazyPage(() => import('@/pages/student/StudentClassDetailPage'));
+const StudentAssignmentsPage = lazyPage(() => import('@/pages/student/StudentAssignmentsPage'));
+const StudentAssignmentDetailPage = lazyPage(() => import('@/pages/student/StudentAssignmentDetailPage'));
+const StudentGradesPage = lazyPage(() => import('@/pages/student/StudentGradesPage'));
+const StudentAttendancePage = lazyPage(() => import('@/pages/student/StudentAttendancePage'));
+const StudentTimetablePage = lazyPage(() => import('@/pages/student/StudentTimetablePage'));
+const StudentCalendarPage = lazyPage(() => import('@/pages/student/StudentCalendarPage'));
+const StudentMessagesPage = lazyPage(() => import('@/pages/student/StudentMessagesPage'));
+const StudentNotificationsPage = lazyPage(() => import('@/pages/student/StudentNotificationsPage'));
 
 // Teacher Portal pages
-const TeacherClassesPage = lazy(() => import('@/pages/teacher/TeacherClassesPage'));
-const TeacherClassDetailPage = lazy(() => import('@/pages/teacher/TeacherClassDetailPage'));
-const TeacherMessagesPage = lazy(() => import('@/pages/teacher/TeacherMessagesPage'));
-const TeacherNotificationsPage = lazy(() => import('@/pages/teacher/TeacherNotificationsPage'));
-const TeacherTimetablePage = lazy(() => import('@/pages/teacher/TeacherTimetablePage'));
-const TeacherCalendarPage = lazy(() => import('@/pages/teacher/TeacherCalendarPage'));
+const TeacherClassesPage = lazyPage(() => import('@/pages/teacher/TeacherClassesPage'));
+const TeacherClassDetailPage = lazyPage(() => import('@/pages/teacher/TeacherClassDetailPage'));
+const TeacherMessagesPage = lazyPage(() => import('@/pages/teacher/TeacherMessagesPage'));
+const TeacherNotificationsPage = lazyPage(() => import('@/pages/teacher/TeacherNotificationsPage'));
+const TeacherTimetablePage = lazyPage(() => import('@/pages/teacher/TeacherTimetablePage'));
+const TeacherCalendarPage = lazyPage(() => import('@/pages/teacher/TeacherCalendarPage'));
 
 // Enhanced loading fallback component
-const LoadingFallback: React.FC<{ componentName?: string }> = ({ componentName }) => (
-  <div className="flex items-center justify-center min-h-[400px] bg-gradient-to-br from-blue-50 to-indigo-100">
-    <div className="text-center space-y-4">
-      <div className="relative">
-        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-        <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-indigo-400 rounded-full animate-pulse mx-auto"></div>
-      </div>
-      <div className="space-y-2">
-        <p className="text-lg font-semibold text-gray-700">Loading {componentName || 'Page'}...</p>
-        <p className="text-sm text-gray-500">Optimizing your experience</p>
-      </div>
-      <div className="w-48 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse"></div>
+function LoadingFallback({ componentName }: { componentName?: string }) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px] bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="text-center space-y-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+          <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-indigo-400 rounded-full animate-pulse mx-auto"></div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-lg font-semibold text-gray-700">Loading {componentName || 'Page'}...</p>
+          <p className="text-sm text-gray-500">Optimizing your experience</p>
+        </div>
+        <div className="w-48 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse"></div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+}
 
 // Enhanced Protected Route with performance monitoring
 function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader }: {
@@ -225,9 +239,7 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
   );
 }
 
-// Remove the LazyRoute component definition as it's no longer needed
-
-const AppRoutes: React.FC = () => {
+export default function AppRoutes() {
   const { user } = useAuth();
 
   return (
@@ -1061,7 +1073,5 @@ const AppRoutes: React.FC = () => {
       />
     </Routes>
   );
-};
-
-export default AppRoutes;
+}
         

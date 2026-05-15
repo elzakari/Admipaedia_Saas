@@ -2,10 +2,20 @@
 Security-related database models for ADMIPAEDIA
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
 from app.extensions import db
+
+
+def _as_utc_aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 class LoginAttempt(db.Model):
     """Track login attempts for security monitoring and account lockout"""
@@ -148,7 +158,7 @@ class PasswordResetToken(db.Model):
         if reset_token.is_used:
             return None, 'Reset token has already been used'
 
-        if reset_token.expires_at and reset_token.expires_at < datetime.utcnow():
+        if reset_token.expires_at and _as_utc_aware(reset_token.expires_at) < _utcnow():
             return None, 'Reset token has expired'
 
         return reset_token, None
@@ -223,7 +233,7 @@ class SchoolRegistrationToken(db.Model):
         if reg.is_used:
             return None, 'Registration token has already been used'
 
-        if reg.expires_at and reg.expires_at < datetime.utcnow():
+        if reg.expires_at and _as_utc_aware(reg.expires_at) < _utcnow():
             return None, 'Registration token has expired'
 
         return reg, None

@@ -110,6 +110,26 @@ export type OrphanTenantStatus = {
   }
 }
 
+export type TenantPurgeStatus = {
+  exists: boolean
+  tenant_id: string
+  can_delete: boolean
+  reasons: string[]
+  counts: {
+    students?: number
+  }
+  requires_status?: string | null
+  tenant?: {
+    id: string
+    name: string
+    slug: string
+    country_code: string
+    status: string
+    plan: string
+    created_at?: string | null
+  }
+}
+
 export type OrphanUserStatus = {
   exists: boolean
   user_id: number
@@ -218,6 +238,11 @@ export const superAdminService = {
 
   purgeTenant: async (tenantId: string, confirmText: string): Promise<{ success: boolean }> => {
     const res = await api.post(`/super-admin/tenants/${tenantId}/purge`, { confirm_text: confirmText })
+    return res.data
+  },
+
+  getTenantPurgeStatus: async (tenantId: string): Promise<{ success: boolean; status: TenantPurgeStatus }> => {
+    const res = await api.get(`/super-admin/tenants/${tenantId}/purge-status`)
     return res.data
   },
 

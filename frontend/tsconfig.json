@@ -10,10 +10,11 @@
     "strict": false,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "composite": true,
+    "noEmit": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
@@ -26,7 +27,7 @@
       "@/lib/*": ["./src/lib/*"],
       "@/config/*": ["./src/config/*"]
     },
-    "types": ["vite/client", "jest", "@testing-library/jest-dom"],
+    "types": ["vite/client", "react", "react-dom", "node", "jest", "@testing-library/jest-dom"],
     "noImplicitAny": false,
     "noImplicitReturns": false,
     "noImplicitThis": false,

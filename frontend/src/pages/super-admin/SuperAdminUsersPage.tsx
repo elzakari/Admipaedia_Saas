@@ -19,6 +19,7 @@ import {
 import { superAdminService, SuperAdminUser, SuperAdminUserRole } from '@/services/superAdminService'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { Eye, KeyRound, Trash2, UserCheck, UserX } from 'lucide-react'
 
 const baseRoleOptions: Array<{ value: SuperAdminUserRole; key: string; fallback: string }> = [
   { value: 'admin', key: 'super_admin.roles.admin', fallback: 'Admin' },
@@ -55,6 +56,7 @@ const SuperAdminUsersPage: React.FC = () => {
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [purgeUser, setPurgeUser] = useState<SuperAdminUser | null>(null)
   const [purgeConfirmText, setPurgeConfirmText] = useState('')
+  const [purgeMode, setPurgeMode] = useState<'delete' | 'anonymize'>('delete')
   const [purging, setPurging] = useState(false)
 
   const isActorSuperAdmin = currentUser?.role === 'super_admin'
@@ -162,6 +164,7 @@ const SuperAdminUsersPage: React.FC = () => {
           if (!v) {
             setPurgeUser(null)
             setPurgeConfirmText('')
+            setPurgeMode('delete')
           }
         }}
       >
@@ -173,9 +176,31 @@ const SuperAdminUsersPage: React.FC = () => {
             <div className="text-sm text-muted-foreground">
               {t('super_admin.users.purge.description', 'This is a permanent action. Type the confirmation text exactly to proceed.')}
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={purgeMode === 'delete' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPurgeMode('delete')}
+                disabled={purging}
+              >
+                {t('super_admin.users.purge.mode_delete', 'Permanent delete')}
+              </Button>
+              <Button
+                type="button"
+                variant={purgeMode === 'anonymize' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPurgeMode('anonymize')}
+                disabled={purging}
+              >
+                {t('super_admin.users.purge.mode_anonymize', 'Disable account')}
+              </Button>
+            </div>
             <div className="text-sm">
               {t('super_admin.users.purge.confirm_label', 'Confirmation text')}:{' '}
-              <span className="font-mono">{purgeUser ? `DELETE ${purgeUser.email}` : ''}</span>
+              <span className="font-mono">
+                {purgeUser ? `${purgeMode === 'delete' ? 'DELETE' : 'ANONYMIZE'} ${purgeUser.email}` : ''}
+              </span>
             </div>
             <Input
               value={purgeConfirmText}
@@ -191,15 +216,19 @@ const SuperAdminUsersPage: React.FC = () => {
                 disabled={
                   !purgeUser ||
                   purging ||
-                  purgeConfirmText.trim() !== (purgeUser ? `DELETE ${purgeUser.email}` : '')
+                  purgeConfirmText.trim() !== (purgeUser ? `${purgeMode === 'delete' ? 'DELETE' : 'ANONYMIZE'} ${purgeUser.email}` : '')
                 }
                 onClick={async () => {
                   if (!purgeUser) return
                   try {
                     setPurging(true)
                     await superAdminService.purgeUser(purgeUser.id, purgeConfirmText.trim())
-                    setItems((prev) => prev.filter((x) => x.id !== purgeUser.id))
-                    toast.success(t('super_admin.users.purge.deleted', 'User deleted'))
+                    if (purgeMode === 'delete') {
+                      setItems((prev) => prev.filter((x) => x.id !== purgeUser.id))
+                      toast.success(t('super_admin.users.purge.deleted', 'User deleted'))
+                    } else {
+                      toast.success(t('super_admin.users.purge.anonymized', 'User disabled'))
+                    }
                     setPurgeOpen(false)
                   } catch (e) {
                     const anyErr = e as any
@@ -387,10 +416,16 @@ const SuperAdminUsersPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{u.created_at ? u.created_at.slice(0, 10) : ''}</td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link to={`/super-admin/users/${u.id}`} className="text-blue-600 hover:underline">{t('common.view', 'View')}</Link>
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          <Link
+                            to={`/super-admin/users/${u.id}`}
+                            className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-background-secondary hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4 mr-1.5" />
+                            {t('common.view', 'View')}
+                          </Link>
                           <Button
-                            variant="outline"
+                            variant="secondary"
                             size="sm"
                             disabled={resettingUserId === u.id}
                             onClick={async () => {
@@ -421,16 +456,19 @@ const SuperAdminUsersPage: React.FC = () => {
                               }
                             }}
                           >
+                            <KeyRound className="h-4 w-4 mr-1.5" />
                             {resettingUserId === u.id ? t('super_admin.users.reset.sending', 'Sending...') : t('super_admin.users.actions.reset', 'Reset')}
                           </Button>
                           {u.status === 'active' ? (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm"
                                   disabled={currentUser?.id === u.id || u.role === 'super_admin'}
+                                  className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
                                 >
+                                  <UserX className="h-4 w-4 mr-1.5" />
                                   {t('super_admin.users.actions.deactivate', 'Deactivate')}
                                 </Button>
                               </AlertDialogTrigger>
@@ -470,6 +508,7 @@ const SuperAdminUsersPage: React.FC = () => {
                                 }
                               }}
                             >
+                              <UserCheck className="h-4 w-4 mr-1.5" />
                               {t('super_admin.users.actions.reactivate', 'Reactivate')}
                             </Button>
                           )}
@@ -486,6 +525,7 @@ const SuperAdminUsersPage: React.FC = () => {
                                   u.role === 'super_admin'
                                 }
                               >
+                                <Trash2 className="h-4 w-4 mr-1.5" />
                                 {t('common.delete', 'Delete')}
                               </Button>
                             </AlertDialogTrigger>

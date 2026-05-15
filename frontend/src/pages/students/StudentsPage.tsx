@@ -42,35 +42,15 @@ import { Progress } from "../../components/ui/progress";
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage
 } from "../../components/ui/avatar";
 
 // Student Components
-import StudentList from "../../components/students/StudentList";
 import StudentGrid from "../../components/students/StudentGrid";
-import StudentStats from "../../components/students/StudentStats";
-import StudentFilters from "../../components/students/StudentFilters";
 import { StudentImportExport } from "../../components/students/StudentImportExport";
-
-// Dropdown & Tooltip Components
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "../../components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "../../components/ui/tooltip";
 
 // Hooks & Services
 import {
   useStudents,
-  useCreateStudent,
-  useUpdateStudent,
   useDeleteStudent,
   useStudentAnalyticsSummary
 } from "../../hooks/useStudents";
@@ -84,36 +64,32 @@ import StudentPrintView from '../../components/students/StudentPrintView';
 // Add this to your imports
 import { StudentProfile } from '../../types/student';
 
-import { ResponsiveTable } from '../../components/common/ResponsiveTable';
 import { TouchFriendlyButton } from '../../components/common/TouchFriendlyButton';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import ApiDebugPanel from '../../components/debug/ApiDebugPanel';
-import React from "react";
 
 export function StudentsPage() {
   useTheme();
   const { toast } = useToast();
   const isMobile = useMediaQuery('(max-width: 640px)');
-  const isTablet = useMediaQuery('(min-width: 641px) and (max-width: 1023px)');
   
   // === State Management ===
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
-  const [sortBy, setSortBy] = useState("name");
-  const [sortOrder, setSortOrder] = useState("asc");
+  const [sortBy] = useState("name");
+  const [sortOrder] = useState("asc");
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "grid" | "detailed">(isMobile ? "grid" : "list");
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [activeInsightTab, setActiveInsightTab] = useState("performance");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(isMobile ? 5 : 10);
+  const [currentPage] = useState(1);
+  const [itemsPerPage] = useState(isMobile ? 5 : 10);
   const [isStudentFormOpen, setIsStudentFormOpen] = useState(false);
   const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<ServiceStudent | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<ServiceStudent | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [printStudentData, setPrintStudentData] = useState<StudentProfile | null>(null);
   const [isImportExportDialogOpen, setIsImportExportDialogOpen] = useState(false);
 
@@ -146,8 +122,6 @@ export function StudentsPage() {
   const { data: analyticsSummary } = useStudentAnalyticsSummary();
 
   // Mutations
-  const createStudentMutation = useCreateStudent();
-  const updateStudentMutation = useUpdateStudent();
   const { mutate: deleteStudent, isPending: isDeletingStudent } = useDeleteStudent();
 
   // Update view mode when screen size changes
@@ -259,16 +233,6 @@ export function StudentsPage() {
       }
     });
 
-  // Handle sorting change
-  const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(field);
-      setSortOrder("asc");
-    }
-  };
-
   // Select a student to show in side panel
   const handleStudentSelect = (id: string) => {
     setSelectedStudent(id);
@@ -279,11 +243,6 @@ export function StudentsPage() {
   const selectedStudentData: TransformedStudent | null = selectedStudent 
     ? students.find((s: TransformedStudent) => s.id === selectedStudent) || null 
     : null;
-
-  // Pagination handler
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
 
   // Quick actions (Add, Export, Print, Share)
   const handleQuickAction = (action: string) => {
@@ -399,11 +358,6 @@ export function StudentsPage() {
             setShowProfilePanel(false);
           }
           
-          // Remove from selected students if in bulk selection
-          if (selectedStudents.includes(studentToDelete.id.toString())) {
-            setSelectedStudents(selectedStudents.filter(id => id !== studentToDelete.id.toString()));
-          }
-          
           setIsDeleteDialogOpen(false);
           setStudentToDelete(null);
         },
@@ -416,74 +370,6 @@ export function StudentsPage() {
           });
         }
       });
-    }
-  };
-
-  // Handle bulk selection
-  const handleSelectStudent = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedStudents([...selectedStudents, id]);
-    } else {
-      setSelectedStudents(selectedStudents.filter(studentId => studentId !== id));
-    }
-  };
-
-  // Handle select all
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedStudents(sortedStudents.map((student: { id: string }) => student.id));
-    } else {
-      setSelectedStudents([]);
-    }
-  };
-
-  // Handle bulk actions
-  const handleBulkAction = (action: string) => {
-    if (selectedStudents.length === 0) {
-      toast({
-        title: "No Students Selected",
-        description: "Please select at least one student to perform this action.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    switch (action) {
-      case 'export':
-        // Filter only selected students for export
-        const selectedStudentsData = students.filter((student: { id: string }) => 
-          selectedStudents.includes(student.id)
-        );
-        
-        // Create a simplified version for export
-        const exportData = selectedStudentsData.map(student => ({
-          name: student.name,
-          id: student.studentId,
-          grade: student.grade,
-          email: student.email,
-          phone: student.phone,
-          status: student.status,
-          attendance: `${student.attendance}%`,
-          performance: `${student.performance}%`
-        }));
-        
-        const headers = exportData && exportData.length > 0 ? Object.keys(exportData[0]!).join(',') : '';
-        const csvData = exportData ? exportData.map(student => Object.values(student).join(',')).join('\n') : '';
-        const csv = `${headers}\n${csvData}`;
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'selected_students.csv';
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({
-          title: "Export Successful",
-          description: `${selectedStudents.length} student records exported to CSV`,
-        });
-        break;
-      default:
-        break;
     }
   };
 

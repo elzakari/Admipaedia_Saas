@@ -2,7 +2,7 @@
 Enhanced User model with additional security fields
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from app.extensions import db, bcrypt
 from app.models.user import User
 
@@ -43,7 +43,13 @@ class EnhancedUserMixin:
     def is_account_locked(self):
         """Check if account is currently locked"""
         if self.account_locked_until:
-            return datetime.utcnow() < self.account_locked_until
+            now = datetime.now(timezone.utc)
+            until = self.account_locked_until
+            if until.tzinfo is None:
+                until = until.replace(tzinfo=timezone.utc)
+            else:
+                until = until.astimezone(timezone.utc)
+            return now < until
         return False
     
     def lock_account(self, duration_minutes=30):

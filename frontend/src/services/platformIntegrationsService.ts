@@ -41,6 +41,18 @@ const platformIntegrationsService = {
     return res.data as { success: boolean; id: number }
   },
 
+  async testProvider(input: {
+    scope?: 'platform' | 'tenant'
+    tenant_id?: string
+    service_type: string
+    provider_key: string
+    config?: Record<string, any>
+    params?: Record<string, any>
+  }) {
+    const res = await api.post('/platform/integrations/providers/test', input)
+    return res.data as { success: boolean; result: { supported: boolean; ok: boolean; message: string } }
+  },
+
   async listPlanTokenLimits() {
     const res = await api.get('/platform/integrations/plans/token-limits')
     return res.data as { success: boolean; plans: PlanTokenLimits[] }

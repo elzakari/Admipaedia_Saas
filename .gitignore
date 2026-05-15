@@ -68,6 +68,9 @@ env/
 .pytest_cache/
 **/.pytest_cache/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Coverage files
 .coverage
 htmlcov/

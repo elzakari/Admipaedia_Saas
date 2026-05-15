@@ -3,7 +3,7 @@ from app.models.class_ import Class
 from app.models.subject import Subject
 from app.extensions import db
 from datetime import datetime
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from app.services.cache_service import get_cache_service
 from app.schemas.exam import ExamSchema
 
@@ -186,7 +186,7 @@ class ExamService:
         query = Exam.query.options(
             joinedload(Exam.class_),
             joinedload(Exam.subject),
-            joinedload(Exam.created_by)
+            joinedload(Exam.creator)
         ).filter(
             and_(
                 Exam.exam_date >= now,
@@ -232,28 +232,28 @@ class ExamService:
         
         # Convert exam_date to datetime if it's a string
         if isinstance(exam_date, str):
-            exam_date = datetime.strptime(exam_date, '%Y-%m-%dT%H:%M:%S')
+            normalized = exam_date.replace('Z', '+00:00')
+            exam_date = datetime.fromisoformat(normalized)
         
         # Calculate end time
-        end_time = exam_date + timedelta(minutes=duration)
-        
-        # Find exams that overlap with the proposed time
+        end_time = exam_date + timedelta(minutes=int(duration))
+
+        lookback = exam_date - timedelta(days=1)
         query = Exam.query.filter(
             Exam.class_id == class_id,
             Exam.status != 'cancelled',
-            or_(
-                # Exam starts during another exam
-                and_(Exam.exam_date <= exam_date, (Exam.exam_date + func.interval(Exam.duration, 'minute')) >= exam_date),
-                # Exam ends during another exam
-                and_(Exam.exam_date <= end_time, (Exam.exam_date + func.interval(Exam.duration, 'minute')) >= end_time),
-                # Exam completely contains another exam
-                and_(Exam.exam_date >= exam_date, (Exam.exam_date + func.interval(Exam.duration, 'minute')) <= end_time)
-            )
+            Exam.exam_date <= end_time,
+            Exam.exam_date >= lookback
         )
-        
-        # Exclude the current exam if updating
+
         if exam_id:
             query = query.filter(Exam.id != exam_id)
-        
-        conflicts = query.all()
+
+        candidates = query.order_by(Exam.exam_date.asc()).all()
+        conflicts = []
+        for exam in candidates:
+            existing_end = exam.exam_date + timedelta(minutes=int(exam.duration))
+            if exam.exam_date < end_time and existing_end > exam_date:
+                conflicts.append(exam)
+
         return conflicts

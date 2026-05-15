@@ -15,7 +15,8 @@ import {
   Mail,
   MessageSquare,
   Bot,
-  Phone
+  Phone,
+  FlaskConical
 } from 'lucide-react';
 import api from '../../lib/api';
 import platformIntegrationsService from '../../services/platformIntegrationsService';
@@ -27,6 +28,8 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Switch } from '../../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Textarea } from '../../components/ui/textarea';
 
 const SystemSettingsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -109,6 +112,72 @@ const SystemSettingsPage: React.FC = () => {
     apiKey: '********',
     model: 'gpt-4o-mini'
   });
+
+  const [testOpen, setTestOpen] = useState(false);
+  const [testServiceType, setTestServiceType] = useState<'email' | 'sms' | 'whatsapp' | 'ai' | ''>('');
+  const [testTarget, setTestTarget] = useState('');
+  const [testSubject, setTestSubject] = useState('ADMIPAEDIA test');
+  const [testMessage, setTestMessage] = useState('This is a test message from ADMIPAEDIA.');
+  const [testingProvider, setTestingProvider] = useState(false);
+
+  const openTest = (serviceType: 'email' | 'sms' | 'whatsapp' | 'ai') => {
+    setTestServiceType(serviceType);
+    setTestTarget('');
+    setTestSubject(serviceType === 'email' ? 'ADMIPAEDIA test email' : 'ADMIPAEDIA test');
+    setTestMessage(serviceType === 'ai' ? 'Say hello and confirm you are reachable.' : 'This is a test message from ADMIPAEDIA.');
+    setTestOpen(true);
+  };
+
+  const runProviderTest = async () => {
+    if (!testServiceType) return;
+    setTestingProvider(true);
+    try {
+      let provider_key = '';
+      let cfg: Record<string, any> = {};
+      let params: Record<string, any> = {};
+
+      if (testServiceType === 'email') {
+        const { provider_key: pk, display_name: _dn, ...rest } = emailConfig;
+        provider_key = pk;
+        cfg = rest;
+        params = { to_email: testTarget.trim(), subject: testSubject.trim(), message: testMessage.trim() };
+      } else if (testServiceType === 'sms') {
+        const { provider_key: pk, display_name: _dn, ...rest } = smsConfig;
+        provider_key = pk;
+        cfg = rest;
+        params = { to_phone: testTarget.trim(), message: testMessage.trim() };
+      } else if (testServiceType === 'whatsapp') {
+        const { provider_key: pk, display_name: _dn, ...rest } = whatsappConfig;
+        provider_key = pk;
+        cfg = rest;
+        params = { to_phone: testTarget.trim(), message: testMessage.trim() };
+      } else {
+        const { provider_key: pk, display_name: _dn, ...rest } = aiConfig;
+        provider_key = pk;
+        cfg = rest;
+        params = { prompt: testMessage.trim() };
+      }
+
+      const res = await platformIntegrationsService.testProvider({
+        scope: 'platform',
+        service_type: testServiceType,
+        provider_key,
+        config: cfg,
+        params,
+      });
+
+      if (res.result.ok) {
+        toast.success(res.result.message || 'Test successful');
+        setTestOpen(false);
+      } else {
+        toast.error(res.result.message || 'Test failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Test failed');
+    } finally {
+      setTestingProvider(false);
+    }
+  };
 
   const markSaved = (key: string) => {
     const now = Date.now();
@@ -312,6 +381,62 @@ const SystemSettingsPage: React.FC = () => {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
+      <Dialog open={testOpen} onOpenChange={setTestOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Test integration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {testServiceType === 'email' ? (
+              <>
+                <div className="space-y-2">
+                  <Label>To Email (optional)</Label>
+                  <Input value={testTarget} onChange={(e) => setTestTarget(e.target.value)} placeholder="recipient@example.com" />
+                  <div className="text-xs text-muted-foreground">Leave blank to test SMTP connectivity only.</div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Subject</Label>
+                  <Input value={testSubject} onChange={(e) => setTestSubject(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Message</Label>
+                  <Textarea
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    className="bg-white text-slate-900 border border-slate-200"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {testServiceType === 'ai' ? null : (
+                  <div className="space-y-2">
+                    <Label>To Phone (optional)</Label>
+                    <Input value={testTarget} onChange={(e) => setTestTarget(e.target.value)} placeholder="+233..." />
+                    <div className="text-xs text-muted-foreground">This will validate configuration. Live sending is not available yet.</div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>{testServiceType === 'ai' ? 'Prompt' : 'Message'}</Label>
+                  <Textarea
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    className="bg-white text-slate-900 border border-slate-200"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setTestOpen(false)} disabled={testingProvider}>Cancel</Button>
+              <Button onClick={runProviderTest} disabled={testingProvider || !testServiceType}>
+                {testingProvider ? 'Testing…' : 'Run test'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div>
         <h1 className="text-3xl font-bold text-gray-900">{t('platform_settings.title', 'Platform Settings')}</h1>
         <p className="text-gray-500 mt-1">{t('platform_settings.subtitle', 'Configure global platform parameters, tenant defaults, and licensing')}</p>
@@ -724,24 +849,34 @@ const SystemSettingsPage: React.FC = () => {
                       <Mail className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">Email</div>
                     </div>
-                    <Button
-                      disabled={upsertProviderMutation.isPending}
-                      onClick={() => {
-                        const { provider_key, display_name, ...cfg } = emailConfig
-                        upsertProviderMutation.mutate({
-                          scope: 'platform',
-                          service_type: 'email',
-                          provider_key,
-                          display_name,
-                          priority: 10,
-                          is_active: true,
-                          config: cfg
-                        })
-                      }}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Email
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={upsertProviderMutation.isPending || testingProvider}
+                        onClick={() => openTest('email')}
+                      >
+                        <FlaskConical className="h-4 w-4 mr-2" />
+                        Test
+                      </Button>
+                      <Button
+                        disabled={upsertProviderMutation.isPending}
+                        onClick={() => {
+                          const { provider_key, display_name, ...cfg } = emailConfig
+                          upsertProviderMutation.mutate({
+                            scope: 'platform',
+                            service_type: 'email',
+                            provider_key,
+                            display_name,
+                            priority: 10,
+                            is_active: true,
+                            config: cfg
+                          })
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Email
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -777,24 +912,34 @@ const SystemSettingsPage: React.FC = () => {
                       <Phone className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">SMS</div>
                     </div>
-                    <Button
-                      disabled={upsertProviderMutation.isPending}
-                      onClick={() => {
-                        const { provider_key, display_name, ...cfg } = smsConfig
-                        upsertProviderMutation.mutate({
-                          scope: 'platform',
-                          service_type: 'sms',
-                          provider_key,
-                          display_name,
-                          priority: 10,
-                          is_active: true,
-                          config: cfg
-                        })
-                      }}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save SMS
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={upsertProviderMutation.isPending || testingProvider}
+                        onClick={() => openTest('sms')}
+                      >
+                        <FlaskConical className="h-4 w-4 mr-2" />
+                        Test
+                      </Button>
+                      <Button
+                        disabled={upsertProviderMutation.isPending}
+                        onClick={() => {
+                          const { provider_key, display_name, ...cfg } = smsConfig
+                          upsertProviderMutation.mutate({
+                            scope: 'platform',
+                            service_type: 'sms',
+                            provider_key,
+                            display_name,
+                            priority: 10,
+                            is_active: true,
+                            config: cfg
+                          })
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save SMS
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -818,24 +963,34 @@ const SystemSettingsPage: React.FC = () => {
                       <MessageSquare className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">WhatsApp</div>
                     </div>
-                    <Button
-                      disabled={upsertProviderMutation.isPending}
-                      onClick={() => {
-                        const { provider_key, display_name, ...cfg } = whatsappConfig
-                        upsertProviderMutation.mutate({
-                          scope: 'platform',
-                          service_type: 'whatsapp',
-                          provider_key,
-                          display_name,
-                          priority: 10,
-                          is_active: true,
-                          config: cfg
-                        })
-                      }}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save WhatsApp
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={upsertProviderMutation.isPending || testingProvider}
+                        onClick={() => openTest('whatsapp')}
+                      >
+                        <FlaskConical className="h-4 w-4 mr-2" />
+                        Test
+                      </Button>
+                      <Button
+                        disabled={upsertProviderMutation.isPending}
+                        onClick={() => {
+                          const { provider_key, display_name, ...cfg } = whatsappConfig
+                          upsertProviderMutation.mutate({
+                            scope: 'platform',
+                            service_type: 'whatsapp',
+                            provider_key,
+                            display_name,
+                            priority: 10,
+                            is_active: true,
+                            config: cfg
+                          })
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save WhatsApp
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -859,24 +1014,34 @@ const SystemSettingsPage: React.FC = () => {
                       <Bot className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">AI</div>
                     </div>
-                    <Button
-                      disabled={upsertProviderMutation.isPending}
-                      onClick={() => {
-                        const { provider_key, display_name, ...cfg } = aiConfig
-                        upsertProviderMutation.mutate({
-                          scope: 'platform',
-                          service_type: 'ai',
-                          provider_key,
-                          display_name,
-                          priority: 10,
-                          is_active: true,
-                          config: cfg
-                        })
-                      }}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save AI
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={upsertProviderMutation.isPending || testingProvider}
+                        onClick={() => openTest('ai')}
+                      >
+                        <FlaskConical className="h-4 w-4 mr-2" />
+                        Test
+                      </Button>
+                      <Button
+                        disabled={upsertProviderMutation.isPending}
+                        onClick={() => {
+                          const { provider_key, display_name, ...cfg } = aiConfig
+                          upsertProviderMutation.mutate({
+                            scope: 'platform',
+                            service_type: 'ai',
+                            provider_key,
+                            display_name,
+                            priority: 10,
+                            is_active: true,
+                            config: cfg
+                          })
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save AI
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">

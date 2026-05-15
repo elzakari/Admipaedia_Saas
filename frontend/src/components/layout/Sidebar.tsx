@@ -58,7 +58,7 @@ interface SidebarProps {
   onCollapse?: (collapsed: boolean) => void; // Add this new optional prop
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) => {
+const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -89,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar, onCollapse }) 
     name: string;
     labelKey: string;
     path: string;
-    icon: React.ReactNode;
+    icon: any;
   }
 
   const dashboardPath =

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
 import saasService, { PlatformTenantDetail, TenantServiceTokenSummary } from '@/services/saasService'
 import { superAdminService } from '@/services/superAdminService'
@@ -57,12 +58,12 @@ export function PlatformTenantDrawer({
   const [purgeExpected, setPurgeExpected] = useState('')
   const [purgeConfirmText, setPurgeConfirmText] = useState('')
   const [purgingTenant, setPurgingTenant] = useState(false)
-  const [purgeIsOrphan, setPurgeIsOrphan] = useState(false)
   const [purgeReasons, setPurgeReasons] = useState<string[]>([])
   const [serviceTokens, setServiceTokens] = useState<TenantServiceTokenSummary[] | null>(null)
   const [tokensLoading, setTokensLoading] = useState(false)
   const [planContext, setPlanContext] = useState<any | null>(null)
   const [planContextLoading, setPlanContextLoading] = useState(false)
+  const [tab, setTab] = useState<string>('overview')
 
   async function load() {
     if (!tenantId) return
@@ -83,6 +84,10 @@ export function PlatformTenantDrawer({
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (open) setTab('overview')
+  }, [open, tenantId])
 
   async function loadMembers() {
     if (!tenantId) return
@@ -174,10 +179,13 @@ export function PlatformTenantDrawer({
   const tenant = detail?.tenant
   const planSlug = planContext?.plan?.slug || tenant?.plan || '—'
   const tenantSlugOrId = (tenant?.slug || tenantId || '').trim()
+  const currentStatus = tenant?.status || ''
+  const currentPlan = tenant?.plan || ''
+  const hasChanges = Boolean(tenantId && ((nextStatus && nextStatus !== currentStatus) || (nextPlan && nextPlan !== currentPlan)))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="left-auto top-0 right-0 h-screen w-screen max-w-2xl translate-x-0 translate-y-0 rounded-none border-l border-slate-200 bg-white text-slate-900 p-0 sm:w-[44rem]">
+      <DialogContent className="h-[90vh] w-[calc(100%-2rem)] max-w-3xl overflow-hidden bg-white text-slate-900 p-0 sm:w-[48rem]">
         <Dialog
           open={purgeOpen}
           onOpenChange={(v) => {
@@ -186,7 +194,6 @@ export function PlatformTenantDrawer({
               setPurgeConfirmText('')
               setPurgeExpected('')
               setPurgeReasons([])
-              setPurgeIsOrphan(false)
             }
           }}
         >
@@ -213,16 +220,12 @@ export function PlatformTenantDrawer({
                 </Button>
                 <Button
                   variant="destructive"
-                  disabled={!purgeExpected || purgingTenant || purgeConfirmText.trim() !== purgeExpected}
+                  disabled={!purgeExpected || purgingTenant || purgeConfirmText.trim() !== purgeExpected || purgeReasons.length > 0}
                   onClick={async () => {
                     if (!tenantId) return
                     try {
                       setPurgingTenant(true)
-                      if (purgeIsOrphan) {
-                        await superAdminService.deleteOrphanTenant(tenantId)
-                      } else {
-                        await superAdminService.purgeTenant(tenantId, purgeConfirmText.trim())
-                      }
+                      await superAdminService.purgeTenant(tenantId, purgeConfirmText.trim())
                       toast({ title: 'School deleted' })
                       setPurgeOpen(false)
                       onOpenChange(false)
@@ -251,237 +254,204 @@ export function PlatformTenantDrawer({
         </Dialog>
 
         <div className="flex h-full flex-col">
-          <DialogHeader className="px-6 pt-6 pb-3">
-            <DialogTitle className="text-lg font-black text-slate-900">School detail</DialogTitle>
-            <div className="text-xs text-slate-500 truncate">{tenant?.id || '—'}</div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-auto px-6 pb-6 space-y-6">
-            <Card className="border-slate-200 rounded-2xl">
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-base font-bold text-slate-900 truncate">{loading ? 'Loading…' : (tenant?.name || '—')}</div>
-                    <div className="text-xs text-slate-500 truncate">{tenant?.slug} • {tenant?.country_code}</div>
-                    <div className="text-xs text-slate-500 truncate">Created: {formatIsoDate(tenant?.created_at)}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="border-slate-200">{tenant?.status || '—'}</Badge>
-                    <Badge className="bg-slate-900 text-white hover:bg-slate-900">{planSlug}</Badge>
-                  </div>
+          <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 pt-6 pb-4">
+            <DialogHeader className="p-0">
+              <DialogTitle className="text-lg font-black text-slate-900 truncate">
+                {loading ? 'Loading…' : (tenant?.name || 'School detail')}
+              </DialogTitle>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-slate-500 truncate min-w-0">
+                  {tenant?.slug ? `${tenant.slug} • ` : ''}{tenant?.country_code || '—'} • {tenant?.id || '—'}
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-slate-200 p-3">
-                    <div className="text-xs text-slate-500">Members</div>
-                    <div className="text-lg font-black text-slate-900">{detail ? detail.members_count : '—'}</div>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 p-3">
-                    <div className="text-xs text-slate-500">Invoiced</div>
-                    <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.invoice_total, tenant?.currency || 'USD') : '—'}</div>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 p-3">
-                    <div className="text-xs text-slate-500">Outstanding</div>
-                    <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.outstanding_total, tenant?.currency || 'USD') : '—'}</div>
-                  </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="border-slate-200">{tenant?.status || '—'}</Badge>
+                  <Badge className="bg-slate-900 text-white hover:bg-slate-900">{planSlug}</Badge>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </DialogHeader>
+          </div>
 
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select value={nextStatus} onValueChange={setNextStatus}>
-                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">active</SelectItem>
-                        <SelectItem value="trial">trial</SelectItem>
-                        <SelectItem value="suspended">suspended</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Plan</Label>
-                    <Select value={nextPlan} onValueChange={setNextPlan}>
-                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="trial">trial</SelectItem>
-                        <SelectItem value="basic">basic</SelectItem>
-                        <SelectItem value="pro">pro</SelectItem>
-                        <SelectItem value="enterprise">enterprise</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+          <div className="flex-1 overflow-auto px-6 pb-6">
+            <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+              <div className="sticky top-0 z-10 bg-white pt-4">
+                <TabsList className="w-full justify-start border border-slate-200 bg-white">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="team">Team</TabsTrigger>
+                  <TabsTrigger value="billing">Billing</TabsTrigger>
+                  <TabsTrigger value="tokens">Tokens</TabsTrigger>
+                  <TabsTrigger value="danger">Danger</TabsTrigger>
+                </TabsList>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" className="bg-white" disabled={saving || !tenantId} onClick={() => setNextStatus('active')}>
-                    Approve
-                  </Button>
-                  <Button variant="outline" className="bg-white" disabled={saving || !tenantId} onClick={() => setNextStatus('suspended')}>
-                    Suspend
-                  </Button>
-                  <Button disabled={saving || loading || !tenantId} onClick={save}>
-                    Save changes
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">Service tokens</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-xs text-slate-500">{tokensLoading ? 'Loading tokens…' : `Tokens: ${serviceTokens?.length ?? 0}`}</div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      className="bg-white"
-                      onClick={loadTokens}
-                      disabled={tokensLoading || !tenantId}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        if (!tenantId) return
-                        try {
-                          const res = await saasService.platformProvisionServiceTokens(tenantId)
-                          toast({
-                            title: 'Tokens provisioned',
-                            description: Object.entries(res.issued || {})
-                              .filter(([, v]) => Boolean(v))
-                              .map(([k]) => k)
-                              .join(', ') || 'No new tokens created'
-                          })
-                          await loadTokens()
-                        } catch (err: unknown) {
-                          const e = err as AxiosError<{ message?: string }>
-                          toast({
-                            variant: 'destructive',
-                            title: 'Provision failed',
-                            description: e.response?.data?.message || e.message || 'Please try again'
-                          })
-                        }
-                      }}
-                      disabled={tokensLoading || !tenantId}
-                    >
-                      Provision
-                    </Button>
-                  </div>
-                </div>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Service</TableHead>
-                      <TableHead>Allowance</TableHead>
-                      <TableHead>Used</TableHead>
-                      <TableHead>Remaining</TableHead>
-                      <TableHead>Token</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(serviceTokens || []).map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.service_type}</TableCell>
-                        <TableCell>{t.unlimited ? 'unlimited' : (t.monthly_allowance || '0')}</TableCell>
-                        <TableCell>{t.used}</TableCell>
-                        <TableCell>{t.unlimited ? '—' : (t.remaining ?? 0)}</TableCell>
-                        <TableCell className="text-xs text-slate-500">•••• {t.token_last4}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            className="bg-white"
-                            onClick={async () => {
-                              if (!tenantId) return
-                              try {
-                                const res = await saasService.platformRotateServiceToken(tenantId, t.service_type)
-                                await navigator.clipboard.writeText(res.token)
-                                toast({ title: `Rotated ${t.service_type} token`, description: 'Copied new token to clipboard' })
-                                await loadTokens()
-                              } catch (err: unknown) {
-                                const e = err as AxiosError<{ message?: string }>
-                                toast({
-                                  variant: 'destructive',
-                                  title: 'Rotation failed',
-                                  description: e.response?.data?.message || e.message || 'Please try again'
-                                })
-                              }
-                            }}
-                          >
-                            Rotate & Copy
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {!tokensLoading && (serviceTokens || []).length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-sm text-slate-500">
-                          No tokens found. Use Provision to generate plan-based service tokens.
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">Plan context</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {planContextLoading ? (
-                  <div className="text-sm text-slate-500 animate-pulse">Loading…</div>
-                ) : planContext ? (
-                  <>
-                    <div className="text-sm text-slate-700">
-                      <span className="font-semibold text-slate-900">{planContext.plan?.name || '—'}</span>
-                      <span className="text-slate-500"> ({planContext.plan?.slug || '—'})</span>
+              <TabsContent value="overview" className="space-y-6 mt-0">
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-xs text-slate-500">
+                        Created: {formatIsoDate(tenant?.created_at)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-white"
+                          disabled={!tenant?.id}
+                          onClick={async () => {
+                            if (!tenant?.id) return
+                            try {
+                              await navigator.clipboard.writeText(String(tenant.id))
+                              toast({ title: 'Copied school ID' })
+                            } catch {
+                              toast({ variant: 'destructive', title: 'Copy failed', description: 'Please copy manually' })
+                            }
+                          }}
+                        >
+                          Copy ID
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-white"
+                          disabled={!tenant?.slug}
+                          onClick={async () => {
+                            if (!tenant?.slug) return
+                            try {
+                              await navigator.clipboard.writeText(String(tenant.slug))
+                              toast({ title: 'Copied slug' })
+                            } catch {
+                              toast({ variant: 'destructive', title: 'Copy failed', description: 'Please copy manually' })
+                            }
+                          }}
+                        >
+                          Copy slug
+                        </Button>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(planContext.token_usage || {}).map(([k, v]: any) => (
-                        <div key={k} className="rounded-xl border border-slate-200 p-3">
-                          <div className="text-xs text-slate-500">{k}</div>
-                          <div className="text-sm font-semibold text-slate-900 tabular-nums">
-                            {v?.unlimited ? 'Unlimited' : `${v?.remaining ?? 0} left`}
-                          </div>
-                          <div className="text-xs text-slate-500">Used: {v?.used ?? 0}</div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Members</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? detail.members_count : '—'}</div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Invoiced</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.invoice_total, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Outstanding</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.outstanding_total, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-sm font-semibold text-slate-800">Actions</CardTitle>
+                      {hasChanges ? <Badge variant="outline" className="border-amber-200 text-amber-700">Unsaved changes</Badge> : null}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Status</Label>
+                        <Select value={nextStatus} onValueChange={setNextStatus}>
+                          <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">active</SelectItem>
+                            <SelectItem value="trial">trial</SelectItem>
+                            <SelectItem value="suspended">suspended</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Plan</Label>
+                        <Select value={nextPlan} onValueChange={setNextPlan}>
+                          <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="trial">trial</SelectItem>
+                            <SelectItem value="basic">basic</SelectItem>
+                            <SelectItem value="pro">pro</SelectItem>
+                            <SelectItem value="enterprise">enterprise</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="bg-white"
+                        disabled={saving || !tenantId || nextStatus === 'active'}
+                        onClick={() => setNextStatus('active')}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="bg-white"
+                        disabled={saving || !tenantId || nextStatus === 'suspended'}
+                        onClick={() => setNextStatus('suspended')}
+                      >
+                        Suspend
+                      </Button>
+                      <Button disabled={saving || loading || !hasChanges} onClick={save}>
+                        {saving ? 'Saving…' : 'Save changes'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">Plan context</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {planContextLoading ? (
+                      <div className="text-sm text-slate-500 animate-pulse">Loading…</div>
+                    ) : planContext ? (
+                      <>
+                        <div className="text-sm text-slate-700">
+                          <span className="font-semibold text-slate-900">{planContext.plan?.name || '—'}</span>
+                          <span className="text-slate-500"> ({planContext.plan?.slug || '—'})</span>
                         </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-sm text-slate-500">No plan context available.</div>
-                )}
-              </CardContent>
-            </Card>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(planContext.token_usage || {}).map(([k, v]: any) => (
+                            <div key={k} className="rounded-xl border border-slate-200 p-3">
+                              <div className="text-xs text-slate-500">{k}</div>
+                              <div className="text-sm font-semibold text-slate-900 tabular-nums">
+                                {v?.unlimited ? 'Unlimited' : `${v?.remaining ?? 0} left`}
+                              </div>
+                              <div className="text-xs text-slate-500">Used: {v?.used ?? 0}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-slate-500">No plan context available.</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">School admins & team</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_220px_140px] gap-3 items-end">
-                  <div className="space-y-2">
+              <TabsContent value="team" className="space-y-6 mt-0">
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">School admins & team</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                  <div className="flex-1 min-w-0 space-y-2">
                     <Label>Email</Label>
                     <Input
                       value={addEmail}
                       onChange={(e) => setAddEmail(e.target.value)}
                       placeholder="admin@school.com"
-                      className="bg-white"
+                      className="bg-white w-full"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="w-full lg:w-52 space-y-2">
                     <Label>Role</Label>
                     <Select value={addRole} onValueChange={setAddRole}>
                       <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -492,7 +462,7 @@ export function PlatformTenantDrawer({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
+                  <div className="w-full lg:w-52 space-y-2">
                     <Label>Status</Label>
                     <Select value={addStatus} onValueChange={setAddStatus}>
                       <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
@@ -504,6 +474,7 @@ export function PlatformTenantDrawer({
                     </Select>
                   </div>
                   <Button
+                    className="w-full lg:w-auto"
                     disabled={!tenantId || membersLoading || addEmail.trim().length === 0}
                     onClick={async () => {
                       if (!tenantId) return
@@ -644,113 +615,222 @@ export function PlatformTenantDrawer({
                 </Table>
               </CardContent>
             </Card>
+              </TabsContent>
 
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">Recent invoices</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Invoice</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Issued</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(detail?.recent_invoices || []).map((i) => (
-                      <TableRow key={i.id}>
-                        <TableCell className="font-medium text-slate-900">{i.invoice_number}</TableCell>
-                        <TableCell><Badge variant="outline" className="border-slate-200">{i.status}</Badge></TableCell>
-                        <TableCell className="text-right">{formatMoney(i.amount, i.currency)}</TableCell>
-                        <TableCell className="text-right text-xs text-slate-600">{i.issued_on}</TableCell>
-                      </TableRow>
-                    ))}
-                    {!loading && (detail?.recent_invoices || []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-sm text-slate-600">No invoices yet.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+              <TabsContent value="billing" className="space-y-6 mt-0">
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">Recent invoices</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="text-right">Issued</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(detail?.recent_invoices || []).map((i) => (
+                          <TableRow key={i.id}>
+                            <TableCell className="font-medium text-slate-900">{i.invoice_number}</TableCell>
+                            <TableCell><Badge variant="outline" className="border-slate-200">{i.status}</Badge></TableCell>
+                            <TableCell className="text-right">{formatMoney(i.amount, i.currency)}</TableCell>
+                            <TableCell className="text-right text-xs text-slate-600">{i.issued_on}</TableCell>
+                          </TableRow>
+                        ))}
+                        {!loading && (detail?.recent_invoices || []).length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-sm text-slate-600">No invoices yet.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
 
-            <Card className="border-slate-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-800">Recent payments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Paid on</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Reference</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(detail?.recent_payments || []).map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-xs text-slate-700">{p.paid_on}</TableCell>
-                        <TableCell className="text-xs text-slate-700">{p.method || '—'}</TableCell>
-                        <TableCell className="text-right">{formatMoney(p.amount, p.currency)}</TableCell>
-                        <TableCell className="text-xs text-slate-600 truncate max-w-[12rem]">{p.reference || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                    {!loading && (detail?.recent_payments || []).length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-sm text-slate-600">No payments yet.</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">Recent payments</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Paid on</TableHead>
+                          <TableHead>Method</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>Reference</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(detail?.recent_payments || []).map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-xs text-slate-700">{p.paid_on}</TableCell>
+                            <TableCell className="text-xs text-slate-700">{p.method || '—'}</TableCell>
+                            <TableCell className="text-right">{formatMoney(p.amount, p.currency)}</TableCell>
+                            <TableCell className="text-xs text-slate-600 truncate max-w-[12rem]">{p.reference || '—'}</TableCell>
+                          </TableRow>
+                        ))}
+                        {!loading && (detail?.recent_payments || []).length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-sm text-slate-600">No payments yet.</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <Card className="border-red-200 rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-red-700">Danger zone</CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium text-slate-900">Delete orphan school permanently</div>
-                  <div className="text-xs text-slate-600">Only allowed when the school has no members, billing history, or data.</div>
-                </div>
-                <Button
-                  variant="destructive"
-                  disabled={!tenantId || deletingTenant}
-                  onClick={async () => {
-                    if (!tenantId) return
-                    try {
-                      setDeletingTenant(true)
-                      const statusRes = await superAdminService.getOrphanTenantStatus(tenantId)
-                      const slug = statusRes.status.tenant?.slug || tenantSlugOrId || tenantId
-                      const expected = `DELETE ${slug}`
-                      setPurgeExpected(expected)
-                      setPurgeConfirmText('')
-                      setPurgeIsOrphan(Boolean(statusRes.status.can_delete))
-                      setPurgeReasons(statusRes.status.can_delete ? [] : (statusRes.status.reasons || []))
-                      setPurgeOpen(true)
-                    } catch (err: unknown) {
-                      const e = err as AxiosError<{ message?: string }>
-                      toast({
-                        variant: 'destructive',
-                        title: 'Delete failed',
-                        description: e.response?.data?.message || e.message || 'Please try again'
-                      })
-                    } finally {
-                      setDeletingTenant(false)
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </CardContent>
-            </Card>
+              <TabsContent value="tokens" className="space-y-6 mt-0">
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">Service tokens</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="text-xs text-slate-500">{tokensLoading ? 'Loading tokens…' : `Tokens: ${serviceTokens?.length ?? 0}`}</div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          className="bg-white"
+                          onClick={loadTokens}
+                          disabled={tokensLoading || !tenantId}
+                        >
+                          Refresh
+                        </Button>
+                        <Button
+                          onClick={async () => {
+                            if (!tenantId) return
+                            try {
+                              const res = await saasService.platformProvisionServiceTokens(tenantId)
+                              toast({
+                                title: 'Tokens provisioned',
+                                description: Object.entries(res.issued || {})
+                                  .filter(([, v]) => Boolean(v))
+                                  .map(([k]) => k)
+                                  .join(', ') || 'No new tokens created'
+                              })
+                              await loadTokens()
+                            } catch (err: unknown) {
+                              const e = err as AxiosError<{ message?: string }>
+                              toast({
+                                variant: 'destructive',
+                                title: 'Provision failed',
+                                description: e.response?.data?.message || e.message || 'Please try again'
+                              })
+                            }
+                          }}
+                          disabled={tokensLoading || !tenantId}
+                        >
+                          Provision
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Service</TableHead>
+                          <TableHead>Allowance</TableHead>
+                          <TableHead>Used</TableHead>
+                          <TableHead>Remaining</TableHead>
+                          <TableHead>Token</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(serviceTokens || []).map((t) => (
+                          <TableRow key={t.id}>
+                            <TableCell className="font-medium">{t.service_type}</TableCell>
+                            <TableCell>{t.unlimited ? 'unlimited' : (t.monthly_allowance || '0')}</TableCell>
+                            <TableCell>{t.used}</TableCell>
+                            <TableCell>{t.unlimited ? '—' : (t.remaining ?? 0)}</TableCell>
+                            <TableCell className="text-xs text-slate-500">•••• {t.token_last4}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                className="bg-white"
+                                onClick={async () => {
+                                  if (!tenantId) return
+                                  try {
+                                    const res = await saasService.platformRotateServiceToken(tenantId, t.service_type)
+                                    await navigator.clipboard.writeText(res.token)
+                                    toast({ title: `Rotated ${t.service_type} token`, description: 'Copied new token to clipboard' })
+                                    await loadTokens()
+                                  } catch (err: unknown) {
+                                    const e = err as AxiosError<{ message?: string }>
+                                    toast({
+                                      variant: 'destructive',
+                                      title: 'Rotation failed',
+                                      description: e.response?.data?.message || e.message || 'Please try again'
+                                    })
+                                  }
+                                }}
+                              >
+                                Rotate & Copy
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {!tokensLoading && (serviceTokens || []).length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-sm text-slate-500">
+                              No tokens found. Use Provision to generate plan-based service tokens.
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="danger" className="space-y-6 mt-0">
+                <Card className="border-red-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-red-700">Danger zone</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900">Delete school permanently</div>
+                      <div className="text-xs text-slate-600">Requires a secure typed confirmation. If the school has students, suspend it first.</div>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      disabled={!tenantId || deletingTenant}
+                      onClick={async () => {
+                        if (!tenantId) return
+                        try {
+                          setDeletingTenant(true)
+                          const statusRes = await superAdminService.getTenantPurgeStatus(tenantId)
+                          const slug = statusRes.status.tenant?.slug || tenantSlugOrId || tenantId
+                          const expected = `DELETE ${slug}`
+                          setPurgeExpected(expected)
+                          setPurgeConfirmText('')
+                          setPurgeReasons(statusRes.status.can_delete ? [] : (statusRes.status.reasons || []))
+                          setPurgeOpen(true)
+                        } catch (err: unknown) {
+                          const e = err as AxiosError<{ message?: string }>
+                          toast({
+                            variant: 'destructive',
+                            title: 'Delete failed',
+                            description: e.response?.data?.message || e.message || 'Please try again'
+                          })
+                        } finally {
+                          setDeletingTenant(false)
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </DialogContent>
