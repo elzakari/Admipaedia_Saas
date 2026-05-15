@@ -141,7 +141,10 @@ class TestingConfig(BaseConfig):
     DEBUG = True
     
     # Database (separate test database)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DB_URL') or os.environ.get('DATABASE_URL') or 'sqlite:///:memory:'
+    url = os.environ.get('TEST_DB_URL') or os.environ.get('DATABASE_URL') or 'sqlite:///:memory:'
+    if url.startswith('postgresql://'):
+        url = url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    SQLALCHEMY_DATABASE_URI = url
     
     # Security (disabled for testing)
     WTF_CSRF_ENABLED = False

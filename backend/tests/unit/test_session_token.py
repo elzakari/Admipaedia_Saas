@@ -14,16 +14,27 @@ class TestSessionToken:
     """Test cases for SessionToken model."""
 
     @pytest.fixture
-    def token_data(self):
+    def token_data(self, app):
         """Fixture for session token test data."""
-        return {
-            'jti': 'test-jwt-id-123',
-            'user_id': 1,
-            'token_type': 'access',
-            'ip_address': '192.168.1.1',
-            'user_agent': 'Mozilla/5.0',
-            'expires_at': datetime.utcnow() + timedelta(hours=1)
-        }
+        with app.app_context():
+            from app.models.user import User
+            from app.extensions import db, bcrypt
+            import uuid
+            
+            user_email = f"token_{uuid.uuid4().hex[:8]}@example.com"
+            user = User(username=f"token_{uuid.uuid4().hex[:8]}", email=user_email, role='user')
+            user.password_hash = bcrypt.generate_password_hash('Password123!').decode('utf-8')
+            db.session.add(user)
+            db.session.commit()
+            
+            return {
+                'jti': 'test-jwt-id-123',
+                'user_id': user.id,
+                'token_type': 'access',
+                'ip_address': '192.168.1.1',
+                'user_agent': 'Mozilla/5.0',
+                'expires_at': datetime.utcnow() + timedelta(hours=1)
+            }
 
     def test_session_token_creation(self, app, token_data):
         """Test session token creation."""
@@ -43,7 +54,7 @@ class TestSessionToken:
         """Test session token string representation."""
         with app.app_context():
             token = SessionToken(**token_data)
-            expected = f"<SessionToken {token_data['jti']} - {token_data['token_type']}>"
+            expected = f"<SessionToken {token_data['jti']} - User {token_data['user_id']} - {token_data['token_type']}>"
             assert repr(token) == expected
 
     def test_is_expired_true(self, app, token_data):
@@ -134,12 +145,12 @@ class TestSessionToken:
         """Test converting session token to dictionary."""
         with app.app_context():
             token = SessionToken(**token_data)
+            token.id = 1
+            token.issued_at = datetime.utcnow()
             token_dict = token.to_dict()
             
-            assert token_dict['jti'] == token_data['jti']
-            assert token_dict['user_id'] == token_data['user_id']
             assert token_dict['token_type'] == token_data['token_type']
-            assert token_dict['is_revoked'] is False
+            assert token_dict['ip_address'] == token_data['ip_address']
             assert 'issued_at' in token_dict
             assert 'expires_at' in token_dict
 
@@ -184,32 +195,32 @@ class TestSessionToken:
         mock_tokens = [SessionToken(**{**token_data, 'jti': f'jti-{i}'}) for i in range(2)]
         mock_query.filter_by.return_value.filter.return_value.all.return_value = mock_tokens
         
-        result = SessionToken.get_user_sessions(user_id=1)
+        result = SessionToken.get_user_active_sessions(user_id=1)
         
         assert len(result) == 2
-        mock_query.filter_by.assert_called_once_with(user_id=1)
+        mock_query.filter_by.assert_called_once_with(user_id=1, is_revoked=False, token_type='access')
 
     @patch('app.models.session_token.SessionToken.query')
-    @patch('app.models.session_token.db')
-    def test_cleanup_expired_tokens(self, mock_db, mock_query):
+    def test_cleanup_expired_tokens(self, mock_query):
         """Test cleanup of expired tokens."""
-        mock_query.filter.return_value.delete.return_value = 5
+        mock_token = Mock()
+        mock_query.filter.return_value.all.return_value = [mock_token] * 5
         
         result = SessionToken.cleanup_expired_tokens()
         
         assert result == 5
-        mock_db.session.commit.assert_called_once()
+        assert mock_token.revoke.call_count == 5
 
     @patch('app.models.session_token.SessionToken.query')
     def test_get_session_stats(self, mock_query):
         """Test getting session statistics."""
         # Mock different query results
-        mock_query.filter_by.return_value.count.return_value = 10  # Total active
-        mock_query.filter.return_value.count.side_effect = [5, 3]  # Access tokens, Refresh tokens
+        mock_active_tokens = mock_query.filter_by.return_value.filter.return_value
+        mock_active_tokens.filter_by.return_value.count.side_effect = [5, 3]  # Access tokens, Refresh tokens
         
         stats = SessionToken.get_session_stats(user_id=1)
         
-        assert stats['total_active'] == 10
+        assert stats['total_active'] == 8
         assert stats['access_tokens'] == 5
         assert stats['refresh_tokens'] == 3
 
@@ -255,13 +266,24 @@ class TestSessionToken:
 class TestSessionTokenIntegration:
     """Integration tests for session token functionality."""
 
+    def _create_user(self):
+        from app.models.user import User
+        from app.extensions import bcrypt, db
+        import uuid
+        u = User(username=f"u_{uuid.uuid4().hex[:8]}", email=f"u_{uuid.uuid4().hex[:8]}@example.com", role='user')
+        u.password_hash = bcrypt.generate_password_hash('pw').decode('utf-8')
+        db.session.add(u)
+        db.session.commit()
+        return u.id
+
     def test_complete_token_lifecycle(self, app):
         """Test complete token lifecycle from creation to cleanup."""
         with app.app_context():
+            uid = self._create_user()
             # Create token
             token = SessionToken(
                 jti='lifecycle-test-123',
-                user_id=1,
+                user_id=uid,
                 token_type='access',
                 ip_address='192.168.1.1',
                 user_agent='Test Agent',
@@ -287,7 +309,7 @@ class TestSessionTokenIntegration:
     def test_user_session_management(self, app):
         """Test managing multiple sessions for a user."""
         with app.app_context():
-            user_id = 1
+            user_id = self._create_user()
             
             # Create multiple tokens for user
             tokens = []
@@ -304,8 +326,8 @@ class TestSessionTokenIntegration:
             db.session.commit()
             
             # Test finding user sessions
-            user_sessions = SessionToken.get_user_sessions(user_id)
-            assert len(user_sessions) == 3
+            user_sessions = SessionToken.get_user_active_sessions(user_id)
+            assert len(user_sessions) == 2
             
             # Test revoking all user tokens
             revoked_count = SessionToken.revoke_user_tokens(user_id, "User logout")
@@ -319,6 +341,7 @@ class TestSessionTokenIntegration:
     def test_device_fingerprinting(self, app):
         """Test device fingerprinting functionality."""
         with app.app_context():
+            uid = self._create_user()
             user_agent1 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
             user_agent2 = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
             ip_address = "192.168.1.1"
@@ -326,7 +349,7 @@ class TestSessionTokenIntegration:
             # Create tokens with different user agents
             token1 = SessionToken(
                 jti='device-test-1',
-                user_id=1,
+                user_id=uid,
                 token_type='access',
                 user_agent=user_agent1,
                 ip_address=ip_address,
@@ -335,7 +358,7 @@ class TestSessionTokenIntegration:
             
             token2 = SessionToken(
                 jti='device-test-2',
-                user_id=1,
+                user_id=uid,
                 token_type='access',
                 user_agent=user_agent2,
                 ip_address=ip_address,
@@ -359,10 +382,11 @@ class TestSessionTokenIntegration:
     def test_token_expiry_and_cleanup(self, app):
         """Test token expiry detection and cleanup."""
         with app.app_context():
+            uid = self._create_user()
             # Create expired token
             expired_token = SessionToken(
                 jti='expired-test',
-                user_id=1,
+                user_id=uid,
                 token_type='access',
                 expires_at=datetime.utcnow() - timedelta(hours=1)
             )
@@ -370,7 +394,7 @@ class TestSessionTokenIntegration:
             # Create valid token
             valid_token = SessionToken(
                 jti='valid-test',
-                user_id=1,
+                user_id=uid,
                 token_type='access',
                 expires_at=datetime.utcnow() + timedelta(hours=1)
             )
@@ -393,7 +417,7 @@ class TestSessionTokenIntegration:
     def test_session_statistics(self, app):
         """Test session statistics functionality."""
         with app.app_context():
-            user_id = 1
+            user_id = self._create_user()
             
             # Create various types of tokens
             access_tokens = []

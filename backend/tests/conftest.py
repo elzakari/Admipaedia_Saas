@@ -27,6 +27,7 @@ def app():
     
     # Create the database and the database tables
     with app.app_context():
+        _db.drop_all()
         _db.create_all()
     
     yield app
@@ -214,6 +215,16 @@ def db_isolation(app):
     session_factory = sessionmaker(bind=connection)
     session = scoped_session(session_factory)
     db.session = session
+
+    # Implement nested transactions (savepoints)
+    nested = connection.begin_nested()
+    from sqlalchemy import event
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(session, transaction):
+        nonlocal nested
+        if not nested.is_active:
+            nested = connection.begin_nested()
+
     try:
         yield
     finally:

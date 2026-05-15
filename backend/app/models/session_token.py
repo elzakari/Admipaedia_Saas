@@ -48,9 +48,10 @@ class SessionToken(db.Model):
         if device_fingerprint:
             self.device_fingerprint = device_fingerprint
         else:
-            self.device_fingerprint = self._generate_device_fingerprint(ip_address, user_agent)
+            self.device_fingerprint = self.generate_device_fingerprint(ip_address, user_agent)
     
-    def _generate_device_fingerprint(self, ip_address, user_agent):
+    @staticmethod
+    def generate_device_fingerprint(ip_address, user_agent):
         """Generate a device fingerprint for session tracking"""
         if not ip_address or not user_agent:
             return None
@@ -88,6 +89,17 @@ class SessionToken(db.Model):
     def is_valid(self):
         """Check if token is valid (not revoked and not expired)"""
         return not self.is_revoked and not self.is_expired
+    
+    @property
+    def is_refresh_token(self):
+        """Check if token is a refresh token"""
+        return self.token_type == 'refresh'
+    
+    def time_until_expiry(self):
+        """Get time until token expires"""
+        now = datetime.now(timezone.utc)
+        exp = self._as_utc_aware(self.expires_at)
+        return exp - now if exp > now else timedelta(0)
     
     @classmethod
     def create_token(cls, jti, user_id, token_type, expires_at, ip_address=None, user_agent=None):
@@ -142,7 +154,20 @@ class SessionToken(db.Model):
         ).filter(
             cls.expires_at > now
         ).all()
-    
+        
+    @classmethod
+    def get_session_stats(cls, user_id):
+        """Get session statistics for a user"""
+        now = datetime.utcnow()
+        active_tokens = cls.query.filter_by(user_id=user_id, is_revoked=False).filter(cls.expires_at > now)
+        access_tokens = active_tokens.filter_by(token_type='access').count()
+        refresh_tokens = active_tokens.filter_by(token_type='refresh').count()
+        return {
+            'total_active': access_tokens + refresh_tokens,
+            'access_tokens': access_tokens,
+            'refresh_tokens': refresh_tokens
+        }
+
     def to_dict(self):
         """Convert token to dictionary for API responses"""
         return {
