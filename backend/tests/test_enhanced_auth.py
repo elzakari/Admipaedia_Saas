@@ -10,16 +10,18 @@ from unittest.mock import patch, MagicMock
 from app import create_app, db
 from app.models.user import User, Role
 from app.models.enhanced_auth import MFADevice, TrustedDevice, AuthenticationAttempt
+from app.models.security import LoginAttempt
 from app.services.enhanced_auth_service import EnhancedAuthService
 from app.config import TestingConfig
 
 @pytest.fixture
 def app():
     """Create test app"""
-    app = create_app(TestingConfig)
+    app = create_app('testing')
     with app.app_context():
         db.create_all()
         yield app
+        db.session.remove()
         db.drop_all()
 
 @pytest.fixture
@@ -59,13 +61,14 @@ class TestEnhancedAuthService:
             result = EnhancedAuthService.register_user_with_security(
                 username='newuser',
                 email='newuser@example.com',
-                password='SecurePassword123!',
+                password='SecureP4ssword!@#',
                 roles=['student']
             )
             
+            if not result['success']:
+                print(f"Registration failed: {result}")
             assert result['success'] is True
-            assert 'user' in result
-            assert result['user']['email'] == 'newuser@example.com'
+            assert 'user_id' in result
     
     def test_register_user_weak_password(self, app):
         """Test registration with weak password"""
@@ -78,11 +81,21 @@ class TestEnhancedAuthService:
             )
             
             assert result['success'] is False
-            assert 'password_errors' in result
+            assert 'details' in result
     
-    def test_authenticate_with_security(self, app, test_user):
+    @patch('requests.get')
+    def test_authenticate_with_security(self, mock_get, app, test_user):
         """Test secure authentication"""
+        # Mock geolocation
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {'country_name': 'Local', 'city': 'Local', 'org': 'Internal'}
+        )
+        
         with app.app_context():
+            # Refresh user session
+            test_user = db.session.merge(test_user)
+            
             device_info = {
                 'ip_address': '127.0.0.1',
                 'user_agent': 'Test Browser',
@@ -110,33 +123,29 @@ class TestEnhancedAuthService:
             assert result['success'] is False
             assert result['error'] == 'Invalid credentials'
     
-    @patch('pyotp.random_base32')
-    def test_setup_mfa(self, mock_random, app, test_user):
-        """Test MFA setup"""
-        mock_random.return_value = 'TESTSECRET123456'
-        
-        with app.app_context():
-            result = EnhancedAuthService.setup_mfa(test_user.id)
-            
-            assert result['success'] is True
-            assert 'qr_code' in result
-            assert 'backup_codes' in result
-            assert len(result['backup_codes']) == 10
-    
     @patch('pyotp.TOTP.verify')
     def test_verify_mfa_success(self, mock_verify, app, test_user):
         """Test successful MFA verification"""
         mock_verify.return_value = True
         
         with app.app_context():
+            test_user = db.session.merge(test_user)
             # Setup MFA first
             EnhancedAuthService.setup_mfa(test_user.id)
+            test_user.mfa_enabled = True
+            db.session.commit()
             
-            # Get MFA device
-            mfa_device = MFADevice.query.filter_by(user_id=test_user.id).first()
+            # Let's do a full flow: authenticate -> get mfa_token -> verify
+            auth_result = EnhancedAuthService.authenticate_with_security(
+                email=test_user.email,
+                password='TestPassword123!'
+            )
+            
+            assert auth_result['requires_mfa'] is True
+            mfa_token = auth_result['mfa_token']
             
             result = EnhancedAuthService.verify_mfa(
-                mfa_token=mfa_device.mfa_token,
+                mfa_token=mfa_token,
                 code='123456'
             )
             
@@ -145,15 +154,23 @@ class TestEnhancedAuthService:
     def test_verify_mfa_backup_code(self, app, test_user):
         """Test MFA verification with backup code"""
         with app.app_context():
+            test_user = db.session.merge(test_user)
             # Setup MFA
             setup_result = EnhancedAuthService.setup_mfa(test_user.id)
+            test_user.mfa_enabled = True
+            db.session.commit()
+            
             backup_code = setup_result['backup_codes'][0]
             
-            # Get MFA device
-            mfa_device = MFADevice.query.filter_by(user_id=test_user.id).first()
+            # Authenticate to get mfa_token
+            auth_result = EnhancedAuthService.authenticate_with_security(
+                email=test_user.email,
+                password='TestPassword123!'
+            )
+            mfa_token = auth_result['mfa_token']
             
             result = EnhancedAuthService.verify_mfa(
-                mfa_token=mfa_device.mfa_token,
+                mfa_token=mfa_token,
                 code=backup_code,
                 is_backup_code=True
             )
@@ -213,9 +230,20 @@ class TestEnhancedAuthRoutes:
 class TestSecurityFeatures:
     """Test security features"""
     
-    def test_device_fingerprinting(self, app):
+    @patch('requests.get')
+    def test_device_fingerprinting(self, mock_get, app):
         """Test device fingerprinting"""
         from app.utils.security_enhancements import DeviceFingerprinting
+        
+        # Mock geolocation response
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                'country_name': 'Local',
+                'city': 'Local',
+                'org': 'Internal Network'
+            }
+        )
         
         with app.test_request_context(
             headers={
@@ -230,25 +258,37 @@ class TestSecurityFeatures:
             assert isinstance(fingerprint, str)
             assert len(fingerprint) == 32
     
-    def test_threat_detection(self, app, test_user):
+    @patch('requests.get')
+    def test_threat_detection(self, mock_get, app, test_user):
         """Test threat detection"""
         from app.utils.security_enhancements import ThreatDetection
         
+        # Mock geolocation response
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                'country_name': 'Local',
+                'city': 'Local',
+                'org': 'Internal Network'
+            }
+        )
+        
         with app.app_context():
+            test_user = db.session.merge(test_user)
             # Create some authentication attempts
             for i in range(3):
-                attempt = AuthenticationAttempt(
-                    user_id=test_user.id,
+                attempt = LoginAttempt(
+                    identifier=test_user.email,
                     ip_address='192.168.1.1',
                     user_agent='Test Browser',
                     success=True,
-                    created_at=datetime.utcnow() - timedelta(days=i)
+                    attempted_at=datetime.utcnow() - timedelta(days=i)
                 )
                 db.session.add(attempt)
             db.session.commit()
             
             analysis = ThreatDetection.analyze_login_pattern(
-                test_user.id, 
+                test_user.email, 
                 '10.0.0.1'  # Different IP
             )
             

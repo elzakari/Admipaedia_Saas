@@ -8,6 +8,7 @@ import pyotp
 import qrcode
 import io
 import base64
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from flask import request, current_app
@@ -365,9 +366,9 @@ class EnhancedAuthService:
         """
         try:
             # Find user by MFA token
-            user = User.query.filter_by(
-                mfa_temp_token=mfa_token,
-                mfa_temp_token_expires__gt=datetime.utcnow()
+            user = User.query.filter(
+                User.mfa_temp_token == mfa_token,
+                User.mfa_temp_token_expires > datetime.utcnow()
             ).first()
             
             if not user:
@@ -449,7 +450,14 @@ class EnhancedAuthService:
         # Create session record
         device_fingerprint = None
         if device_info:
-            device_fingerprint = DeviceFingerprinting.generate_fingerprint(device_info)
+            device_fingerprint = device_info.get('fingerprint')
+            if not device_fingerprint:
+                # If no fingerprint provided, try to generate it but handle if device_info is a dict
+                try:
+                    device_fingerprint = DeviceFingerprinting.generate_fingerprint(device_info)
+                except AttributeError:
+                    # If it's a dict and doesn't have .headers, we can't generate it this way
+                    device_fingerprint = hashlib.sha256(str(device_info).encode()).hexdigest()[:32]
         
         session_token = SessionToken(
             jti=access_jti,
