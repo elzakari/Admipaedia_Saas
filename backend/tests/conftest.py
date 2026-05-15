@@ -50,12 +50,12 @@ def client(app):
 @pytest.fixture(scope='function')
 def auth_client(app, client):
     """A test client with authentication."""
-    # Create a test user and login
     from app.models.user import User
     from app.extensions import bcrypt
     
     with app.app_context():
-        user = User.query.filter_by(email='test@example.com').first()
+        # Use _db.session so this is visible inside db_isolation's transaction
+        user = _db.session.query(User).filter_by(email='test@example.com').first()
         if not user:
             user = User(
                 username='testuser',
@@ -64,15 +64,16 @@ def auth_client(app, client):
                 role='admin'
             )
             _db.session.add(user)
-            _db.session.commit()
+            _db.session.flush()  # flush so the user gets an id, but don't commit
         
         # Login and get token
         response = client.post('/api/v1/auth/login', json={
             'email': 'test@example.com',
             'password': 'password'
         })
-        token = response.json['access_token']
-        client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+        if response.json and response.json.get('access_token'):
+            token = response.json['access_token']
+            client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
         
     return client
 

@@ -53,7 +53,7 @@ def sample_role(app):
             name='test_role',
             display_name='Test Role',
             description='A test role for unit testing',
-            hierarchy_level=5
+            level=5
         )
         db.session.add(role)
         db.session.commit()
@@ -86,7 +86,7 @@ class TestRBACModels:
                 name='admin',
                 display_name='Administrator',
                 description='System administrator role',
-                hierarchy_level=1
+                level=1
             )
             db.session.add(role)
             db.session.commit()

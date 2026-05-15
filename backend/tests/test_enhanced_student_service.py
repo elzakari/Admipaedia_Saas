@@ -140,7 +140,7 @@ class TestEnhancedStudentService:
     def test_bulk_import_csv_success(self, app, db):
         """Test successful CSV bulk import."""
         with app.app_context():
-            # Create a temporary CSV file
+            # Create a temporary CSV file with real content
             csv_content = "admission_number,date_of_birth,gender,first_name,last_name\nTEST001,2010-01-15,male,John,Doe\nTEST002,2010-02-20,female,Jane,Smith"
             
             with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
@@ -159,26 +159,13 @@ class TestEnhancedStudentService:
                     
                     mock_create.side_effect = [(mock_student1, None), (mock_student2, None)]
                     
-                    with patch('pandas.read_csv'), patch('pandas.read_excel'), \
-                         patch('pandas.to_datetime', return_value=Mock(date=lambda: date(2010, 1, 15))), \
-                         patch('pandas.notna', return_value=False), \
-                         patch.object(db.session, 'rollback'):
+                    with patch.object(db.session, 'rollback'):
+                        result, error = EnhancedStudentService.bulk_import_students(temp_path, False)
                         
-                        # Mock pandas DataFrame
-                        mock_df = Mock()
-                        mock_df.columns = ['admission_number', 'date_of_birth', 'gender', 'first_name', 'last_name']
-                        mock_df.iterrows.return_value = [
-                            (0, {'admission_number': 'TEST001', 'date_of_birth': '2010-01-15', 'gender': 'male', 'first_name': 'John', 'last_name': 'Doe'}),
-                            (1, {'admission_number': 'TEST002', 'date_of_birth': '2010-02-20', 'gender': 'female', 'first_name': 'Jane', 'last_name': 'Smith'})
-                        ]
-                        
-                        with patch('pandas.read_csv', return_value=mock_df):
-                            result, error = EnhancedStudentService.bulk_import_students(temp_path, False)
-                            
-                            assert error is None
-                            assert result['successful_count'] == 2
-                            assert result['failed_count'] == 0
-                            assert len(result['successful_imports']) == 2
+                        assert error is None
+                        assert result['successful_count'] == 2
+                        assert result['failed_count'] == 0
+                        assert len(result['successful_imports']) == 2
             
             finally:
                 os.unlink(temp_path)
@@ -288,7 +275,8 @@ class TestEnhancedStudentService:
         with app.app_context():
             with patch('app.models.student.Student.query') as mock_query:
                 mock_students = [Mock(), Mock()]
-                mock_query.filter_by.return_value.all.return_value = mock_students
+                # The service uses .options(...).filter_by(...).all()
+                mock_query.options.return_value.filter_by.return_value.all.return_value = mock_students
                 
                 with patch.object(db.session, 'rollback'):
                     students, error = EnhancedStudentService.get_students_by_parent(1)
