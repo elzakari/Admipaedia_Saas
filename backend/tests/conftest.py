@@ -39,8 +39,7 @@ def db(app):
     with app.app_context():
         _db.create_all()
         yield _db
-        _db.session.remove()
-        _db.drop_all()
+        # _db.drop_all() removed to prevent destroying tables for subsequent tests in session
 
 @pytest.fixture(scope='function')
 def client(app):

@@ -20,7 +20,7 @@ def app():
     with app.app_context():
         db.create_all()
         yield app
-        db.drop_all()
+        # db.drop_all() removed to prevent destroying tables for subsequent tests in session
 
 
 @pytest.fixture
