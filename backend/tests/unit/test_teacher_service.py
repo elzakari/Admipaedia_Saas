@@ -43,6 +43,10 @@ def test_create_teacher(app, teacher_service):
             with patch('app.models.teacher.Teacher') as mock_teacher_class:
                 mock_teacher = MagicMock(spec=Teacher)
                 mock_teacher_class.return_value = mock_teacher
+                mock_teacher_class.query.filter_by.return_value.first.return_value = None
+                
+                # Mock generate_employee_id if needed, or let the mock return a string mock
+                mock_teacher_class.generate_employee_id.return_value = "T12345"
                 
                 result = teacher_service.create_teacher(teacher_data)
                 
