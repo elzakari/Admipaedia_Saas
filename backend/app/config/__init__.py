@@ -145,6 +145,8 @@ class TestingConfig(BaseConfig):
     if url.startswith('postgresql://'):
         url = url.replace('postgresql://', 'postgresql+psycopg2://', 1)
     SQLALCHEMY_DATABASE_URI = url
+    import sqlalchemy
+    SQLALCHEMY_ENGINE_OPTIONS = {"poolclass": sqlalchemy.pool.NullPool}
     
     # Security (disabled for testing)
     WTF_CSRF_ENABLED = False

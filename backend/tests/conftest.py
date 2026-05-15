@@ -29,10 +29,11 @@ def app():
     with app.app_context():
         _db.drop_all()
         _db.create_all()
-    
-    yield app
-    
-    # No need to close or remove files since we're using PostgreSQL
+        
+        yield app
+        
+        _db.session.remove()  # Clean up session
+        _db.engine.dispose()  # PHYSICALLY close all Postgres connections
 
 @pytest.fixture(scope='function')
 def db(app):
