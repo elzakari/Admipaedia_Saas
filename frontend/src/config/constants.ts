@@ -1,11 +1,11 @@
 // API configuration
 export const API_BASE_URL = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
+  : (import.meta.env.VITE_API_URL || '');
 
 export const SOCKET_BASE_URL = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000');
+  : (import.meta.env.VITE_SOCKET_URL || '');
 
 // Pagination defaults
 export const DEFAULT_PAGE_SIZE = 20;

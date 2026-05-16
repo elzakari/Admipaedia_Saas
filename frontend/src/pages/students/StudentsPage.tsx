@@ -721,7 +721,7 @@ export function StudentsPage() {
               <h4 className="font-medium text-red-800 mb-2">Troubleshooting Information:</h4>
               <ul className="text-sm text-red-700 space-y-1">
                 <li>• API Endpoint: /api/v1/students</li>
-                <li>• Base URL: {import.meta.env.VITE_API_URL || 'http://localhost:5000'}</li>
+                <li>• Base URL: {import.meta.env.VITE_API_URL || '(Relative)'}</li>
                 {isNetworkError && <li>• Check if the backend server is running</li>}
                 {isAuthError && <li>• Authentication token may be expired</li>}
                 <li>• Check browser console for detailed error logs</li>

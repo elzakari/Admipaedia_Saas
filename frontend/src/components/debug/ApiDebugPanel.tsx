@@ -92,7 +92,7 @@ export const ApiDebugPanel: React.FC<ApiDebugPanelProps> = ({ className }) => {
 
   const getEnvironmentInfo = () => {
     return {
-      'API Base URL': import.meta.env.VITE_API_URL || 'http://localhost:5000',
+      'API Base URL': import.meta.env.VITE_API_URL || '(Relative)',
       'Environment': import.meta.env.MODE,
       'Has Auth Token': !!localStorage.getItem('token'),
       'Has Refresh Token': !!localStorage.getItem('refreshToken'),

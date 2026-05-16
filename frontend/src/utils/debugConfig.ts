@@ -54,14 +54,14 @@ class DebugManager {
         enableReactDevTools: true
       },
       api: {
-        baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
+        baseURL: import.meta.env.VITE_API_URL || '/api/v1',
         timeout: 30000,
         retries: 3,
         enableRequestLogging: true,
         enableResponseLogging: true
       },
       websocket: {
-        url: process.env.REACT_APP_WS_URL || 'ws://localhost:5000',
+        url: import.meta.env.VITE_SOCKET_URL || '',
         enableLogging: true,
         reconnectAttempts: 5,
         reconnectInterval: 3000

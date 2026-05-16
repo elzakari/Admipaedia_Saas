@@ -222,7 +222,7 @@ export const addResourceHints = () => {
   // Preconnect to API endpoints
   const preconnectAPI = document.createElement('link');
   preconnectAPI.rel = 'preconnect';
-  preconnectAPI.href = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  preconnectAPI.href = import.meta.env.VITE_API_URL || '';
   head.appendChild(preconnectAPI);
   
   // DNS prefetch for external resources

@@ -107,8 +107,8 @@ export default defineConfig({
     'process.env': {
       NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
       REACT_APP_DEBUG: JSON.stringify(process.env.REACT_APP_DEBUG || 'true'),
-      REACT_APP_API_URL: JSON.stringify(process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1'),
-      REACT_APP_SOCKET_URL: JSON.stringify(process.env.REACT_APP_SOCKET_URL || 'http://127.0.0.1:5000'),
+      REACT_APP_API_URL: JSON.stringify(process.env.VITE_API_URL || ''),
+      REACT_APP_SOCKET_URL: JSON.stringify(process.env.VITE_SOCKET_URL || ''),
     }
   },
 

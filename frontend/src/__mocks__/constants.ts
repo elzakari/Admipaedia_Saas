@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:5000';
+export const API_BASE_URL = '';
 export const DEFAULT_PAGE_SIZE = 20;
 export const DEFAULT_PAGE = 1;
 export const DASHBOARD = {
