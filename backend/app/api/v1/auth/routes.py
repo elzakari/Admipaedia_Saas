@@ -25,7 +25,7 @@ import structlog
 logger = structlog.get_logger()
 
 # Create blueprint
-auth_bp = Blueprint('auth', __name__)
+auth_bp = Blueprint('auth', __name__, strict_slashes=False)
 
 # Enhanced schemas for request validation
 class RegisterSchema(Schema):

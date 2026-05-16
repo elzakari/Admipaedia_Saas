@@ -358,13 +358,22 @@ def sanitize_request_data(field_types: Dict[str, str] = None):
                                      ip=request.remote_addr)
                         return jsonify({'error': 'Invalid JSON format - expected object'}), 400
                     
+                    # Password fields must NEVER be escaped or sanitized — 
+                    # html.escape would corrupt passwords containing special chars
+                    SKIP_SANITIZE = {'password', 'confirm_password', 'confirmPassword',
+                                     'new_password', 'current_password'}
+
                     sanitized_data = {}
                     for key, value in request.json.items():
-                        field_type = field_types.get(key, 'text') if field_types else 'text'
-                        sanitized_data[key] = InputSanitizer.sanitize_input(value, field_type)
+                        if key in SKIP_SANITIZE:
+                            sanitized_data[key] = value
+                        else:
+                            field_type = field_types.get(key, 'text') if field_types else 'text'
+                            sanitized_data[key] = InputSanitizer.sanitize_input(value, field_type)
                     
-                    # Replace request.json with sanitized data
-                    request._cached_json = (sanitized_data, True)
+                    # Werkzeug caches json as (data, silent) — use False so
+                    # subsequent request.json calls re-evaluate from our patched data.
+                    request._cached_json = (sanitized_data, False)
                     
                 except (ValueError, AttributeError, TypeError) as e:
                     logger.warning("input_sanitization_failed", error=str(e), ip=request.remote_addr)
