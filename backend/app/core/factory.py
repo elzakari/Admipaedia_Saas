@@ -24,6 +24,7 @@ def create_app(config_name=None):
     
     # Create Flask application
     app = Flask(__name__)
+    app.url_map.strict_slashes = False  # Accept /path and /path/ without 308 redirects
     
     # Load configuration
     config_class = get_config(config_name)
