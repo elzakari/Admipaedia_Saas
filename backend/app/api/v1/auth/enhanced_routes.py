@@ -31,6 +31,7 @@ logger = structlog.get_logger()
 
 # Create blueprint
 enhanced_auth_bp = Blueprint('enhanced_auth', __name__)
+enhanced_auth_bp.strict_slashes = False
 
 # Validation schemas
 class EnhancedLoginSchema(Schema):
@@ -52,6 +53,7 @@ class MFAVerifySchema(Schema):
     trust_device = fields.Bool(load_default=False)
 
 @enhanced_auth_bp.route('/login-enhanced', methods=['POST'])
+@enhanced_auth_bp.route('/login-enhanced/', methods=['POST'])
 @rate_limit(limit=5, window=300)  # 5 attempts per 5 minutes
 @sanitize_request_data()
 @security_headers()

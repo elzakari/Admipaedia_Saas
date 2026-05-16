@@ -169,6 +169,7 @@ def test_auth():
     return jsonify({"success": True, "message": "Auth service is reachable"}), 200
 
 @auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login/', methods=['POST'])
 @rate_limit(limit=10, window=900, burst_limit=5)  # 10 attempts per 15 minutes, max 5 rapid attempts
 @sanitize_request_data({'email': 'email', 'password': 'text'})
 @security_headers()
