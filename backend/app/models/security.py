@@ -221,7 +221,7 @@ class SchoolRegistrationToken(db.Model):
 
     @staticmethod
     def validate_token(token: str):
-        token = (token or '').strip()
+        token = str(token or '').strip()
         if not token:
             return None, 'Registration token is required'
 

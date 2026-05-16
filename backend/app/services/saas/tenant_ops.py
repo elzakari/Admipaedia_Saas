@@ -62,6 +62,7 @@ def _create_tenant_and_membership(user: User, name: str, slug: str, country_code
         status='active'
     )
     db.session.add(membership)
+    db.session.flush()
 
     assign_plan_to_tenant(tenant, tenant.plan or 'trial', actor_user_id=user.id)
 

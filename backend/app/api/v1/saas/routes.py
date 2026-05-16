@@ -492,12 +492,12 @@ def platform_list_payments():
 @saas_bp.route('/registration-links/preview', methods=['POST'])
 def preview_registration_link():
     data = request.get_json() or {}
-    token = (data.get('token') or '').strip()
+    token = str(data.get('token') or '').strip()
 
     from app.models.security import SchoolRegistrationToken
     reg, err = SchoolRegistrationToken.validate_token(token)
-    if err:
-        return jsonify({'success': False, 'message': err}), 400
+    if err or not reg:
+        return jsonify({"error": "Invalid or expired registration context"}), 422
 
     return jsonify({
         'success': True,
@@ -514,83 +514,93 @@ def preview_registration_link():
 
 @saas_bp.route('/registration-links/complete', methods=['POST'])
 def complete_registration_link():
-    data = request.get_json() or {}
-    token = (data.get('token') or '').strip()
-    admin_name = (data.get('admin_name') or '').strip()
-    password = (data.get('password') or '').strip()
-    confirm_password = (data.get('confirm_password') or data.get('confirmPassword') or '').strip()
-
-    if not password:
-        return jsonify({'success': False, 'message': 'password is required'}), 400
-    if password != confirm_password:
-        return jsonify({'success': False, 'message': 'Passwords do not match'}), 400
-
-    from app.models.security import SchoolRegistrationToken, PasswordHistory
-    reg, err = SchoolRegistrationToken.validate_token(token)
-    if err:
-        return jsonify({'success': False, 'message': err}), 400
-
-    from app.models.user import User
-    email = (reg.admin_email or '').strip().lower()
-    if not email:
-        return jsonify({'success': False, 'message': 'Invalid registration token'}), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({'success': False, 'message': 'Email already registered. Please sign in instead.'}), 400
-
-    base_username = (admin_name or email.split('@')[0]).strip()
-    base_username = ''.join([c if c.isalnum() or c in ('_', '-') else '_' for c in base_username]).lower()
-    base_username = base_username.strip('_-') or email.split('@')[0]
-
-    username = base_username
-    suffix = 0
-    while User.query.filter_by(username=username).first():
-        suffix += 1
-        username = f"{base_username}_{suffix}"
-
-    from app.utils.password_security import PasswordSecurity
-    is_strong, password_errors = PasswordSecurity.validate_password_strength(password, username=username, email=email)
-    if not is_strong:
-        return jsonify({
-            'success': False,
-            'message': 'Password does not meet security requirements',
-            'errors': password_errors
-        }), 400
-
-    from app.extensions import db
-    from app.services.saas.tenant_ops import _create_tenant_and_membership
-
+    import traceback
+    import sys
     try:
-        user = User(username=username, email=email)
-        user.role = 'admin'
-        user.status = 'active'
-        if hasattr(user, 'email_verified'):
-            user.email_verified = True
-        user.set_password_hash(password)
-        db.session.add(user)
-        db.session.flush()
+        data = request.get_json() or {}
+        token = str(data.get('token') or '').strip()
+        admin_name = str(data.get('admin_name') or '').strip()
+        password = str(data.get('password') or '').strip()
+        confirm_password = str(data.get('confirm_password') or data.get('confirmPassword') or '').strip()
 
-        db.session.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
+        if not password:
+            return jsonify({'success': False, 'message': 'password is required'}), 400
+        if password != confirm_password:
+            return jsonify({'success': False, 'message': 'Passwords do not match'}), 400
 
-        tenant, _, tenant_err = _create_tenant_and_membership(
-            user=user,
-            name=reg.school_name,
-            slug=reg.school_slug,
-            country_code=reg.country_code,
-            currency=reg.currency
-        )
-        if tenant_err:
+        from app.models.security import SchoolRegistrationToken, PasswordHistory
+        reg, err = SchoolRegistrationToken.validate_token(token)
+        if err or not reg:
+            return jsonify({"error": "Invalid or expired registration context"}), 422
+
+        from app.models.user import User
+        email = str(getattr(reg, 'admin_email', '') or '').strip().lower()
+        if not email:
+            return jsonify({"error": "Invalid or expired registration context"}), 422
+
+        if User.query.filter_by(email=email).first():
+            return jsonify({'success': False, 'message': 'Email already registered. Please sign in instead.'}), 400
+
+        base_username = (admin_name or email.split('@')[0]).strip()
+        base_username = ''.join([c if c.isalnum() or c in ('_', '-') else '_' for c in base_username]).lower()
+        base_username = base_username.strip('_-') or email.split('@')[0]
+
+        username = base_username
+        suffix = 0
+        while User.query.filter_by(username=username).first():
+            suffix += 1
+            username = f"{base_username}_{suffix}"
+
+        from app.utils.password_security import PasswordSecurity
+        is_strong, password_errors = PasswordSecurity.validate_password_strength(password, username=username, email=email)
+        if not is_strong:
+            return jsonify({
+                'success': False,
+                'message': 'Password does not meet security requirements',
+                'errors': password_errors
+            }), 400
+
+        from app.extensions import db
+        from app.services.saas.tenant_ops import _create_tenant_and_membership
+
+        try:
+            user = User(username=username, email=email)
+            user.role = 'admin'
+            user.status = 'active'
+            if hasattr(user, 'email_verified'):
+                user.email_verified = True
+            user.set_password_hash(password)
+            db.session.add(user)
+            db.session.flush()
+
+            db.session.add(PasswordHistory(user_id=user.id, password_hash=user.password_hash))
+
+            tenant, _, tenant_err = _create_tenant_and_membership(
+                user=user,
+                name=reg.school_name,
+                slug=reg.school_slug,
+                country_code=reg.country_code,
+                currency=reg.currency
+            )
+            if tenant_err:
+                db.session.rollback()
+                return jsonify({'success': False, 'message': tenant_err}), 400
+
+            reg.mark_as_used()
+            db.session.add(reg)
+            db.session.commit()
+
+            from app.services.enhanced_auth_service import EnhancedAuthService
+            auth_result = EnhancedAuthService.authenticate_with_security(email=email, password=password)
+            auth_result['tenant'] = SaaSService.serialize_tenant(tenant)
+            return jsonify(auth_result), 200
+        except Exception as e:
             db.session.rollback()
-            return jsonify({'success': False, 'message': tenant_err}), 400
-
-        reg.mark_as_used()
-        db.session.add(reg)
-        db.session.commit()
-
-        from app.services.enhanced_auth_service import EnhancedAuthService
-        auth_result = EnhancedAuthService.authenticate_with_security(email=email, password=password)
-        auth_result['tenant'] = SaaSService.serialize_tenant(tenant)
-        return jsonify(auth_result), 200
-    except Exception:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'Registration failed'}), 500
+            raise e
+    except Exception as e:
+        print("!!! CRITICAL REGISTRATION FAILURE !!!", file=sys.stderr)
+        tb = traceback.format_exc()
+        print(tb, file=sys.stderr)
+        with open('crash_dump.txt', 'w') as f:
+            f.write(tb)
+        return jsonify({"error_debug": str(e), "traceback": tb}), 500

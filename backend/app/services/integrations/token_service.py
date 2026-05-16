@@ -137,9 +137,12 @@ class ServiceTokenService:
         actor_user_id: Optional[int] = None,
         details: Optional[dict[str, Any]] = None,
     ):
+        clean_tenant = None if str(tenant_id) == 'None' or not tenant_id else tenant_id
+        clean_token = None if str(token_id) == 'None' or not token_id else token_id
+        
         ev = TenantServiceTokenEvent(
-            tenant_id=tenant_id,
-            token_id=token_id,
+            tenant_id=clean_tenant,
+            token_id=clean_token,
             service_type=service_type,
             event_type=event_type,
             actor_user_id=actor_user_id,
@@ -170,6 +173,7 @@ class ServiceTokenService:
                     monthly_allowance='unlimited' if unlimited else str(int(allowance or 0)),
                 )
                 db.session.add(token)
+                db.session.flush()
                 ServiceTokenService._event(
                     tenant_id=str(tid_uuid),
                     service_type=service_type,
