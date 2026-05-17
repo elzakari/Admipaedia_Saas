@@ -203,7 +203,16 @@ const billingService = {
     return res.data as { success: boolean; requests: SubscriptionChangeRequest[] }
   },
   upgradeSubscription: async (payload: { plan_slug: string; academic_term_id: number; payment_channel?: string; return_url?: string; notify_url?: string }) => {
-    const res = await api.post('/billing/school/subscription/upgrade', payload)
+    const res = await api.post('/billing/school/subscription/upgrade', {
+      plan_slug: payload.plan_slug,
+      plan: payload.plan_slug,
+      academic_term_id: payload.academic_term_id,
+      term_id: payload.academic_term_id,
+      payment_channel: payload.payment_channel,
+      channel: payload.payment_channel,
+      return_url: payload.return_url,
+      notify_url: payload.notify_url
+    })
     return res.data as {
       success: boolean
       subscription_id: number
@@ -214,7 +223,13 @@ const billingService = {
     }
   },
   requestDowngrade: async (payload: { plan_slug: string; effective_academic_term_id: number }) => {
-    const res = await api.post('/billing/school/subscription/downgrade-request', payload)
+    const res = await api.post('/billing/school/subscription/downgrade-request', {
+      plan_slug: payload.plan_slug,
+      plan: payload.plan_slug,
+      effective_academic_term_id: payload.effective_academic_term_id,
+      effective_term_id: payload.effective_academic_term_id,
+      term_id: payload.effective_academic_term_id
+    })
     return res.data as { success: boolean; request: SubscriptionChangeRequest }
   },
   listPlatformSubscriptionChangeRequests: async (params?: { status?: string }) => {

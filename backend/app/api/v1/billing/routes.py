@@ -513,7 +513,7 @@ def school_upgrade_plan():
     user_id = getattr(g, 'current_user', None).id
     data = request.get_json() or {}
     plan_slug = data.get('plan_slug') or data.get('plan')
-    academic_term_id = data.get('academic_term_id')
+    academic_term_id = data.get('academic_term_id') or data.get('term_id')
     if not academic_term_id:
         return jsonify({'success': False, 'message': 'academic_term_id is required'}), 400
     result, err = subscription_change_ops.create_upgrade(
@@ -521,7 +521,7 @@ def school_upgrade_plan():
         user_id=int(user_id),
         plan_slug=plan_slug,
         academic_term_id=int(academic_term_id),
-        payment_channel=data.get('payment_channel'),
+        payment_channel=data.get('payment_channel') or data.get('channel'),
         return_url=data.get('return_url'),
         notify_url=data.get('notify_url'),
     )
@@ -538,7 +538,7 @@ def school_request_downgrade():
     user_id = getattr(g, 'current_user', None).id
     data = request.get_json() or {}
     plan_slug = data.get('plan_slug') or data.get('plan')
-    effective_term_id = data.get('effective_academic_term_id')
+    effective_term_id = data.get('effective_academic_term_id') or data.get('effective_term_id') or data.get('term_id')
     if not effective_term_id:
         return jsonify({'success': False, 'message': 'effective_academic_term_id is required'}), 400
     req, err = subscription_change_ops.request_downgrade(
