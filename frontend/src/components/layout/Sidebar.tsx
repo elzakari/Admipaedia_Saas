@@ -259,6 +259,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const baseNavItems: NavItem[] = navItemsByRole[user?.role || 'user'] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
     if (user?.role === 'super_admin' || user?.role === 'super_manager') return true
+    if (user?.role === 'admin' && item.path === '/admin/administration') return true
     const fk = featureByPath[item.path]
     if (!fk) return true
     if (entitlementsLoading) return true
