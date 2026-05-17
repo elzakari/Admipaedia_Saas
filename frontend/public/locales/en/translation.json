@@ -827,5 +827,152 @@
         "login_here": "Login here"
       }
     }
+  },
+  "teacher_portal": {
+    "dashboard": {
+      "title": "Teacher Dashboard",
+      "subtitle": "Your classes, schedule, and notifications",
+      "messages": "Messages",
+      "timetable": "Timetable",
+      "my_classes": "My Classes",
+      "assigned_to_you": "Assigned to you",
+      "unread": "Unread",
+      "updates_and_notices": "Updates and notices",
+      "calendar": "Calendar",
+      "school_events": "School events",
+      "view": "View",
+      "todays_schedule": "Today's schedule",
+      "jump_into_class": "Jump straight into a class",
+      "no_timetable_today": "No timetable entries for today.",
+      "quick_access": "Quick access",
+      "common_actions": "Common teacher actions"
+    },
+    "class_detail": {
+      "class_not_found": "Class not found",
+      "class_not_available": "The class you requested isn't available.",
+      "back_to_classes": "Back to My Classes",
+      "my_classes": "My Classes",
+      "term": "Term",
+      "students": "Students",
+      "actions_scoped": "Actions are scoped to this class only.",
+      "tabs": {
+        "roster": "Roster",
+        "attendance": "Attendance",
+        "gradebook": "Gradebook",
+        "assignments": "Assignments",
+        "announcements": "Announcements"
+      }
+    },
+    "gradebook": {
+      "title": "Gradebook",
+      "subtitle": "Enter scores for this class only",
+      "assessment_placeholder": "Assessment name",
+      "load": "Load",
+      "save": "Save",
+      "score_placeholder": "Score",
+      "grade_placeholder": "Grade",
+      "remark_placeholder": "Remark"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "subtitle": "Mark present/absent/late, then save",
+      "load": "Load",
+      "save": "Save",
+      "note_placeholder": "Optional note",
+      "status": {
+        "present": "Present",
+        "absent": "Absent",
+        "late": "Late"
+      }
+    }
+  },
+  "student_portal": {
+    "dashboard": {
+      "title": "Student Dashboard",
+      "subtitle": "Your classes, assignments, and updates",
+      "messages": "Messages",
+      "timetable": "Timetable",
+      "my_classes": "My Classes",
+      "open_assignments": "Open Assignments",
+      "pending_submissions": "Pending submissions",
+      "unread": "Unread",
+      "announcements_alerts": "Announcements & alerts",
+      "grades": "Grades",
+      "results_overview": "Results overview",
+      "view": "View",
+      "todays_classes": "Today's classes",
+      "quick_look": "Quick look at your day",
+      "timetable_coming_soon": "Timetable integration coming soon.",
+      "upcoming_exams": "Upcoming exams",
+      "next_exams": "Next scheduled exams",
+      "loading": "Loading\u2026",
+      "no_upcoming_exams": "No upcoming exams."
+    },
+    "assignments": {
+      "title": "Assignments",
+      "subtitle": "Track deadlines and submission status",
+      "filter": {
+        "all": "All",
+        "open": "Open",
+        "submitted": "Submitted",
+        "graded": "Graded"
+      },
+      "due": "Due"
+    },
+    "grades": {
+      "title": "Grades & Results",
+      "subtitle": "View your results by term",
+      "select_term": "Select term",
+      "results": "Results",
+      "read_only_for": "Read-only results for",
+      "columns": {
+        "subject": "Subject",
+        "score": "Score",
+        "grade": "Grade",
+        "remarks": "Remarks"
+      }
+    },
+    "attendance": {
+      "title": "Attendance",
+      "subtitle": "Your attendance summary and history",
+      "attendance_pct": "Attendance %",
+      "present": "Present",
+      "absent": "Absent",
+      "late": "Late",
+      "history": "History",
+      "most_recent": "Most recent entries"
+    },
+    "enrolled": "enrolled"
+  },
+  "parent_portal": {
+    "dashboard": {
+      "title": "Parent Dashboard",
+      "buy_admission_form": "Buy Admission Form",
+      "shortcuts": {
+        "my_children": "My Children",
+        "admissions": "Admissions",
+        "messages": "Messages",
+        "notifications": "Notifications",
+        "schedule": "Schedule"
+      },
+      "cards": {
+        "my_children": "My Children",
+        "enrolled_students": "Enrolled students",
+        "active_applications": "Active Applications",
+        "admission_in_progress": "Admission in progress",
+        "pending_fees": "Pending Fees",
+        "term_balance": "Term 2 balance",
+        "next_event": "Next Event",
+        "no_upcoming_event": "No upcoming event"
+      },
+      "recent_notifications": "Recent Notifications",
+      "loading": "Loading\u2026",
+      "no_notifications": "No notifications",
+      "performance": {
+        "title": "My Children's Performance",
+        "overall_attendance": "Overall Attendance (30d)",
+        "overall_grade_average": "Overall Grade Average"
+      }
+    }
   }
 }

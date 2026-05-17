@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { teacherClasses } from './teacherMockData';
@@ -11,6 +12,7 @@ import { TeacherClassAssignmentsTab } from './components/TeacherClassAssignments
 import { TeacherClassAnnouncementsTab } from './components/TeacherClassAnnouncementsTab';
 
 const TeacherClassDetailPage: React.FC = () => {
+  const { t } = useTranslation();
   const { classId } = useParams();
   const cls = useMemo(() => teacherClasses.find((c) => c.id === classId) ?? null, [classId]);
 
@@ -19,11 +21,11 @@ const TeacherClassDetailPage: React.FC = () => {
       <div className="p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Class not found</CardTitle>
-            <CardDescription>The class you requested isn’t available.</CardDescription>
+            <CardTitle>{t('teacher_portal.class_detail.class_not_found')}</CardTitle>
+            <CardDescription>{t('teacher_portal.class_detail.class_not_available')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/teacher/classes" className="text-indigo-600 hover:text-indigo-700">Back to My Classes</Link>
+            <Link to="/teacher/classes" className="text-indigo-600 hover:text-indigo-700">{t('teacher_portal.class_detail.back_to_classes')}</Link>
           </CardContent>
         </Card>
       </div>
@@ -33,7 +35,7 @@ const TeacherClassDetailPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center text-sm text-indigo-700">
-        <Link to="/teacher/classes" className="hover:text-indigo-900">My Classes</Link>
+        <Link to="/teacher/classes" className="hover:text-indigo-900">{t('teacher_portal.class_detail.my_classes')}</Link>
         <ChevronRight className="h-4 w-4 mx-2" />
         <span className="font-medium text-indigo-900">{cls.subject} — {cls.className}</span>
       </div>
@@ -46,14 +48,14 @@ const TeacherClassDetailPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-600 dark:text-slate-400">Term</span>
+              <span className="text-slate-600 dark:text-slate-400">{t('teacher_portal.class_detail.term')}</span>
               <span className="font-semibold text-slate-900 dark:text-slate-100">{cls.term ?? '—'}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-600 dark:text-slate-400">Students</span>
+              <span className="text-slate-600 dark:text-slate-400">{t('teacher_portal.class_detail.students')}</span>
               <span className="font-semibold text-slate-900 dark:text-slate-100">{cls.roster.length}</span>
             </div>
-            <div className="text-xs text-slate-500">Actions are scoped to this class only.</div>
+            <div className="text-xs text-slate-500">{t('teacher_portal.class_detail.actions_scoped')}</div>
           </CardContent>
         </Card>
 
@@ -68,19 +70,19 @@ const TeacherClassDetailPage: React.FC = () => {
                   </TabsTrigger>
                   <TabsTrigger value="attendance" className="min-w-[140px]">
                     <CalendarCheck2 className="h-4 w-4 mr-2" />
-                    Attendance
+                    {t('teacher_portal.class_detail.tabs.attendance')}
                   </TabsTrigger>
                   <TabsTrigger value="gradebook" className="min-w-[140px]">
                     <BadgeCheck className="h-4 w-4 mr-2" />
-                    Gradebook
+                    {t('teacher_portal.class_detail.tabs.gradebook')}
                   </TabsTrigger>
                   <TabsTrigger value="assignments" className="min-w-[140px]">
                     <ClipboardList className="h-4 w-4 mr-2" />
-                    Assignments
+                    {t('teacher_portal.class_detail.tabs.assignments')}
                   </TabsTrigger>
                   <TabsTrigger value="announcements" className="min-w-[160px]">
                     <Megaphone className="h-4 w-4 mr-2" />
-                    Announcements
+                    {t('teacher_portal.class_detail.tabs.announcements')}
                   </TabsTrigger>
                 </TabsList>
               </div>

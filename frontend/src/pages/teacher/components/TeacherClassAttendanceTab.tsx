@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import type { TeacherClass } from '../teacherMockData';
 
@@ -8,6 +9,7 @@ type AttendanceRow = { studentId: string; mark: AttendanceMark; note?: string };
 const attendanceKey = (classId: string, date: string) => `admipaedia.teacher.attendance.v1.${classId}.${date}`;
 
 export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
+  const { t } = useTranslation();
   const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceRow>>({});
 
@@ -38,8 +40,8 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Attendance</div>
-          <div className="text-xs text-slate-500">Mark present/absent/late, then save</div>
+          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('teacher_portal.attendance.title')}</div>
+          <div className="text-xs text-slate-500">{t('teacher_portal.attendance.subtitle')}</div>
         </div>
         <div className="flex gap-2 items-center">
           <input
@@ -48,8 +50,8 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
             onChange={(e) => setAttendanceDate(e.target.value)}
             className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
           />
-          <Button variant="outline" className="rounded-xl" onClick={loadAttendance}>Load</Button>
-          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveAttendance}>Save</Button>
+          <Button variant="outline" className="rounded-xl" onClick={loadAttendance}>{t('teacher_portal.attendance.load')}</Button>
+          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveAttendance}>{t('teacher_portal.attendance.save')}</Button>
         </div>
       </div>
 
@@ -67,14 +69,14 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
                 }}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
               >
-                <option value="present">present</option>
-                <option value="absent">absent</option>
-                <option value="late">late</option>
+                <option value="present">{t('teacher_portal.attendance.status.present')}</option>
+                <option value="absent">{t('teacher_portal.attendance.status.absent')}</option>
+                <option value="late">{t('teacher_portal.attendance.status.late')}</option>
               </select>
               <input
                 value={row.note ?? ''}
                 onChange={(e) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: { ...row, note: e.target.value } }))}
-                placeholder="Optional note"
+                placeholder={t('teacher_portal.attendance.note_placeholder')}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
               />
             </div>

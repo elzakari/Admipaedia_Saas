@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { studentAssignments, studentClasses } from './studentMockData';
 import { Badge } from '../../components/ui/badge';
@@ -14,6 +15,7 @@ const statusToBadgeVariant = (status: string) => {
 };
 
 const StudentAssignmentsPage: React.FC = () => {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>('all');
 
   const items = useMemo(() => {
@@ -31,8 +33,8 @@ const StudentAssignmentsPage: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Assignments</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Track deadlines and submission status</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('student_portal.assignments.title')}</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t('student_portal.assignments.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           {(['all', 'open', 'submitted', 'graded'] as const).map((f) => (
@@ -41,7 +43,7 @@ const StudentAssignmentsPage: React.FC = () => {
               className={`px-3 py-1.5 rounded-lg text-sm border ${filter === f ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {t(`student_portal.assignments.filter.${f}`)}
             </button>
           ))}
         </div>
@@ -60,7 +62,7 @@ const StudentAssignmentsPage: React.FC = () => {
                   <ChevronRight className="h-4 w-4 text-slate-400" />
                 </CardTitle>
                 <CardDescription>
-                  {classNameById.get(a.classId) ?? 'Class'} • Due {new Date(a.dueAt).toLocaleString()}
+                  {classNameById.get(a.classId) ?? 'Class'} • {t('student_portal.assignments.due')} {new Date(a.dueAt).toLocaleString()}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex items-center justify-between">

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 const ParentDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
@@ -35,21 +37,21 @@ const ParentDashboard: React.FC = () => {
   };
 
   const shortcuts = [
-    { label: 'My Children', to: '/parent-portal', icon: <Users className="h-4 w-4" /> },
-    { label: 'Admissions', to: '/admissions', icon: <FilePlus2 className="h-4 w-4" /> },
-    { label: 'Messages', to: '/messages', icon: <MessageSquare className="h-4 w-4" /> },
-    { label: 'Notifications', to: '/notifications', icon: <Bell className="h-4 w-4" /> },
-    { label: 'Schedule', to: '/schedule', icon: <Calendar className="h-4 w-4" /> }
+    { label: 'My Children', key: 'my_children', to: '/parent-portal', icon: <Users className="h-4 w-4" /> },
+    { label: 'Admissions', key: 'admissions', to: '/admissions', icon: <FilePlus2 className="h-4 w-4" /> },
+    { label: 'Messages', key: 'messages', to: '/messages', icon: <MessageSquare className="h-4 w-4" /> },
+    { label: 'Notifications', key: 'notifications', to: '/notifications', icon: <Bell className="h-4 w-4" /> },
+    { label: 'Schedule', key: 'schedule', to: '/schedule', icon: <Calendar className="h-4 w-4" /> }
   ];
 
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Parent Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t('parent_portal.dashboard.title')}</h1>
         <div className="flex gap-2">
           <Button onClick={() => navigate('/admissions')} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
             <FilePlus2 className="mr-2 h-4 w-4" />
-            Buy Admission Form
+            {t('parent_portal.dashboard.buy_admission_form')}
           </Button>
         </div>
       </div>
@@ -63,7 +65,7 @@ const ParentDashboard: React.FC = () => {
             onClick={() => navigateTo(s.to)}
           >
             <span className="mr-2">{s.icon}</span>
-            {s.label}
+            {t(`parent_portal.dashboard.shortcuts.${s.key}`)}
           </Button>
         ))}
       </div>
@@ -77,12 +79,12 @@ const ParentDashboard: React.FC = () => {
           onKeyDown={cardKeyDown('/parent-portal')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Children</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('parent_portal.dashboard.cards.my_children')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '—' : (data?.children_count ?? 0)}</div>
-            <p className="text-xs text-muted-foreground">Enrolled students</p>
+            <p className="text-xs text-muted-foreground">{t('parent_portal.dashboard.cards.enrolled_students')}</p>
           </CardContent>
         </Card>
 
@@ -94,12 +96,12 @@ const ParentDashboard: React.FC = () => {
           onKeyDown={cardKeyDown('/admissions')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Applications</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('parent_portal.dashboard.cards.active_applications')}</CardTitle>
             <FilePlus2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '—' : (data?.active_applications ?? 0)}</div>
-            <p className="text-xs text-muted-foreground">Admission in progress</p>
+            <p className="text-xs text-muted-foreground">{t('parent_portal.dashboard.cards.admission_in_progress')}</p>
           </CardContent>
         </Card>
         
@@ -111,12 +113,12 @@ const ParentDashboard: React.FC = () => {
           onKeyDown={cardKeyDown('/parent-portal?tab=fees')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Fees</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('parent_portal.dashboard.cards.pending_fees')}</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{isLoading ? '—' : `GHS ${(data?.pending_fees_total ?? 0).toLocaleString()}`}</div>
-            <p className="text-xs text-muted-foreground">Term 2 balance</p>
+            <p className="text-xs text-muted-foreground">{t('parent_portal.dashboard.cards.term_balance')}</p>
           </CardContent>
         </Card>
 
@@ -128,11 +130,11 @@ const ParentDashboard: React.FC = () => {
           onKeyDown={cardKeyDown('/calendar')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Event</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('parent_portal.dashboard.cards.next_event')}</CardTitle>
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold">{isLoading ? '—' : (data?.next_event?.title || 'No upcoming event')}</div>
+            <div className="text-lg font-bold">{isLoading ? '—' : (data?.next_event?.title || t('parent_portal.dashboard.cards.no_upcoming_event'))}</div>
             <p className="text-xs text-muted-foreground">
               {isLoading
                 ? ''
@@ -147,13 +149,13 @@ const ParentDashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-indigo-600" />
-              Recent Notifications
+              {t('parent_portal.dashboard.recent_notifications')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {isLoading ? (
-                <div className="text-sm text-gray-500">Loading…</div>
+                <div className="text-sm text-gray-500">{t('parent_portal.dashboard.loading')}</div>
               ) : (data?.recent_notifications?.length ? (
                 data.recent_notifications.map((notif) => (
                   <div
@@ -171,7 +173,7 @@ const ParentDashboard: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-gray-500">No notifications</div>
+                <div className="text-sm text-gray-500">{t('parent_portal.dashboard.no_notifications')}</div>
               ))}
             </div>
           </CardContent>
@@ -179,16 +181,16 @@ const ParentDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>My Children's Performance</CardTitle>
+            <CardTitle>{t('parent_portal.dashboard.performance.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Overall Attendance (30d)</span>
+                <span className="text-gray-600">{t('parent_portal.dashboard.performance.overall_attendance')}</span>
                 <span className="font-semibold">{isLoading ? '—' : `${data?.overall_attendance_rate ?? 0}%`}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Overall Grade Average</span>
+                <span className="text-gray-600">{t('parent_portal.dashboard.performance.overall_grade_average')}</span>
                 <span className="font-semibold">{isLoading ? '—' : `${data?.overall_grade_average ?? 0}%`}</span>
               </div>
             </div>

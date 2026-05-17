@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import type { TeacherClass } from '../teacherMockData';
 
@@ -6,6 +7,7 @@ type GradeRow = { studentId: string; assessment: string; score?: number; grade?:
 const gradebookKey = (classId: string) => `admipaedia.teacher.gradebook.v1.${classId}`;
 
 export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
+  const { t } = useTranslation();
   const [assessment, setAssessment] = useState('Mid-term Test');
   const [gradeDraft, setGradeDraft] = useState<Record<string, GradeRow>>({});
 
@@ -51,18 +53,18 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Gradebook</div>
-          <div className="text-xs text-slate-500">Enter scores for this class only</div>
+          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('teacher_portal.gradebook.title')}</div>
+          <div className="text-xs text-slate-500">{t('teacher_portal.gradebook.subtitle')}</div>
         </div>
         <div className="flex gap-2 items-center">
           <input
             value={assessment}
             onChange={(e) => setAssessment(e.target.value)}
             className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
-            placeholder="Assessment name"
+            placeholder={t('teacher_portal.gradebook.assessment_placeholder')}
           />
-          <Button variant="outline" className="rounded-xl" onClick={loadGradebook}>Load</Button>
-          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveGradebook}>Save</Button>
+          <Button variant="outline" className="rounded-xl" onClick={loadGradebook}>{t('teacher_portal.gradebook.load')}</Button>
+          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveGradebook}>{t('teacher_portal.gradebook.save')}</Button>
         </div>
       </div>
 
@@ -82,19 +84,19 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
                   const score = val === '' ? undefined : Number(val);
                   setGradeDraft((prev) => ({ ...prev, [s.id]: { ...row, score } }));
                 }}
-                placeholder="Score"
+                placeholder={t('teacher_portal.gradebook.score_placeholder')}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
               />
               <input
                 value={row.grade ?? ''}
                 onChange={(e) => setGradeDraft((prev) => ({ ...prev, [s.id]: { ...row, grade: e.target.value } }))}
-                placeholder="Grade"
+                placeholder={t('teacher_portal.gradebook.grade_placeholder')}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
               />
               <input
                 value={row.remark ?? ''}
                 onChange={(e) => setGradeDraft((prev) => ({ ...prev, [s.id]: { ...row, remark: e.target.value } }))}
-                placeholder="Remark"
+                placeholder={t('teacher_portal.gradebook.remark_placeholder')}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
               />
             </div>

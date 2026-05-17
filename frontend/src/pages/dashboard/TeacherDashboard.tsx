@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { BookOpen, CalendarClock, Bell, MessageSquare, ChevronRight } from 'lucide-react';
@@ -7,6 +8,7 @@ import teacherService from '../../services/teacherService';
 import api from '../../lib/api';
 
 const TeacherDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { data: teacher } = useQuery({
     queryKey: ['teacher-profile'],
     queryFn: () => teacherService.getOwnProfile(),
@@ -52,15 +54,15 @@ const TeacherDashboard: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Teacher Dashboard</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Your classes, schedule, and notifications</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('teacher_portal.dashboard.title')}</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t('teacher_portal.dashboard.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Link to="/teacher/messages" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
-            <MessageSquare className="h-4 w-4" /> Messages
+            <MessageSquare className="h-4 w-4" /> {t('teacher_portal.dashboard.messages')}
           </Link>
           <Link to="/teacher/timetable" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-            <CalendarClock className="h-4 w-4" /> Timetable
+            <CalendarClock className="h-4 w-4" /> {t('teacher_portal.dashboard.timetable')}
           </Link>
         </div>
       </div>
@@ -69,8 +71,8 @@ const TeacherDashboard: React.FC = () => {
         <Link to="/teacher/classes" className="block">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4 text-indigo-600" /> My Classes</CardTitle>
-              <CardDescription>Assigned to you</CardDescription>
+              <CardTitle className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4 text-indigo-600" /> {t('teacher_portal.dashboard.my_classes')}</CardTitle>
+              <CardDescription>{t('teacher_portal.dashboard.assigned_to_you')}</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{(classesData || []).length}</div>
@@ -81,8 +83,8 @@ const TeacherDashboard: React.FC = () => {
         <Link to="/teacher/notifications" className="block">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2"><Bell className="h-4 w-4 text-indigo-600" /> Unread</CardTitle>
-              <CardDescription>Updates and notices</CardDescription>
+              <CardTitle className="text-sm flex items-center gap-2"><Bell className="h-4 w-4 text-indigo-600" /> {t('teacher_portal.dashboard.unread')}</CardTitle>
+              <CardDescription>{t('teacher_portal.dashboard.updates_and_notices')}</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
               <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{stats.unread}</div>
@@ -93,11 +95,11 @@ const TeacherDashboard: React.FC = () => {
         <Link to="/teacher/calendar" className="block">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Calendar</CardTitle>
-              <CardDescription>School events</CardDescription>
+              <CardTitle className="text-sm">{t('teacher_portal.dashboard.calendar')}</CardTitle>
+              <CardDescription>{t('teacher_portal.dashboard.school_events')}</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between">
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">View</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('teacher_portal.dashboard.view')}</div>
               <ChevronRight className="h-4 w-4 text-slate-400" />
             </CardContent>
           </Card>
@@ -107,25 +109,25 @@ const TeacherDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Today’s schedule</CardTitle>
-            <CardDescription>Jump straight into a class</CardDescription>
+            <CardTitle>{t('teacher_portal.dashboard.todays_schedule')}</CardTitle>
+            <CardDescription>{t('teacher_portal.dashboard.jump_into_class')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {stats.lessons.length ? stats.lessons.map((t: any) => (
-              <Link key={t.id} to="/teacher/timetable" className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.title}</div>
-                <div className="text-xs text-slate-500">{t.class_name}{t.room ? ` • ${t.room}` : ''}</div>
+            {stats.lessons.length ? stats.lessons.map((lesson: any) => (
+              <Link key={lesson.id} to="/teacher/timetable" className="block rounded-lg border border-slate-200 dark:border-slate-700 p-3 hover:bg-slate-50 dark:hover:bg-slate-800">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</div>
+                <div className="text-xs text-slate-500">{lesson.class_name}{lesson.room ? ` • ${lesson.room}` : ''}</div>
               </Link>
             )) : (
-              <div className="text-sm text-slate-600 dark:text-slate-400">No timetable entries for today.</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">{t('teacher_portal.dashboard.no_timetable_today')}</div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick access</CardTitle>
-            <CardDescription>Common teacher actions</CardDescription>
+            <CardTitle>{t('teacher_portal.dashboard.quick_access')}</CardTitle>
+            <CardDescription>{t('teacher_portal.dashboard.common_actions')}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(classesData || []).slice(0, 4).map((c: any) => (
