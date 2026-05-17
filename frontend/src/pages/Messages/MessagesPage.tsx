@@ -38,6 +38,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -81,6 +82,7 @@ const aiSuggestions = [
 
 export function MessagesPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversation, setSelectedConversation] = useState<ConversationGroup | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -476,7 +478,7 @@ export function MessagesPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading messages...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">{t('parent_messages.loading', 'Loading messages...')}</p>
         </div>
       </div>
     );
@@ -487,12 +489,12 @@ export function MessagesPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 dark:text-red-400">Failed to load messages</p>
+          <p className="text-red-600 dark:text-red-400">{t('parent_messages.load_failed', 'Failed to load messages')}</p>
           <button 
             onClick={() => refetch()}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-            Try Again
+            {t('parent_messages.try_again', 'Try Again')}
           </button>
         </div>
       </div>
@@ -505,21 +507,21 @@ export function MessagesPage() {
         {/* Header */}
         <div className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700 px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Messages</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('parent_messages.title', 'Messages')}</h1>
             <div className="flex items-center space-x-3">
               <button 
                 onClick={() => navigate('/dashboard')}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                {t('parent_messages.back_dashboard', 'Back to Dashboard')}
               </button>
               <button
                 onClick={handleOpenCompose}
                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-slate-800"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                New Message
+                {t('parent_messages.new_message', 'New Message')}
               </button>
             </div>
           </div>
@@ -538,7 +540,7 @@ export function MessagesPage() {
                 <input
                   type="text"
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md leading-5 bg-white dark:bg-slate-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:focus:ring-indigo-400 dark:focus:border-indigo-400 text-sm text-gray-900 dark:text-gray-100"
-                  placeholder="Search messages..."
+                  placeholder={t('parent_messages.search', 'Search messages...')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -553,7 +555,7 @@ export function MessagesPage() {
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  Inbox
+                  {t('parent_messages.inbox', 'Inbox')}
                 </button>
                 <button
                   onClick={() => setFilter('sent')}
@@ -563,7 +565,7 @@ export function MessagesPage() {
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  Sent
+                  {t('parent_messages.sent', 'Sent')}
                 </button>
                 <button
                   onClick={() => setFilter('trash')}
@@ -573,7 +575,7 @@ export function MessagesPage() {
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  Trash
+                  {t('parent_messages.trash', 'Trash')}
                 </button>
               </div>
             </div>
@@ -583,7 +585,7 @@ export function MessagesPage() {
               {filteredConversations.length === 0 ? (
                 <div className="p-4 text-center text-gray-500 dark:text-gray-400">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No conversations found</p>
+                  <p>{t('parent_messages.no_conversations', 'No conversations found')}</p>
                 </div>
               ) : (
                 filteredConversations.map((conversation) => (
@@ -812,7 +814,7 @@ export function MessagesPage() {
                             handleSendMessage();
                           }
                         }}
-                        placeholder="Type your message..."
+                        placeholder={t('parent_messages.type_message', 'Type your message...')}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:focus:ring-indigo-400 dark:focus:border-indigo-400 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 resize-none"
                         rows={3}
                       />
@@ -858,10 +860,10 @@ export function MessagesPage() {
                 <div className="text-center">
                   <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Select a conversation
+                    {t('parent_messages.select_conversation', 'Select a conversation')}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">
-                    Choose a conversation from the sidebar to start messaging
+                    {t('parent_messages.select_desc', 'Choose a conversation from the sidebar to start messaging')}
                   </p>
                 </div>
               </div>
@@ -873,14 +875,14 @@ export function MessagesPage() {
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>New message</DialogTitle>
-            <DialogDescription>Compose and send a new message.</DialogDescription>
+            <DialogTitle>{t('parent_messages.new_message_dialog', 'New message')}</DialogTitle>
+            <DialogDescription>{t('parent_messages.compose_desc', 'Compose and send a new message.')}</DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-2 space-y-5">
               <div className="space-y-2">
-                <Label>Recipient type</Label>
+                <Label>{t('parent_messages.recipient_type', 'Recipient type')}</Label>
                 <Select
                   value={composeRecipientType}
                   onValueChange={(v) => {
@@ -893,18 +895,18 @@ export function MessagesPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="class">Class</SelectItem>
+                    <SelectItem value="teacher">{t('parent_messages.recipient_types.teacher', 'Teacher')}</SelectItem>
+                    <SelectItem value="student">{t('parent_messages.recipient_types.student', 'Student')}</SelectItem>
+                    <SelectItem value="parent">{t('parent_messages.recipient_types.parent', 'Parent')}</SelectItem>
+                    <SelectItem value="admin">{t('parent_messages.recipient_types.admin', 'Admin')}</SelectItem>
+                    <SelectItem value="class">{t('parent_messages.recipient_types.class', 'Class')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Recipient</Label>
+                  <Label>{t('parent_messages.recipient', 'Recipient')}</Label>
                   {selectedRecipientLabel ? (
                     <Badge variant="secondary" className="max-w-[180px] truncate">{selectedRecipientLabel}</Badge>
                   ) : null}
@@ -915,11 +917,11 @@ export function MessagesPage() {
                     <Input
                       value={composeSearch}
                       onChange={(e) => setComposeSearch(e.target.value)}
-                      placeholder="Search recipients…"
+                      placeholder={t('parent_messages.search_recipients', 'Search recipients…')}
                     />
                     <Select value={composeRecipientId} onValueChange={(v) => setComposeRecipientId(v)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select…" />
+                        <SelectValue placeholder={t('parent_messages.select_recipient', 'Select…')} />
                       </SelectTrigger>
                       <SelectContent>
                         {recipientList.map((r: any) => (
@@ -929,32 +931,32 @@ export function MessagesPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="text-xs text-muted-foreground">Not seeing someone? Change type or search by name.</div>
+                    <div className="text-xs text-muted-foreground">{t('parent_messages.not_seeing_hint', 'Not seeing someone? Change type or search by name.')}</div>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <Input
                       value={composeRecipientId}
                       onChange={(e) => setComposeRecipientId(e.target.value)}
-                      placeholder="Enter recipient ID"
+                      placeholder={t('parent_messages.recipient_id_placeholder', 'Enter recipient ID')}
                       inputMode="numeric"
                     />
-                    <div className="text-xs text-muted-foreground">Tip: admins can search users; otherwise use the numeric ID.</div>
+                    <div className="text-xs text-muted-foreground">{t('parent_messages.admin_tip', 'Tip: admins can search users; otherwise use the numeric ID.')}</div>
                   </div>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label>Subject</Label>
+                <Label>{t('parent_messages.subject', 'Subject')}</Label>
                 <Input
                   value={composeSubject}
                   onChange={(e) => setComposeSubject(e.target.value)}
-                  placeholder="Optional"
+                  placeholder={t('parent_messages.optional', 'Optional')}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Attachments</Label>
+                <Label>{t('parent_messages.attachments', 'Attachments')}</Label>
                 <div className="flex items-center gap-2">
                   <input
                     id="compose-files"
@@ -969,7 +971,7 @@ export function MessagesPage() {
                   />
                   <Button variant="outline" onClick={() => document.getElementById('compose-files')?.click()}>
                     <Paperclip className="h-4 w-4 mr-2" />
-                    Add files
+                    {t('parent_messages.add_files', 'Add files')}
                   </Button>
                   <div className="text-xs text-muted-foreground">{composeAttachments.length} selected</div>
                 </div>
@@ -994,13 +996,13 @@ export function MessagesPage() {
 
             <div className="lg:col-span-3 space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Message</Label>
-                <div className="text-xs text-muted-foreground">Ctrl+Enter to send</div>
+                <Label>{t('parent_messages.message_label', 'Message')}</Label>
+                <div className="text-xs text-muted-foreground">{t('parent_messages.ctrl_enter', 'Ctrl+Enter to send')}</div>
               </div>
               <Textarea
                 value={composeContent}
                 onChange={(e) => setComposeContent(e.target.value)}
-                placeholder="Write your message…"
+                placeholder={t('parent_messages.write_placeholder', 'Write your message…')}
                 className="min-h-[260px]"
                 onKeyDown={(e) => {
                   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -1014,14 +1016,14 @@ export function MessagesPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setComposeOpen(false)}>
-              Cancel
+              {t('parent_messages.cancel', 'Cancel')}
             </Button>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
               disabled={sendNewMessageMutation.isPending}
               onClick={() => sendNewMessageMutation.mutate()}
             >
-              {sendNewMessageMutation.isPending ? 'Sending…' : 'Send message'}
+              {sendNewMessageMutation.isPending ? t('parent_messages.sending', 'Sending…') : t('parent_messages.send_message', 'Send message')}
             </Button>
           </DialogFooter>
         </DialogContent>

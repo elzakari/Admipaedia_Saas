@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent } from '../components/ui/tabs';
 import { Card, CardContent } from '../components/ui/card';
 import GeneralSettings from '../components/settings/GeneralSettings';
@@ -30,6 +31,7 @@ import { useAuth } from '../contexts/AuthContext';
 const SettingsPage = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();
 
   const allowedTabs = useMemo(() => {
     if (user?.role === 'parent') return ['general', 'notifications', 'theme', 'privacy'] as const;
@@ -59,10 +61,10 @@ const SettingsPage = () => {
   const categories = useMemo(() => {
     if (user?.role === 'parent') {
       return [
-        { id: 'general', name: 'Profile & General', icon: 'user' },
-        { id: 'notifications', name: 'Notifications', icon: 'bell' },
-        { id: 'theme', name: 'Theme', icon: 'palette' },
-        { id: 'privacy', name: 'Privacy', icon: 'shield' }
+        { id: 'general', name: t('parent_settings.tabs.profile_general', 'Profile & General'), icon: 'user' },
+        { id: 'notifications', name: t('parent_settings.tabs.notifications', 'Notifications'), icon: 'bell' },
+        { id: 'theme', name: t('parent_settings.tabs.theme', 'Theme'), icon: 'palette' },
+        { id: 'privacy', name: t('parent_settings.tabs.privacy', 'Privacy'), icon: 'shield' }
       ];
     }
 
@@ -99,7 +101,7 @@ const SettingsPage = () => {
       { id: 'theme', name: 'Theme', icon: 'palette' },
       { id: 'audit', name: 'Audit Logs', icon: 'file' }
     ];
-  }, [user?.role]);
+  }, [user?.role, t]);
 
   const onTabChange = (nextTab: string) => {
     if (!(allowedTabs as readonly string[]).includes(nextTab)) return;
@@ -115,8 +117,8 @@ const SettingsPage = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-gray-500 dark:text-gray-400">Configure and customize your ADMIPAEDIA experience</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('parent_settings.title', 'Settings')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('parent_settings.subtitle', 'Configure and customize your ADMIPAEDIA experience')}</p>
         </div>
       </div>
 

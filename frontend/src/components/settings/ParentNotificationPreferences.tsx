@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
@@ -27,6 +28,7 @@ const defaultPrefs: ParentNotificationPrefs = {
 
 const ParentNotificationPreferences: React.FC = () => {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [isSaving, setIsSaving] = useState(false);
 
   const initial = useMemo(() => {
@@ -55,8 +57,8 @@ const ParentNotificationPreferences: React.FC = () => {
     try {
       localStorage.setItem(parentNotificationPrefsStorageNamespace, JSON.stringify(prefs));
       toast({
-        title: 'Saved',
-        description: 'Your notification preferences have been updated.'
+        title: t('common.success', 'Success'),
+        description: t('parent_settings.notifications.saved_toast', 'Your notification preferences have been updated.')
       });
     } finally {
       setIsSaving(false);
@@ -67,36 +69,36 @@ const ParentNotificationPreferences: React.FC = () => {
     setPrefs(defaultPrefs);
     localStorage.setItem(parentNotificationPrefsStorageNamespace, JSON.stringify(defaultPrefs));
     toast({
-      title: 'Reset',
-      description: 'Notification preferences were reset to defaults.'
+      title: t('common.success', 'Success'),
+      description: t('parent_settings.notifications.reset_toast', 'Notification preferences were reset to defaults.')
     });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
-        <p className="text-gray-500 dark:text-gray-400">Choose what you want to be notified about</p>
+        <h2 className="text-2xl font-bold tracking-tight">{t('parent_settings.notifications.title', 'Notifications')}</h2>
+        <p className="text-gray-500 dark:text-gray-400">{t('parent_settings.notifications.description', 'Choose what you want to be notified about')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-indigo-600" />
-            Delivery
+            {t('parent_settings.notifications.delivery', 'Delivery')}
           </CardTitle>
-          <CardDescription>Control how you receive notifications</CardDescription>
+          <CardDescription>{t('parent_settings.notifications.delivery_desc', 'Control how you receive notifications')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Row
-            title="Email"
-            description="Receive notifications by email"
+            title={t('parent_settings.notifications.email', 'Email')}
+            description={t('parent_settings.notifications.email_desc', 'Receive notifications by email')}
             checked={prefs.email}
             onCheckedChange={(v) => setField('email', v)}
           />
           <Row
-            title="In-app"
-            description="Show notifications inside ADMIPEDIA"
+            title={t('parent_settings.notifications.in_app', 'In-app')}
+            description={t('parent_settings.notifications.in_app_desc', 'Show notifications inside ADMIPEDIA')}
             checked={prefs.push}
             onCheckedChange={(v) => setField('push', v)}
           />
@@ -105,31 +107,31 @@ const ParentNotificationPreferences: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Topics</CardTitle>
-          <CardDescription>Pick the updates that matter to you</CardDescription>
+          <CardTitle>{t('parent_settings.notifications.topics', 'Topics')}</CardTitle>
+          <CardDescription>{t('parent_settings.notifications.topics_desc', 'Pick the updates that matter to you')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Row
-            title="Fee reminders"
-            description="Balances, due dates, and payment confirmations"
+            title={t('parent_settings.notifications.fee_reminders', 'Fee reminders')}
+            description={t('parent_settings.notifications.fee_desc', 'Balances, due dates, and payment confirmations')}
             checked={prefs.feeReminders}
             onCheckedChange={(v) => setField('feeReminders', v)}
           />
           <Row
-            title="Academic updates"
-            description="Report cards and academic announcements"
+            title={t('parent_settings.notifications.academic_updates', 'Academic updates')}
+            description={t('parent_settings.notifications.academic_desc', 'Report cards and academic announcements')}
             checked={prefs.academicUpdates}
             onCheckedChange={(v) => setField('academicUpdates', v)}
           />
           <Row
-            title="Attendance alerts"
-            description="Absences, late arrivals, and attendance summaries"
+            title={t('parent_settings.notifications.attendance_alerts', 'Attendance alerts')}
+            description={t('parent_settings.notifications.attendance_desc', 'Absences, late arrivals, and attendance summaries')}
             checked={prefs.attendanceAlerts}
             onCheckedChange={(v) => setField('attendanceAlerts', v)}
           />
           <Row
-            title="Events"
-            description="PTA meetings, school closures, and calendar events"
+            title={t('parent_settings.notifications.events', 'Events')}
+            description={t('parent_settings.notifications.events_desc', 'PTA meetings, school closures, and calendar events')}
             checked={prefs.events}
             onCheckedChange={(v) => setField('events', v)}
           />
@@ -139,11 +141,11 @@ const ParentNotificationPreferences: React.FC = () => {
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" onClick={reset} className="rounded-xl">
           <RefreshCw className="mr-2 h-4 w-4" />
-          Reset to Defaults
+          {t('parent_settings.notifications.reset', 'Reset to Defaults')}
         </Button>
         <Button onClick={save} disabled={isSaving} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">
           {isSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isSaving ? 'Saving…' : 'Save'}
+          {isSaving ? t('parent_settings.notifications.saving', 'Saving...') : t('parent_settings.notifications.save', 'Save')}
         </Button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
@@ -21,6 +22,7 @@ const defaults: PrivacyPrefs = {
 
 const PrivacySettings: React.FC = () => {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const initial = useMemo(() => {
     try {
@@ -45,8 +47,8 @@ const PrivacySettings: React.FC = () => {
     try {
       localStorage.setItem(parentPrivacyPrefsStorageNamespace, JSON.stringify(prefs));
       toast({
-        title: 'Saved',
-        description: 'Your privacy preferences have been updated.'
+        title: t('common.success', 'Success'),
+        description: t('parent_settings.notifications.saved_toast', 'Your privacy preferences have been updated.')
       });
     } finally {
       setIsSaving(false);
@@ -57,42 +59,42 @@ const PrivacySettings: React.FC = () => {
     setPrefs(defaults);
     localStorage.setItem(parentPrivacyPrefsStorageNamespace, JSON.stringify(defaults));
     toast({
-      title: 'Reset',
-      description: 'Privacy preferences were reset to defaults.'
+      title: t('common.success', 'Success'),
+      description: t('parent_settings.notifications.reset_toast', 'Privacy preferences were reset to defaults.')
     });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Privacy</h2>
-        <p className="text-gray-500 dark:text-gray-400">Control how your data is used in the app</p>
+        <h2 className="text-2xl font-bold tracking-tight">{t('parent_settings.privacy.title', 'Privacy')}</h2>
+        <p className="text-gray-500 dark:text-gray-400">{t('parent_settings.privacy.description', 'Control how your data is used in the app')}</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-indigo-600" />
-            Preferences
+            {t('parent_settings.privacy.preferences', 'Preferences')}
           </CardTitle>
-          <CardDescription>These settings apply only to your account</CardDescription>
+          <CardDescription>{t('parent_settings.privacy.pref_desc', 'These settings apply only to your account')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Row
-            title="Analytics"
-            description="Allow anonymous analytics to improve the app"
+            title={t('parent_settings.privacy.analytics', 'Analytics')}
+            description={t('parent_settings.privacy.analytics_desc', 'Allow anonymous analytics to improve the app')}
             checked={prefs.analytics}
             onCheckedChange={(v) => setField('analytics', v)}
           />
           <Row
-            title="Personalization"
-            description="Personalize content like shortcuts and recommendations"
+            title={t('parent_settings.privacy.personalization', 'Personalization')}
+            description={t('parent_settings.privacy.personalization_desc', 'Personalize content like shortcuts and recommendations')}
             checked={prefs.personalization}
             onCheckedChange={(v) => setField('personalization', v)}
           />
           <Row
-            title="Share usage data"
-            description="Share extended diagnostic data when issues occur"
+            title={t('parent_settings.privacy.share_data', 'Share usage data')}
+            description={t('parent_settings.privacy.share_desc', 'Share extended diagnostic data when issues occur')}
             checked={prefs.shareUsageData}
             onCheckedChange={(v) => setField('shareUsageData', v)}
           />
@@ -104,7 +106,7 @@ const PrivacySettings: React.FC = () => {
               target="_blank"
               rel="noreferrer"
             >
-              Read Privacy Policy
+              {t('parent_settings.privacy.read_policy', 'Read Privacy Policy')}
               <ExternalLink className="ml-1 h-4 w-4" />
             </a>
           </div>
@@ -114,11 +116,11 @@ const PrivacySettings: React.FC = () => {
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" onClick={reset} className="rounded-xl">
           <RefreshCw className="mr-2 h-4 w-4" />
-          Reset to Defaults
+          {t('parent_settings.notifications.reset', 'Reset to Defaults')}
         </Button>
         <Button onClick={save} disabled={isSaving} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">
           {isSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isSaving ? 'Saving…' : 'Save'}
+          {isSaving ? t('parent_settings.notifications.saving', 'Saving...') : t('parent_settings.notifications.save', 'Save')}
         </Button>
       </div>
     </div>
