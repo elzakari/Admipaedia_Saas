@@ -18,6 +18,7 @@ from app.models.department import Department, department_staff
 from app.models.session_token import SessionToken
 # Security models - MISSING IMPORT
 from app.models.security import LoginAttempt, SecurityEvent, PasswordHistory, APIKey
+from app.models.email_verification import EmailVerificationToken
 # Library system models
 from app.models.library import (
     Book, LibraryMember, BorrowRecord, BookReservation, 

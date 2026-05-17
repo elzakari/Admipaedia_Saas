@@ -124,6 +124,7 @@ def register():
             email=data['email'],
             role=requested_role
         )
+        user.status = 'pending_verification'
         user.set_password_hash(data['password'])
         
         db.session.add(user)
@@ -142,11 +143,18 @@ def register():
         
         db.session.commit()
         
+        try:
+            from app.services.email_verification_service import EmailVerificationService
+            verification_service = EmailVerificationService()
+            verification_service.send_verification_email(user)
+        except Exception as err:
+            logger.error("failed_to_send_initial_verification_email", error=str(err), user_id=user.id)
+        
         log_security_event('user_registered', {'user_id': user.id, 'email': user.email})
         
         return jsonify({
             "success": True,
-            "message": "User registered successfully",
+            "message": "User registered successfully. Please check your email to verify your account.",
             "user": {
                 "id": user.id,
                 "username": user.username,
@@ -160,6 +168,87 @@ def register():
     except Exception as err:
         logger.error("registration_error", error=str(err))
         return jsonify({"success": False, "error": "Registration failed"}), 500
+
+@auth_bp.route('/verify-email', methods=['GET', 'POST'])
+@rate_limit(limit=10, window=900)  # 10 verify attempts per 15 mins
+@security_headers()
+def verify_email():
+    """Verify user's email verification token and activate their account."""
+    try:
+        # Support token from either query parameter (GET) or JSON body (POST)
+        if request.method == 'POST':
+            data = request.get_json() or {}
+            token = data.get('token')
+        else:
+            token = request.args.get('token')
+
+        token = str(token or '').strip()
+        if not token:
+            return jsonify({"success": False, "message": "Verification token is required"}), 400
+
+        from app.services.email_verification_service import EmailVerificationService
+        verification_service = EmailVerificationService()
+        success, message = verification_service.verify_token(token)
+
+        if not success:
+            log_security_event('email_verification_failed', {
+                'ip': request.remote_addr,
+                'message': message
+            })
+            return jsonify({"success": False, "message": message}), 400
+
+        log_security_event('email_verification_success', {
+            'ip': request.remote_addr
+        })
+        return jsonify({"success": True, "message": "Your account has been verified and activated successfully!"}), 200
+
+    except Exception as err:
+        logger.error("email_verification_error", error=str(err))
+        return jsonify({"success": False, "error": "Email verification failed"}), 500
+
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+@rate_limit(limit=3, window=3600)  # max 3 verification resends per hour
+@sanitize_request_data({'email': 'email'})
+@security_headers()
+def resend_verification():
+    """Resend verification email to a pending user."""
+    try:
+        data = request.get_json() or {}
+        email = str(data.get('email') or '').strip().lower()
+
+        if not email:
+            return jsonify({"success": False, "message": "Email is required"}), 400
+
+        user = User.query.filter_by(email=email).first()
+
+        # Secure mitigation: always return 200 OK to prevent email enumeration
+        if user:
+            if user.email_verified:
+                return jsonify({
+                    "success": True,
+                    "message": "If the email is unregistered or pending, a verification link has been sent."
+                }), 200
+
+            # Trigger email verification lifecycle loop
+            from app.services.email_verification_service import EmailVerificationService
+            verification_service = EmailVerificationService()
+            verification_service.send_verification_email(user)
+
+            log_security_event('email_verification_resent', {
+                'user_id': user.id,
+                'email': email
+            })
+
+        return jsonify({
+            "success": True,
+            "message": "If the email is unregistered or pending, a verification link has been sent."
+        }), 200
+
+    except Exception as err:
+        logger.error("resend_verification_error", error=str(err))
+        return jsonify({"success": False, "error": "Failed to resend verification link"}), 500
+
 
 from app.services.enhanced_auth_service import EnhancedAuthService
 from flask import current_app
