@@ -26,6 +26,15 @@ const ReportsPage: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('academic');
   const [selectedReport, setSelectedReport] = useState<NonNullable<ReportFilter['reportType']>>('grades');
+  const [dateRange, setDateRange] = useState('current');
+  const [classFilter, setClassFilter] = useState('all');
+  const [subjectFilter, setSubjectFilter] = useState('all');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
+  
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [availableClasses, setAvailableClasses] = useState<Array<{ id: string; name: string }>>([]);
   const [availableSubjects, setAvailableSubjects] = useState<Array<{ id: string; name: string }>>([]);
   
