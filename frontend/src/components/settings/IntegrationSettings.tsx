@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -16,26 +17,16 @@ import {
   MessageSquare, 
   CreditCard, 
   Cloud, 
-  Database, 
-  Globe,
   Settings,
   Save,
   RefreshCw,
-  CheckCircle,
   AlertCircle,
   Key,
-  Link,
-  Unlink,
   TestTube,
-  Shield,
-  Zap,
   BarChart3,
   Users,
   BookOpen,
-  Calendar,
-  Camera,
-  FileText,
-  Smartphone
+  Camera
 } from 'lucide-react';
 import { settingsService } from '../../services';
 
@@ -104,6 +95,7 @@ interface IntegrationTest {
 }
 
 const IntegrationSettings = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('communication');
@@ -186,16 +178,16 @@ const IntegrationSettings = () => {
     mutationFn: (updatedSettings: IntegrationSettings) => settingsService.updateIntegrationSettings(updatedSettings),
     onSuccess: () => {
       toast({
-        title: "Integration Settings Updated",
-        description: "Integration settings have been updated successfully.",
+        title: t('admin_settings.integration_settings_updated', 'Integration Settings Updated'),
+        description: t('admin_settings.integration_settings_updated_desc', 'Integration settings have been updated successfully.'),
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['integration-settings'] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update integration settings",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.integration_settings_update_failed', 'Failed to update integration settings'),
         variant: "destructive"
       });
     }
@@ -207,7 +199,7 @@ const IntegrationSettings = () => {
       settingsService.testIntegration(service, type),
     onSuccess: (result) => {
       toast({
-        title: "Test Successful",
+        title: t('admin_settings.test_successful', 'Test Successful'),
         description: `${result.service} integration test passed.`,
         variant: "default"
       });
@@ -216,7 +208,7 @@ const IntegrationSettings = () => {
     },
     onError: (error: any, { service }) => {
       toast({
-        title: "Test Failed",
+        title: t('admin_settings.test_failed', 'Test Failed'),
         description: `${service} integration test failed: ${error.message}`,
         variant: "destructive"
       });
@@ -327,13 +319,13 @@ const IntegrationSettings = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Success</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800">{t('common.success', 'Success')}</Badge>;
       case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
+        return <Badge variant="destructive">{t('common.failed', 'Failed')}</Badge>;
       case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
+        return <Badge variant="secondary">{t('common.pending', 'Pending')}</Badge>;
       default:
-        return <Badge variant="outline">Unknown</Badge>;
+        return <Badge variant="outline">{t('common.unknown', 'Unknown')}</Badge>;
     }
   };
 
@@ -350,8 +342,8 @@ const IntegrationSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Integrations</h2>
-          <p className="text-gray-500 dark:text-gray-400">Manage third-party integrations and APIs</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.integrations', 'Integrations')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.integrations_desc', 'Manage third-party integrations and APIs')}</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -363,7 +355,7 @@ const IntegrationSettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
         </Button>
       </div>
 
@@ -373,8 +365,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="text-2xl font-bold">{settings.emailEnabled ? 'Active' : 'Inactive'}</p>
+                <p className="text-sm font-medium text-gray-500">{t('common.email', 'Email')}</p>
+                <p className="text-2xl font-bold">{settings.emailEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
               </div>
               <Mail className="h-8 w-8 text-blue-500" />
             </div>
@@ -385,8 +377,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">SMS</p>
-                <p className="text-2xl font-bold">{settings.smsEnabled ? 'Active' : 'Inactive'}</p>
+                <p className="text-sm font-medium text-gray-500">{t('admin_settings.sms', 'SMS')}</p>
+                <p className="text-2xl font-bold">{settings.smsEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-green-500" />
             </div>
@@ -397,8 +389,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Payments</p>
-                <p className="text-2xl font-bold">{settings.paymentEnabled ? 'Active' : 'Inactive'}</p>
+                <p className="text-sm font-medium text-gray-500">{t('admin_settings.payments', 'Payments')}</p>
+                <p className="text-2xl font-bold">{settings.paymentEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
               </div>
               <CreditCard className="h-8 w-8 text-purple-500" />
             </div>
@@ -409,8 +401,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Storage</p>
-                <p className="text-2xl font-bold">{settings.cloudStorageEnabled ? 'Active' : 'Inactive'}</p>
+                <p className="text-sm font-medium text-gray-500">{t('admin_settings.storage', 'Storage')}</p>
+                <p className="text-2xl font-bold">{settings.cloudStorageEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
               </div>
               <Cloud className="h-8 w-8 text-orange-500" />
             </div>
@@ -423,19 +415,19 @@ const IntegrationSettings = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="communication" className="flex items-center gap-2 min-w-[160px]">
             <Mail className="h-4 w-4" />
-            Communication
+            {t('admin_settings.communication', 'Communication')}
           </TabsTrigger>
           <TabsTrigger value="payments" className="flex items-center gap-2 min-w-[130px]">
             <CreditCard className="h-4 w-4" />
-            Payments
+            {t('admin_settings.payments', 'Payments')}
           </TabsTrigger>
           <TabsTrigger value="storage" className="flex items-center gap-2 min-w-[130px]">
             <Cloud className="h-4 w-4" />
-            Storage
+            {t('admin_settings.storage', 'Storage')}
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2 min-w-[130px]">
             <BarChart3 className="h-4 w-4" />
-            Analytics
+            {t('admin_settings.analytics', 'Analytics')}
           </TabsTrigger>
         </TabsList>
 
@@ -447,15 +439,15 @@ const IntegrationSettings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="h-5 w-5" />
-                  Email Configuration
+                  {t('admin_settings.email_config', 'Email Configuration')}
                 </CardTitle>
-                <CardDescription>Configure email service provider</CardDescription>
+                <CardDescription>{t('admin_settings.email_config_desc', 'Configure email service provider')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="email-enabled">Enable Email Service</Label>
-                    <p className="text-sm text-gray-500">Send emails to users</p>
+                    <Label htmlFor="email-enabled">{t('admin_settings.enable_email', 'Enable Email Service')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.enable_email_desc', 'Send emails to users')}</p>
                   </div>
                   <Switch
                     id="email-enabled"
@@ -467,7 +459,7 @@ const IntegrationSettings = () => {
                 {settings.emailEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="email-provider">Email Provider</Label>
+                      <Label htmlFor="email-provider">{t('admin_settings.email_provider', 'Email Provider')}</Label>
                       <Select value={settings.emailProvider} onValueChange={(value) => handleInputChange('emailProvider', value)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -480,14 +472,14 @@ const IntegrationSettings = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email-api-key">API Key</Label>
+                      <Label htmlFor="email-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="email-api-key"
                           type={showApiKeys.emailApiKey ? 'text' : 'password'}
                           value={settings.emailApiKey}
                           onChange={(e) => handleInputChange('emailApiKey', e.target.value)}
-                          placeholder="Enter your email service API key"
+                          placeholder={t('admin_settings.enter_email_api_key', 'Enter your email service API key')}
                         />
                         <Button
                           size="sm"
@@ -500,7 +492,7 @@ const IntegrationSettings = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="email-from">From Address</Label>
+                        <Label htmlFor="email-from">{t('admin_settings.from_address', 'From Address')}</Label>
                         <Input
                           id="email-from"
                           type="email"
@@ -510,7 +502,7 @@ const IntegrationSettings = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email-from-name">From Name</Label>
+                        <Label htmlFor="email-from-name">{t('admin_settings.from_name', 'From Name')}</Label>
                         <Input
                           id="email-from-name"
                           value={settings.emailFromName}
@@ -530,7 +522,7 @@ const IntegrationSettings = () => {
                       ) : (
                         <TestTube className="h-4 w-4 mr-2" />
                       )}
-                      Test Email Configuration
+                      {t('admin_settings.test_email_config', 'Test Email Configuration')}
                     </Button>
                   </>
                 )}
@@ -542,15 +534,15 @@ const IntegrationSettings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  SMS Configuration
+                  {t('admin_settings.sms_config', 'SMS Configuration')}
                 </CardTitle>
-                <CardDescription>Configure SMS service provider</CardDescription>
+                <CardDescription>{t('admin_settings.sms_config_desc', 'Configure SMS service provider')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="sms-enabled">Enable SMS Service</Label>
-                    <p className="text-sm text-gray-500">Send SMS notifications</p>
+                    <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms', 'Enable SMS Service')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.enable_sms_desc', 'Send SMS notifications')}</p>
                   </div>
                   <Switch
                     id="sms-enabled"
@@ -562,7 +554,7 @@ const IntegrationSettings = () => {
                 {settings.smsEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-provider">SMS Provider</Label>
+                      <Label htmlFor="sms-provider">{t('admin_settings.sms_provider', 'SMS Provider')}</Label>
                       <Select value={settings.smsProvider} onValueChange={(value) => handleInputChange('smsProvider', value)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -575,14 +567,14 @@ const IntegrationSettings = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-api-key">API Key</Label>
+                      <Label htmlFor="sms-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="sms-api-key"
                           type={showApiKeys.smsApiKey ? 'text' : 'password'}
                           value={settings.smsApiKey}
                           onChange={(e) => handleInputChange('smsApiKey', e.target.value)}
-                          placeholder="Enter your SMS service API key"
+                          placeholder={t('admin_settings.enter_sms_api_key', 'Enter your SMS service API key')}
                         />
                         <Button
                           size="sm"
@@ -594,14 +586,14 @@ const IntegrationSettings = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-api-secret">API Secret</Label>
+                      <Label htmlFor="sms-api-secret">{t('admin_settings.api_secret', 'API Secret')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="sms-api-secret"
                           type={showApiKeys.smsApiSecret ? 'text' : 'password'}
                           value={settings.smsApiSecret}
                           onChange={(e) => handleInputChange('smsApiSecret', e.target.value)}
-                          placeholder="Enter your SMS service API secret"
+                          placeholder={t('admin_settings.enter_sms_api_secret', 'Enter your SMS service API secret')}
                         />
                         <Button
                           size="sm"
@@ -613,7 +605,7 @@ const IntegrationSettings = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-from">From Number</Label>
+                      <Label htmlFor="sms-from">{t('admin_settings.from_number', 'From Number')}</Label>
                       <Input
                         id="sms-from"
                         value={settings.smsFromNumber}
@@ -632,7 +624,7 @@ const IntegrationSettings = () => {
                       ) : (
                         <TestTube className="h-4 w-4 mr-2" />
                       )}
-                      Test SMS Configuration
+                      {t('admin_settings.test_sms_config', 'Test SMS Configuration')}
                     </Button>
                   </>
                 )}
@@ -647,15 +639,15 @@ const IntegrationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Payment Gateway Configuration
+                {t('admin_settings.payment_config', 'Payment Gateway Configuration')}
               </CardTitle>
-              <CardDescription>Configure payment processing</CardDescription>
+              <CardDescription>{t('admin_settings.payment_config_desc', 'Configure payment processing')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="payment-enabled">Enable Payment Processing</Label>
-                  <p className="text-sm text-gray-500">Process student fees and payments</p>
+                  <Label htmlFor="payment-enabled">{t('admin_settings.enable_payment', 'Enable Payment Processing')}</Label>
+                  <p className="text-sm text-gray-500">{t('admin_settings.enable_payment_desc', 'Process student fees and payments')}</p>
                 </div>
                 <Switch
                   id="payment-enabled"
@@ -667,7 +659,7 @@ const IntegrationSettings = () => {
               {settings.paymentEnabled && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="payment-gateway">Payment Gateway</Label>
+                    <Label htmlFor="payment-gateway">{t('admin_settings.payment_gateway', 'Payment Gateway')}</Label>
                     <Select value={settings.paymentGateway} onValueChange={(value) => handleInputChange('paymentGateway', value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -680,14 +672,14 @@ const IntegrationSettings = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payment-api-key">API Key</Label>
+                    <Label htmlFor="payment-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="payment-api-key"
                         type={showApiKeys.paymentApiKey ? 'text' : 'password'}
                         value={settings.paymentApiKey}
                         onChange={(e) => handleInputChange('paymentApiKey', e.target.value)}
-                        placeholder="Enter your payment gateway API key"
+                        placeholder={t('admin_settings.enter_payment_api_key', 'Enter your payment gateway API key')}
                       />
                       <Button
                         size="sm"
@@ -699,14 +691,14 @@ const IntegrationSettings = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payment-api-secret">API Secret</Label>
+                    <Label htmlFor="payment-api-secret">{t('admin_settings.api_secret', 'API Secret')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="payment-api-secret"
                         type={showApiKeys.paymentApiSecret ? 'text' : 'password'}
                         value={settings.paymentApiSecret}
                         onChange={(e) => handleInputChange('paymentApiSecret', e.target.value)}
-                        placeholder="Enter your payment gateway API secret"
+                        placeholder={t('admin_settings.enter_payment_api_secret', 'Enter your payment gateway API secret')}
                       />
                       <Button
                         size="sm"
@@ -718,14 +710,14 @@ const IntegrationSettings = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payment-webhook">Webhook Secret</Label>
+                    <Label htmlFor="payment-webhook">{t('admin_settings.webhook_secret', 'Webhook Secret')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="payment-webhook"
                         type={showApiKeys.paymentWebhookSecret ? 'text' : 'password'}
                         value={settings.paymentWebhookSecret}
                         onChange={(e) => handleInputChange('paymentWebhookSecret', e.target.value)}
-                        placeholder="Enter webhook secret for payment notifications"
+                        placeholder={t('admin_settings.enter_webhook_secret', 'Enter webhook secret for payment notifications')}
                       />
                       <Button
                         size="sm"
@@ -747,7 +739,7 @@ const IntegrationSettings = () => {
                     ) : (
                       <TestTube className="h-4 w-4 mr-2" />
                     )}
-                    Test Payment Configuration
+                    {t('admin_settings.test_payment_config', 'Test Payment Configuration')}
                   </Button>
                 </>
               )}
@@ -761,15 +753,15 @@ const IntegrationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Cloud className="h-5 w-5" />
-                Cloud Storage Configuration
+                {t('admin_settings.storage_config', 'Cloud Storage Configuration')}
               </CardTitle>
-              <CardDescription>Configure file storage and CDN</CardDescription>
+              <CardDescription>{t('admin_settings.storage_config_desc', 'Configure file storage and CDN')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="storage-enabled">Enable Cloud Storage</Label>
-                  <p className="text-sm text-gray-500">Store files in cloud storage</p>
+                  <Label htmlFor="storage-enabled">{t('admin_settings.enable_storage', 'Enable Cloud Storage')}</Label>
+                  <p className="text-sm text-gray-500">{t('admin_settings.enable_storage_desc', 'Store files in cloud storage')}</p>
                 </div>
                 <Switch
                   id="storage-enabled"
@@ -781,7 +773,7 @@ const IntegrationSettings = () => {
               {settings.cloudStorageEnabled && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="cloud-provider">Cloud Provider</Label>
+                    <Label htmlFor="cloud-provider">{t('admin_settings.cloud_provider', 'Cloud Provider')}</Label>
                     <Select value={settings.cloudStorageProvider} onValueChange={(value) => handleInputChange('cloudStorageProvider', value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -794,14 +786,14 @@ const IntegrationSettings = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cloud-key">Access Key</Label>
+                    <Label htmlFor="cloud-key">{t('admin_settings.access_key', 'Access Key')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="cloud-key"
                         type={showApiKeys.cloudStorageKey ? 'text' : 'password'}
                         value={settings.cloudStorageKey}
                         onChange={(e) => handleInputChange('cloudStorageKey', e.target.value)}
-                        placeholder="Enter your cloud storage access key"
+                        placeholder={t('admin_settings.enter_access_key', 'Enter your cloud storage access key')}
                       />
                       <Button
                         size="sm"
@@ -813,14 +805,14 @@ const IntegrationSettings = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cloud-secret">Secret Key</Label>
+                    <Label htmlFor="cloud-secret">{t('admin_settings.secret_key', 'Secret Key')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="cloud-secret"
                         type={showApiKeys.cloudStorageSecret ? 'text' : 'password'}
                         value={settings.cloudStorageSecret}
                         onChange={(e) => handleInputChange('cloudStorageSecret', e.target.value)}
-                        placeholder="Enter your cloud storage secret key"
+                        placeholder={t('admin_settings.enter_secret_key', 'Enter your cloud storage secret key')}
                       />
                       <Button
                         size="sm"
@@ -833,7 +825,7 @@ const IntegrationSettings = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cloud-bucket">Bucket Name</Label>
+                      <Label htmlFor="cloud-bucket">{t('admin_settings.bucket_name_label', 'Bucket Name')}</Label>
                       <Input
                         id="cloud-bucket"
                         value={settings.cloudStorageBucket}
@@ -842,7 +834,7 @@ const IntegrationSettings = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="cloud-region">Region</Label>
+                      <Label htmlFor="cloud-region">{t('admin_settings.region', 'Region')}</Label>
                       <Input
                         id="cloud-region"
                         value={settings.cloudStorageRegion}
@@ -855,14 +847,14 @@ const IntegrationSettings = () => {
                     onClick={() => handleTestIntegration(settings.cloudStorageProvider, 'storage')}
                     disabled={isTesting === settings.cloudStorageProvider}
                     variant="outline"
-                    className="w-full"
+                    className="w-full mt-2"
                   >
                     {isTesting === settings.cloudStorageProvider ? (
                       <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <TestTube className="h-4 w-4 mr-2" />
                     )}
-                    Test Storage Configuration
+                    {t('admin_settings.test_storage_config', 'Test Storage Configuration')}
                   </Button>
                 </>
               )}
@@ -876,15 +868,15 @@ const IntegrationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
-                Analytics Configuration
+                {t('admin_settings.analytics_config', 'Analytics Configuration')}
               </CardTitle>
-              <CardDescription>Configure analytics and tracking</CardDescription>
+              <CardDescription>{t('admin_settings.analytics_config_desc', 'Configure analytics and tracking')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="analytics-enabled">Enable Analytics</Label>
-                  <p className="text-sm text-gray-500">Track user behavior and system usage</p>
+                  <Label htmlFor="analytics-enabled">{t('admin_settings.enable_analytics', 'Enable Analytics')}</Label>
+                  <p className="text-sm text-gray-500">{t('admin_settings.enable_analytics_desc', 'Track user behavior and system usage')}</p>
                 </div>
                 <Switch
                   id="analytics-enabled"
@@ -896,7 +888,7 @@ const IntegrationSettings = () => {
               {settings.analyticsEnabled && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="analytics-provider">Analytics Provider</Label>
+                    <Label htmlFor="analytics-provider">{t('admin_settings.analytics_provider', 'Analytics Provider')}</Label>
                     <Select value={settings.analyticsProvider} onValueChange={(value) => handleInputChange('analyticsProvider', value)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -909,14 +901,14 @@ const IntegrationSettings = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="analytics-api-key">API Key</Label>
+                    <Label htmlFor="analytics-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="analytics-api-key"
                         type={showApiKeys.analyticsApiKey ? 'text' : 'password'}
                         value={settings.analyticsApiKey}
                         onChange={(e) => handleInputChange('analyticsApiKey', e.target.value)}
-                        placeholder="Enter your analytics API key"
+                        placeholder={t('admin_settings.enter_analytics_api_key', 'Enter your analytics API key')}
                       />
                       <Button
                         size="sm"
@@ -931,14 +923,14 @@ const IntegrationSettings = () => {
                     onClick={() => handleTestIntegration(settings.analyticsProvider, 'analytics')}
                     disabled={isTesting === settings.analyticsProvider}
                     variant="outline"
-                    className="w-full"
+                    className="w-full mt-2"
                   >
                     {isTesting === settings.analyticsProvider ? (
                       <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <TestTube className="h-4 w-4 mr-2" />
                     )}
-                    Test Analytics Configuration
+                    {t('admin_settings.test_analytics_config', 'Test Analytics Configuration')}
                   </Button>
                 </>
               )}
@@ -952,27 +944,27 @@ const IntegrationSettings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TestTube className="h-5 w-5" />
-            Integration Test History
+            {t('admin_settings.integration_test_history', 'Integration Test History')}
           </CardTitle>
-          <CardDescription>Recent integration tests and their results</CardDescription>
+          <CardDescription>{t('admin_settings.integration_test_history_desc', 'Recent integration tests and their results')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {integrationTests.length === 0 ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>No integration tests found. Test your integrations to see results here.</AlertDescription>
+                <AlertDescription>{t('admin_settings.no_integration_tests', 'No integration tests found. Test your integrations to see results here.')}</AlertDescription>
               </Alert>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Service</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Timestamp</TableHead>
+                      <TableHead>{t('admin_settings.service', 'Service')}</TableHead>
+                      <TableHead>{t('common.type', 'Type')}</TableHead>
+                      <TableHead>{t('common.status', 'Status')}</TableHead>
+                      <TableHead>{t('common.message', 'Message')}</TableHead>
+                      <TableHead>{t('common.timestamp', 'Timestamp')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

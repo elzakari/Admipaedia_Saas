@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -22,17 +23,9 @@ import { useToast } from '../../hooks/useToast';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 const ReportsPage: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('academic');
   const [selectedReport, setSelectedReport] = useState<NonNullable<ReportFilter['reportType']>>('grades');
-  const [dateRange, setDateRange] = useState('current');
-  const [classFilter, setClassFilter] = useState('all');
-  const [subjectFilter, setSubjectFilter] = useState('all');
-  const [customDateFrom, setCustomDateFrom] = useState('');
-  const [customDateTo, setCustomDateTo] = useState('');
-  
-  const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [availableClasses, setAvailableClasses] = useState<Array<{ id: string; name: string }>>([]);
   const [availableSubjects, setAvailableSubjects] = useState<Array<{ id: string; name: string }>>([]);
   
@@ -536,6 +529,201 @@ const ReportsPage: React.FC = () => {
                 </div>
               </div>
             </CardContent>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Late</p>
+                <p className="text-2xl font-bold text-yellow-600">{overall.late || 0}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Rate</p>
+                <p className="text-2xl font-bold text-blue-600">{overall.rate?.toFixed(1) || '0.0'}%</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Attendance Trends */}
+        {trends && trends.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Attendance Trends</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="present" stackId="1" stroke="#82ca9d" fill="#82ca9d" name="Present" />
+                    <Area type="monotone" dataKey="late" stackId="1" stroke="#ffc658" fill="#ffc658" name="Late" />
+                    <Area type="monotone" dataKey="absent" stackId="1" stroke="#ff7c7c" fill="#ff7c7c" name="Absent" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Class Comparison */}
+        {classComparison && classComparison.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Class Attendance Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={classComparison}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="className" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="attendanceRate" fill="#8884d8" name="Attendance Rate (%)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderFinancialReportVisualization = () => {
+    if (!reportData?.data) return null;
+    
+    const data = reportData.data as any;
+    // Map backend names to frontend expected names if necessary
+    const feeCollection = data.feeCollection || {
+      total: data.total_revenue || 0,
+      collected: (data.total_revenue || 0) - (data.outstanding_fees || 0),
+      pending: data.outstanding_fees || 0,
+      overdue: 0
+    };
+    const trends = data.trends || data.monthly_breakdown || [];
+    const classBreakdown = data.classBreakdown || [];
+    
+    return (
+      <div className="space-y-6">
+        {/* Financial Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Total Fees</p>
+                <p className="text-2xl font-bold">${feeCollection.total?.toLocaleString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Collected</p>
+                <p className="text-2xl font-bold text-green-600">${feeCollection.collected?.toLocaleString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">${feeCollection.pending?.toLocaleString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600">Overdue</p>
+                <p className="text-2xl font-bold text-red-600">${feeCollection.overdue?.toLocaleString()}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Collection Trends */}
+        {trends && trends.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Fee Collection Trends</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey={trends[0]?.month ? "month" : "date"} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey={trends[0]?.collected ? "collected" : "revenue"} stroke="#82ca9d" name="Collected" />
+                    <Line type="monotone" dataKey={trends[0]?.pending ? "pending" : "expenses"} stroke="#ffc658" name="Pending" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const renderReportVisualization = () => {
+    if (!reportData) {
+      return (
+        <div className="border rounded-lg p-6 bg-gray-50 dark:bg-gray-800 flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              {selectedReport === 'grades' || selectedReport === 'progress' ? (
+                <BarChart2 className="h-16 w-16 text-indigo-500 opacity-50" />
+              ) : (
+                <PieChart className="h-16 w-16 text-indigo-500 opacity-50" />
+              )}
+            </div>
+            <h3 className="text-lg font-medium mb-2">Select filters and generate a report</h3>
+            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+              Choose your report type, time period, and class filters, then click "Generate Report" to view the data.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    switch (activeTab) {
+      case 'academic':
+        return renderAcademicReportVisualization();
+      case 'attendance':
+        return renderAttendanceReportVisualization();
+      case 'financial':
+        return renderFinancialReportVisualization();
+      default:
+        return (
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">Report Generated Successfully</h3>
+                <p className="text-gray-500">Your {reportData.title} has been generated.</p>
+                <div className="mt-4">
+                  <Badge variant="outline">
+                    Generated: {new Date(reportData.generatedAt).toLocaleString()}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
           </Card>
         );
     }
@@ -545,8 +733,8 @@ const ReportsPage: React.FC = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
         <PageHeader 
-          title="Reports" 
-          description="Generate and view detailed reports"
+          title={t('admin_reports.title', 'Reports')} 
+          description={t('admin_reports.description', 'Generate and view detailed reports')}
           icon={<FileText className="h-6 w-6 text-indigo-600" />}
         />
         <div className="flex gap-2">
@@ -557,17 +745,17 @@ const ReportsPage: React.FC = () => {
             disabled={!reportData || isLoading}
           >
             <Printer className="mr-2 h-4 w-4" />
-            Print
+            {t('common.print', 'Print')}
           </Button>
           
           <Select onValueChange={(format) => exportReport(format as 'pdf' | 'excel' | 'csv')}>
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="Export" />
+              <SelectValue placeholder={t('common.export', 'Export')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="pdf">Export PDF</SelectItem>
-              <SelectItem value="excel">Export Excel</SelectItem>
-              <SelectItem value="csv">Export CSV</SelectItem>
+              <SelectItem value="pdf">{t('common.export_pdf', 'Export PDF')}</SelectItem>
+              <SelectItem value="excel">{t('common.export_excel', 'Export Excel')}</SelectItem>
+              <SelectItem value="csv">{t('common.export_csv', 'Export CSV')}</SelectItem>
             </SelectContent>
           </Select>
           
@@ -581,29 +769,29 @@ const ReportsPage: React.FC = () => {
             ) : (
               <FileText className="mr-2 h-4 w-4" />
             )}
-            {isLoading ? 'Generating...' : 'Generate Report'}
+            {isLoading ? t('common.generating', 'Generating...') : t('admin_reports.generate_report', 'Generate Report')}
           </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="academic">Academic Reports</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance Reports</TabsTrigger>
-          <TabsTrigger value="financial">Financial Reports</TabsTrigger>
-          <TabsTrigger value="administrative">Administrative Reports</TabsTrigger>
+          <TabsTrigger value="academic">{t('admin_reports.academic_reports', 'Academic Reports')}</TabsTrigger>
+          <TabsTrigger value="attendance">{t('admin_reports.attendance_reports', 'Attendance Reports')}</TabsTrigger>
+          <TabsTrigger value="financial">{t('admin_reports.financial_reports', 'Financial Reports')}</TabsTrigger>
+          <TabsTrigger value="administrative">{t('admin_reports.administrative_reports', 'Administrative Reports')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="academic" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Academic Performance Reports</CardTitle>
-              <CardDescription>View and generate reports on student academic performance</CardDescription>
+              <CardTitle>{t('admin_reports.academic_perf_reports', 'Academic Performance Reports')}</CardTitle>
+              <CardDescription>{t('admin_reports.academic_perf_desc', 'View and generate reports on student academic performance')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/5">
-                  <label className="block text-sm font-medium mb-1">Report Type</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.report_type', 'Report Type')}</label>
                   <Select
                     value={selectedReport}
                     onValueChange={(value) =>
@@ -611,40 +799,40 @@ const ReportsPage: React.FC = () => {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select report type" />
+                      <SelectValue placeholder={t('admin_reports.select_report_type', 'Select report type')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="grades">Grade Reports</SelectItem>
-                      <SelectItem value="progress">Progress Reports</SelectItem>
-                      <SelectItem value="transcripts">Transcripts</SelectItem>
-                      <SelectItem value="class-performance">Class Performance</SelectItem>
+                      <SelectItem value="grades">{t('admin_reports.grade_reports', 'Grade Reports')}</SelectItem>
+                      <SelectItem value="progress">{t('admin_reports.progress_reports', 'Progress Reports')}</SelectItem>
+                      <SelectItem value="transcripts">{t('admin_reports.transcripts', 'Transcripts')}</SelectItem>
+                      <SelectItem value="class-performance">{t('admin_reports.class_performance', 'Class Performance')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="w-full md:w-1/5">
-                  <label className="block text-sm font-medium mb-1">Time Period</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.time_period', 'Time Period')}</label>
                   <Select value={dateRange} onValueChange={setDateRange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select time period" />
+                      <SelectValue placeholder={t('admin_reports.select_time_period', 'Select time period')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="current">Current Term</SelectItem>
-                      <SelectItem value="previous">Previous Term</SelectItem>
-                      <SelectItem value="year">Academic Year</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
+                      <SelectItem value="current">{t('admin_reports.current_term', 'Current Term')}</SelectItem>
+                      <SelectItem value="previous">{t('admin_reports.previous_term', 'Previous Term')}</SelectItem>
+                      <SelectItem value="year">{t('admin_reports.academic_year', 'Academic Year')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_reports.custom_range', 'Custom Range')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="w-full md:w-1/5">
-                  <label className="block text-sm font-medium mb-1">Class/Grade</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.class_grade', 'Class/Grade')}</label>
                   <Select value={classFilter} onValueChange={setClassFilter}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder={t('admin_reports.select_class', 'Select class')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Classes</SelectItem>
+                      <SelectItem value="all">{t('admin_reports.all_classes', 'All Classes')}</SelectItem>
                       {availableClasses.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                       ))}
@@ -653,13 +841,13 @@ const ReportsPage: React.FC = () => {
                 </div>
                 
                 <div className="w-full md:w-1/5">
-                  <label className="block text-sm font-medium mb-1">Subject</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.subject', 'Subject')}</label>
                   <Select value={subjectFilter} onValueChange={setSubjectFilter}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
+                      <SelectValue placeholder={t('admin_reports.select_subject', 'Select subject')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Subjects</SelectItem>
+                      <SelectItem value="all">{t('admin_reports.all_subjects', 'All Subjects')}</SelectItem>
                       {availableSubjects.map((subject) => (
                         <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
                       ))}
@@ -670,7 +858,7 @@ const ReportsPage: React.FC = () => {
                 <div className="w-full md:w-1/5 flex items-end">
                   <Button className="w-full" onClick={generateReport} disabled={isLoading}>
                     <Filter className="mr-2 h-4 w-4" />
-                    Apply Filters
+                    {t('admin_reports.apply_filters', 'Apply Filters')}
                   </Button>
                 </div>
               </div>
@@ -678,7 +866,7 @@ const ReportsPage: React.FC = () => {
               {dateRange === 'custom' && (
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">From Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.from_date', 'From Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateFrom} 
@@ -686,7 +874,7 @@ const ReportsPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">To Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.to_date', 'To Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateTo} 
@@ -704,34 +892,34 @@ const ReportsPage: React.FC = () => {
         <TabsContent value="attendance" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Attendance Reports</CardTitle>
-              <CardDescription>Track student attendance patterns and statistics</CardDescription>
+              <CardTitle>{t('admin_reports.attendance_reports', 'Attendance Reports')}</CardTitle>
+              <CardDescription>{t('admin_reports.attendance_reports_desc', 'Track student attendance patterns and statistics')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/4">
-                  <label className="block text-sm font-medium mb-1">Time Period</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.time_period', 'Time Period')}</label>
                   <Select value={dateRange} onValueChange={setDateRange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select time period" />
+                      <SelectValue placeholder={t('admin_reports.select_time_period', 'Select time period')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="current">Current Term</SelectItem>
-                      <SelectItem value="previous">Previous Term</SelectItem>
-                      <SelectItem value="year">Academic Year</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
+                      <SelectItem value="current">{t('admin_reports.current_term', 'Current Term')}</SelectItem>
+                      <SelectItem value="previous">{t('admin_reports.previous_term', 'Previous Term')}</SelectItem>
+                      <SelectItem value="year">{t('admin_reports.academic_year', 'Academic Year')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_reports.custom_range', 'Custom Range')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="w-full md:w-1/4">
-                  <label className="block text-sm font-medium mb-1">Class/Grade</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.class_grade', 'Class/Grade')}</label>
                   <Select value={classFilter} onValueChange={setClassFilter}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder={t('admin_reports.select_class', 'Select class')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Classes</SelectItem>
+                      <SelectItem value="all">{t('admin_reports.all_classes', 'All Classes')}</SelectItem>
                       {availableClasses.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                       ))}
@@ -742,7 +930,7 @@ const ReportsPage: React.FC = () => {
                 <div className="w-full md:w-1/4 flex items-end">
                   <Button className="w-full" onClick={generateReport} disabled={isLoading}>
                     <Filter className="mr-2 h-4 w-4" />
-                    Generate Report
+                    {t('admin_reports.generate_report', 'Generate Report')}
                   </Button>
                 </div>
               </div>
@@ -750,7 +938,7 @@ const ReportsPage: React.FC = () => {
               {dateRange === 'custom' && (
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">From Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.from_date', 'From Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateFrom} 
@@ -758,7 +946,7 @@ const ReportsPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">To Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.to_date', 'To Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateTo} 
@@ -776,34 +964,34 @@ const ReportsPage: React.FC = () => {
         <TabsContent value="financial" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Financial Reports</CardTitle>
-              <CardDescription>View financial statements and fee collection reports</CardDescription>
+              <CardTitle>{t('admin_reports.financial_reports', 'Financial Reports')}</CardTitle>
+              <CardDescription>{t('admin_reports.financial_reports_desc', 'View financial statements and fee collection reports')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/3">
-                  <label className="block text-sm font-medium mb-1">Time Period</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.time_period', 'Time Period')}</label>
                   <Select value={dateRange} onValueChange={setDateRange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select time period" />
+                      <SelectValue placeholder={t('admin_reports.select_time_period', 'Select time period')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="current">Current Term</SelectItem>
-                      <SelectItem value="previous">Previous Term</SelectItem>
-                      <SelectItem value="year">Academic Year</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
+                      <SelectItem value="current">{t('admin_reports.current_term', 'Current Term')}</SelectItem>
+                      <SelectItem value="previous">{t('admin_reports.previous_term', 'Previous Term')}</SelectItem>
+                      <SelectItem value="year">{t('admin_reports.academic_year', 'Academic Year')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_reports.custom_range', 'Custom Range')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="w-full md:w-1/3">
-                  <label className="block text-sm font-medium mb-1">Class/Grade</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.class_grade', 'Class/Grade')}</label>
                   <Select value={classFilter} onValueChange={setClassFilter}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder={t('admin_reports.select_class', 'Select class')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Classes</SelectItem>
+                      <SelectItem value="all">{t('admin_reports.all_classes', 'All Classes')}</SelectItem>
                       {availableClasses.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                       ))}
@@ -814,7 +1002,7 @@ const ReportsPage: React.FC = () => {
                 <div className="w-full md:w-1/3 flex items-end">
                   <Button className="w-full" onClick={generateReport} disabled={isLoading}>
                     <DollarSign className="mr-2 h-4 w-4" />
-                    Generate Report
+                    {t('admin_reports.generate_report', 'Generate Report')}
                   </Button>
                 </div>
               </div>
@@ -822,7 +1010,7 @@ const ReportsPage: React.FC = () => {
               {dateRange === 'custom' && (
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">From Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.from_date', 'From Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateFrom} 
@@ -830,7 +1018,7 @@ const ReportsPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">To Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.to_date', 'To Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateTo} 
@@ -848,13 +1036,13 @@ const ReportsPage: React.FC = () => {
         <TabsContent value="administrative" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Administrative Reports</CardTitle>
-              <CardDescription>Access administrative and operational reports</CardDescription>
+              <CardTitle>{t('admin_reports.administrative_reports', 'Administrative Reports')}</CardTitle>
+              <CardDescription>{t('admin_reports.administrative_reports_desc', 'Access administrative and operational reports')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="w-full md:w-1/3">
-                  <label className="block text-sm font-medium mb-1">Report Type</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.report_type', 'Report Type')}</label>
                   <Select
                     value={selectedReport}
                     onValueChange={(value) =>
@@ -862,28 +1050,28 @@ const ReportsPage: React.FC = () => {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select report type" />
+                      <SelectValue placeholder={t('admin_reports.select_report_type', 'Select report type')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="staff">Staff Reports</SelectItem>
-                      <SelectItem value="enrollment">Enrollment Reports</SelectItem>
-                      <SelectItem value="facilities">Facilities Reports</SelectItem>
-                      <SelectItem value="compliance">Compliance Reports</SelectItem>
+                      <SelectItem value="staff">{t('admin_reports.staff_reports', 'Staff Reports')}</SelectItem>
+                      <SelectItem value="enrollment">{t('admin_reports.enrollment_reports', 'Enrollment Reports')}</SelectItem>
+                      <SelectItem value="facilities">{t('admin_reports.facilities_reports', 'Facilities Reports')}</SelectItem>
+                      <SelectItem value="compliance">{t('admin_reports.compliance_reports', 'Compliance Reports')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="w-full md:w-1/3">
-                  <label className="block text-sm font-medium mb-1">Time Period</label>
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.time_period', 'Time Period')}</label>
                   <Select value={dateRange} onValueChange={setDateRange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select time period" />
+                      <SelectValue placeholder={t('admin_reports.select_time_period', 'Select time period')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="current">Current Term</SelectItem>
-                      <SelectItem value="previous">Previous Term</SelectItem>
-                      <SelectItem value="year">Academic Year</SelectItem>
-                      <SelectItem value="custom">Custom Range</SelectItem>
+                      <SelectItem value="current">{t('admin_reports.current_term', 'Current Term')}</SelectItem>
+                      <SelectItem value="previous">{t('admin_reports.previous_term', 'Previous Term')}</SelectItem>
+                      <SelectItem value="year">{t('admin_reports.academic_year', 'Academic Year')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_reports.custom_range', 'Custom Range')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -891,7 +1079,7 @@ const ReportsPage: React.FC = () => {
                 <div className="w-full md:w-1/3 flex items-end">
                   <Button className="w-full" onClick={generateReport} disabled={isLoading}>
                     <Settings className="mr-2 h-4 w-4" />
-                    Generate Report
+                    {t('admin_reports.generate_report', 'Generate Report')}
                   </Button>
                 </div>
               </div>
@@ -899,7 +1087,7 @@ const ReportsPage: React.FC = () => {
               {dateRange === 'custom' && (
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">From Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.from_date', 'From Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateFrom} 
@@ -907,7 +1095,7 @@ const ReportsPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">To Date</label>
+                    <label className="block text-sm font-medium mb-1">{t('admin_reports.to_date', 'To Date')}</label>
                     <Input 
                       type="date" 
                       value={customDateTo} 
@@ -927,7 +1115,7 @@ const ReportsPage: React.FC = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Exporting report... Please wait.
+            {t('admin_reports.exporting_wait', 'Exporting report... Please wait.')}
           </AlertDescription>
         </Alert>
       )}

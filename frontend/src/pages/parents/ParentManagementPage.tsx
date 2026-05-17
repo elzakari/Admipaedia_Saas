@@ -1,5 +1,6 @@
 // Top-level imports
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from '../../hooks/useDebounce';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -17,6 +18,7 @@ import { toast } from 'react-hot-toast';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 function ParentManagementPage() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -192,9 +194,9 @@ function ParentManagementPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6">
         <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Parents</h1>
-        <p className="text-gray-600 mb-4">Failed to load parent data. Please try again.</p>
-        <Button onClick={() => refetch()}>Retry</Button>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">{t('admin_parents.error_loading', 'Error Loading Parents')}</h1>
+        <p className="text-gray-600 mb-4">{t('admin_parents.failed_to_load', 'Failed to load parent data. Please try again.')}</p>
+        <Button onClick={() => refetch()}>{t('admin_parents.retry', 'Retry')}</Button>
       </div>
     );
   }
@@ -203,21 +205,21 @@ function ParentManagementPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Parent Management</h1>
-          <p className="text-gray-600 mt-1">Manage parent accounts and relationships</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('admin_parents.title', 'Parent Management')}</h1>
+          <p className="text-gray-600 mt-1">{t('admin_parents.subtitle', 'Manage parent accounts and relationships')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleImport}>
             <Upload className="w-4 h-4 mr-2" />
-            Import
+            {t('admin_parents.import', 'Import')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
-            Export
+            {t('admin_parents.export', 'Export')}
           </Button>
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Parent
+            {t('admin_parents.add_parent', 'Add Parent')}
           </Button>
         </div>
       </div>
@@ -227,7 +229,7 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Parents</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.total_parents', 'Total Parents')}</p>
                 <p className="text-2xl font-bold text-gray-900">{totalParents}</p>
               </div>
               <Users className="w-8 h-8 text-blue-500" />
@@ -239,7 +241,7 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Parents</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.active_parents', 'Active Parents')}</p>
                 <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               </div>
               <UserCheck className="w-8 h-8 text-green-500" />
@@ -251,7 +253,7 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Inactive Parents</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.inactive_parents', 'Inactive Parents')}</p>
                 <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
               </div>
               <UserX className="w-8 h-8 text-red-500" />
@@ -263,7 +265,7 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">New This Month</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.new_this_month', 'New This Month')}</p>
                 <p className="text-2xl font-bold text-purple-600">
                   {stats.newThisMonth}
                 </p>
@@ -281,7 +283,7 @@ function ParentManagementPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search parents by name or email..."
+                  placeholder={t('admin_parents.search_placeholder', 'Search parents by name or email...')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -294,13 +296,13 @@ function ParentManagementPage() {
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="all">{t('admin_parents.status_all', 'All Status')}</option>
+                <option value="active">{t('admin_parents.status_active', 'Active')}</option>
+                <option value="inactive">{t('admin_parents.status_inactive', 'Inactive')}</option>
               </select>
               <Button variant="outline" size="sm" onClick={handleMoreFilters}>
                 <Filter className="w-4 h-4 mr-2" />
-                More Filters
+                {t('admin_parents.more_filters', 'More Filters')}
               </Button>
             </div>
           </div>
@@ -310,8 +312,8 @@ function ParentManagementPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Parents ({filteredParents.length})</span>
-            <Badge variant="secondary">{filteredParents.length} of {totalParents}</Badge>
+            <span>{t('admin_parents.list_title', 'Parents')} ({filteredParents.length})</span>
+            <Badge variant="secondary">{filteredParents.length} {t('admin_parents.of', 'of')} {totalParents}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -349,9 +351,13 @@ function ParentManagementPage() {
           {!isLoading && totalParents > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 border-t pt-4">
               <div className="text-sm text-gray-500">
-                Showing <span className="font-medium">{Math.min((currentPage - 1) * perPage + 1, totalParents)}</span> to{' '}
-                <span className="font-medium">{Math.min(currentPage * perPage, totalParents)}</span> of{' '}
-                <span className="font-medium">{totalParents}</span> parents
+                {t('admin_parents.showing', 'Showing')}{' '}
+                <span className="font-medium">{Math.min((currentPage - 1) * perPage + 1, totalParents)}</span>{' '}
+                {t('admin_parents.to', 'to')}{' '}
+                <span className="font-medium">{Math.min(currentPage * perPage, totalParents)}</span>{' '}
+                {t('admin_parents.of', 'of')}{' '}
+                <span className="font-medium">{totalParents}</span>{' '}
+                {t('admin_parents.list_title', 'Parents').toLowerCase()}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -361,7 +367,7 @@ function ParentManagementPage() {
                   disabled={currentPage === 1 || isLoading}
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
+                  {t('admin_parents.previous', 'Previous')}
                 </Button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(5, Math.ceil(totalParents / perPage)) }, (_, i) => {
@@ -387,7 +393,7 @@ function ParentManagementPage() {
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalParents / perPage)))}
                   disabled={currentPage === Math.ceil(totalParents / perPage) || isLoading}
                 >
-                  Next
+                  {t('admin_parents.next', 'Next')}
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>

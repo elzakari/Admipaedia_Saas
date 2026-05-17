@@ -892,7 +892,7 @@ export default function AppRoutes() {
       />
       
       <Route 
-        path="/administration" 
+        path="/admin/administration" 
         element={
           <ProtectedRoute 
             element={<AdministrationPage />} 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { 
@@ -42,6 +43,7 @@ import FinancialReports from '../../components/fees/FinancialReports';
 import FeeSettingsPanel from '../../components/fees/FeeSettingsPanel';
 
 export function FeesPage() {
+  const { t } = useTranslation();
   useTheme();
   const { setHeaderActions } = useHeader();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -108,7 +110,7 @@ export function FeesPage() {
           onClick={() => window.dispatchEvent(new CustomEvent('fees:action', { detail: { tab: activeTab, type: 'export' } }))}
         >
           <Download className="h-4 w-4 mr-2" />
-          {isTablet ? 'Export' : 'Export Data'}
+          {isTablet ? t('admin_parents.export', 'Export') : t('admin_fees.export_data', 'Export Data')}
         </TouchFriendlyButton>
         <TouchFriendlyButton
           variant="primary"
@@ -119,14 +121,14 @@ export function FeesPage() {
           }}
         >
           <Plus className="h-4 w-4 mr-2" />
-          {isTablet ? 'New' : 'Create New Fee'}
+          {isTablet ? t('common.new', 'New') : t('admin_fees.create_new_fee', 'Create New Fee')}
         </TouchFriendlyButton>
       </div>
     );
 
     setHeaderActions(actions);
     return () => setHeaderActions(null);
-  }, [activeTab, isTablet, setHeaderActions]);
+  }, [activeTab, isTablet, setHeaderActions, t]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -144,58 +146,58 @@ export function FeesPage() {
     { 
       value: 'dashboard', 
       icon: BarChart4, 
-      label: 'Dashboard',
-      shortLabel: 'Dash',
-      mobileLabel: 'Dashboard'
+      label: t('admin_fees.dashboard', 'Dashboard'),
+      shortLabel: t('admin_fees.dashboard_short', 'Dash'),
+      mobileLabel: t('admin_fees.dashboard', 'Dashboard')
     },
     { 
       value: 'templates', 
       icon: Settings, 
-      label: 'Fee Templates',
-      shortLabel: 'Templates',
-      mobileLabel: 'Templates'
+      label: t('admin_fees.fee_templates', 'Fee Templates'),
+      shortLabel: t('admin_fees.fee_templates_short', 'Templates'),
+      mobileLabel: t('admin_fees.fee_templates', 'Templates')
     },
     { 
       value: 'invoices', 
       icon: FileText, 
-      label: 'Invoices',
-      shortLabel: 'Invoices',
-      mobileLabel: 'Invoices'
+      label: t('admin_fees.invoices', 'Invoices'),
+      shortLabel: t('admin_fees.invoices', 'Invoices'),
+      mobileLabel: t('admin_fees.invoices', 'Invoices')
     },
     { 
       value: 'payments', 
       icon: DollarSign, 
-      label: 'Payments',
-      shortLabel: 'Payments',
-      mobileLabel: 'Payments'
+      label: t('admin_fees.payments', 'Payments'),
+      shortLabel: t('admin_fees.payments', 'Payments'),
+      mobileLabel: t('admin_fees.payments', 'Payments')
     },
     { 
       value: 'reminders', 
       icon: Clock, 
-      label: 'Reminders',
-      shortLabel: 'Reminders',
-      mobileLabel: 'Reminders'
+      label: t('admin_fees.reminders', 'Reminders'),
+      shortLabel: t('admin_fees.reminders', 'Reminders'),
+      mobileLabel: t('admin_fees.reminders', 'Reminders')
     },
     { 
       value: 'defaulters', 
       icon: AlertTriangle, 
-      label: 'Defaulters',
-      shortLabel: 'Defaulters',
-      mobileLabel: 'Defaulters'
+      label: t('admin_fees.defaulters', 'Defaulters'),
+      shortLabel: t('admin_fees.defaulters', 'Defaulters'),
+      mobileLabel: t('admin_fees.defaulters', 'Defaulters')
     },
     { 
       value: 'reports', 
       icon: BarChart4, 
-      label: 'Reports',
-      shortLabel: 'Reports',
-      mobileLabel: 'Reports'
+      label: t('admin_fees.reports', 'Reports'),
+      shortLabel: t('admin_fees.reports', 'Reports'),
+      mobileLabel: t('admin_fees.reports', 'Reports')
     },
     { 
       value: 'settings', 
       icon: Settings, 
-      label: 'Settings',
-      shortLabel: 'Settings',
-      mobileLabel: 'Settings'
+      label: t('admin_fees.settings', 'Settings'),
+      shortLabel: t('admin_fees.settings', 'Settings'),
+      mobileLabel: t('admin_fees.settings', 'Settings')
     }
   ];
 
@@ -227,7 +229,7 @@ export function FeesPage() {
                 <Menu className="h-5 w-5" />
               </TouchFriendlyButton>
               <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                Fees Management
+                {t('admin_fees.title', 'Fees Management')}
               </h1>
               <div className="w-9" /> {/* Spacer for centering */}
             </div>
@@ -238,7 +240,7 @@ export function FeesPage() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-sm lg:text-base text-gray-500 dark:text-gray-400">
-                  Manage fee structures, invoices, payments, and financial reports
+                  {t('admin_fees.description', 'Manage fee structures, invoices, payments, and financial reports')}
                 </p>
               </div>
             </div>

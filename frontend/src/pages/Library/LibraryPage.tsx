@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -15,6 +16,7 @@ import libraryService from '../../services/libraryService';
 import { toast } from 'sonner';
 
 const LibraryPage = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('inventory');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,8 +34,8 @@ const LibraryPage = () => {
   return (
     <div className="container mx-auto p-4 md:p-6">
       <PageHeader 
-        title="Library Management" 
-        description="Manage physical and digital library resources, track borrowing, and generate reports"
+        title={t('admin_library.title', 'Library Management')} 
+        description={t('admin_library.description', 'Manage physical and digital library resources, track borrowing, and generate reports')}
         icon={<Library className="h-6 w-6 text-primary" />}
       />
 
@@ -43,7 +45,7 @@ const LibraryPage = () => {
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Books</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('admin_library.total_books', 'Total Books')}</p>
                 <h3 className="text-2xl font-bold">{formatNumber(stats?.totalBooks)}</h3>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
@@ -54,7 +56,7 @@ const LibraryPage = () => {
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Books Borrowed</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('admin_library.books_borrowed', 'Books Borrowed')}</p>
                 <h3 className="text-2xl font-bold">{formatNumber(stats?.totalBorrowed)}</h3>
               </div>
               <div className="p-2 bg-orange-100 rounded-full">
@@ -65,7 +67,7 @@ const LibraryPage = () => {
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Library Members</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('admin_library.library_members', 'Library Members')}</p>
                 <h3 className="text-2xl font-bold">{formatNumber(stats?.totalMembers)}</h3>
               </div>
               <div className="p-2 bg-blue-100 rounded-full">
@@ -76,7 +78,7 @@ const LibraryPage = () => {
           <Card>
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Overdue Books</p>
+                <p className="text-sm font-medium text-muted-foreground">{t('admin_library.overdue_books', 'Overdue Books')}</p>
                 <h3 className="text-2xl font-bold">{formatNumber(stats?.totalOverdue)}</h3>
               </div>
               <div className="p-2 bg-red-100 rounded-full">
@@ -92,19 +94,19 @@ const LibraryPage = () => {
             <TabsList className="w-full md:w-auto">
               <TabsTrigger value="inventory" className="flex items-center">
                 <Book className="mr-2 h-4 w-4" />
-                Book Inventory
+                {t('admin_library.book_inventory', 'Book Inventory')}
               </TabsTrigger>
               <TabsTrigger value="borrowing" className="flex items-center">
                 <BookOpen className="mr-2 h-4 w-4" />
-                Borrowing System
+                {t('admin_library.borrowing_system', 'Borrowing System')}
               </TabsTrigger>
               <TabsTrigger value="digital" className="flex items-center">
                 <FileText className="mr-2 h-4 w-4" />
-                Digital Library
+                {t('admin_library.digital_library', 'Digital Library')}
               </TabsTrigger>
               <TabsTrigger value="reports" className="flex items-center">
                 <BarChart2 className="mr-2 h-4 w-4" />
-                Reports
+                {t('admin_library.reports', 'Reports')}
               </TabsTrigger>
             </TabsList>
 
@@ -112,7 +114,7 @@ const LibraryPage = () => {
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder="Search library..."
+                  placeholder={t('admin_library.search_placeholder', 'Search library...')}
                   className="pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -127,13 +129,13 @@ const LibraryPage = () => {
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Book
+                  {t('admin_library.add_book', 'Add Book')}
                 </Button>
               )}
               {activeTab === 'digital' && (
                 <Button className="glass-button" onClick={() => toast.info('Digital library upload is not connected yet')}>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload Resource
+                  {t('admin_library.upload_resource', 'Upload Resource')}
                 </Button>
               )}
               {activeTab === 'inventory' && (
@@ -146,7 +148,7 @@ const LibraryPage = () => {
                   }}
                 >
                   <QrCode className="mr-2 h-4 w-4" />
-                  Scan
+                  {t('admin_library.scan', 'Scan')}
                 </Button>
               )}
               {activeTab === 'borrowing' && (
@@ -155,13 +157,13 @@ const LibraryPage = () => {
                   onClick={() => window.dispatchEvent(new CustomEvent('library:issueBook'))}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Issue Book
+                  {t('admin_library.issue_book', 'Issue Book')}
                 </Button>
               )}
               {activeTab === 'reports' && (
                 <Button variant="outline" onClick={() => window.dispatchEvent(new CustomEvent('library:exportReport'))}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export
+                  {t('admin_library.export', 'Export')}
                 </Button>
               )}
             </div>

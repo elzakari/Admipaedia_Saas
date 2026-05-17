@@ -156,7 +156,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
       { name: 'Calendar', labelKey: 'navigation.calendar', path: '/calendar', icon: <CalendarDays size={20} /> },
       { name: 'Notifications', labelKey: 'navigation.notifications', path: '/notifications', icon: <Bell size={20} /> },
       { name: 'Messages', labelKey: 'navigation.messages', path: '/messages', icon: <MessageSquare size={20} /> },
-      { name: 'Administration', labelKey: 'navigation.administration', path: '/administration', icon: <Shield size={20} /> },
+      { name: 'Administration', labelKey: 'sidebar.administration', path: '/admin/administration', icon: <Shield size={20} /> },
       { name: 'Settings', labelKey: 'common.settings', path: '/settings', icon: <Settings size={20} /> },
     ],
     teacher: [
@@ -215,7 +215,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
     '/parent/calendar': 'academics.timetable',
     '/notifications': 'messaging.in_app',
     '/messages': 'messaging.in_app',
-    '/administration': 'roles.basic'
+    '/admin/administration': 'roles.basic'
   }
 
   const toLinkTarget = (to: string) => {
@@ -247,9 +247,9 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
     if (pathOnly === '/super-admin') return location.pathname === '/super-admin';
 
-    if (pathOnly === '/administration') {
-      if (location.pathname === '/administration') return true;
-      if (!location.pathname.startsWith('/administration/')) return false;
+    if (pathOnly === '/admin/administration') {
+      if (location.pathname === '/admin/administration') return true;
+      if (!location.pathname.startsWith('/admin/administration/')) return false;
       return true;
     }
 

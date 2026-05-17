@@ -8,22 +8,16 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
-import { Badge } from '../ui/badge';
 import { useToast } from '../ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { 
   School, 
-  MapPin, 
-  Phone, 
-  Mail, 
   Globe, 
   Calendar, 
   Clock, 
-  DollarSign,
-  Palette,
-  Shield,
-  Bell,
-  Save,
+  Palette, 
+  Bell, 
+  Save, 
   RefreshCw
 } from 'lucide-react';
 import { settingsService } from '../../services';
@@ -194,7 +188,7 @@ const SchoolSettings = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="school-name">School Name</Label>
+                  <Label htmlFor="school-name">{t('admin_settings.school_name', 'School Name')}</Label>
                   <Input
                     id="school-name"
                     value={settings.name}
@@ -202,7 +196,7 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="school-code">School Code</Label>
+                  <Label htmlFor="school-code">{t('admin_settings.school_code', 'School Code')}</Label>
                   <Input
                     id="school-code"
                     value={settings.code}
@@ -210,22 +204,22 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="school-type">School Type</Label>
+                  <Label htmlFor="school-type">{t('admin_settings.school_type', 'School Type')}</Label>
                   <Select value={settings.type} onValueChange={(value) => handleInputChange('type', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Primary School">Primary School</SelectItem>
-                      <SelectItem value="Junior High School">Junior High School</SelectItem>
-                      <SelectItem value="Senior High School">Senior High School</SelectItem>
-                      <SelectItem value="Technical School">Technical School</SelectItem>
-                      <SelectItem value="International School">International School</SelectItem>
+                      <SelectItem value="Primary School">{t('admin_settings.primary_school', 'Primary School')}</SelectItem>
+                      <SelectItem value="Junior High School">{t('admin_settings.junior_high_school', 'Junior High School')}</SelectItem>
+                      <SelectItem value="Senior High School">{t('admin_settings.senior_high_school', 'Senior High School')}</SelectItem>
+                      <SelectItem value="Technical School">{t('admin_settings.technical_school', 'Technical School')}</SelectItem>
+                      <SelectItem value="International School">{t('admin_settings.international_school', 'International School')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">{t('admin_settings.phone_number', 'Phone Number')}</Label>
                   <Input
                     id="phone"
                     value={settings.phone}
@@ -233,7 +227,7 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email">{t('admin_settings.email_address', 'Email Address')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -242,7 +236,7 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
+                  <Label htmlFor="website">{t('admin_settings.website', 'Website')}</Label>
                   <Input
                     id="website"
                     value={settings.website}
@@ -251,7 +245,7 @@ const SchoolSettings = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{t('admin_settings.address_label', 'Address')}</Label>
                 <Textarea
                   id="address"
                   value={settings.address}
@@ -261,7 +255,7 @@ const SchoolSettings = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
+                  <Label htmlFor="city">{t('admin_settings.city_label', 'City')}</Label>
                   <Input
                     id="city"
                     value={settings.city}
@@ -269,27 +263,27 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="region">Region</Label>
+                  <Label htmlFor="region">{t('admin_settings.region_label', 'Region')}</Label>
                   <Select value={settings.region} onValueChange={(value) => handleInputChange('region', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Greater Accra">Greater Accra</SelectItem>
-                      <SelectItem value="Ashanti">Ashanti</SelectItem>
-                      <SelectItem value="Western">Western</SelectItem>
-                      <SelectItem value="Central">Central</SelectItem>
-                      <SelectItem value="Eastern">Eastern</SelectItem>
-                      <SelectItem value="Volta">Volta</SelectItem>
-                      <SelectItem value="Northern">Northern</SelectItem>
-                      <SelectItem value="Upper East">Upper East</SelectItem>
-                      <SelectItem value="Upper West">Upper West</SelectItem>
-                      <SelectItem value="Brong Ahafo">Brong Ahafo</SelectItem>
+                      <SelectItem value="Greater Accra">{t('admin_settings.greater_accra', 'Greater Accra')}</SelectItem>
+                      <SelectItem value="Ashanti">{t('admin_settings.ashanti', 'Ashanti')}</SelectItem>
+                      <SelectItem value="Western">{t('admin_settings.western', 'Western')}</SelectItem>
+                      <SelectItem value="Central">{t('admin_settings.central', 'Central')}</SelectItem>
+                      <SelectItem value="Eastern">{t('admin_settings.eastern', 'Eastern')}</SelectItem>
+                      <SelectItem value="Volta">{t('admin_settings.volta', 'Volta')}</SelectItem>
+                      <SelectItem value="Northern">{t('admin_settings.northern', 'Northern')}</SelectItem>
+                      <SelectItem value="Upper East">{t('admin_settings.upper_east', 'Upper East')}</SelectItem>
+                      <SelectItem value="Upper West">{t('admin_settings.upper_west', 'Upper West')}</SelectItem>
+                      <SelectItem value="Brong Ahafo">{t('admin_settings.brong_ahafo', 'Brong Ahafo')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="country">{t('admin_settings.country_label', 'Country')}</Label>
                   <Input
                     id="country"
                     value={settings.country}
@@ -297,7 +291,7 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="postal-code">Postal Code</Label>
+                  <Label htmlFor="postal-code">{t('admin_settings.postal_code_label', 'Postal Code')}</Label>
                   <Input
                     id="postal-code"
                     value={settings.postalCode}
@@ -314,14 +308,14 @@ const SchoolSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Academic Configuration
+                {t('admin_settings.academic_config', 'Academic Configuration')}
               </CardTitle>
-              <CardDescription>Configure academic year and grading settings</CardDescription>
+              <CardDescription>{t('admin_settings.academic_config_desc', 'Configure academic year and grading settings')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="academic-year">Academic Year</Label>
+                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Academic Year')}</Label>
                   <Input
                     id="academic-year"
                     value={settings.academicYear}
@@ -329,35 +323,35 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="current-term">Current Term</Label>
+                  <Label htmlFor="current-term">{t('admin_settings.current_term_label', 'Current Term')}</Label>
                   <Select value={settings.currentTerm} onValueChange={(value) => handleInputChange('currentTerm', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="First Term">First Term</SelectItem>
-                      <SelectItem value="Second Term">Second Term</SelectItem>
-                      <SelectItem value="Third Term">Third Term</SelectItem>
+                      <SelectItem value="First Term">{t('admin_settings.first_term', 'First Term')}</SelectItem>
+                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Second Term')}</SelectItem>
+                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Third Term')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="grading-system">Grading System</Label>
+                  <Label htmlFor="grading-system">{t('admin_settings.grading_system_label', 'Grading System')}</Label>
                   <Select value={settings.gradingSystem} onValueChange={(value) => handleInputChange('gradingSystem', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="GES">Ghana Education Service (GES)</SelectItem>
-                      <SelectItem value="WAEC">West African Examinations Council (WAEC)</SelectItem>
-                      <SelectItem value="IB">International Baccalaureate (IB)</SelectItem>
-                      <SelectItem value="Cambridge">Cambridge International</SelectItem>
-                      <SelectItem value="Custom">Custom Grading System</SelectItem>
+                      <SelectItem value="GES">{t('admin_settings.ges_grading', 'Ghana Education Service (GES)')}</SelectItem>
+                      <SelectItem value="WAEC">{t('admin_settings.waec_grading', 'West African Examinations Council (WAEC)')}</SelectItem>
+                      <SelectItem value="IB">{t('admin_settings.ib_grading', 'International Baccalaureate (IB)')}</SelectItem>
+                      <SelectItem value="Cambridge">{t('admin_settings.cambridge_grading', 'Cambridge International')}</SelectItem>
+                      <SelectItem value="Custom">{t('admin_settings.custom_grading', 'Custom Grading System')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="passing-grade">Passing Grade (%)</Label>
+                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade_label', 'Passing Grade (%)')}</Label>
                   <Input
                     id="passing-grade"
                     type="number"
@@ -368,7 +362,7 @@ const SchoolSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="max-students">Max Students per Class</Label>
+                  <Label htmlFor="max-students">{t('admin_settings.max_students_label', 'Max Students per Class')}</Label>
                   <Input
                     id="max-students"
                     type="number"
@@ -388,14 +382,14 @@ const SchoolSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                System Configuration
+                {t('admin_settings.system_config', 'System Configuration')}
               </CardTitle>
-              <CardDescription>Configure system-wide settings and preferences</CardDescription>
+              <CardDescription>{t('admin_settings.system_config_desc', 'Configure system-wide settings and preferences')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
+                  <Label htmlFor="timezone">{t('admin_settings.timezone_label', 'Timezone')}</Label>
                   <Select value={settings.timezone} onValueChange={(value) => handleInputChange('timezone', value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -409,36 +403,36 @@ const SchoolSettings = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="language">Default Language</Label>
+                  <Label htmlFor="language">{t('admin_settings.default_language_label', 'Default Language')}</Label>
                   <Select value={settings.language} onValueChange={(value) => handleInputChange('language', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="tw">Twi</SelectItem>
-                      <SelectItem value="ga">Ga</SelectItem>
-                      <SelectItem value="ewe">Ewe</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
+                      <SelectItem value="en">{t('admin_settings.lang_en', 'English')}</SelectItem>
+                      <SelectItem value="tw">{t('admin_settings.lang_tw', 'Twi')}</SelectItem>
+                      <SelectItem value="ga">{t('admin_settings.lang_ga', 'Ga')}</SelectItem>
+                      <SelectItem value="ewe">{t('admin_settings.lang_ewe', 'Ewe')}</SelectItem>
+                      <SelectItem value="fr">{t('admin_settings.lang_fr', 'French')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">{t('admin_settings.currency_label', 'Currency')}</Label>
                   <Select value={settings.currency} onValueChange={(value) => handleInputChange('currency', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="GHS">Ghana Cedi (GHS)</SelectItem>
-                      <SelectItem value="USD">US Dollar (USD)</SelectItem>
-                      <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                      <SelectItem value="GBP">British Pound (GBP)</SelectItem>
+                      <SelectItem value="GHS">{t('admin_settings.currency_ghs', 'Ghana Cedi (GHS)')}</SelectItem>
+                      <SelectItem value="USD">{t('admin_settings.currency_usd', 'US Dollar (USD)')}</SelectItem>
+                      <SelectItem value="EUR">{t('admin_settings.currency_eur', 'Euro (EUR)')}</SelectItem>
+                      <SelectItem value="GBP">{t('admin_settings.currency_gbp', 'British Pound (GBP)')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date-format">Date Format</Label>
+                  <Label htmlFor="date-format">{t('admin_settings.date_format_label', 'Date Format')}</Label>
                   <Select value={settings.dateFormat} onValueChange={(value) => handleInputChange('dateFormat', value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -452,14 +446,14 @@ const SchoolSettings = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="time-format">Time Format</Label>
+                  <Label htmlFor="time-format">{t('admin_settings.time_format_label', 'Time Format')}</Label>
                   <Select value={settings.timeFormat} onValueChange={(value) => handleInputChange('timeFormat', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="12h">12 Hour (AM/PM)</SelectItem>
-                      <SelectItem value="24h">24 Hour</SelectItem>
+                      <SelectItem value="12h">{t('admin_settings.time_12h', '12 Hour (AM/PM)')}</SelectItem>
+                      <SelectItem value="24h">{t('admin_settings.time_24h', '24 Hour')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -473,16 +467,16 @@ const SchoolSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
-                Feature Configuration
+                {t('admin_settings.feature_config', 'Feature Configuration')}
               </CardTitle>
-              <CardDescription>Enable or disable system features</CardDescription>
+              <CardDescription>{t('admin_settings.feature_config_desc', 'Enable or disable system features')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">SMS Notifications</Label>
-                    <p className="text-sm text-gray-500">Send SMS notifications to parents and students</p>
+                    <Label className="text-base">{t('admin_settings.sms_notifications', 'SMS Notifications')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.sms_notifications_desc', 'Send SMS notifications to parents and students')}</p>
                   </div>
                   <Switch
                     checked={settings.enableSMS}
@@ -491,8 +485,8 @@ const SchoolSettings = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Email Notifications</Label>
-                    <p className="text-sm text-gray-500">Send email notifications and reports</p>
+                    <Label className="text-base">{t('admin_settings.email_notifications', 'Email Notifications')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.email_notifications_desc', 'Send email notifications and reports')}</p>
                   </div>
                   <Switch
                     checked={settings.enableEmail}
@@ -501,8 +495,8 @@ const SchoolSettings = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Parent Portal</Label>
-                    <p className="text-sm text-gray-500">Allow parents to access student information</p>
+                    <Label className="text-base">{t('admin_settings.parent_portal_feature', 'Parent Portal')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.parent_portal_feature_desc', 'Allow parents to access student information')}</p>
                   </div>
                   <Switch
                     checked={settings.enableParentPortal}
@@ -511,8 +505,8 @@ const SchoolSettings = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Online Payments</Label>
-                    <p className="text-sm text-gray-500">Accept online fee payments</p>
+                    <Label className="text-base">{t('admin_settings.online_payments_feature', 'Online Payments')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.online_payments_feature_desc', 'Accept online fee payments')}</p>
                   </div>
                   <Switch
                     checked={settings.enableOnlinePayments}
@@ -521,8 +515,8 @@ const SchoolSettings = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Attendance Tracking</Label>
-                    <p className="text-sm text-gray-500">Track student and staff attendance</p>
+                    <Label className="text-base">{t('admin_settings.attendance_tracking_feature', 'Attendance Tracking')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.attendance_tracking_feature_desc', 'Track student and staff attendance')}</p>
                   </div>
                   <Switch
                     checked={settings.enableAttendanceTracking}
@@ -531,8 +525,8 @@ const SchoolSettings = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Grade Book</Label>
-                    <p className="text-sm text-gray-500">Enable digital grade book functionality</p>
+                    <Label className="text-base">{t('admin_settings.grade_book_feature', 'Grade Book')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.grade_book_feature_desc', 'Enable digital grade book functionality')}</p>
                   </div>
                   <Switch
                     checked={settings.enableGradeBook}
@@ -549,14 +543,14 @@ const SchoolSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
-                Branding & Appearance
+                {t('admin_settings.branding_appearance', 'Branding & Appearance')}
               </CardTitle>
-              <CardDescription>Customize the look and feel of your system</CardDescription>
+              <CardDescription>{t('admin_settings.branding_desc', 'Customize the look and feel of your system')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="primary-color">Primary Color</Label>
+                  <Label htmlFor="primary-color">{t('admin_settings.primary_color', 'Primary Color')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="primary-color"
@@ -573,7 +567,7 @@ const SchoolSettings = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="secondary-color">Secondary Color</Label>
+                  <Label htmlFor="secondary-color">{t('admin_settings.secondary_color', 'Secondary Color')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="secondary-color"
@@ -592,7 +586,7 @@ const SchoolSettings = () => {
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>School Logo</Label>
+                  <Label>{t('admin_settings.school_logo', 'School Logo')}</Label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     <div className="space-y-2">
                       <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -600,17 +594,17 @@ const SchoolSettings = () => {
                       </div>
                       <div>
                         <Button variant="outline" size="sm">
-                          Upload Logo
+                          {t('admin_settings.upload_logo', 'Upload Logo')}
                         </Button>
                         <p className="text-xs text-gray-500 mt-1">
-                          PNG, JPG up to 2MB. Recommended: 200x200px
+                          {t('admin_settings.logo_requirements', 'PNG, JPG up to 2MB. Recommended: 200x200px')}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Favicon</Label>
+                  <Label>{t('admin_settings.favicon', 'Favicon')}</Label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     <div className="space-y-2">
                       <div className="mx-auto w-8 h-8 bg-gray-100 rounded flex items-center justify-center">
@@ -618,10 +612,10 @@ const SchoolSettings = () => {
                       </div>
                       <div>
                         <Button variant="outline" size="sm">
-                          Upload Favicon
+                          {t('admin_settings.upload_favicon', 'Upload Favicon')}
                         </Button>
                         <p className="text-xs text-gray-500 mt-1">
-                          ICO, PNG 16x16px or 32x32px
+                          {t('admin_settings.favicon_requirements', 'ICO, PNG 16x16px or 32x32px')}
                         </p>
                       </div>
                     </div>

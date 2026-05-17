@@ -1,29 +1,22 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Checkbox } from '../ui/checkbox';
 import { useToast } from '../ui/use-toast';
 import { 
   Shield, 
-  Users, 
   Plus, 
   Edit, 
   Trash2, 
-  Eye, 
-  Lock, 
-  Unlock,
-  Settings,
-  UserCheck,
-  AlertTriangle
+  UserCheck
 } from 'lucide-react';
 import { rbacApi } from '../../services/rbacApi';
 
@@ -93,6 +86,7 @@ const DEFAULT_PERMISSIONS: Permission[] = [
 ];
 
 const UserRoleManagement = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -103,6 +97,18 @@ const UserRoleManagement = () => {
     description: '',
     permissions: [] as string[]
   });
+
+  const getCategoryName = (category: string, defaultName: string) => {
+    return t(`admin_settings.rbac.category_${category}`, defaultName);
+  };
+
+  const getPermissionName = (id: string, defaultName: string) => {
+    return t(`admin_settings.rbac.permission_name_${id.replace('.', '_')}`, defaultName);
+  };
+
+  const getPermissionDesc = (id: string, defaultDesc: string) => {
+    return t(`admin_settings.rbac.permission_desc_${id.replace('.', '_')}`, defaultDesc);
+  };
 
   // Fetch roles
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
@@ -137,8 +143,8 @@ const UserRoleManagement = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Role Created",
-        description: "New role has been created successfully.",
+        title: t('admin_settings.role_created', 'Role Created'),
+        description: t('admin_settings.role_created_desc', 'New role has been created successfully.'),
         variant: "default"
       });
       setIsCreateDialogOpen(false);
@@ -147,8 +153,8 @@ const UserRoleManagement = () => {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create role",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.create_role_failed', 'Failed to create role'),
         variant: "destructive"
       });
     }
@@ -168,8 +174,8 @@ const UserRoleManagement = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Role Updated",
-        description: "Role has been updated successfully.",
+        title: t('admin_settings.role_updated', 'Role Updated'),
+        description: t('admin_settings.role_updated_desc', 'Role has been updated successfully.'),
         variant: "default"
       });
       setIsEditDialogOpen(false);
@@ -178,8 +184,8 @@ const UserRoleManagement = () => {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update role",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.update_role_failed', 'Failed to update role'),
         variant: "destructive"
       });
     }
@@ -194,16 +200,16 @@ const UserRoleManagement = () => {
     },
     onSuccess: () => {
       toast({
-        title: "Role Deleted",
-        description: "Role has been deleted successfully.",
+        title: t('admin_settings.role_deleted', 'Role Deleted'),
+        description: t('admin_settings.role_deleted_desc', 'Role has been deleted successfully.'),
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete role",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.delete_role_failed', 'Failed to delete role'),
         variant: "destructive"
       });
     }
@@ -212,8 +218,8 @@ const UserRoleManagement = () => {
   const handleCreateRole = () => {
     if (!newRoleData.name.trim()) {
       toast({
-        title: "Validation Error",
-        description: "Role name is required",
+        title: t('common.validation_error', 'Validation Error'),
+        description: t('admin_settings.role_name_required', 'Role name is required'),
         variant: "destructive"
       });
       return;
@@ -234,7 +240,7 @@ const UserRoleManagement = () => {
   };
 
   const handleDeleteRole = (roleId: number) => {
-    if (window.confirm('Are you sure you want to delete this role? This action cannot be undone.')) {
+    if (window.confirm(t('admin_settings.confirm_delete_role', 'Are you sure you want to delete this role? This action cannot be undone.'))) {
       deleteRoleMutation.mutate(roleId);
     }
   };
@@ -269,7 +275,7 @@ const UserRoleManagement = () => {
     return Object.entries(groupedPermissions).map(([category, categoryPermissions]) => (
       <div key={category} className="space-y-3">
         <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
-          {PERMISSION_CATEGORIES[category as keyof typeof PERMISSION_CATEGORIES]}
+          {getCategoryName(category, PERMISSION_CATEGORIES[category as keyof typeof PERMISSION_CATEGORIES])}
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {categoryPermissions.map((permission) => (
@@ -284,10 +290,10 @@ const UserRoleManagement = () => {
                   htmlFor={permission.id}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  {permission.name}
+                  {getPermissionName(permission.id, permission.name)}
                 </Label>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {permission.description}
+                  {getPermissionDesc(permission.id, permission.description)}
                 </p>
               </div>
             </div>
@@ -301,46 +307,46 @@ const UserRoleManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">User & Role Management</h2>
-          <p className="text-gray-500 dark:text-gray-400">Manage user roles and permissions</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.user_role_mgmt', 'User & Role Management')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.user_role_mgmt_desc', 'Manage user roles and permissions')}</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
+            <Button data-testid="create-role-trigger" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Create Role
+              {t('admin_settings.create_role', 'Create Role')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Role</DialogTitle>
+              <DialogTitle>{t('admin_settings.create_new_role', 'Create New Role')}</DialogTitle>
               <DialogDescription>
-                Define a new role with specific permissions for your organization.
+                {t('admin_settings.create_role_desc', 'Define a new role with specific permissions for your organization.')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="role-name">Role Name</Label>
+                  <Label htmlFor="role-name">{t('admin_settings.role_name', 'Role Name')}</Label>
                   <Input
                     id="role-name"
                     value={newRoleData.name}
                     onChange={(e) => setNewRoleData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter role name"
+                    placeholder={t('admin_settings.enter_role_name', 'Enter role name')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role-description">Description</Label>
+                  <Label htmlFor="role-description">{t('common.description', 'Description')}</Label>
                   <Input
                     id="role-description"
                     value={newRoleData.description}
                     onChange={(e) => setNewRoleData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter role description"
+                    placeholder={t('admin_settings.enter_role_description', 'Enter role description')}
                   />
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Permissions</h3>
+                <h3 className="text-lg font-semibold">{t('admin_settings.permissions', 'Permissions')}</h3>
                 <div className="space-y-6">
                   {renderPermissionsByCategory(newRoleData.permissions, true)}
                 </div>
@@ -348,10 +354,10 @@ const UserRoleManagement = () => {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
-              <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
-                {createRoleMutation.isPending ? 'Creating...' : 'Create Role'}
+              <Button data-testid="save-role-btn" onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
+                {createRoleMutation.isPending ? t('admin_settings.creating_role', 'Creating...') : t('admin_settings.create_role', 'Create Role')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -360,8 +366,8 @@ const UserRoleManagement = () => {
 
       <Tabs defaultValue="roles" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="permissions">Permissions</TabsTrigger>
+          <TabsTrigger value="roles">{t('admin_settings.roles', 'Roles')}</TabsTrigger>
+          <TabsTrigger value="permissions">{t('admin_settings.permissions', 'Permissions')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="roles" className="space-y-4">
@@ -369,10 +375,10 @@ const UserRoleManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                System Roles
+                {t('admin_settings.system_roles', 'System Roles')}
               </CardTitle>
               <CardDescription>
-                Manage roles and their associated permissions
+                {t('admin_settings.manage_roles_desc', 'Manage roles and their associated permissions')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -384,12 +390,12 @@ const UserRoleManagement = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Users</TableHead>
-                      <TableHead>Permissions</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('admin_settings.role', 'Role')}</TableHead>
+                      <TableHead>{t('common.description', 'Description')}</TableHead>
+                      <TableHead>{t('admin_settings.users', 'Users')}</TableHead>
+                      <TableHead>{t('admin_settings.permissions', 'Permissions')}</TableHead>
+                      <TableHead>{t('common.status', 'Status')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -404,33 +410,34 @@ const UserRoleManagement = () => {
                         <TableCell>{role.description}</TableCell>
                         <TableCell>
                           <Badge variant="secondary">
-                            {role.userCount} users
+                            {role.userCount} {t('admin_settings.users', 'users')}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {role.permissions.length} permissions
+                            {role.permissions.length} {t('admin_settings.permissions', 'permissions')}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={role.isSystem ? "default" : "secondary"}>
-                            {role.isSystem ? "System" : "Custom"}
+                            {role.isSystem ? t('admin_settings.system', 'System') : t('admin_settings.custom', 'Custom')}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedRole(role);
-                                setIsEditDialogOpen(true);
-                              }}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedRole(role);
+                                  setIsEditDialogOpen(true);
+                                }}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                             {!role.isSystem && (
                               <Button
+                                data-testid={`delete-role-${role.id}`}
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDeleteRole(role.id)}
@@ -454,10 +461,10 @@ const UserRoleManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserCheck className="h-5 w-5" />
-                System Permissions
+                {t('admin_settings.system_permissions', 'System Permissions')}
               </CardTitle>
               <CardDescription>
-                Overview of all available permissions in the system
+                {t('admin_settings.system_permissions_desc', 'Overview of all available permissions in the system')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -467,15 +474,15 @@ const UserRoleManagement = () => {
                   return (
                     <div key={category} className="space-y-3">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {categoryName}
+                        {getCategoryName(category, categoryName)}
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categoryPermissions.map((permission) => (
                           <Card key={permission.id} className="p-4">
                             <div className="space-y-2">
-                              <h4 className="font-medium text-sm">{permission.name}</h4>
+                              <h4 className="font-medium text-sm">{getPermissionName(permission.id, permission.name)}</h4>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {permission.description}
+                                {getPermissionDesc(permission.id, permission.description)}
                               </p>
                               <Badge variant="outline" className="text-xs">
                                 {permission.id}
@@ -497,16 +504,16 @@ const UserRoleManagement = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Role: {selectedRole?.name}</DialogTitle>
+            <DialogTitle>{t('admin_settings.edit_role', 'Edit Role')}: {selectedRole?.name}</DialogTitle>
             <DialogDescription>
-              Modify role permissions and settings.
+              {t('admin_settings.edit_role_desc', 'Modify role permissions and settings.')}
             </DialogDescription>
           </DialogHeader>
           {selectedRole && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-role-name">Role Name</Label>
+                  <Label htmlFor="edit-role-name">{t('admin_settings.role_name', 'Role Name')}</Label>
                   <Input
                     id="edit-role-name"
                     value={selectedRole.name}
@@ -515,7 +522,7 @@ const UserRoleManagement = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-role-description">Description</Label>
+                  <Label htmlFor="edit-role-description">{t('common.description', 'Description')}</Label>
                   <Input
                     id="edit-role-description"
                     value={selectedRole.description}
@@ -524,7 +531,7 @@ const UserRoleManagement = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Permissions</h3>
+                <h3 className="text-lg font-semibold">{t('admin_settings.permissions', 'Permissions')}</h3>
                 <div className="space-y-6">
                   {renderPermissionsByCategory(selectedRole.permissions, false)}
                 </div>
@@ -533,10 +540,10 @@ const UserRoleManagement = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button onClick={handleUpdateRole} disabled={updateRoleMutation.isPending}>
-              {updateRoleMutation.isPending ? 'Updating...' : 'Update Role'}
+              {updateRoleMutation.isPending ? t('common.updating', 'Updating...') : t('admin_settings.update_role', 'Update Role')}
             </Button>
           </DialogFooter>
         </DialogContent>

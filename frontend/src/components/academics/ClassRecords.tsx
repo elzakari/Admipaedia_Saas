@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Badge } from '../ui/badge';
@@ -68,25 +69,41 @@ const dayOptions = [
   { value: '0', label: 'Sunday' },
 ];
 
-
+const getDayLabel = (day: string | number | undefined, t: any) => {
+  if (!day) return '';
+  const dayStr = day.toString();
+  switch (dayStr) {
+    case '1': return t('days.monday', 'Monday');
+    case '2': return t('days.tuesday', 'Tuesday');
+    case '3': return t('days.wednesday', 'Wednesday');
+    case '4': return t('days.thursday', 'Thursday');
+    case '5': return t('days.friday', 'Friday');
+    case '6': return t('days.saturday', 'Saturday');
+    case '0': return t('days.sunday', 'Sunday');
+    default: return dayStr;
+  }
+};
 
 // Enhanced error boundary component
 const ErrorBoundary: React.FC<{ error: any; retry: () => void; message?: string }> = ({ 
   error, 
   retry, 
-  message = "Something went wrong" 
-}) => (
-  <Alert className="border-destructive">
-    <AlertCircle className="h-4 w-4" />
-    <AlertDescription className="flex items-center justify-between">
-      <span>{message}: {error?.message || 'Unknown error'}</span>
-      <Button variant="outline" size="sm" onClick={retry} className="ml-2">
-        <RefreshCw className="h-4 w-4 mr-1" />
-        Retry
-      </Button>
-    </AlertDescription>
-  </Alert>
-);
+  message 
+}) => {
+  const { t } = useTranslation();
+  return (
+    <Alert className="border-destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertDescription className="flex items-center justify-between">
+        <span>{message || t('common.error_occurred', 'Something went wrong')}: {error?.message || 'Unknown error'}</span>
+        <Button variant="outline" size="sm" onClick={retry} className="ml-2">
+          <RefreshCw className="h-4 w-4 mr-1" />
+          {t('common.retry', 'Retry')}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+};
 
 // Enhanced loading component
 const EnhancedLoadingState: React.FC<{ message: string; progress?: number }> = ({ 
@@ -115,7 +132,8 @@ const ConfirmationDialog: React.FC<{
   message: string;
   confirmText?: string;
   isLoading?: boolean;
-}> = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", isLoading = false }) => {
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmText, isLoading = false }) => {
+  const { t } = useTranslation();
   if (!isOpen) return null;
   
   return (
@@ -125,7 +143,7 @@ const ConfirmationDialog: React.FC<{
         <p className="text-gray-600 mb-4">{message}</p>
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button 
             variant="destructive" 
@@ -135,10 +153,10 @@ const ConfirmationDialog: React.FC<{
             {isLoading ? (
               <>
                 <Loader className="h-4 w-4 mr-2 animate-spin" />
-                Deleting...
+                {t('common.deleting', 'Deleting...')}
               </>
             ) : (
-              confirmText
+              confirmText || t('common.delete', 'Delete')
             )}
           </Button>
         </div>
@@ -154,12 +172,13 @@ const ViewModal: React.FC<{
   data: { type: 'class' | 'subject'; data: any } | null;
   onEdit: (type: 'class' | 'subject', data: any) => void;
 }> = ({ isOpen, onClose, data, onEdit }) => {
+  const { t } = useTranslation();
   if (!isOpen || !data) return null;
   
   const { type, data: itemData } = data;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 font-sans">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600">
@@ -175,7 +194,7 @@ const ViewModal: React.FC<{
             )}
             <div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {type === 'class' ? 'Class Details' : 'Subject Details'}
+                {type === 'class' ? t('admin_academic.class_details', 'Class Details') : t('admin_academic.subject_details', 'Subject Details')}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 {type === 'class' ? itemData.name : `${itemData.name} (${(itemData as Subject).code || 'N/A'})`}
@@ -200,31 +219,31 @@ const ViewModal: React.FC<{
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <Info className="h-5 w-5 mr-2 text-blue-600" />
-                  Basic Information
+                  {t('admin_academic.basic_information', 'Basic Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Class Name</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.class_name', 'Class Name')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{itemData.name}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Grade Level</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.grade_level', 'Grade Level')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).grade_level || 'N/A'}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Academic Year</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.academic_year', 'Academic Year')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).academic_year || 'N/A'}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Section</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.section', 'Section')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).section || 'N/A'}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Room Number</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).room_number || 'Not assigned'}</p>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.room_number', 'Room Number')}</label>
+                    <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).room_number || t('admin_academic.not_assigned', 'Not assigned')}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Status</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.status', 'Status')}</label>
                     <Badge variant={(itemData as Class).status === 'active' || !(itemData as Class).status ? 'default' : 'secondary'}>
                       {(itemData as Class).status || 'active'}
                     </Badge>
@@ -236,11 +255,11 @@ const ViewModal: React.FC<{
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <Clock className="h-5 w-5 mr-2 text-gray-600" />
-                  Record Information
+                  {t('admin_academic.record_information', 'Record Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Created</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.created', 'Created')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">
                       {itemData.created_at ? new Date(itemData.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -252,7 +271,7 @@ const ViewModal: React.FC<{
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Last Updated</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.last_updated', 'Last Updated')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">
                       {itemData.updated_at ? new Date(itemData.updated_at).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -272,25 +291,25 @@ const ViewModal: React.FC<{
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <Info className="h-5 w-5 mr-2 text-green-600" />
-                  Basic Information
+                  {t('admin_academic.basic_information', 'Basic Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Subject Name</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.subject_name', 'Subject Name')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{itemData.name}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Subject Code</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.subject_code', 'Subject Code')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{(itemData as Subject).code}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Department</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.department', 'Department')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">{(itemData as Subject).department || 'N/A'}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Status</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.status', 'Status')}</label>
                     <Badge variant={(itemData as Subject).is_active ? 'default' : 'secondary'}>
-                      {(itemData as Subject).is_active ? 'Active' : 'Inactive'}
+                      {(itemData as Subject).is_active ? t('admin_academic.active', 'Active') : t('admin_academic.inactive', 'Inactive')}
                     </Badge>
                   </div>
                 </div>
@@ -300,11 +319,11 @@ const ViewModal: React.FC<{
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
-                  Academic Information
+                  {t('admin_academic.academic_information', 'Academic Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Credit Hours</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.credit_hours', 'Credit Hours')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">
                       {(itemData as Subject).credit_hours || 'N/A'}
                     </p>
@@ -317,7 +336,7 @@ const ViewModal: React.FC<{
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-green-600" />
-                    Description
+                    {t('admin_academic.description', 'Description')}
                   </h4>
                   <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{(itemData as Subject).description}</p>
                 </div>
@@ -327,11 +346,11 @@ const ViewModal: React.FC<{
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <Clock className="h-5 w-5 mr-2 text-gray-600" />
-                  Record Information
+                  {t('admin_academic.record_information', 'Record Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Created</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.created', 'Created')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">
                       {itemData.created_at ? new Date(itemData.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -343,7 +362,7 @@ const ViewModal: React.FC<{
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">Last Updated</label>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.last_updated', 'Last Updated')}</label>
                     <p className="text-gray-900 dark:text-white font-medium">
                       {itemData.updated_at ? new Date(itemData.updated_at).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -363,7 +382,7 @@ const ViewModal: React.FC<{
         {/* Footer */}
         <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            {type === 'class' ? 'Class ID: ' + itemData.id : 'Subject ID: ' + itemData.id}
+            {type === 'class' ? t('admin_academic.class_id_label', 'Class ID: ') + itemData.id : t('admin_academic.subject_id_label', 'Subject ID: ') + itemData.id}
           </div>
           <div className="flex space-x-3">
             <Button 
@@ -371,7 +390,7 @@ const ViewModal: React.FC<{
               onClick={onClose}
               className="hover:bg-gray-100 dark:hover:bg-gray-600"
             >
-              Close
+              {t('common.close', 'Close')}
             </Button>
             <Button 
               onClick={() => {
@@ -381,7 +400,7 @@ const ViewModal: React.FC<{
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Edit className="h-4 w-4 mr-2" />
-              Edit {type === 'class' ? 'Class' : 'Subject'}
+              {type === 'class' ? t('admin_academic.edit_class', 'Edit Class') : t('admin_academic.edit_subject', 'Edit Subject')}
             </Button>
           </div>
         </div>
@@ -392,6 +411,8 @@ const ViewModal: React.FC<{
 
 // Main ClassRecords Component
 const ClassRecords: React.FC = () => {
+  const { t } = useTranslation();
+
   // State management
   const [activeTab, setActiveTab] = useState<'classes' | 'subjects' | 'timetable'>('classes');
   const [searchTerm, setSearchTerm] = useState('');
@@ -556,14 +577,14 @@ const ClassRecords: React.FC = () => {
           classId: deleteData.data.id, 
           force: isForceDelete 
         });
-        toast('Class deleted successfully');
+        toast(t('admin_academic.class_deleted_success', 'Class deleted successfully'));
         refetchClasses();
       } else {
         await deleteSubjectMutation.mutateAsync({ 
           id: deleteData.data.id, 
           force: isForceDelete 
         });
-        toast('Subject deleted successfully');
+        toast(t('admin_academic.subject_deleted_success', 'Subject deleted successfully'));
         refetchSubjects();
       }
       setIsDeleteModalOpen(false);
@@ -590,7 +611,7 @@ const ClassRecords: React.FC = () => {
         error
       });
     }
-  }, [deleteData, isForceDelete, deleteClassMutation, deleteSubjectMutation, refetchClasses, refetchSubjects]);
+  }, [deleteData, isForceDelete, deleteClassMutation, deleteSubjectMutation, refetchClasses, refetchSubjects, t]);
   
   // Bulk actions
   const handleBulkAction = useCallback(async (action: 'delete' | 'export' | 'activate' | 'deactivate') => {
@@ -621,7 +642,7 @@ const ClassRecords: React.FC = () => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         
-        toast('Data exported successfully');
+        toast(t('admin_academic.data_exported_success', 'Data exported successfully'));
         break;
         
       case 'delete':
@@ -633,21 +654,21 @@ const ClassRecords: React.FC = () => {
             await Promise.all(Array.from(selectedSubjects).map(id => deleteSubjectMutation.mutateAsync({ id })));
             refetchSubjects();
           }
-          toast(`${selectedItems.size} ${activeTab} deleted successfully`);
+          toast(t('admin_academic.bulk_deleted_success', { count: selectedItems.size, type: activeTab }, `${selectedItems.size} ${activeTab} deleted successfully`));
           setSelectedClasses(new Set());
           setSelectedSubjects(new Set());
         } catch (error) {
-          toast('Failed to delete selected items');
+          toast(t('admin_academic.failed_delete_items', 'Failed to delete selected items'));
         }
         break;
         
       case 'activate':
       case 'deactivate':
         // Placeholder for status change functionality
-        toast(`${selectedItems.size} ${activeTab} ${action}d successfully`);
+        toast(t('admin_academic.bulk_action_success', { count: selectedItems.size, type: activeTab, action }, `${selectedItems.size} ${activeTab} ${action}d successfully`));
         break;
     }
-  }, [activeTab, selectedClasses, selectedSubjects, filteredClasses, filteredSubjects, deleteClassMutation, deleteSubjectMutation, refetchClasses, refetchSubjects]);
+  }, [activeTab, selectedClasses, selectedSubjects, filteredClasses, filteredSubjects, deleteClassMutation, deleteSubjectMutation, refetchClasses, refetchSubjects, t]);
   
   // Timetable functions
   const loadTimetableData = useCallback(async () => {
@@ -667,7 +688,7 @@ const ClassRecords: React.FC = () => {
   
   // Render loading state
   if (classesLoading || subjectsLoading) {
-    return <EnhancedLoadingState message="Loading class records..." />;
+    return <EnhancedLoadingState message={t('admin_academic.loading_records', 'Loading class records...')} />;
   }
   
   // Render error state
@@ -679,11 +700,11 @@ const ClassRecords: React.FC = () => {
           refetchClasses();
           refetchSubjects();
         }}
-        message="Failed to load class records"
+        message={t('admin_academic.failed_load_records', 'Failed to load class records')}
       />
     );
   }
-
+ 
   // Render detail view if a class is selected
   if (selectedClassId) {
     return (
@@ -697,13 +718,13 @@ const ClassRecords: React.FC = () => {
   const selectedCount = activeTab === 'classes' ? selectedClasses.size : selectedSubjects.size;
   
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Class Records</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('admin_academic.class_records_title', 'Class Records')}</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Manage classes, subjects, and timetables
+            {t('admin_academic.class_records_subtitle', 'Manage classes, subjects, and timetables')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -712,14 +733,14 @@ const ClassRecords: React.FC = () => {
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Class
+            {t('admin_academic.add_class', 'Add Class')}
           </Button>
           <Button
             onClick={() => setIsSubjectModalOpen(true)}
             variant="outline"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Subject
+            {t('admin_academic.add_subject', 'Add Subject')}
           </Button>
         </div>
       </div>
@@ -730,7 +751,7 @@ const ClassRecords: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                {selectedCount} {activeTab} selected
+                {t('admin_academic.selected_count', { count: selectedCount, type: activeTab }, `${selectedCount} ${activeTab} selected`)}
               </span>
               <Button
                 variant="outline"
@@ -740,33 +761,33 @@ const ClassRecords: React.FC = () => {
                   setSelectedSubjects(new Set());
                 }}
               >
-                Clear Selection
+                {t('common.clear_selection', 'Clear Selection')}
               </Button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  Bulk Actions
+                  {t('common.bulk_actions', 'Bulk Actions')}
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => handleBulkAction('export')}>
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  {t('common.export', 'Export')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleBulkAction('activate')}>
-                  Activate
+                  {t('common.activate', 'Activate')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleBulkAction('deactivate')}>
-                  Deactivate
+                  {t('common.deactivate', 'Deactivate')}
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => handleBulkAction('delete')}
                   className="text-red-600 dark:text-red-400"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  {t('common.delete', 'Delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -779,7 +800,7 @@ const ClassRecords: React.FC = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search classes and subjects..."
+            placeholder={t('admin_academic.search_placeholder', 'Search classes and subjects...')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -788,22 +809,22 @@ const ClassRecords: React.FC = () => {
         <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
           <SelectTrigger className="w-full sm:w-48">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t('common.filter_by_status', 'Filter by status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t('common.all_status', 'All Status')}</SelectItem>
+            <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
+            <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Sort by" />
+            <SelectValue placeholder={t('common.sort_by', 'Sort by')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="name">Name</SelectItem>
-            <SelectItem value="created_at">Created Date</SelectItem>
-            <SelectItem value="updated_at">Updated Date</SelectItem>
+            <SelectItem value="name">{t('common.sort_name', 'Name')}</SelectItem>
+            <SelectItem value="created_at">{t('common.sort_created', 'Created Date')}</SelectItem>
+            <SelectItem value="updated_at">{t('common.sort_updated', 'Updated Date')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -813,15 +834,15 @@ const ClassRecords: React.FC = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="classes">
             <GraduationCap className="h-4 w-4 mr-2" />
-            Classes ({classes.length})
+            {t('admin_academic.classes_count', { count: classes.length }, `Classes (${classes.length})`)}
           </TabsTrigger>
           <TabsTrigger value="subjects">
             <BookOpen className="h-4 w-4 mr-2" />
-            Subjects ({subjects.length})
+            {t('admin_academic.subjects_count', { count: subjects.length }, `Subjects (${subjects.length})`)}
           </TabsTrigger>
           <TabsTrigger value="timetable">
             <Calendar className="h-4 w-4 mr-2" />
-            Timetable
+            {t('admin_academic.timetable', 'Timetable')}
           </TabsTrigger>
         </TabsList>
         
@@ -829,16 +850,16 @@ const ClassRecords: React.FC = () => {
         <TabsContent value="classes">
           <Card>
             <CardHeader>
-              <CardTitle>Classes</CardTitle>
+              <CardTitle>{t('admin_academic.classes', 'Classes')}</CardTitle>
               <CardDescription>
-                Manage class information and enrollment
+                {t('admin_academic.manage_classes_desc', 'Manage class information and enrollment')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredClasses.length === 0 ? (
                 <div className="text-center py-8">
                   <GraduationCap className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No classes found</p>
+                  <p className="text-gray-500">{t('admin_academic.no_classes_found', 'No classes found')}</p>
                 </div>
               ) : (
                 <Table>
@@ -850,13 +871,13 @@ const ClassRecords: React.FC = () => {
                           onCheckedChange={handleSelectAllClasses}
                         />
                       </TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Grade Level</TableHead>
-                      <TableHead>Section</TableHead>
-                      <TableHead>Enrollment</TableHead>
-                      <TableHead>Teacher</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('admin_academic.name_header', 'Name')}</TableHead>
+                      <TableHead>{t('admin_academic.grade_level_header', 'Grade Level')}</TableHead>
+                      <TableHead>{t('admin_academic.section_header', 'Section')}</TableHead>
+                      <TableHead>{t('admin_academic.enrollment_header', 'Enrollment')}</TableHead>
+                      <TableHead>{t('admin_academic.teacher_header', 'Teacher')}</TableHead>
+                      <TableHead>{t('admin_academic.status_header', 'Status')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -874,7 +895,7 @@ const ClassRecords: React.FC = () => {
                         <TableCell>
                           {cls.current_enrollment || 0}/{cls.capacity || 0}
                         </TableCell>
-                        <TableCell>{cls.class_teacher || 'Not assigned'}</TableCell>
+                        <TableCell>{cls.class_teacher || t('admin_academic.not_assigned', 'Not assigned')}</TableCell>
                         <TableCell>
                           <Badge variant={cls.status === 'active' || !cls.status ? 'default' : 'secondary'}>
                             {cls.status || 'active'}
@@ -931,16 +952,16 @@ const ClassRecords: React.FC = () => {
         <TabsContent value="subjects">
           <Card>
             <CardHeader>
-              <CardTitle>Subjects</CardTitle>
+              <CardTitle>{t('admin_academic.subjects', 'Subjects')}</CardTitle>
               <CardDescription>
-                Manage subject information and curriculum
+                {t('admin_academic.manage_subjects_desc', 'Manage subject information and curriculum')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredSubjects.length === 0 ? (
                 <div className="text-center py-8">
                   <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No subjects found</p>
+                  <p className="text-gray-500">{t('admin_academic.no_subjects_found', 'No subjects found')}</p>
                 </div>
               ) : (
                 <Table>
@@ -952,12 +973,12 @@ const ClassRecords: React.FC = () => {
                           onCheckedChange={handleSelectAllSubjects}
                         />
                       </TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('admin_academic.name_header', 'Name')}</TableHead>
+                      <TableHead>{t('admin_academic.code_header', 'Code')}</TableHead>
+                      <TableHead>{t('admin_academic.department_header', 'Department')}</TableHead>
+                      <TableHead>{t('admin_academic.credits_header', 'Credits')}</TableHead>
+                      <TableHead>{t('admin_academic.status_header', 'Status')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -975,7 +996,7 @@ const ClassRecords: React.FC = () => {
                         <TableCell>{subject.credit_hours || 'N/A'}</TableCell>
                         <TableCell>
                           <Badge variant={subject.is_active ? 'default' : 'secondary'}>
-                            {subject.is_active ? 'Active' : 'Inactive'}
+                            {subject.is_active ? t('admin_academic.active', 'Active') : t('admin_academic.inactive', 'Inactive')}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -1029,9 +1050,9 @@ const ClassRecords: React.FC = () => {
         <TabsContent value="timetable">
           <Card>
             <CardHeader>
-              <CardTitle>Timetable</CardTitle>
+              <CardTitle>{t('admin_academic.timetable', 'Timetable')}</CardTitle>
               <CardDescription>
-                Manage class schedules and time slots
+                {t('admin_academic.manage_timetable_desc', 'Manage class schedules and time slots')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1046,11 +1067,11 @@ const ClassRecords: React.FC = () => {
                       <SelectContent>
                         <SelectItem value="grid">
                           <Grid className="h-4 w-4 mr-2 inline" />
-                          Grid
+                          {t('admin_academic.grid_view', 'Grid')}
                         </SelectItem>
                         <SelectItem value="list">
                           <List className="h-4 w-4 mr-2 inline" />
-                          List
+                          {t('admin_academic.list_view', 'List')}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1059,10 +1080,10 @@ const ClassRecords: React.FC = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="class">By Class</SelectItem>
-                        <SelectItem value="teacher">By Teacher</SelectItem>
-                        <SelectItem value="subject">By Subject</SelectItem>
+                        <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
+                        <SelectItem value="class">{t('admin_academic.by_class', 'By Class')}</SelectItem>
+                        <SelectItem value="teacher">{t('admin_academic.by_teacher', 'By Teacher')}</SelectItem>
+                        <SelectItem value="subject">{t('admin_academic.by_subject', 'By Subject')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1071,7 +1092,7 @@ const ClassRecords: React.FC = () => {
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Time Slot
+                    {t('admin_academic.add_time_slot', 'Add Time Slot')}
                   </Button>
                 </div>
                 
@@ -1079,28 +1100,28 @@ const ClassRecords: React.FC = () => {
                 {timetableSlots.length === 0 ? (
                   <div className="text-center py-12">
                     <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">No timetable data available</p>
-                    <p className="text-gray-400 text-sm mt-2">Create time slots to build your timetable</p>
+                    <p className="text-gray-500 text-lg">{t('admin_academic.no_timetable_data', 'No timetable data available')}</p>
+                    <p className="text-gray-400 text-sm mt-2">{t('admin_academic.create_time_slots_prompt', 'Create time slots to build your timetable')}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Day</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Class</TableHead>
-                          <TableHead>Subject</TableHead>
-                          <TableHead>Teacher</TableHead>
-                          <TableHead>Room</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>{t('admin_academic.day_header', 'Day')}</TableHead>
+                          <TableHead>{t('admin_academic.time_header', 'Time')}</TableHead>
+                          <TableHead>{t('admin_academic.class_header', 'Class')}</TableHead>
+                          <TableHead>{t('admin_academic.subject_header', 'Subject')}</TableHead>
+                          <TableHead>{t('admin_academic.teacher_header', 'Teacher')}</TableHead>
+                          <TableHead>{t('admin_academic.room_header', 'Room')}</TableHead>
+                          <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {timetableSlots.map((slot: TimeSlot) => (
                           <TableRow key={slot.id}>
                             <TableCell className="font-medium">
-                              {dayOptions.find(d => d.value === slot.day_of_week?.toString())?.label || slot.day_of_week}
+                              {getDayLabel(slot.day_of_week, t)}
                             </TableCell>
                             <TableCell>{slot.start_time} - {slot.end_time}</TableCell>
                             <TableCell>{slot.class_name || slot.class_id}</TableCell>
@@ -1123,9 +1144,9 @@ const ClassRecords: React.FC = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={async () => {
-                                    if (confirm('Are you sure you want to delete this time slot?')) {
+                                    if (confirm(t('admin_academic.confirm_delete_time_slot', 'Are you sure you want to delete this time slot?'))) {
                                       await deleteTimeSlotMutation.mutateAsync(slot.id);
-                                      toast.success('Time slot deleted successfully');
+                                      toast.success(t('admin_academic.time_slot_deleted_success', 'Time slot deleted successfully'));
                                       loadTimetableData();
                                     }
                                   }}
@@ -1205,9 +1226,9 @@ const ClassRecords: React.FC = () => {
           setErrorMessage(null);
         }}
         onConfirm={confirmDelete}
-        title={isForceDelete ? `Force Delete ${deleteData?.type}` : `Delete ${deleteData?.type || 'Item'}`}
-        message={errorMessage || `Are you sure you want to delete this ${deleteData?.type}? This action cannot be undone.`}
-        confirmText={isForceDelete ? "Force Delete Everything" : "Delete"}
+        title={isForceDelete ? t('admin_academic.force_delete', 'Force Delete') + ` ${deleteData?.type}` : t('common.delete', 'Delete') + ` ${deleteData?.type || ''}`}
+        message={errorMessage || t('admin_academic.delete_confirm_msg', { type: deleteData?.type }, `Are you sure you want to delete this ${deleteData?.type}? This action cannot be undone.`)}
+        confirmText={isForceDelete ? t('admin_academic.force_delete_everything', 'Force Delete Everything') : t('common.delete', 'Delete')}
         isLoading={deleteClassMutation.isPending || deleteSubjectMutation.isPending}
       />
     </div>

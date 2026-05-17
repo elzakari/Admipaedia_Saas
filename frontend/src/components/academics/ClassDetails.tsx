@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeft, 
@@ -10,7 +11,7 @@ import {
   MoreVertical, 
   Download,
   Video,
-  Image as ImageIcon,
+  ImageIcon,
   File,
   Megaphone
 } from 'lucide-react';
@@ -55,6 +56,7 @@ interface ClassDetailsProps {
 }
 
 export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -107,30 +109,30 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
     mutationFn: (data: Partial<Lesson>) => academicService.createLesson(classId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['class-lessons', classId] });
-      toast.success('Lesson created successfully');
+      toast.success(t('admin_academic.lesson_created_success', 'Lesson created successfully'));
       setIsLessonModalOpen(false);
     },
-    onError: (error: any) => toast.error(error.message || 'Failed to create lesson'),
+    onError: (error: any) => toast.error(error.message || t('admin_academic.failed_create_lesson', 'Failed to create lesson')),
   });
 
   const createAnnouncementMutation = useMutation({
     mutationFn: (data: Partial<Announcement>) => academicService.createAnnouncement(classId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['class-announcements', classId] });
-      toast.success('Announcement created successfully');
+      toast.success(t('admin_academic.announcement_created_success', 'Announcement created successfully'));
       setIsAnnouncementModalOpen(false);
     },
-    onError: (error: any) => toast.error(error.message || 'Failed to create announcement'),
+    onError: (error: any) => toast.error(error.message || t('admin_academic.failed_create_announcement', 'Failed to create announcement')),
   });
 
   const createResourceMutation = useMutation({
     mutationFn: (data: FormData) => academicService.createResource(classId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['class-resources', classId] });
-      toast.success('Resource uploaded successfully');
+      toast.success(t('admin_academic.resource_uploaded_success', 'Resource uploaded successfully'));
       setIsResourceModalOpen(false);
     },
-    onError: (error: any) => toast.error(error.message || 'Failed to upload resource'),
+    onError: (error: any) => toast.error(error.message || t('admin_academic.failed_upload_resource', 'Failed to upload resource')),
   });
 
   // Modal States
@@ -166,11 +168,11 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
   });
 
   if (classLoading) {
-    return <div className="flex justify-center items-center h-96">Loading class details...</div>;
+    return <div className="flex justify-center items-center h-96 font-sans">{t('admin_academic.loading_class_details', 'Loading class details...')}</div>;
   }
 
   if (!classData) {
-    return <div className="flex justify-center items-center h-96">Class not found</div>;
+    return <div className="flex justify-center items-center h-96 font-sans">{t('admin_academic.class_not_found', 'Class not found')}</div>;
   }
 
   const handleCreateLesson = (e: React.FormEvent) => {
@@ -194,7 +196,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
   const handleCreateResource = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newResource.file) {
-      toast.error('Please select a file');
+      toast.error(t('admin_academic.select_file_prompt', 'Please select a file'));
       return;
     }
 
@@ -220,7 +222,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <Button 
@@ -229,29 +231,29 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
           onClick={onBack}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Classes
+          {t('admin_academic.back_to_classes', 'Back to Classes')}
         </Button>
         
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>
             <p className="text-muted-foreground mt-1">
-              {classData.grade_level} • {classData.academic_year_name || 'Current Year'} • Room {classData.room_number || 'N/A'}
+              {classData.grade_level} • {classData.academic_year_name || t('admin_academic.current_year', 'Current Year')} • {t('admin_academic.room_label', 'Room')} {classData.room_number || 'N/A'}
             </p>
           </div>
           <Badge variant={classData.status === 'active' || !classData.status ? 'default' : 'secondary'}>
-            {classData.status || 'Active'}
+            {classData.status === 'active' || !classData.status ? t('admin_academic.active', 'Active') : t('admin_academic.inactive', 'Inactive')}
           </Badge>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="lessons">Lessons</TabsTrigger>
-          <TabsTrigger value="resources">Resources</TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
+          <TabsTrigger value="overview">{t('admin_academic.overview_tab', 'Overview')}</TabsTrigger>
+          <TabsTrigger value="lessons">{t('admin_academic.lessons_tab', 'Lessons')}</TabsTrigger>
+          <TabsTrigger value="resources">{t('admin_academic.resources_tab', 'Resources')}</TabsTrigger>
+          <TabsTrigger value="announcements">{t('admin_academic.announcements_tab', 'Announcements')}</TabsTrigger>
+          <TabsTrigger value="students">{t('admin_academic.students_tab', 'Students')}</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -259,26 +261,26 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_academic.total_students', 'Total Students')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{classData.current_enrollment}</div>
-                <p className="text-xs text-muted-foreground">/{classData.capacity} capacity</p>
+                <p className="text-xs text-muted-foreground">{t('admin_academic.capacity_label', { capacity: classData.capacity }, `/{{capacity}} capacity`)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Class Teacher</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_academic.class_teacher', 'Class Teacher')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-lg truncate">{classData.class_teacher_name || 'Not Assigned'}</div>
+                <div className="text-2xl font-bold text-lg truncate">{classData.class_teacher_name || t('admin_academic.not_assigned', 'Not assigned')}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Subjects</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_academic.subjects', 'Subjects')}</CardTitle>
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -287,7 +289,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Lessons This Week</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_academic.lessons_week', 'Lessons This Week')}</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -299,23 +301,21 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="col-span-4">
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle>{t('admin_academic.recent_activity', 'Recent Activity')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Activity items placeholder */}
-                  <p className="text-sm text-muted-foreground">No recent activity.</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_academic.no_recent_activity', 'No recent activity.')}</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="col-span-3">
               <CardHeader>
-                <CardTitle>Upcoming Schedule</CardTitle>
+                <CardTitle>{t('admin_academic.upcoming_schedule', 'Upcoming Schedule')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Schedule items placeholder */}
-                  <p className="text-sm text-muted-foreground">No upcoming classes scheduled.</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_academic.no_upcoming_schedule', 'No upcoming classes scheduled.')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -325,24 +325,24 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
         {/* Lessons Tab */}
         <TabsContent value="lessons" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Lessons</h2>
+            <h2 className="text-xl font-semibold">{t('admin_academic.lessons', 'Lessons')}</h2>
             <Dialog open={isLessonModalOpen} onOpenChange={setIsLessonModalOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Lesson
+                  {t('admin_academic.create_lesson_btn', 'Create Lesson')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Create New Lesson</DialogTitle>
+                  <DialogTitle>{t('admin_academic.create_new_lesson_title', 'Create New Lesson')}</DialogTitle>
                   <DialogDescription>
-                    Schedule a new lesson for this class.
+                    {t('admin_academic.create_lesson_desc', 'Schedule a new lesson for this class.')}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleCreateLesson} className="space-y-4">
+                <form onSubmit={handleCreateLesson} className="space-y-4 font-sans">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Title</Label>
+                    <Label htmlFor="title">{t('admin_academic.title_label', 'Title')}</Label>
                     <Input 
                       id="title" 
                       value={newLesson.title} 
@@ -351,12 +351,12 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
+                    <Label htmlFor="subject">{t('admin_academic.subject_label', 'Subject')}</Label>
                     <Select 
                       onValueChange={(value) => setNewLesson({...newLesson, subject_id: parseInt(value)})}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a subject" />
+                        <SelectValue placeholder={t('admin_academic.select_subject_placeholder', 'Select a subject')} />
                       </SelectTrigger>
                       <SelectContent>
                         {subjectsData?.map((subject) => (
@@ -369,7 +369,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="start_time">Start Time</Label>
+                      <Label htmlFor="start_time">{t('admin_academic.start_time_label', 'Start Time')}</Label>
                       <Input 
                         id="start_time" 
                         type="datetime-local"
@@ -379,7 +379,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="end_time">End Time</Label>
+                      <Label htmlFor="end_time">{t('admin_academic.end_time_label', 'End Time')}</Label>
                       <Input 
                         id="end_time" 
                         type="datetime-local"
@@ -390,7 +390,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">{t('admin_academic.description_label', 'Description')}</Label>
                     <Textarea 
                       id="description" 
                       value={newLesson.description} 
@@ -399,7 +399,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={createLessonMutation.isPending}>
-                      {createLessonMutation.isPending ? 'Creating...' : 'Create Lesson'}
+                      {createLessonMutation.isPending ? t('common.creating', 'Creating...') : t('admin_academic.create_lesson_btn', 'Create Lesson')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -409,10 +409,10 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {lessonsLoading ? (
-              <p>Loading lessons...</p>
+              <p>{t('admin_academic.loading_lessons', 'Loading lessons...')}</p>
             ) : lessonsData?.data?.length === 0 ? (
               <div className="col-span-full text-center py-10 text-muted-foreground">
-                No lessons found. Create one to get started.
+                {t('admin_academic.no_lessons_found', 'No lessons found. Create one to get started.')}
               </div>
             ) : (
               lessonsData?.data?.map((lesson) => (
@@ -428,7 +428,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground line-clamp-3">
-                      {lesson.description || 'No description provided.'}
+                      {lesson.description || t('admin_academic.no_description', 'No description provided.')}
                     </p>
                   </CardContent>
                 </Card>
@@ -440,24 +440,24 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
         {/* Resources Tab */}
         <TabsContent value="resources" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Resources</h2>
+            <h2 className="text-xl font-semibold">{t('admin_academic.resources', 'Resources')}</h2>
             <Dialog open={isResourceModalOpen} onOpenChange={setIsResourceModalOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Upload Resource
+                  {t('admin_academic.upload_resource_btn', 'Upload Resource')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Upload Resource</DialogTitle>
+                  <DialogTitle>{t('admin_academic.upload_resource_title', 'Upload Resource')}</DialogTitle>
                   <DialogDescription>
-                    Share documents, images, or other files with the class.
+                    {t('admin_academic.upload_resource_desc', 'Share documents, images, or other files with the class.')}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleCreateResource} className="space-y-4">
+                <form onSubmit={handleCreateResource} className="space-y-4 font-sans">
                   <div className="space-y-2">
-                    <Label htmlFor="resource-title">Title</Label>
+                    <Label htmlFor="resource-title">{t('admin_academic.title_label', 'Title')}</Label>
                     <Input 
                       id="resource-title" 
                       value={newResource.title} 
@@ -466,15 +466,15 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="resource-subject">Subject (Optional)</Label>
+                    <Label htmlFor="resource-subject">{t('admin_academic.subject_optional_label', 'Subject (Optional)')}</Label>
                     <Select 
                       onValueChange={(value) => setNewResource({...newResource, subject_id: parseInt(value)})}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a subject" />
+                        <SelectValue placeholder={t('admin_academic.select_subject_placeholder', 'Select a subject')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">General (No Subject)</SelectItem>
+                        <SelectItem value="0">{t('admin_academic.general_no_subject', 'General (No Subject)')}</SelectItem>
                         {subjectsData?.map((subject) => (
                           <SelectItem key={subject.id} value={subject.id.toString()}>
                             {subject.name}
@@ -484,7 +484,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="resource-file">File</Label>
+                    <Label htmlFor="resource-file">{t('admin_academic.file_label', 'File')}</Label>
                     <Input 
                       id="resource-file" 
                       type="file"
@@ -493,7 +493,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="resource-desc">Description</Label>
+                    <Label htmlFor="resource-desc">{t('admin_academic.description_label', 'Description')}</Label>
                     <Textarea 
                       id="resource-desc" 
                       value={newResource.description} 
@@ -502,7 +502,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={createResourceMutation.isPending}>
-                      {createResourceMutation.isPending ? 'Uploading...' : 'Upload Resource'}
+                      {createResourceMutation.isPending ? t('common.uploading', 'Uploading...') : t('admin_academic.upload_resource_btn', 'Upload Resource')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -511,12 +511,12 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
           </div>
 
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 font-sans">
               {resourcesLoading ? (
-                <div className="p-4">Loading resources...</div>
+                <div className="p-4">{t('admin_academic.loading_resources', 'Loading resources...')}</div>
               ) : resourcesData?.data?.length === 0 ? (
                 <div className="text-center py-10 text-muted-foreground">
-                  No resources uploaded yet.
+                  {t('admin_academic.no_resources_uploaded', 'No resources uploaded yet.')}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -556,24 +556,24 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
         {/* Announcements Tab */}
         <TabsContent value="announcements" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Announcements</h2>
+            <h2 className="text-xl font-semibold">{t('admin_academic.announcements', 'Announcements')}</h2>
             <Dialog open={isAnnouncementModalOpen} onOpenChange={setIsAnnouncementModalOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Post Announcement
+                  {t('admin_academic.post_announcement_btn', 'Post Announcement')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Post Announcement</DialogTitle>
+                  <DialogTitle>{t('admin_academic.post_announcement_title', 'Post Announcement')}</DialogTitle>
                   <DialogDescription>
-                    Send an announcement to students and parents of this class.
+                    {t('admin_academic.post_announcement_desc', 'Send an announcement to students and parents of this class.')}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+                <form onSubmit={handleCreateAnnouncement} className="space-y-4 font-sans">
                   <div className="space-y-2">
-                    <Label htmlFor="announcement-title">Title</Label>
+                    <Label htmlFor="announcement-title">{t('admin_academic.title_label', 'Title')}</Label>
                     <Input 
                       id="announcement-title" 
                       value={newAnnouncement.title} 
@@ -582,7 +582,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="announcement-content">Content</Label>
+                    <Label htmlFor="announcement-content">{t('admin_academic.content_label', 'Content')}</Label>
                     <Textarea 
                       id="announcement-content" 
                       value={newAnnouncement.content} 
@@ -593,7 +593,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={createAnnouncementMutation.isPending}>
-                      {createAnnouncementMutation.isPending ? 'Posting...' : 'Post Announcement'}
+                      {createAnnouncementMutation.isPending ? t('common.posting', 'Posting...') : t('admin_academic.post_announcement_btn', 'Post Announcement')}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -603,10 +603,10 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
 
           <div className="space-y-4">
             {announcementsLoading ? (
-              <p>Loading announcements...</p>
+              <p>{t('admin_academic.loading_announcements', 'Loading announcements...')}</p>
             ) : announcementsData?.data?.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
-                No announcements posted yet.
+                {t('admin_academic.no_announcements_posted', 'No announcements posted yet.')}
               </div>
             ) : (
               announcementsData?.data?.map((announcement) => (
@@ -620,7 +620,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                         <div>
                           <CardTitle className="text-lg">{announcement.title}</CardTitle>
                           <CardDescription>
-                            Posted by {announcement.teacher_name} on {format(new Date(announcement.created_at), 'PPP')}
+                            {t('admin_academic.posted_by', 'Posted by')} {announcement.teacher_name} {t('common.on', 'on')} {format(new Date(announcement.created_at), 'PPP')}
                           </CardDescription>
                         </div>
                       </div>
@@ -638,20 +638,20 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
         {/* Students Tab */}
         <TabsContent value="students" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Students</h2>
+            <h2 className="text-xl font-semibold">{t('admin_academic.students', 'Students')}</h2>
             <Button variant="outline" onClick={() => window.location.href = '/students'}>
               <Users className="mr-2 h-4 w-4" />
-              Manage All Students
+              {t('admin_academic.manage_all_students_btn', 'Manage All Students')}
             </Button>
           </div>
           
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 font-sans">
               {studentsLoading ? (
-                <div className="p-4 text-center">Loading students...</div>
+                <div className="p-4 text-center">{t('admin_academic.loading_students', 'Loading students...')}</div>
               ) : !studentsData || studentsData.data.length === 0 ? (
                 <div className="text-center py-10 text-muted-foreground">
-                  No students enrolled in this class yet.
+                  {t('admin_academic.no_students_enrolled', 'No students enrolled in this class yet.')}
                 </div>
               ) : (
                 <div className="divide-y">
@@ -671,7 +671,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
-                          {student.status}
+                          {student.status === 'active' ? t('admin_academic.active', 'Active') : t('admin_academic.inactive', 'Inactive')}
                         </Badge>
                         <Button variant="ghost" size="sm" onClick={() => window.location.href = `/students/${student.id}`}>
                           <FileText className="h-4 w-4" />

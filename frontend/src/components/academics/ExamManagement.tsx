@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Card, 
   CardContent, 
@@ -83,6 +84,8 @@ interface BulkAction {
 }
 
 const ExamManagement: React.FC = () => {
+  const { t } = useTranslation();
+
   // State management
   const [activeTab, setActiveTab] = useState('exams');
   const [filters, setFilters] = useState<ExamFilters>({});
@@ -133,29 +136,29 @@ const ExamManagement: React.FC = () => {
   const subjects = subjectsQuery.data?.subjects || [];
 
   // Bulk actions configuration
-  const bulkActions: BulkAction[] = [
+  const bulkActions: BulkAction[] = useMemo(() => [
     {
       type: 'duplicate',
-      label: 'Duplicate Exams',
+      label: t('admin_exams.bulk_duplicate', 'Duplicate Exams'),
       icon: <Copy className="h-4 w-4" />
     },
     {
       type: 'archive',
-      label: 'Archive Exams',
+      label: t('admin_exams.bulk_archive', 'Archive Exams'),
       icon: <Archive className="h-4 w-4" />
     },
     {
       type: 'export',
-      label: 'Export Data',
+      label: t('admin_exams.bulk_export', 'Export Data'),
       icon: <Download className="h-4 w-4" />
     },
     {
       type: 'delete',
-      label: 'Delete Exams',
+      label: t('admin_exams.bulk_delete', 'Delete Exams'),
       icon: <Trash2 className="h-4 w-4" />,
       variant: 'destructive'
     }
-  ];
+  ], [t]);
 
   // Enhanced filtering and sorting
   const filteredAndSortedExams = useMemo(() => {
@@ -281,24 +284,24 @@ const ExamManagement: React.FC = () => {
     try {
       // Validate form data
       if (!formData.title || !formData.exam_date || !formData.class_id || !formData.subject_id) {
-        toast.error('Please fill in all required fields');
+        toast.error(t('admin_exams.error_fill_required', 'Please fill in all required fields'));
         return;
       }
       
       // Check for conflicts
       const conflicts = await checkExamConflicts(formData);
       if (conflicts && conflicts.length > 0) {
-        toast.error(`Exam conflicts with ${conflicts.length} existing exam(s). Please choose a different time.`);
+        toast.error(t('admin_exams.error_conflicts', { count: conflicts.length }, 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.'));
         return;
       }
       
       await examService.createExam(formData);
-      toast.success('Exam created successfully');
+      toast.success(t('admin_exams.success_create', 'Exam created successfully'));
       setIsCreateDialogOpen(false);
       resetForm();
       mutate();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create exam');
+      toast.error(error.response?.data?.message || t('admin_exams.failed_create', 'Failed to create exam'));
     } finally {
       setIsSubmitting(false);
     }
@@ -323,17 +326,17 @@ const ExamManagement: React.FC = () => {
       // Check for conflicts when updating
       const conflicts = await checkExamConflicts(updateData, currentExam.id);
       if (conflicts && conflicts.length > 0) {
-        toast.error(`Exam conflicts with ${conflicts.length} existing exam(s). Please choose a different time.`);
+        toast.error(t('admin_exams.error_conflicts', { count: conflicts.length }, 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.'));
         return;
       }
       
       await examService.updateExam(currentExam.id, updateData);
-      toast.success('Exam updated successfully');
+      toast.success(t('admin_exams.success_update', 'Exam updated successfully'));
       setIsEditDialogOpen(false);
       resetForm();
       mutate();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update exam');
+      toast.error(error.response?.data?.message || t('admin_exams.failed_update', 'Failed to update exam'));
     } finally {
       setIsSubmitting(false);
     }
@@ -342,7 +345,7 @@ const ExamManagement: React.FC = () => {
   // Bulk operations
   const handleBulkAction = async (action: BulkAction) => {
     if (selectedExams.size === 0) {
-      toast.error('Please select exams to perform bulk action');
+      toast.error(t('admin_exams.error_select_exams', 'Please select exams to perform bulk action'));
       return;
     }
     
@@ -360,7 +363,7 @@ const ExamManagement: React.FC = () => {
       switch (currentBulkAction.type) {
         case 'delete':
           await Promise.all(examIds.map(id => examService.deleteExam(id)));
-          toast.success(`${examIds.length} exams deleted successfully`);
+          toast.success(t('admin_exams.success_bulk_delete', { count: examIds.length }, '{{count}} exams deleted successfully'));
           break;
         case 'duplicate':
           {
@@ -368,7 +371,7 @@ const ExamManagement: React.FC = () => {
             const results = await Promise.allSettled(originals.map(async (e) => {
               const nextDate = addDays(new Date(e.exam_date), 7).toISOString();
               return examService.createExam({
-                title: `${e.title} (Copy)`,
+                title: t('admin_exams.duplicate_suffix', { title: e.title }, '{{title}} (Copy)'),
                 description: e.description || '',
                 exam_date: nextDate,
                 duration: e.duration,
@@ -382,13 +385,13 @@ const ExamManagement: React.FC = () => {
 
             const ok = results.filter(r => r.status === 'fulfilled').length;
             const fail = results.length - ok;
-            if (ok) toast.success(`${ok} exams duplicated successfully`);
-            if (fail) toast.error(`${fail} exams failed to duplicate`);
+            if (ok) toast.success(t('admin_exams.success_bulk_duplicate', { count: ok }, '{{count}} exams duplicated successfully'));
+            if (fail) toast.error(t('admin_exams.failed_bulk_duplicate', { count: fail }, '{{count}} exams failed to duplicate'));
           }
           break;
         case 'archive':
           await Promise.all(examIds.map(id => examService.updateExam(id, { status: 'cancelled' })));
-          toast.success(`${examIds.length} exams archived successfully`);
+          toast.success(t('admin_exams.success_bulk_archive', { count: examIds.length }, '{{count}} exams archived successfully'));
           break;
         case 'export':
           {
@@ -409,7 +412,7 @@ const ExamManagement: React.FC = () => {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-            toast.success('Exam data exported successfully');
+            toast.success(t('admin_exams.success_bulk_export', 'Exam data exported successfully'));
           }
           break;
       }
@@ -418,7 +421,7 @@ const ExamManagement: React.FC = () => {
       setIsBulkActionDialogOpen(false);
       mutate();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || `Failed to ${currentBulkAction.type} exams`);
+      toast.error(error.response?.data?.message || t('admin_exams.failed_bulk_action', 'Failed to perform bulk action'));
     } finally {
       setIsSubmitting(false);
     }
@@ -456,10 +459,10 @@ const ExamManagement: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      scheduled: { label: 'Scheduled', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-      ongoing: { label: 'Ongoing', className: 'bg-green-50 text-green-700 border-green-200' },
-      completed: { label: 'Completed', className: 'bg-gray-50 text-gray-700 border-gray-200' },
-      cancelled: { label: 'Cancelled', className: 'bg-red-50 text-red-700 border-red-200' }
+      scheduled: { label: t('admin_exams.status_scheduled', 'Scheduled'), className: 'bg-blue-50 text-blue-700 border-blue-200' },
+      ongoing: { label: t('admin_exams.status_ongoing', 'Ongoing'), className: 'bg-green-50 text-green-700 border-green-200' },
+      completed: { label: t('admin_exams.status_completed', 'Completed'), className: 'bg-gray-50 text-gray-700 border-gray-200' },
+      cancelled: { label: t('admin_exams.status_cancelled', 'Cancelled'), className: 'bg-red-50 text-red-700 border-red-200' }
     };
     
     const config = statusConfig[status as keyof typeof statusConfig] || { label: status, className: '' };
@@ -469,55 +472,55 @@ const ExamManagement: React.FC = () => {
   // Loading and error states
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center h-64 font-sans">
         <Loader className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading exams...</span>
+        <span className="ml-2">{t('admin_exams.loading_exams', 'Loading exams...')}</span>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="p-4 bg-red-50 text-red-700 rounded-md">
+      <div className="p-4 bg-red-50 text-red-700 rounded-md font-sans">
         <div className="flex items-center space-x-2">
           <AlertCircle className="h-5 w-5" />
-          <p>Failed to load exams. Please try again later.</p>
+          <p>{t('admin_exams.error_load_exams', 'Failed to load exams. Please try again later.')}</p>
         </div>
         <Button onClick={() => mutate()} className="mt-2" variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Retry
+          {t('common.retry', 'Retry')}
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
           <TabsTrigger value="exams" className="flex items-center space-x-2">
             <BookOpen className="h-4 w-4" />
-            <span>All Exams</span>
+            <span>{t('admin_exams.tab_all_exams', 'All Exams')}</span>
           </TabsTrigger>
           <TabsTrigger value="upcoming">
             <Clock className="h-4 w-4 mr-2" />
-            Upcoming
+            {t('admin_exams.tab_upcoming', 'Upcoming')}
           </TabsTrigger>
           <TabsTrigger value="ongoing">
             <CheckCircle className="h-4 w-4 mr-2" />
-            Ongoing
+            {t('admin_exams.tab_ongoing', 'Ongoing')}
           </TabsTrigger>
           <TabsTrigger value="completed">
             <Archive className="h-4 w-4 mr-2" />
-            Completed
+            {t('admin_exams.tab_completed', 'Completed')}
           </TabsTrigger>
           <TabsTrigger value="grades">
             <Target className="h-4 w-4 mr-2" />
-            Grade Entry
+            {t('admin_exams.tab_grade_entry', 'Grade Entry')}
           </TabsTrigger>
           <TabsTrigger value="statistics">
             <BarChart3 className="h-4 w-4 mr-2" />
-            Statistics
+            {t('admin_exams.tab_statistics', 'Statistics')}
           </TabsTrigger>
         </TabsList>
         
@@ -530,7 +533,7 @@ const ExamManagement: React.FC = () => {
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder="Search exams..."
+                  placeholder={t('admin_exams.search_placeholder', 'Search exams...')}
                   className="pl-8"
                   value={filters.searchTerm || ''}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
@@ -544,7 +547,7 @@ const ExamManagement: React.FC = () => {
                 className="flex items-center space-x-2"
               >
                 <Filter className="h-4 w-4" />
-                <span>Filters</span>
+                <span>{t('common.filters', 'Filters')}</span>
                 {Object.keys(filters).filter(key => filters[key as keyof ExamFilters]).length > 1 && (
                   <Badge variant="secondary" className="ml-1">
                     {Object.keys(filters).filter(key => filters[key as keyof ExamFilters]).length - 1}
@@ -561,7 +564,7 @@ const ExamManagement: React.FC = () => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline">
                       <MoreHorizontal className="h-4 w-4 mr-2" />
-                      Bulk Actions ({selectedExams.size})
+                      {t('admin_exams.bulk_actions', { count: selectedExams.size }, 'Bulk Actions ({{count}})')}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -584,21 +587,21 @@ const ExamManagement: React.FC = () => {
                 <DialogTrigger asChild>
                   <Button className="glass-button">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Exam
+                    {t('admin_exams.add_exam_btn', 'Add Exam')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[600px] font-sans">
                   <DialogHeader>
-                    <DialogTitle>Create New Exam</DialogTitle>
+                    <DialogTitle>{t('admin_exams.create_exam_title', 'Create New Exam')}</DialogTitle>
                     <DialogDescription>
-                      Set up a new examination with schedule and grading details.
+                      {t('admin_exams.create_exam_desc', 'Set up a new examination with schedule and grading details.')}
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleCreateExam}>
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="title" className="text-right text-sm font-medium">
-                          Exam Title *
+                          {t('admin_exams.title_label', 'Exam Title *')}
                         </label>
                         <Input 
                           id="title" 
@@ -606,18 +609,18 @@ const ExamManagement: React.FC = () => {
                           value={formData.title}
                           onChange={handleInputChange}
                           className="col-span-3" 
-                          placeholder="e.g. First Term Mathematics Exam" 
+                          placeholder={t('admin_exams.title_placeholder', 'e.g. First Term Mathematics Exam')} 
                           required
                         />
                       </div>
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="class_id" className="text-right text-sm font-medium">
-                          Class *
+                          {t('admin_exams.class_label', 'Class *')}
                         </label>
                         <Select value={formData.class_id.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, class_id: parseInt(value) }))}>
                           <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select class" />
+                            <SelectValue placeholder={t('admin_exams.select_class', 'Select class')} />
                           </SelectTrigger>
                           <SelectContent>
                             {classes?.map((cls) => (
@@ -633,11 +636,11 @@ const ExamManagement: React.FC = () => {
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="subject_id" className="text-right text-sm font-medium">
-                          Subject *
+                          {t('admin_exams.subject_label', 'Subject *')}
                         </label>
                         <Select value={formData.subject_id.toString()} onValueChange={(value) => setFormData(prev => ({ ...prev, subject_id: parseInt(value) }))}>
                           <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select subject" />
+                            <SelectValue placeholder={t('admin_exams.select_subject', 'Select subject')} />
                           </SelectTrigger>
                           <SelectContent>
                             {subjects?.map((subject) => (
@@ -653,7 +656,7 @@ const ExamManagement: React.FC = () => {
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="exam_date" className="text-right text-sm font-medium">
-                          Date & Time *
+                          {t('admin_exams.datetime_label', 'Date & Time *')}
                         </label>
                         <Input 
                           id="exam_date" 
@@ -669,7 +672,7 @@ const ExamManagement: React.FC = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                           <label htmlFor="duration" className="text-right text-sm font-medium">
-                            Duration (min)
+                            {t('admin_exams.duration_label', 'Duration (min)')}
                           </label>
                           <Input 
                             id="duration" 
@@ -685,7 +688,7 @@ const ExamManagement: React.FC = () => {
                         
                         <div className="grid grid-cols-4 items-center gap-4">
                           <label htmlFor="total_marks" className="text-right text-sm font-medium">
-                            Total Marks
+                            {t('admin_exams.total_marks_label', 'Total Marks')}
                           </label>
                           <Input 
                             id="total_marks" 
@@ -702,7 +705,7 @@ const ExamManagement: React.FC = () => {
 
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="passing_marks" className="text-right text-sm font-medium">
-                          Passing Marks
+                          {t('admin_exams.passing_marks_label', 'Passing Marks')}
                         </label>
                         <Input 
                           id="passing_marks" 
@@ -718,7 +721,7 @@ const ExamManagement: React.FC = () => {
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="description" className="text-right text-sm font-medium">
-                          Description
+                          {t('admin_exams.description_label', 'Description')}
                         </label>
                         <textarea 
                           id="description" 
@@ -726,23 +729,23 @@ const ExamManagement: React.FC = () => {
                           value={formData.description}
                           onChange={handleInputChange}
                           className="col-span-3 px-3 py-2 rounded-md border border-gray-300 bg-white text-sm" 
-                          placeholder="Additional exam details (optional)"
+                          placeholder={t('admin_exams.description_placeholder', 'Additional exam details (optional)')}
                           rows={3}
                         />
                       </div>
                     </div>
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
                             <Loader className="h-4 w-4 mr-2 animate-spin" />
-                            Creating...
+                            {t('common.creating', 'Creating...')}
                           </>
                         ) : (
-                          'Create Exam'
+                          t('admin_exams.create_exam_btn', 'Create Exam')
                         )}
                       </Button>
                     </DialogFooter>
@@ -752,18 +755,18 @@ const ExamManagement: React.FC = () => {
 
               {/* Edit Exam Dialog */}
               <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[600px] font-sans">
                   <DialogHeader>
-                    <DialogTitle>Edit Exam</DialogTitle>
+                    <DialogTitle>{t('admin_exams.edit_exam_title', 'Edit Exam')}</DialogTitle>
                     <DialogDescription>
-                      Update the examination schedule and grading details.
+                      {t('admin_exams.edit_exam_desc', 'Update the examination schedule and grading details.')}
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={handleUpdateExam}>
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_title" className="text-right text-sm font-medium">
-                          Exam Title *
+                          {t('admin_exams.title_label', 'Exam Title *')}
                         </label>
                         <Input 
                           id="edit_title" 
@@ -771,22 +774,22 @@ const ExamManagement: React.FC = () => {
                           value={formData.title}
                           onChange={handleInputChange}
                           className="col-span-3" 
-                          placeholder="e.g. First Term Mathematics Exam" 
+                          placeholder={t('admin_exams.title_placeholder', 'e.g. First Term Mathematics Exam')} 
                           required
                         />
                       </div>
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_class_id" className="text-right text-sm font-medium">
-                          Class *
+                          {t('admin_exams.class_label', 'Class *')}
                         </label>
                         <Select 
                           value={formData.class_id.toString()} 
                           onValueChange={(value) => setFormData(prev => ({ ...prev, class_id: parseInt(value) }))}
-                          disabled={true} // Usually class/subject shouldn't change for an existing exam
+                          disabled={true}
                         >
                           <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select class" />
+                            <SelectValue placeholder={t('admin_exams.select_class', 'Select class')} />
                           </SelectTrigger>
                           <SelectContent>
                             {classes?.map((cls) => (
@@ -802,7 +805,7 @@ const ExamManagement: React.FC = () => {
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_subject_id" className="text-right text-sm font-medium">
-                          Subject *
+                          {t('admin_exams.subject_label', 'Subject *')}
                         </label>
                         <Select 
                           value={formData.subject_id.toString()} 
@@ -810,7 +813,7 @@ const ExamManagement: React.FC = () => {
                           disabled={true}
                         >
                           <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select subject" />
+                            <SelectValue placeholder={t('admin_exams.select_subject', 'Select subject')} />
                           </SelectTrigger>
                           <SelectContent>
                             {subjects?.map((subject) => (
@@ -826,7 +829,7 @@ const ExamManagement: React.FC = () => {
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_exam_date" className="text-right text-sm font-medium">
-                          Date & Time *
+                          {t('admin_exams.datetime_label', 'Date & Time *')}
                         </label>
                         <Input 
                           id="edit_exam_date" 
@@ -842,7 +845,7 @@ const ExamManagement: React.FC = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                           <label htmlFor="edit_duration" className="text-right text-sm font-medium">
-                            Duration (min)
+                            {t('admin_exams.duration_label', 'Duration (min)')}
                           </label>
                           <Input 
                             id="edit_duration" 
@@ -858,7 +861,7 @@ const ExamManagement: React.FC = () => {
                         
                         <div className="grid grid-cols-4 items-center gap-4">
                           <label htmlFor="edit_total_marks" className="text-right text-sm font-medium">
-                            Total Marks
+                            {t('admin_exams.total_marks_label', 'Total Marks')}
                           </label>
                           <Input 
                             id="edit_total_marks" 
@@ -875,7 +878,7 @@ const ExamManagement: React.FC = () => {
 
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_passing_marks" className="text-right text-sm font-medium">
-                          Passing Marks
+                          {t('admin_exams.passing_marks_label', 'Passing Marks')}
                         </label>
                         <Input 
                           id="edit_passing_marks" 
@@ -891,7 +894,7 @@ const ExamManagement: React.FC = () => {
 
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_status" className="text-right text-sm font-medium">
-                          Status
+                          {t('admin_exams.status_label', 'Status')}
                         </label>
                         <Select 
                           value={formData.status || 'scheduled'} 
@@ -901,17 +904,17 @@ const ExamManagement: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="scheduled">Scheduled</SelectItem>
-                            <SelectItem value="ongoing">Ongoing</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                            <SelectItem value="scheduled">{t('admin_exams.status_scheduled', 'Scheduled')}</SelectItem>
+                            <SelectItem value="ongoing">{t('admin_exams.status_ongoing', 'Ongoing')}</SelectItem>
+                            <SelectItem value="completed">{t('admin_exams.status_completed', 'Completed')}</SelectItem>
+                            <SelectItem value="cancelled">{t('admin_exams.status_cancelled', 'Cancelled')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       
                       <div className="grid grid-cols-4 items-center gap-4">
                         <label htmlFor="edit_description" className="text-right text-sm font-medium">
-                          Description
+                          {t('admin_exams.description_label', 'Description')}
                         </label>
                         <textarea 
                           id="edit_description" 
@@ -919,23 +922,23 @@ const ExamManagement: React.FC = () => {
                           value={formData.description}
                           onChange={handleInputChange}
                           className="col-span-3 px-3 py-2 rounded-md border border-gray-300 bg-white text-sm" 
-                          placeholder="Additional exam details (optional)"
+                          placeholder={t('admin_exams.description_placeholder', 'Additional exam details (optional)')}
                           rows={3}
                         />
                       </div>
                     </div>
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                       </Button>
                       <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
                             <Loader className="h-4 w-4 mr-2 animate-spin" />
-                            Updating...
+                            {t('common.updating', 'Updating...')}
                           </>
                         ) : (
-                          'Update Exam'
+                          t('admin_exams.update_exam_btn', 'Update Exam')
                         )}
                       </Button>
                     </DialogFooter>
@@ -947,32 +950,32 @@ const ExamManagement: React.FC = () => {
           
           {/* Advanced Filters */}
           {showFilters && (
-            <Card className="p-4">
+            <Card className="p-4 font-sans">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Status</label>
+                  <label className="text-sm font-medium mb-2 block">{t('admin_exams.status_label', 'Status')}</label>
                   <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value === 'all' ? undefined : value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
+                      <SelectValue placeholder={t('admin_exams.all_statuses', 'All statuses')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="all">{t('admin_exams.all_statuses', 'All statuses')}</SelectItem>
+                      <SelectItem value="scheduled">{t('admin_exams.status_scheduled', 'Scheduled')}</SelectItem>
+                      <SelectItem value="ongoing">{t('admin_exams.status_ongoing', 'Ongoing')}</SelectItem>
+                      <SelectItem value="completed">{t('admin_exams.status_completed', 'Completed')}</SelectItem>
+                      <SelectItem value="cancelled">{t('admin_exams.status_cancelled', 'Cancelled')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Class</label>
+                  <label className="text-sm font-medium mb-2 block">{t('admin_exams.class_label', 'Class')}</label>
                   <Select value={filters.classId?.toString() || 'all'} onValueChange={(value) => handleFilterChange('classId', value === 'all' ? undefined : parseInt(value))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All classes" />
+                      <SelectValue placeholder={t('admin_exams.all_classes', 'All classes')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All classes</SelectItem>
+                      <SelectItem value="all">{t('admin_exams.all_classes', 'All classes')}</SelectItem>
                       {classes?.map((cls) => (
                         cls.id != null ? (
                           <SelectItem key={cls.id} value={cls.id.toString()}>
@@ -985,13 +988,13 @@ const ExamManagement: React.FC = () => {
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Subject</label>
+                  <label className="text-sm font-medium mb-2 block">{t('admin_exams.subject_label', 'Subject')}</label>
                   <Select value={filters.subjectId?.toString() || 'all'} onValueChange={(value) => handleFilterChange('subjectId', value === 'all' ? undefined : parseInt(value))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="All subjects" />
+                      <SelectValue placeholder={t('admin_exams.all_subjects', 'All subjects')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All subjects</SelectItem>
+                      <SelectItem value="all">{t('admin_exams.all_subjects', 'All subjects')}</SelectItem>
                       {subjects?.map((subject) => (
                         subject.id != null ? (
                           <SelectItem key={subject.id} value={subject.id.toString()}>
@@ -1004,7 +1007,7 @@ const ExamManagement: React.FC = () => {
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Sort By</label>
+                  <label className="text-sm font-medium mb-2 block">{t('admin_exams.sort_by_label', 'Sort By')}</label>
                   <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                     const [field, order] = value.split('-');
                     setSortBy(field as any);
@@ -1014,12 +1017,12 @@ const ExamManagement: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="date-desc">Date (Newest)</SelectItem>
-                      <SelectItem value="date-asc">Date (Oldest)</SelectItem>
-                      <SelectItem value="title-asc">Title (A-Z)</SelectItem>
-                      <SelectItem value="title-desc">Title (Z-A)</SelectItem>
-                      <SelectItem value="class-asc">Class (A-Z)</SelectItem>
-                      <SelectItem value="subject-asc">Subject (A-Z)</SelectItem>
+                      <SelectItem value="date-desc">{t('admin_exams.sort_date_newest', 'Date (Newest)')}</SelectItem>
+                      <SelectItem value="date-asc">{t('admin_exams.sort_date_oldest', 'Date (Oldest)')}</SelectItem>
+                      <SelectItem value="title-asc">{t('admin_exams.sort_title_asc', 'Title (A-Z)')}</SelectItem>
+                      <SelectItem value="title-desc">{t('admin_exams.sort_title_desc', 'Title (Z-A)')}</SelectItem>
+                      <SelectItem value="class-asc">{t('admin_exams.sort_class_asc', 'Class (A-Z)')}</SelectItem>
+                      <SelectItem value="subject-asc">{t('admin_exams.sort_subject_asc', 'Subject (A-Z)')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1027,21 +1030,21 @@ const ExamManagement: React.FC = () => {
               
               <div className="flex justify-between items-center mt-4">
                 <div className="text-sm text-gray-500">
-                  Showing {filteredAndSortedExams.length} of {exams.length} exams
+                  {t('admin_exams.showing_exams_count', { count: filteredAndSortedExams.length, total: exams.length }, 'Showing {{count}} of {{total}} exams')}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setFilters({ searchTerm: filters.searchTerm })}
                 >
-                  Clear Filters
+                  {t('admin_exams.clear_filters', 'Clear Filters')}
                 </Button>
               </div>
             </Card>
           )}
           
           {/* Enhanced Exams Table */}
-          <div className="border rounded-md overflow-hidden">
+          <div className="border rounded-md overflow-hidden font-sans">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1051,13 +1054,13 @@ const ExamManagement: React.FC = () => {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="w-[250px]">Exam Title</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[250px]">{t('admin_exams.title_header', 'Exam Title')}</TableHead>
+                  <TableHead>{t('admin_exams.class_header', 'Class')}</TableHead>
+                  <TableHead>{t('admin_exams.subject_header', 'Subject')}</TableHead>
+                  <TableHead>{t('admin_exams.datetime_header', 'Date & Time')}</TableHead>
+                  <TableHead>{t('admin_exams.duration_header', 'Duration')}</TableHead>
+                  <TableHead>{t('admin_exams.status_header', 'Status')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1066,8 +1069,8 @@ const ExamManagement: React.FC = () => {
                     <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                       <div className="flex flex-col items-center space-y-2">
                         <BookOpen className="h-8 w-8 text-gray-400" />
-                        <p>No exams found</p>
-                        <p className="text-sm">Create your first exam or adjust your filters</p>
+                        <p>{t('admin_exams.no_exams_found', 'No exams found')}</p>
+                        <p className="text-sm">{t('admin_exams.no_exams_desc', 'Create your first exam or adjust your filters')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1120,7 +1123,7 @@ const ExamManagement: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Clock className="h-4 w-4 text-gray-400" />
-                          <span>{exam.duration} min</span>
+                          <span>{exam.duration} {t('admin_exams.minutes_abbr', 'min')}</span>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(exam.status)}</TableCell>
@@ -1160,10 +1163,10 @@ const ExamManagement: React.FC = () => {
           {selectedExam ? (
             <GradeEntry examId={selectedExam} />
           ) : (
-            <div className="p-8 text-center">
+            <div className="p-8 text-center font-sans">
               <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-2">Select an exam to enter grades</p>
-              <p className="text-sm text-gray-400">Choose an exam from the table above to start entering student grades</p>
+              <p className="text-gray-500 mb-2">{t('admin_exams.select_exam_grades', 'Select an exam to enter grades')}</p>
+              <p className="text-sm text-gray-400">{t('admin_exams.select_exam_grades_desc', 'Choose an exam from the table above to start entering student grades')}</p>
             </div>
           )}
         </TabsContent>
@@ -1172,10 +1175,10 @@ const ExamManagement: React.FC = () => {
           {selectedExam ? (
             <ExamStatistics examId={selectedExam} />
           ) : (
-            <div className="p-8 text-center">
+            <div className="p-8 text-center font-sans">
               <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-2">Select an exam to view statistics</p>
-              <p className="text-sm text-gray-400">Choose an exam from the table above to view detailed analytics</p>
+              <p className="text-gray-500 mb-2">{t('admin_exams.select_exam_statistics', 'Select an exam to view statistics')}</p>
+              <p className="text-sm text-gray-400">{t('admin_exams.select_exam_statistics_desc', 'Choose an exam from the table above to view detailed analytics')}</p>
             </div>
           )}
         </TabsContent>
@@ -1189,22 +1192,22 @@ const ExamManagement: React.FC = () => {
           if (!open) setIsForceDelete(false);
         }}
       >
-        <DialogContent>
+        <DialogContent className="font-sans">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
-              <span>{isForceDelete ? 'Confirm Force Delete' : 'Delete Exam'}</span>
+              <span>{isForceDelete ? t('admin_exams.confirm_force_delete', 'Confirm Force Delete') : t('admin_exams.delete_exam', 'Delete Exam')}</span>
             </DialogTitle>
             <DialogDescription>
               {isForceDelete ? (
                 <div className="bg-red-50 p-3 rounded-md border border-red-200 text-red-700">
-                  <p className="font-bold mb-2 uppercase text-xs">⚠️ Warning: Critical Action</p>
-                  <p>Are you sure you want to <strong>FORCE DELETE</strong> "{currentExam?.title}"?</p>
-                  <p className="mt-2 text-sm">This will permanently remove all associated student grades. This action cannot be reversed.</p>
+                  <p className="font-bold mb-2 uppercase text-xs">⚠️ {t('admin_exams.warning_critical', 'Warning: Critical Action')}</p>
+                  <p>{t('admin_exams.force_delete_confirm', { title: currentExam?.title }, 'Are you sure you want to FORCE DELETE "{{title}}"?')}</p>
+                  <p className="mt-2 text-sm">{t('admin_exams.force_delete_desc', 'This will permanently remove all associated student grades. This action cannot be reversed.')}</p>
                 </div>
               ) : (
                 <>
-                  Are you sure you want to delete "{currentExam?.title}"? This action cannot be undone and will also delete all associated grades.
+                  {t('admin_exams.delete_confirm', { title: currentExam?.title }, 'Are you sure you want to delete "{{title}}"? This action cannot be undone and will also delete all associated grades.')}
                 </>
               )}
             </DialogDescription>
@@ -1214,7 +1217,7 @@ const ExamManagement: React.FC = () => {
               setIsDeleteDialogOpen(false);
               setIsForceDelete(false);
             }}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button 
               variant="destructive" 
@@ -1223,7 +1226,7 @@ const ExamManagement: React.FC = () => {
                 setIsSubmitting(true);
                 try {
                   await examService.deleteExam(currentExam.id, isForceDelete);
-                  toast.success(isForceDelete ? 'Exam and all associated grades deleted' : 'Exam deleted successfully');
+                  toast.success(isForceDelete ? t('admin_exams.success_force_delete', 'Exam and all associated grades deleted') : t('admin_exams.success_delete_exam', 'Exam deleted successfully'));
                   setIsDeleteDialogOpen(false);
                   setIsForceDelete(false);
                   mutate();
@@ -1232,7 +1235,7 @@ const ExamManagement: React.FC = () => {
                   if (errorMessage.includes('force delete')) {
                     setIsForceDelete(true);
                   } else {
-                    toast.error(errorMessage || 'Failed to delete exam');
+                    toast.error(errorMessage || t('admin_exams.failed_delete', 'Failed to delete exam'));
                   }
                 } finally {
                   setIsSubmitting(false);
@@ -1243,12 +1246,12 @@ const ExamManagement: React.FC = () => {
               {isSubmitting ? (
                 <>
                   <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  {isForceDelete ? 'Force Deleting...' : 'Deleting...'}
+                  {isForceDelete ? t('admin_exams.force_deleting', 'Force Deleting...') : t('common.deleting', 'Deleting...')}
                 </>
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  {isForceDelete ? 'Yes, Force Delete Everything' : 'Delete'}
+                  {isForceDelete ? t('admin_exams.force_delete_btn', 'Yes, Force Delete Everything') : t('common.delete', 'Delete')}
                 </>
               )}
             </Button>
@@ -1258,20 +1261,20 @@ const ExamManagement: React.FC = () => {
       
       {/* Bulk Action Confirmation Dialog */}
       <Dialog open={isBulkActionDialogOpen} onOpenChange={setIsBulkActionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="font-sans">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               {currentBulkAction?.icon}
               <span>{currentBulkAction?.label}</span>
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to {currentBulkAction?.type} {selectedExams.size} selected exam(s)?
-              {currentBulkAction?.type === 'delete' && ' This action cannot be undone.'}
+              {t('admin_exams.bulk_confirm_desc', { action: currentBulkAction?.type, count: selectedExams.size }, 'Are you sure you want to {{action}} {{count}} selected exam(s)?')}
+              {currentBulkAction?.type === 'delete' && ' ' + t('admin_exams.undone_warning', 'This action cannot be undone.')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBulkActionDialogOpen(false)}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button 
               variant={currentBulkAction?.variant === 'destructive' ? 'destructive' : 'default'}
@@ -1281,12 +1284,12 @@ const ExamManagement: React.FC = () => {
               {isSubmitting ? (
                 <>
                   <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  {t('common.processing', 'Processing...')}
                 </>
               ) : (
                 <>
                   {currentBulkAction?.icon}
-                  <span className="ml-2">Confirm</span>
+                  <span className="ml-2">{t('common.confirm', 'Confirm')}</span>
                 </>
               )}
             </Button>

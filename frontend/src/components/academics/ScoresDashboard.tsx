@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { 
@@ -403,6 +404,7 @@ const THEMES = {
 };
 
 const ScoresDashboard = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('student');
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -463,10 +465,10 @@ const ScoresDashboard = () => {
   });
   React.useEffect(() => {
     if (analyticsError) {
-      toast.error('Failed to load student analytics');
+      toast.error(t('scores_dashboard.error_load_analytics', 'Failed to load student analytics'));
       console.error('Analytics fetch error:', analyticsError);
     }
-  }, [analyticsError]);
+  }, [analyticsError, t]);
 
   // Fetch student grade report
   const { 
@@ -485,10 +487,10 @@ const ScoresDashboard = () => {
   // Handle grade report error
   React.useEffect(() => {
     if (gradeReportError) {
-      toast.error('Failed to load grade report');
+      toast.error(t('scores_dashboard.error_load_grade_report', 'Failed to load grade report'));
       console.error('Grade report fetch error:', gradeReportError);
     }
-  }, [gradeReportError]);
+  }, [gradeReportError, t]);
   
   // Fetch analytics summary for class performance
   const { 
@@ -503,10 +505,10 @@ const ScoresDashboard = () => {
   // Handle summary error
   React.useEffect(() => {
     if (summaryError) {
-      toast.error('Failed to load analytics summary');
+      toast.error(t('scores_dashboard.error_load_summary', 'Failed to load analytics summary'));
       console.error('Analytics summary fetch error:', summaryError);
     }
-  }, [summaryError]);
+  }, [summaryError, t]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   const isLoading = studentsLoading || analyticsLoading || gradeReportLoading || summaryLoading;
@@ -530,16 +532,16 @@ const ScoresDashboard = () => {
         insights.push({
           id: 1,
           type: 'concern',
-          subject: 'Attendance',
-          message: `Attendance rate is ${attendanceRate}%, which is below the recommended 75%.`,
-          recommendation: 'Schedule a meeting with parents to discuss attendance improvement strategies.'
+          subject: t('scores_dashboard.insight_attendance', 'Attendance'),
+          message: t('scores_dashboard.insight_attendance_low', { rate: attendanceRate }, `Attendance rate is {{rate}}%, which is below the recommended 75%.`),
+          recommendation: t('scores_dashboard.insight_attendance_recommendation', 'Schedule a meeting with parents to discuss attendance improvement strategies.')
         });
       } else if (attendanceRate > 95) {
         insights.push({
           id: 2,
           type: 'strength',
-          subject: 'Attendance',
-          message: `Excellent attendance rate of ${attendanceRate}%.`
+          subject: t('scores_dashboard.insight_attendance', 'Attendance'),
+          message: t('scores_dashboard.insight_attendance_excellent', { rate: attendanceRate }, `Excellent attendance rate of {{rate}}%.`)
         });
       }
     }
@@ -552,15 +554,15 @@ const ScoresDashboard = () => {
             id: insights.length + 1,
             type: 'concern',
             subject: subject.name,
-            message: `Low performance in ${subject.name} with ${subject.score}% score.`,
-            recommendation: 'Consider additional tutoring or remedial classes.'
+            message: t('scores_dashboard.insight_perf_low', { subject: subject.name, score: subject.score }, `Low performance in {{subject}} with {{score}}% score.`),
+            recommendation: t('scores_dashboard.insight_perf_recommendation', 'Consider additional tutoring or remedial classes.')
           });
         } else if (subject.score > 85) {
           insights.push({
             id: insights.length + 1,
             type: 'strength',
             subject: subject.name,
-            message: `Excellent performance in ${subject.name} with ${subject.score}% score.`
+            message: t('scores_dashboard.insight_perf_excellent', { subject: subject.name, score: subject.score }, `Excellent performance in {{subject}} with {{score}}% score.`)
           });
         }
       });
@@ -574,14 +576,14 @@ const ScoresDashboard = () => {
   const handleDownloadPDF = async () => {
     if (selectedStudentIds.length === 0) return;
     
-    const loadingToast = toast.loading(`Downloading ${selectedStudentIds.length} report card(s)...`);
+    const loadingToast = toast.loading(t('scores_dashboard.downloading_reports', { count: selectedStudentIds.length }, `Downloading {{count}} report card(s)...`));
     try {
       for (const studentId of selectedStudentIds) {
         await enhancedStudentScoresService.downloadReportPDF(studentId, selectedTerm);
       }
-      toast.success('Report card(s) downloaded successfully', { id: loadingToast });
+      toast.success(t('scores_dashboard.success_download', 'Report card(s) downloaded successfully'), { id: loadingToast });
     } catch (error) {
-      toast.error('Failed to download report card(s)', { id: loadingToast });
+      toast.error(t('scores_dashboard.error_download', 'Failed to download report card(s)'), { id: loadingToast });
       console.error(error);
     }
   };
@@ -593,16 +595,15 @@ const ScoresDashboard = () => {
   const handleEmailReport = async () => {
     if (!selectedStudentId || !gradeReport) return;
     
-    // In a real app, you might prompt for the email or get it from student/parent info
-    const recipientEmail = prompt("Enter recipient email address:");
+    const recipientEmail = prompt(t('scores_dashboard.prompt_email', 'Enter recipient email address:'));
     if (!recipientEmail) return;
 
     setIsSendingEmail(true);
     try {
       await enhancedStudentScoresService.sendReportEmail(selectedStudentId, recipientEmail, gradeReport);
-      toast.success(`Report card sent to ${recipientEmail}`);
+      toast.success(t('scores_dashboard.success_email', { email: recipientEmail }, `Report card sent to {{email}}`));
     } catch (error) {
-      toast.error('Failed to send report card via email');
+      toast.error(t('scores_dashboard.error_email', 'Failed to send report card via email'));
       console.error(error);
     } finally {
       setIsSendingEmail(false);
@@ -613,9 +614,9 @@ const ScoresDashboard = () => {
     try {
       await enhancedStudentScoresService.updateSettings({ report_card_theme: newTheme });
       queryClient.invalidateQueries({ queryKey: ['systemSettings'] });
-      toast.success(`Theme updated to ${newTheme}`);
+      toast.success(t('scores_dashboard.success_theme', { theme: newTheme }, `Theme updated to {{theme}}`));
     } catch (error) {
-      toast.error('Failed to update theme');
+      toast.error(t('scores_dashboard.error_theme', 'Failed to update theme'));
     }
   };
 
@@ -627,20 +628,20 @@ const ScoresDashboard = () => {
       queryClient.invalidateQueries({ queryKey: ['studentGradeReport', selectedStudentId, selectedTerm] });
       queryClient.invalidateQueries({ queryKey: ['studentAnalytics', selectedStudentId] });
     }
-    toast.success('Dashboard data refreshed');
+    toast.success(t('scores_dashboard.success_refresh', 'Dashboard data refreshed'));
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64 font-sans">
         <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading scores dashboard...</span>
+        <span className="ml-2">{t('scores_dashboard.loading_dashboard', 'Loading scores dashboard...')}</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Enhanced Curvy Header for the Dashboard */}
       <div className="bg-[#0b1e35] -mx-6 -mt-6 px-8 pt-8 pb-12 relative overflow-hidden rounded-b-[2rem] shadow-xl dashboard-header-print">
         <style>{`
@@ -683,12 +684,12 @@ const ScoresDashboard = () => {
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <h1 className="text-3xl font-black text-white uppercase tracking-tight merriweather drop-shadow-sm">
-              {settings.school_name || 'Scores Dashboard'}
+              {settings.school_name || t('scores_dashboard.default_title', 'Scores Dashboard')}
             </h1>
             <div className="flex items-center gap-3 mt-1">
               <div className="h-[2px] w-10" style={{ backgroundColor: themeColors.accent }}></div>
               <p className="font-bold text-sm uppercase tracking-wider" style={{ color: themeColors.accent }}>
-                {settings.school_tagline || 'Performance Analytics'}
+                {settings.school_tagline || t('scores_dashboard.default_tagline', 'Performance Analytics')}
               </p>
             </div>
           </div>
@@ -697,19 +698,19 @@ const ScoresDashboard = () => {
             <Select value={currentTheme} onValueChange={handleThemeChange}>
               <SelectTrigger className="w-36 bg-white/10 border-white/5 text-white h-9">
                 <Palette className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Theme" />
+                <SelectValue placeholder={t('scores_dashboard.theme_label', 'Theme')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="navy">Classic Navy</SelectItem>
-                <SelectItem value="emerald">Emerald Green</SelectItem>
-                <SelectItem value="royal">Royal Blue</SelectItem>
-                <SelectItem value="sunset">Sunset Orange</SelectItem>
+                <SelectItem value="navy">{t('scores_dashboard.theme_navy', 'Classic Navy')}</SelectItem>
+                <SelectItem value="emerald">{t('scores_dashboard.theme_emerald', 'Emerald Green')}</SelectItem>
+                <SelectItem value="royal">{t('scores_dashboard.theme_royal', 'Royal Blue')}</SelectItem>
+                <SelectItem value="sunset">{t('scores_dashboard.theme_sunset', 'Sunset Orange')}</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg border border-white/5">
               <Search className="h-4 w-4 text-white/60" />
               <input
-                placeholder="Search students..."
+                placeholder={t('scores_dashboard.search_placeholder', 'Search students...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-transparent border-none outline-none text-white text-sm placeholder:text-white/40 w-40"
@@ -721,10 +722,10 @@ const ScoresDashboard = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1month">1 Month</SelectItem>
-                <SelectItem value="3months">3 Months</SelectItem>
-                <SelectItem value="6months">6 Months</SelectItem>
-                <SelectItem value="1year">1 Year</SelectItem>
+                <SelectItem value="1month">{t('scores_dashboard.time_1month', '1 Month')}</SelectItem>
+                <SelectItem value="3months">{t('scores_dashboard.time_3months', '3 Months')}</SelectItem>
+                <SelectItem value="6months">{t('scores_dashboard.time_6months', '6 Months')}</SelectItem>
+                <SelectItem value="1year">{t('scores_dashboard.time_1year', '1 Year')}</SelectItem>
               </SelectContent>
             </Select>
             
@@ -733,10 +734,10 @@ const ScoresDashboard = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bar">Bar Chart</SelectItem>
-                <SelectItem value="line">Line Chart</SelectItem>
-                <SelectItem value="pie">Pie Chart</SelectItem>
-                <SelectItem value="radar">Radar Chart</SelectItem>
+                <SelectItem value="bar">{t('scores_dashboard.chart_bar', 'Bar Chart')}</SelectItem>
+                <SelectItem value="line">{t('scores_dashboard.chart_line', 'Line Chart')}</SelectItem>
+                <SelectItem value="pie">{t('scores_dashboard.chart_pie', 'Pie Chart')}</SelectItem>
+                <SelectItem value="radar">{t('scores_dashboard.chart_radar', 'Radar Chart')}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -751,54 +752,54 @@ const ScoresDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 -mt-10 relative z-20 px-2 summary-print-area">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Students</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">{t('scores_dashboard.stat_total_students', 'Total Students')}</CardTitle>
             <Users className="h-4 w-4 text-indigo-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary?.total_students || 0}</div>
-            <p className="text-xs text-gray-400 mt-1">Across all classes</p>
+            <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_total_students_desc', 'Across all classes')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Avg. Attendance</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">{t('scores_dashboard.stat_avg_attendance', 'Avg. Attendance')}</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary?.average_attendance_rate?.toFixed(1) || 0}%</div>
-            <p className="text-xs text-gray-400 mt-1">Current term average</p>
+            <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_avg_attendance_desc', 'Current term average')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Avg. Score</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">{t('scores_dashboard.stat_avg_score', 'Avg. Score')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(summary?.class_performance?.reduce((acc, curr) => acc + curr.average_score, 0) / 
+              {(summary?.class_performance?.reduce((acc: number, curr: any) => acc + curr.average_score, 0) / 
                 (summary?.class_performance?.length || 1)).toFixed(1)}%
             </div>
-            <p className="text-xs text-gray-400 mt-1">Overall performance</p>
+            <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_avg_score_desc', 'Overall performance')}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Top Performer</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">{t('scores_dashboard.stat_top_performer', 'Top Performer')}</CardTitle>
             <Award className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-700">92.4%</div>
-            <p className="text-xs text-gray-400 mt-1">Basic 5 - ADM2001</p>
+            <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_top_performer_desc', 'Basic 5 - ADM2001')}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto no-print">
-          <TabsTrigger value="student">Student Reports</TabsTrigger>
-          <TabsTrigger value="class">Class Performance</TabsTrigger>
-          <TabsTrigger value="analytics">Advanced Analytics</TabsTrigger>
+          <TabsTrigger value="student">{t('scores_dashboard.tab_student_reports', 'Student Reports')}</TabsTrigger>
+          <TabsTrigger value="class">{t('scores_dashboard.tab_class_performance', 'Class Performance')}</TabsTrigger>
+          <TabsTrigger value="analytics">{t('scores_dashboard.tab_advanced_analytics', 'Advanced Analytics')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="student" className="space-y-4">
@@ -807,7 +808,7 @@ const ScoresDashboard = () => {
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-center">
               <div className="w-full sm:w-[300px]">
                 <MultiSelect
-                  placeholder="Select Students"
+                  placeholder={t('scores_dashboard.select_students_placeholder', 'Select Students')}
                   options={students.map(s => {
                     const studentClass = classes.find(c => c.id === s.class_id);
                     return {
@@ -825,9 +826,9 @@ const ScoresDashboard = () => {
                 value={selectedTerm}
                 onChange={(e) => setSelectedTerm(e.target.value)}
               >
-                <option value="First Term">First Term</option>
-                <option value="Second Term">Second Term</option>
-                <option value="Third Term">Third Term</option>
+                <option value="First Term">{t('scores_dashboard.term_first', 'First Term')}</option>
+                <option value="Second Term">{t('scores_dashboard.term_second', 'Second Term')}</option>
+                <option value="Third Term">{t('scores_dashboard.term_third', 'Third Term')}</option>
               </select>
             </div>
             
@@ -842,7 +843,7 @@ const ScoresDashboard = () => {
                 ) : (
                   <Mail className="mr-2 h-4 w-4" />
                 )}
-                Email
+                {t('common.email', 'Email')}
               </Button>
               <Button 
                 variant="outline" 
@@ -850,7 +851,7 @@ const ScoresDashboard = () => {
                 onClick={handlePrintReport}
               >
                 <Printer className="mr-2 h-4 w-4" />
-                Print
+                {t('common.print', 'Print')}
               </Button>
               <Button 
                 variant="outline" 
@@ -858,7 +859,7 @@ const ScoresDashboard = () => {
                 onClick={handleDownloadPDF}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download PDF
+                {t('scores_dashboard.download_pdf', 'Download PDF')}
               </Button>
             </div>
           </div>
@@ -868,19 +869,19 @@ const ScoresDashboard = () => {
             <Card>
               <CardContent className="p-8 text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-                <p className="text-gray-500">Generating report card...</p>
+                <p className="text-gray-500">{t('scores_dashboard.generating_report', 'Generating report card...')}</p>
               </CardContent>
             </Card>
           ) : gradeReportError ? (
             <Card className="border-red-200 bg-red-50">
               <CardContent className="p-8 text-center">
                 <AlertCircle className="h-8 w-8 mx-auto mb-4 text-red-600" />
-                <h3 className="text-lg font-semibold text-red-900 mb-2">Failed to Generate Report</h3>
+                <h3 className="text-lg font-semibold text-red-900 mb-2">{t('scores_dashboard.failed_generate_report', 'Failed to Generate Report')}</h3>
                 <p className="text-red-700 mb-4">
-                  {(gradeReportError as any).response?.data?.message || 'An error occurred while generating the student report card.'}
+                  {(gradeReportError as any).response?.data?.message || t('scores_dashboard.generate_report_error_desc', 'An error occurred while generating the student report card.')}
                 </p>
                 <p className="text-sm text-red-600">
-                  Ensure the student has a valid progression record and grades for the selected term.
+                  {t('scores_dashboard.generate_report_error_hint', 'Ensure the student has a valid progression record and grades for the selected term.')}
                 </p>
               </CardContent>
             </Card>
@@ -900,7 +901,6 @@ const ScoresDashboard = () => {
                     style={{ clipPath: 'ellipse(120% 100% at 50% 0%)', backgroundColor: themeColors.primary }}
                   >
                     <div className="flex-shrink-0 bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/10 shadow-xl">
-                      {/* Logo could be dynamic here if settings.school_logo is a URL or SVG string */}
                       <svg width="76" height="79" viewBox="0 0 76 79" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M38 2L5 14V37C5 55.5 19.5 68.5 38 72C56.5 68.5 71 55.5 71 37V14L38 2Z" fill={themeColors.secondary}/>
                         <path d="M38 2L5 14V37C5 55.5 19.5 68.5 38 72C56.5 68.5 71 55.5 71 37V14L38 2Z" fill="none" stroke="#dfa832" strokeWidth="2.2"/>
@@ -920,12 +920,12 @@ const ScoresDashboard = () => {
                     </div>
                     <div>
                       <h1 className="merriweather text-[34px] font-black text-white leading-tight uppercase tracking-tight drop-shadow-md">
-                        {settings.school_name || 'ADMIPAEDIA ACADEMY'}
+                        {settings.school_name || t('scores_dashboard.default_school_name', 'ADMIPAEDIA ACADEMY')}
                       </h1>
                       <div className="flex items-center gap-3">
                         <div className="h-[2px] w-12" style={{ backgroundColor: themeColors.accent }}></div>
                         <p className="font-bold text-[13px] tracking-[0.05em] uppercase" style={{ color: themeColors.accent }}>
-                          {settings.school_tagline || 'Nurturing Minds. Building Futures.'}
+                          {settings.school_tagline || t('scores_dashboard.default_school_tagline', 'Nurturing Minds. Building Futures.')}
                         </p>
                       </div>
                     </div>
@@ -960,24 +960,24 @@ const ScoresDashboard = () => {
                   {/* Student Info Card Implementation */}
                   <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden shadow-sm bg-white">
                     <div style={{ backgroundColor: themeColors.primary }} className="py-1.5 text-center text-white text-[11px] font-black tracking-[0.15em] uppercase">
-                      Student Progress Report
+                      {t('scores_dashboard.report_title', 'Student Progress Report')}
                     </div>
                     <div className="grid grid-cols-[1.2fr_100px_1fr] p-4 gap-4 items-center">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Student Name:</span>
+                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.student_name_label', 'Student Name:')}</span>
                           <span className="text-[14px] font-black text-[#17202a] tracking-tight truncate">{gradeReport.student.name}</span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Class:</span>
+                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.class_label', 'Class:')}</span>
                           <span className="text-[14px] font-black text-[#17202a] tracking-tight">{gradeReport.student.class}</span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Academic Year:</span>
+                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.academic_year_label', 'Academic Year:')}</span>
                           <span className="text-[14px] font-bold text-[#17202a] tracking-tight">{gradeReport.session}</span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Term:</span>
+                          <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.term_label', 'Term:')}</span>
                           <span className="text-[14px] font-bold text-[#17202a] tracking-tight">{gradeReport.term}</span>
                         </div>
                       </div>
@@ -987,29 +987,29 @@ const ScoresDashboard = () => {
                           <div className="bg-white p-2 rounded-full shadow-sm border border-[#d5e8df] mb-1">
                             <User className="h-6 w-6 text-[#b8dece]" />
                           </div>
-                          <span className="text-[7px] font-black text-[#52626f] uppercase tracking-widest text-center px-1">Photo</span>
+                          <span className="text-[7px] font-black text-[#52626f] uppercase tracking-widest text-center px-1">{t('scores_dashboard.photo_placeholder', 'Photo')}</span>
                         </div>
                       </div>
 
                       <div className="space-y-3">
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Level:</span>
+                            <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.level_label', 'Level:')}</span>
                             <span className="text-[13px] font-bold text-[#17202a]">{gradeReport.student.educational_level}</span>
                           </div>
                           <div className="flex flex-col gap-0.5 text-right">
-                            <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">Adm No:</span>
+                            <span className="text-[9px] font-black text-[#52626f] uppercase tracking-widest">{t('scores_dashboard.adm_no_label', 'Adm No:')}</span>
                             <span className="text-[13px] font-bold text-[#17202a]">{gradeReport.student.admission_number}</span>
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
                           <div style={{ backgroundColor: themeColors.primary }} className="text-white text-center py-1.5 px-3 rounded-full text-[9px] font-black tracking-[0.12em] uppercase shadow-sm border border-white/5">
-                            Overall Performance
+                            {t('scores_dashboard.overall_performance_label', 'Overall Performance')}
                           </div>
                           <div style={{ borderColor: themeColors.secondary }} className="border-[2.5px] rounded-xl bg-white text-center py-2.5 shadow-md ring-2 ring-black/5 transition-all hover:scale-[1.01]">
                             <div style={{ color: themeColors.secondary }} className="text-[22px] font-black tracking-tighter leading-none">
-                              GPA: {gradeReport.gpa.toFixed(2)} / 4.00
+                              {t('scores_dashboard.gpa_value', { gpa: gradeReport.gpa.toFixed(2) }, 'GPA: {{gpa}} / 4.00')}
                             </div>
                           </div>
                         </div>
@@ -1025,25 +1025,25 @@ const ScoresDashboard = () => {
                           <TableHead className="text-white font-bold h-10 px-4 uppercase tracking-wider text-[11.5px]">
                             <div className="flex items-center gap-2">
                               <svg width="15" height="14" viewBox="0 0 15 14" fill="none" style={{ color: themeColors.accent }}><rect x=".5" y=".5" width="14" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><line x1=".5" y1="4.5" x2="14.5" y2="4.5" stroke="currentColor" strokeWidth="1.2"/><line x1="4" y1=".5" x2="4" y2="13.5" stroke="currentColor" strokeWidth="1.2"/></svg>
-                              Subject
+                              {t('scores_dashboard.subject_header', 'Subject')}
                             </div>
                           </TableHead>
                           <TableHead className="text-white font-bold h-10 px-4 text-center uppercase tracking-wider text-[11.5px]">
                             <div className="flex items-center justify-center gap-2">
                               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: themeColors.accent }}><rect x=".5" y=".5" width="13" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><line x1="3" y1="4.5" x2="11" y2="4.5" stroke="currentColor" strokeWidth="1.1"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" strokeWidth="1.1"/><line x1="3" y1="9.5" x2="8" y2="9.5" stroke="currentColor" strokeWidth="1.1"/></svg>
-                              Scores
+                              {t('scores_dashboard.scores_header', 'Scores')}
                             </div>
                           </TableHead>
                           <TableHead className="text-white font-bold h-10 px-4 text-center uppercase tracking-wider text-[11.5px]">
                             <div className="flex items-center justify-center gap-2">
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="5.5" stroke="#dfa832" strokeWidth="1.4"/><polygon points="8,3.5 9,6.2 12,6.2 9.8,8 10.6,10.8 8,9 5.4,10.8 6.2,8 4,6.2 7,6.2" fill="#dfa832"/><path d="M5.5 12.5 L8 11 L10.5 12.5" stroke="#dfa832" strokeWidth="1.3" fill="none" strokeLinecap="round"/><line x1="8" y1="12.5" x2="8" y2="15" stroke="#dfa832" strokeWidth="1.3"/></svg>
-                              Grade
+                              {t('scores_dashboard.grade_header', 'Grade')}
                             </div>
                           </TableHead>
                           <TableHead className="text-white font-bold h-10 px-4 uppercase tracking-wider text-[11.5px]">
                             <div className="flex items-center gap-2">
                               <svg width="16" height="13" viewBox="0 0 16 13" fill="none"><rect x=".5" y=".5" width="15" height="10" rx="1.5" stroke="white" strokeWidth="1.3"/><path d="M4.5 12.5L8 10.5L11.5 12.5" fill="white"/></svg>
-                              Remarks
+                              {t('scores_dashboard.remarks_header', 'Remarks')}
                             </div>
                           </TableHead>
                         </TableRow>
@@ -1072,32 +1072,32 @@ const ScoresDashboard = () => {
                   <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden shadow-sm">
                     <div style={{ backgroundColor: themeColors.light, color: themeColors.primary, borderBottomColor: '#b8dece' }} className="border-b-[1.5px] px-4 py-2.5 flex items-center gap-3 font-bold text-[12.5px] uppercase tracking-widest">
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ color: themeColors.secondary }}><path d="M9 1L1 4.5V9C1 14.2 4.4 17 9 18C13.6 17 17 14.2 17 9V4.5L9 1Z" fill="currentColor" fillOpacity=".15" stroke="currentColor" strokeWidth="1.5"/><path d="M6 9.5L8 11.5L12 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      General Assessment
+                      {t('scores_dashboard.general_assessment_label', 'General Assessment')}
                     </div>
                     <div className="flex items-center p-4 gap-6 bg-white">
                       <div style={{ color: themeColors.primary }} className="flex items-center gap-3 font-bold text-[12.5px] uppercase tracking-wider w-[160px] flex-shrink-0">
                         <div style={{ backgroundColor: themeColors.light, borderColor: '#b8dece' }} className="p-1.5 rounded-lg border">
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: themeColors.secondary }}><rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M4.5 5.5L11.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M4.5 8.5L11.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M4.5 11.5L8.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                         </div>
-                        Attendance
+                        {t('scores_dashboard.attendance_label', 'Attendance')}
                       </div>
                       <div className="w-[1.5px] bg-[#b8dece]/50 self-stretch mx-1"></div>
                       <div className="flex-1 text-center">
-                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">Total Days</div>
+                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">{t('scores_dashboard.total_days_label', 'Total Days')}</div>
                         <div style={{ color: themeColors.primary }} className="merriweather text-[22px] font-black leading-none tracking-tight">
                           {gradeReport.attendance?.total_days || 0}
                         </div>
                       </div>
                       <div className="w-[1.5px] bg-[#b8dece]/50 self-stretch mx-1"></div>
                       <div className="flex-1 text-center">
-                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">Present</div>
+                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">{t('scores_dashboard.present_days_label', 'Present')}</div>
                         <div style={{ color: themeColors.secondary }} className="merriweather text-[22px] font-black leading-none tracking-tight">
                           {(gradeReport.attendance?.present_days || 0) + (((gradeReport.attendance as any)?.late_days as number | undefined) || 0)}
                         </div>
                       </div>
                       <div className="w-[1.5px] bg-[#b8dece]/50 self-stretch mx-1"></div>
                       <div className="flex-1 text-center">
-                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">Rate</div>
+                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-1.5">{t('scores_dashboard.attendance_rate_label', 'Rate')}</div>
                         <div style={{ color: themeColors.secondary }} className="merriweather text-[22px] font-black leading-none tracking-tight">{gradeReport.attendance?.attendance_rate || 96.1}%</div>
                       </div>
                     </div>
@@ -1107,7 +1107,7 @@ const ScoresDashboard = () => {
                   <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden shadow-sm">
                     <div style={{ backgroundColor: themeColors.light, color: themeColors.primary, borderBottomColor: '#b8dece' }} className="border-b-[1.5px] px-4 py-2.5 flex items-center gap-3 font-bold text-[12.5px] uppercase tracking-widest">
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ color: themeColors.secondary }}><path d="M13 14V13C13 11.8954 12.1046 11 11 11H7C5.89543 11 5 11.8954 5 13V14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M16 14V13.5C16 12.1193 14.8807 11 13.5 11H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M2 14V13.5C2 12.1193 3.11929 11 4.5 11H5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                      Psychological and Social Perspective
+                      {t('scores_dashboard.psychological_label', 'Psychological and Social Perspective')}
                     </div>
                     <div className="p-4 grid grid-cols-3 gap-4 bg-white">
                       {gradeReport.core_competencies?.slice(0, 3).map((comp, idx) => (
@@ -1134,14 +1134,14 @@ const ScoresDashboard = () => {
                       <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden shadow-sm">
                         <div style={{ backgroundColor: themeColors.primary }} className="text-white text-[11px] font-bold tracking-widest uppercase px-4 py-2 flex items-center gap-2">
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3.5L7 8.5L12 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 7L7 12L12 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          Teacher Remarks
+                          {t('scores_dashboard.teacher_remarks_title', "Teacher Remarks")}
                         </div>
                         <div className="p-4 text-[13.5px] text-[#52626f] leading-relaxed italic min-h-[70px] bg-white">
-                          "{gradeReport.teacher_remarks || "A hardworking and respectful student. Continues to show improvement and a desire to learn."}"
+                          "{gradeReport.teacher_remarks || t('scores_dashboard.default_teacher_remarks', "A hardworking and respectful student. Continues to show improvement and a desire to learn.")}"
                         </div>
                       </div>
                       <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden border-dashed shadow-sm">
-                        <div style={{ backgroundColor: themeColors.primary }} className="text-white text-[11px] font-bold tracking-widest uppercase px-4 py-2">Parent Remarks</div>
+                        <div style={{ backgroundColor: themeColors.primary }} className="text-white text-[11px] font-bold tracking-widest uppercase px-4 py-2">{t('scores_dashboard.parent_remarks_title', 'Parent Remarks')}</div>
                         <div className="p-4 flex flex-col justify-around min-h-[70px] bg-[#fbfdfc]">
                           <div className="border-b border-[#e2ede8] w-full h-5"></div>
                           <div className="border-b border-[#e2ede8] w-full h-5"></div>
@@ -1154,7 +1154,7 @@ const ScoresDashboard = () => {
                   <div className="border-[1.5px] border-[#b8dece] rounded-xl overflow-hidden shadow-sm">
                     <div style={{ backgroundColor: themeColors.light, color: themeColors.primary, borderBottomColor: '#b8dece' }} className="border-b-[1.5px] px-4 py-2.5 flex items-center gap-3 font-bold text-[12.5px] uppercase tracking-widest">
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ color: themeColors.secondary }}><path d="M1.5 16.5H16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M3.5 13.5L6.5 7.5L9.5 10.5L14.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="3.5" cy="13.5" r="1.5" fill="currentColor"/><circle cx="6.5" cy="7.5" r="1.5" fill="currentColor"/><circle cx="9.5" cy="10.5" r="1.5" fill="currentColor"/><circle cx="14.5" cy="2.5" r="1.5" fill="currentColor"/></svg>
-                      Learning Analytics
+                      {t('scores_dashboard.learning_analytics_label', 'Learning Analytics')}
                     </div>
                     <div className="p-5 grid grid-cols-[220px_1fr_210px] gap-6 items-center bg-white">
                       <div className="h-52 bg-[#fbfdfc] rounded-xl border border-[#e2ede8] p-2">
@@ -1169,25 +1169,25 @@ const ScoresDashboard = () => {
                       <div className="space-y-4">
                         <h4 style={{ color: themeColors.primary }} className="text-[12px] font-black uppercase tracking-[1.5px] mb-4 flex items-center gap-2">
                           <div style={{ backgroundColor: themeColors.secondary }} className="h-1 w-6 rounded-full"></div>
-                          Performance Summary
+                          {t('scores_dashboard.perf_summary_label', 'Performance Summary')}
                         </h4>
                         <div className="space-y-3.5">
                           <div style={{ backgroundColor: themeColors.light, borderColor: `${themeColors.accent}33` }} className="flex items-start gap-3 text-[13.5px] p-2.5 rounded-lg border">
                             <Star className="h-4.5 w-4.5 text-[#dfa832] mt-0.5" fill="#dfa832" />
-                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">Strength</span><span className="text-[#52626f] font-medium">{gradeReport.subjects.filter(s => s.score > 85).map(s => s.name).slice(0, 2).join(', ') || 'N/A'}</span></div>
+                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">{t('scores_dashboard.strength_label', 'Strength')}</span><span className="text-[#52626f] font-medium">{gradeReport.subjects.filter(s => s.score > 85).map(s => s.name).slice(0, 2).join(', ') || 'N/A'}</span></div>
                           </div>
                           <div className="flex items-start gap-3 text-[13.5px] bg-[#f0f6fd] p-2.5 rounded-lg border border-[#9abfe8]/30">
                             <TrendingUp className="h-4.5 w-4.5 text-[#1a5eb8] mt-0.5" />
-                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">Improvement</span><span className="text-[#52626f] font-medium">Continue practicing complex problem-solving.</span></div>
+                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">{t('scores_dashboard.improvement_label', 'Improvement')}</span><span className="text-[#52626f] font-medium">{t('scores_dashboard.improvement_desc', 'Continue practicing complex problem-solving.')}</span></div>
                           </div>
                           <div className="flex items-start gap-3 text-[13.5px] bg-[#fff9ec] p-2.5 rounded-lg border border-[#f5cc7c]/30">
                             <BookOpen className="h-4.5 w-4.5 text-[#c97a0a] mt-0.5" />
-                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">Learning Style</span><span className="text-[#52626f] font-medium">Visual & Hands-on Learner</span></div>
+                            <div><span style={{ color: themeColors.primary }} className="font-bold uppercase text-[11px] tracking-wider block mb-0.5">{t('scores_dashboard.learning_style_label', 'Learning Style')}</span><span className="text-[#52626f] font-medium">{t('scores_dashboard.learning_style_desc', 'Visual & Hands-on Learner')}</span></div>
                           </div>
                         </div>
                       </div>
                       <div className="h-44 bg-[#fbfdfc] rounded-xl border border-[#e2ede8] p-4 flex flex-col">
-                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-3 text-center">GPA Progression</div>
+                        <div className="text-[10px] font-bold text-[#52626f] uppercase tracking-widest mb-3 text-center">{t('scores_dashboard.gpa_progression_label', 'GPA Progression')}</div>
                         <div className="flex-1">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={gradeReport.historical_gpas?.map((gpa, i) => ({ term: `Term ${i+1}`, gpa })) || [
@@ -1210,15 +1210,15 @@ const ScoresDashboard = () => {
                   <div style={{ borderTopColor: '#b8dece' }} className="grid grid-cols-3 gap-12 pt-10 pb-6 px-8 border-t bg-white">
                     <div className="text-center group">
                       <div style={{ borderTopColor: themeColors.primary }} className="border-t-2 w-full mx-auto mb-3 transition-all group-hover:w-[90%]"></div>
-                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">Teacher's Signature</p>
+                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">{t('scores_dashboard.signature_teacher', "Teacher's Signature")}</p>
                     </div>
                     <div className="text-center group">
                       <div style={{ borderTopColor: themeColors.primary }} className="border-t-2 w-full mx-auto mb-3 transition-all group-hover:w-[90%]"></div>
-                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">Parent / Guardian</p>
+                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">{t('scores_dashboard.signature_parent', 'Parent / Guardian')}</p>
                     </div>
                     <div className="text-center group">
                       <div style={{ borderTopColor: themeColors.primary }} className="border-t-2 w-full mx-auto mb-3 transition-all group-hover:w-[90%]"></div>
-                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">Principal's Signature</p>
+                      <p style={{ color: themeColors.primary }} className="text-[12.5px] font-bold uppercase tracking-widest">{t('scores_dashboard.signature_principal', "Principal's Signature")}</p>
                     </div>
                   </div>
                 </div>
@@ -1227,7 +1227,7 @@ const ScoresDashboard = () => {
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">Select a student to view their report card</p>
+                <p className="text-gray-500">{t('scores_dashboard.select_student_hint', 'Select a student to view their report card')}</p>
               </CardContent>
             </Card>
           )}
@@ -1237,14 +1237,14 @@ const ScoresDashboard = () => {
           {/* Class Performance Tab */}
           <Card>
             <CardHeader>
-              <CardTitle>Class Performance Overview</CardTitle>
-              <CardDescription>Academic performance summary for the selected class</CardDescription>
+              <CardTitle>{t('scores_dashboard.class_perf_title', 'Class Performance Overview')}</CardTitle>
+              <CardDescription>{t('scores_dashboard.class_perf_desc', 'Academic performance summary for the selected class')}</CardDescription>
             </CardHeader>
             <CardContent>
               {summaryLoading ? (
                 <div className="flex items-center justify-center h-32">
                   <Loader2 className="h-6 w-6 animate-spin" />
-                  <span className="ml-2">Loading class performance...</span>
+                  <span className="ml-2">{t('scores_dashboard.loading_class_perf', 'Loading class performance...')}</span>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1253,7 +1253,7 @@ const ScoresDashboard = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-600">Total Students</p>
+                            <p className="text-sm font-medium text-gray-600">{t('scores_dashboard.stat_total_students', 'Total Students')}</p>
                             <p className="text-2xl font-bold">{summary?.total_students || 0}</p>
                           </div>
                           <Users className="h-8 w-8 text-blue-600" />
@@ -1265,7 +1265,7 @@ const ScoresDashboard = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-600">Average Attendance</p>
+                            <p className="text-sm font-medium text-gray-600">{t('scores_dashboard.stat_avg_attendance', 'Average Attendance')}</p>
                             <p className="text-2xl font-bold">{summary?.average_attendance_rate || 0}%</p>
                           </div>
                           <TrendingUp className="h-8 w-8 text-green-600" />
@@ -1277,7 +1277,7 @@ const ScoresDashboard = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-600">Performance Trend</p>
+                            <p className="text-sm font-medium text-gray-600">{t('scores_dashboard.stat_perf_trend', 'Performance Trend')}</p>
                             <p className="text-2xl font-bold">
                               {summary?.trends && summary.trends.length > 0 ? 
                                 `${summary.trends[summary.trends.length - 1]?.average || 0}%` : 
@@ -1296,7 +1296,7 @@ const ScoresDashboard = () => {
                     {summary?.class_performance && summary.class_performance.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-base">Subject Performance Averages</CardTitle>
+                          <CardTitle className="text-base">{t('scores_dashboard.subject_perf_avg_title', 'Subject Performance Averages')}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <ResponsiveContainer width="100%" height={300}>
@@ -1315,7 +1315,7 @@ const ScoresDashboard = () => {
                     {summary?.trends && summary.trends.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-base">Academic Progress Trend</CardTitle>
+                          <CardTitle className="text-base">{t('scores_dashboard.acad_progress_trend_title', 'Academic Progress Trend')}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <ResponsiveContainer width="100%" height={300}>
@@ -1335,8 +1335,8 @@ const ScoresDashboard = () => {
                   {!summary?.class_performance?.length && !summary?.trends?.length && (
                     <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
                       <BookOpen className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-lg font-semibold text-gray-600">No performance data available yet</p>
-                      <p className="text-sm text-gray-500">Subject averages and trends will appear once grades are recorded.</p>
+                      <p className="text-lg font-semibold text-gray-600">{t('scores_dashboard.no_perf_data', 'No performance data available yet')}</p>
+                      <p className="text-sm text-gray-500">{t('scores_dashboard.no_perf_data_desc', 'Subject averages and trends will appear once grades are recorded.')}</p>
                     </div>
                   )}
                 </div>
@@ -1354,7 +1354,7 @@ const ScoresDashboard = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    Attendance Trends
+                    {t('scores_dashboard.attendance_trends_title', 'Attendance Trends')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1365,7 +1365,7 @@ const ScoresDashboard = () => {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Line type="monotone" dataKey="rate" stroke="#8884d8" name="Attendance Rate (%)" />
+                      <Line type="monotone" dataKey="rate" stroke="#8884d8" name={t('scores_dashboard.attendance_rate_legend', 'Attendance Rate (%)')} />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -1377,7 +1377,7 @@ const ScoresDashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Brain className="h-5 w-5" />
-                  AI-Powered Insights
+                  {t('scores_dashboard.ai_insights_title', 'AI-Powered Insights')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1402,7 +1402,7 @@ const ScoresDashboard = () => {
                             <p className="text-sm text-gray-700 mb-2">{insight.message}</p>
                             {insight.recommendation && (
                               <p className="text-xs text-gray-500">
-                                <strong>Recommendation:</strong> {insight.recommendation}
+                                <strong>{t('scores_dashboard.recommendation_badge', 'Recommendation:')}</strong> {insight.recommendation}
                               </p>
                             )}
                           </div>
@@ -1412,8 +1412,8 @@ const ScoresDashboard = () => {
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       <Brain className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>No insights available</p>
-                      <p className="text-sm">Select a student to generate AI insights</p>
+                      <p>{t('scores_dashboard.no_insights', 'No insights available')}</p>
+                      <p className="text-sm">{t('scores_dashboard.no_insights_desc', 'Select a student to generate AI insights')}</p>
                     </div>
                   )}
                 </div>

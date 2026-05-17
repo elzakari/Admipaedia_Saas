@@ -14,6 +14,22 @@ vi.mock('../../../services', () => ({
   },
 }));
 
+// Mock react-i18next
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, defaultValue: string, options?: any) => {
+      if (options && typeof defaultValue === 'string') {
+        let result = defaultValue;
+        Object.entries(options).forEach(([k, v]) => {
+          result = result.replace(`{{${k}}}`, String(v));
+        });
+        return result;
+      }
+      return defaultValue;
+    },
+  }),
+}));
+
 // Mock toast
 const mockToast = vi.fn();
 vi.mock('../../ui/use-toast', () => ({

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -117,6 +118,7 @@ const ELECTIVE_SUBJECTS = [
 ];
 
 const AcademicConfiguration = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('academic-year');
@@ -228,16 +230,16 @@ const AcademicConfiguration = () => {
     mutationFn: (updatedSettings: AcademicConfiguration) => settingsService.updateAcademicConfiguration(updatedSettings),
     onSuccess: () => {
       toast({
-        title: "Academic Configuration Updated",
-        description: "Academic settings have been updated successfully.",
+        title: t('admin_settings.updated_title', 'Academic Configuration Updated'),
+        description: t('admin_settings.updated_desc', 'Academic settings have been updated successfully.'),
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['academic-configuration'] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update academic configuration",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.update_failed', 'Failed to update academic configuration'),
         variant: "destructive"
       });
     }
@@ -248,8 +250,8 @@ const AcademicConfiguration = () => {
     const totalWeight = Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0);
     if (totalWeight !== 100) {
       toast({
-        title: "Validation Error",
-        description: `Assessment weights must total 100%. Current total: ${totalWeight}%`,
+        title: t('common.validation_error', 'Validation Error'),
+        description: t('admin_settings.assessment_weights_total_validation', 'Assessment weights must total 100%. Current total: {{total}}%', { total: totalWeight }),
         variant: "destructive"
       });
       return;
@@ -283,8 +285,8 @@ const AcademicConfiguration = () => {
   const handleGradeSave = () => {
     if (!newGrade.minScore || !newGrade.maxScore || !newGrade.grade) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all grade fields",
+        title: t('common.validation_error', 'Validation Error'),
+        description: t('admin_settings.fill_all_grade_fields', 'Please fill in all grade fields'),
         variant: "destructive"
       });
       return;
@@ -300,7 +302,7 @@ const AcademicConfiguration = () => {
     setEditingGrade(null);
     setNewGrade({});
     
-    toast({ title: "Grade Updated", description: "Grade range has been updated successfully.", variant: "default" });
+    toast({ title: t('admin_settings.grade_updated', 'Grade Updated'), description: t('admin_settings.grade_updated_desc', 'Grade range has been updated successfully.'), variant: "default" });
   };
 
   const handleGradeCancel = () => {
@@ -320,8 +322,8 @@ const AcademicConfiguration = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Academic Configuration</h2>
-          <p className="text-gray-500 dark:text-gray-400">Configure academic settings, grading systems, and term structures</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.academic', 'Academic Configuration')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.academic_desc', 'Configure academic settings, grading systems, and term structures')}</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -333,7 +335,7 @@ const AcademicConfiguration = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
         </Button>
       </div>
 
@@ -341,23 +343,23 @@ const AcademicConfiguration = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="academic-year" className="flex items-center gap-2 min-w-[170px]">
             <Calendar className="h-4 w-4" />
-            Academic Year
+            {t('admin_settings.academic_year', 'Academic Year')}
           </TabsTrigger>
           <TabsTrigger value="grading" className="flex items-center gap-2 min-w-[160px]">
             <Award className="h-4 w-4" />
-            Grading System
+            {t('admin_settings.grading_system', 'Grading System')}
           </TabsTrigger>
           <TabsTrigger value="assessment" className="flex items-center gap-2 min-w-[140px]">
             <Calculator className="h-4 w-4" />
-            Assessment
+            {t('admin_settings.assessment', 'Assessment')}
           </TabsTrigger>
           <TabsTrigger value="subjects" className="flex items-center gap-2 min-w-[130px]">
             <BookOpen className="h-4 w-4" />
-            Subjects
+            {t('admin_settings.subjects', 'Subjects')}
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2 min-w-[130px]">
             <Clock className="h-4 w-4" />
-            Settings
+            {t('admin_settings.settings', 'Settings')}
           </TabsTrigger>
         </TabsList>
 
@@ -366,16 +368,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Academic Year Configuration
+                {t('admin_settings.academic_year_config', 'Academic Year Configuration')}
               </CardTitle>
               <CardDescription>
-                Configure academic year and term settings
+                {t('admin_settings.academic_year_config_desc', 'Configure academic year and term settings')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="academic-year">Academic Year</Label>
+                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Academic Year')}</Label>
                   <Input
                     id="academic-year"
                     value={settings.academicYear}
@@ -384,20 +386,20 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="current-term">Current Term</Label>
+                  <Label htmlFor="current-term">{t('admin_settings.current_term', 'Current Term')}</Label>
                   <Select value={settings.currentTerm} onValueChange={(value) => handleInputChange('currentTerm', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="First Term">First Term</SelectItem>
-                      <SelectItem value="Second Term">Second Term</SelectItem>
-                      <SelectItem value="Third Term">Third Term</SelectItem>
+                      <SelectItem value="First Term">{t('admin_settings.first_term', 'First Term')}</SelectItem>
+                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Second Term')}</SelectItem>
+                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Third Term')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-start">Term Start Date</Label>
+                  <Label htmlFor="term-start">{t('admin_settings.term_start_date', 'Term Start Date')}</Label>
                   <Input
                     id="term-start"
                     type="date"
@@ -406,7 +408,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-end">Term End Date</Label>
+                  <Label htmlFor="term-end">{t('admin_settings.term_end_date', 'Term End Date')}</Label>
                   <Input
                     id="term-end"
                     type="date"
@@ -424,16 +426,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5" />
-                Grading System
+                {t('admin_settings.grading_system', 'Grading System')}
               </CardTitle>
               <CardDescription>
-                Configure grading scales and passing requirements
+                {t('admin_settings.grading_system_desc', 'Configure grading scales and passing requirements')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="grading-system">Grading System</Label>
+                  <Label htmlFor="grading-system">{t('admin_settings.grading_system', 'Grading System')}</Label>
                   <Select value={settings.gradingSystem} onValueChange={(value) => handleInputChange('gradingSystem', value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -448,7 +450,7 @@ const AcademicConfiguration = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="passing-grade">Passing Grade (%)</Label>
+                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade', 'Passing Grade (%)')}</Label>
                   <Input
                     id="passing-grade"
                     type="number"
@@ -459,7 +461,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="max-grade">Maximum Grade (%)</Label>
+                  <Label htmlFor="max-grade">{t('admin_settings.maximum_grade', 'Maximum Grade (%)')}</Label>
                   <Input
                     id="max-grade"
                     type="number"
@@ -472,17 +474,17 @@ const AcademicConfiguration = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Grade Scale</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.grade_scale', 'Grade Scale')}</h4>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Grade</TableHead>
-                        <TableHead>Min Score</TableHead>
-                        <TableHead>Max Score</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Grade Point</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t('admin_settings.grade', 'Grade')}</TableHead>
+                        <TableHead>{t('admin_settings.min_score', 'Min Score')}</TableHead>
+                        <TableHead>{t('admin_settings.max_score', 'Max Score')}</TableHead>
+                        <TableHead>{t('common.description', 'Description')}</TableHead>
+                        <TableHead>{t('admin_settings.grade_point', 'Grade Point')}</TableHead>
+                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -587,19 +589,19 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5" />
-                Assessment Configuration
+                {t('admin_settings.assessment_config', 'Assessment Configuration')}
               </CardTitle>
               <CardDescription>
-                Configure assessment types and their weights
+                {t('admin_settings.assessment_config_desc', 'Configure assessment types and their weights')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Assessment Weights</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.assessment_weights', 'Assessment Weights')}</h4>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <Label htmlFor="exams-weight">Exams</Label>
+                      <Label htmlFor="exams-weight">{t('admin_settings.exams', 'Exams')}</Label>
                       <span className="text-sm text-gray-500">{settings.assessmentWeights.exams}%</span>
                     </div>
                     <Input
@@ -613,7 +615,7 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <Label htmlFor="assignments-weight">Assignments</Label>
+                      <Label htmlFor="assignments-weight">{t('admin_settings.assignments', 'Assignments')}</Label>
                       <span className="text-sm text-gray-500">{settings.assessmentWeights.assignments}%</span>
                     </div>
                     <Input
@@ -627,7 +629,7 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <Label htmlFor="quizzes-weight">Quizzes</Label>
+                      <Label htmlFor="quizzes-weight">{t('admin_settings.quizzes', 'Quizzes')}</Label>
                       <span className="text-sm text-gray-500">{settings.assessmentWeights.quizzes}%</span>
                     </div>
                     <Input
@@ -641,7 +643,7 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <Label htmlFor="projects-weight">Projects</Label>
+                      <Label htmlFor="projects-weight">{t('admin_settings.projects', 'Projects')}</Label>
                       <span className="text-sm text-gray-500">{settings.assessmentWeights.projects}%</span>
                     </div>
                     <Input
@@ -655,7 +657,7 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <Label htmlFor="participation-weight">Class Participation</Label>
+                      <Label htmlFor="participation-weight">{t('admin_settings.class_participation', 'Class Participation')}</Label>
                       <span className="text-sm text-gray-500">{settings.assessmentWeights.classParticipation}%</span>
                     </div>
                     <Input
@@ -673,11 +675,11 @@ const AcademicConfiguration = () => {
                   <div className="flex items-start">
                     <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Weight</h4>
+                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Total Weight')}</h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                        Current total: {Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0)}%
+                        {t('admin_settings.current_total', 'Current total:')} {Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0)}%
                         {Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0) !== 100 && (
-                          <span className="text-amber-600"> (Should equal 100%)</span>
+                          <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Should equal 100%)')}</span>
                         )}
                       </p>
                     </div>
@@ -697,16 +699,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Class & Attendance Settings
+                {t('admin_settings.class_attendance_settings', 'Class & Attendance Settings')}
               </CardTitle>
               <CardDescription>
-                Configure class management and attendance requirements
+                {t('admin_settings.class_attendance_settings_desc', 'Configure class management and attendance requirements')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="max-students">Maximum Students per Class</Label>
+                  <Label htmlFor="max-students">{t('admin_settings.max_students_per_class', 'Maximum Students per Class')}</Label>
                   <Input
                     id="max-students"
                     type="number"
@@ -717,7 +719,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="min-students">Minimum Students per Class</Label>
+                  <Label htmlFor="min-students">{t('admin_settings.min_students_per_class', 'Minimum Students per Class')}</Label>
                   <Input
                     id="min-students"
                     type="number"
@@ -728,7 +730,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="class-duration">Class Duration (minutes)</Label>
+                  <Label htmlFor="class-duration">{t('admin_settings.class_duration', 'Class Duration (minutes)')}</Label>
                   <Input
                     id="class-duration"
                     type="number"
@@ -739,7 +741,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="break-duration">Break Duration (minutes)</Label>
+                  <Label htmlFor="break-duration">{t('admin_settings.break_duration', 'Break Duration (minutes)')}</Label>
                   <Input
                     id="break-duration"
                     type="number"
@@ -754,9 +756,9 @@ const AcademicConfiguration = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="attendance-required">Attendance Required</Label>
+                    <Label htmlFor="attendance-required">{t('admin_settings.attendance_required', 'Attendance Required')}</Label>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Track and require minimum attendance
+                      {t('admin_settings.attendance_required_desc', 'Track and require minimum attendance')}
                     </p>
                   </div>
                   <Switch
@@ -768,7 +770,7 @@ const AcademicConfiguration = () => {
 
                 {settings.attendanceRequired && (
                   <div className="space-y-2">
-                    <Label htmlFor="minimum-attendance">Minimum Attendance (%)</Label>
+                    <Label htmlFor="minimum-attendance">{t('admin_settings.minimum_attendance', 'Minimum Attendance (%)')}</Label>
                     <Input
                       id="minimum-attendance"
                       type="number"
@@ -777,19 +779,19 @@ const AcademicConfiguration = () => {
                       value={settings.minimumAttendance}
                       onChange={(e) => handleInputChange('minimumAttendance', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">Minimum attendance required to pass</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.minimum_attendance_hint', 'Minimum attendance required to pass')}</p>
                   </div>
                 )}
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">Academic Features</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.academic_features', 'Academic Features')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="online-exams">Online Exams</Label>
+                      <Label htmlFor="online-exams">{t('admin_settings.online_exams', 'Online Exams')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Enable online examination system
+                        {t('admin_settings.online_exams_desc', 'Enable online examination system')}
                       </p>
                     </div>
                     <Switch
@@ -800,9 +802,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="grade-moderation">Grade Moderation</Label>
+                      <Label htmlFor="grade-moderation">{t('admin_settings.grade_moderation', 'Grade Moderation')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Enable grade moderation process
+                        {t('admin_settings.grade_moderation_desc', 'Enable grade moderation process')}
                       </p>
                     </div>
                     <Switch
@@ -813,9 +815,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="parent-portal">Parent Portal Grades</Label>
+                      <Label htmlFor="parent-portal">{t('admin_settings.parent_portal_grades', 'Parent Portal Grades')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Show grades in parent portal
+                        {t('admin_settings.parent_portal_grades_desc', 'Show grades in parent portal')}
                       </p>
                     </div>
                     <Switch
@@ -826,9 +828,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="transcript-generation">Transcript Generation</Label>
+                      <Label htmlFor="transcript-generation">{t('admin_settings.transcript_generation', 'Transcript Generation')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Enable automatic transcript generation
+                        {t('admin_settings.transcript_generation_desc', 'Enable automatic transcript generation')}
                       </p>
                     </div>
                     <Switch

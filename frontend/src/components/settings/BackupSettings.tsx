@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -17,19 +18,14 @@ import {
   Clock, 
   Download, 
   Upload, 
-  Settings, 
   Save,
   RefreshCw,
   Trash2,
   AlertCircle,
-  CheckCircle,
-  Play,
-  Pause,
-  Calendar,
   HardDrive,
   Globe,
-  Shield,
-  History
+  History,
+  Calendar
 } from 'lucide-react';
 import { settingsService } from '../../services';
 import { format, isValid } from 'date-fns';
@@ -66,19 +62,6 @@ interface BackupSettings {
   notificationEmail: string;
 }
 
-interface BackupRecord {
-  id: string;
-  timestamp: string;
-  type: 'automatic' | 'manual';
-  size: number;
-  status: 'completed' | 'failed' | 'in_progress';
-  duration: number;
-  files: number;
-  storage: string;
-  checksum: string;
-  error?: string;
-}
-
 interface BackupSchedule {
   nextBackup: string;
   lastBackup: string;
@@ -87,6 +70,7 @@ interface BackupSchedule {
 }
 
 const BackupSettings = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -167,16 +151,16 @@ const BackupSettings = () => {
     mutationFn: (updatedSettings: BackupSettings) => settingsService.updateBackupSettings(updatedSettings),
     onSuccess: () => {
       toast({
-        title: "Backup Settings Updated",
-        description: "Backup configuration has been updated successfully.",
+        title: t('admin_settings.settings_updated', 'Backup Settings Updated'),
+        description: t('admin_settings.settings_updated_desc', 'Backup configuration has been updated successfully.'),
         variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ['backup-settings'] });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update backup settings",
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.update_failed', 'Failed to update backup settings'),
         variant: "destructive"
       });
     }
@@ -187,8 +171,8 @@ const BackupSettings = () => {
     mutationFn: (type: 'manual' | 'automatic') => settingsService.createBackup(type),
     onSuccess: () => {
       toast({
-        title: "Backup Created",
-        description: "Manual backup has been created successfully.",
+        title: t('admin_settings.backup_created', 'Backup Created'),
+        description: t('admin_settings.backup_created_desc', 'Manual backup has been created successfully.'),
         variant: "default"
       });
       setIsCreatingBackup(false);
@@ -197,8 +181,8 @@ const BackupSettings = () => {
     },
     onError: (error: any) => {
       toast({
-        title: "Backup Failed",
-        description: error.message || "Failed to create backup",
+        title: t('admin_settings.backup_failed', 'Backup Failed'),
+        description: error.message || t('admin_settings.backup_failed_desc', 'Failed to create backup'),
         variant: "destructive"
       });
       setIsCreatingBackup(false);
@@ -211,8 +195,8 @@ const BackupSettings = () => {
     mutationFn: (backupId: string) => settingsService.restoreBackup(backupId),
     onSuccess: () => {
       toast({
-        title: "Restore Completed",
-        description: "System has been restored from backup successfully.",
+        title: t('admin_settings.restore_completed', 'Restore Completed'),
+        description: t('admin_settings.restore_completed_desc', 'System has been restored from backup successfully.'),
         variant: "default"
       });
       setIsRestoring(false);
@@ -220,8 +204,8 @@ const BackupSettings = () => {
     },
     onError: (error: any) => {
       toast({
-        title: "Restore Failed",
-        description: error.message || "Failed to restore from backup",
+        title: t('admin_settings.restore_failed', 'Restore Failed'),
+        description: error.message || t('admin_settings.restore_failed_desc', 'Failed to restore from backup'),
         variant: "destructive"
       });
       setIsRestoring(false);
@@ -271,19 +255,19 @@ const BackupSettings = () => {
   };
 
   const handleDeleteBackup = async (backupId: string) => {
-    if (confirm('Are you sure you want to delete this backup? This action cannot be undone.')) {
+    if (confirm(t('admin_settings.delete_backup_confirm', 'Are you sure you want to delete this backup? This action cannot be undone.'))) {
       try {
         await settingsService.deleteBackup(backupId);
         toast({
-          title: "Backup Deleted",
-          description: "Backup has been deleted successfully.",
+          title: t('admin_settings.backup_deleted', 'Backup Deleted'),
+          description: t('admin_settings.backup_deleted_desc', 'Backup has been deleted successfully.'),
           variant: "default"
         });
         queryClient.invalidateQueries({ queryKey: ['backup-history'] });
       } catch (error: any) {
         toast({
-          title: "Delete Failed",
-          description: error.message || "Failed to delete backup",
+          title: t('admin_settings.delete_failed', 'Delete Failed'),
+          description: error.message || t('admin_settings.delete_failed_desc', 'Failed to delete backup'),
           variant: "destructive"
         });
       }
@@ -307,13 +291,13 @@ const BackupSettings = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800">{t('common.completed', 'Completed')}</Badge>;
       case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
+        return <Badge variant="destructive">{t('common.failed', 'Failed')}</Badge>;
       case 'in_progress':
-        return <Badge variant="secondary">In Progress</Badge>;
+        return <Badge variant="secondary">{t('common.in_progress', 'In Progress')}</Badge>;
       default:
-        return <Badge variant="outline">Unknown</Badge>;
+        return <Badge variant="outline">{t('common.unknown', 'Unknown')}</Badge>;
     }
   };
 
@@ -330,8 +314,8 @@ const BackupSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Backup & Recovery</h2>
-          <p className="text-gray-500 dark:text-gray-400">Configure data backup and recovery options</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.backup_recovery', 'Backup & Recovery')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.backup_recovery_desc', 'Configure data backup and recovery options')}</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -344,7 +328,7 @@ const BackupSettings = () => {
             ) : (
               <Database className="h-4 w-4" />
             )}
-            {isCreatingBackup ? 'Creating...' : 'Create Backup'}
+            {isCreatingBackup ? t('common.creating', 'Creating...') : t('admin_settings.create_backup', 'Create Backup')}
           </Button>
           <Button 
             onClick={handleSaveSettings}
@@ -357,7 +341,7 @@ const BackupSettings = () => {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Save Settings
+            {t('school_settings.save_changes', 'Save Settings')}
           </Button>
         </div>
       </div>
@@ -368,13 +352,13 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 animate-spin" />
-              Creating Backup
+              {t('admin_settings.creating_backup', 'Creating Backup')}
             </CardTitle>
-            <CardDescription>Please wait while we create your backup</CardDescription>
+            <CardDescription>{t('admin_settings.creating_backup_desc', 'Please wait while we create your backup')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Progress value={backupProgress} className="w-full" />
-            <p className="text-sm text-gray-500 mt-2">{backupProgress}% complete</p>
+            <p className="text-sm text-gray-500 mt-2">{backupProgress}{t('admin_settings.percent_complete', '% complete')}</p>
           </CardContent>
         </Card>
       )}
@@ -386,7 +370,7 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Next Backup
+                {t('admin_settings.next_backup', 'Next Backup')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -399,13 +383,13 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <History className="h-4 w-4" />
-                Last Backup
+                {t('admin_settings.last_backup', 'Last Backup')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{hasLast ? format(lastBackupDate!, 'MMM dd, HH:mm') : '—'}</p>
               <p className="text-sm text-gray-500">
-                {hasLast ? `${Math.floor((Date.now() - lastBackupDate!.getTime()) / (1000 * 60 * 60))} hours ago` : '—'}
+                {hasLast ? `${Math.floor((Date.now() - lastBackupDate!.getTime()) / (1000 * 60 * 60))} ${t('admin_settings.hours_ago', 'hours ago')}` : '—'}
               </p>
             </CardContent>
           </Card>
@@ -414,12 +398,12 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <HardDrive className="h-4 w-4" />
-                Storage Status
+                {t('admin_settings.storage_status', 'Storage Status')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{normalizedSchedule.availableSpace || '—'}</p>
-              <p className="text-sm text-gray-500">Available space</p>
+              <p className="text-sm text-gray-500">{t('admin_settings.available_space', 'Available space')}</p>
             </CardContent>
           </Card>
         </div>
@@ -431,15 +415,15 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Auto Backup Configuration
+              {t('admin_settings.auto_backup_config', 'Auto Backup Configuration')}
             </CardTitle>
-            <CardDescription>Configure automatic backup settings</CardDescription>
+            <CardDescription>{t('admin_settings.auto_backup_config_desc', 'Configure automatic backup settings')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="auto-backup">Enable Auto Backup</Label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Automatically create backups on schedule</p>
+                <Label htmlFor="auto-backup">{t('admin_settings.enable_auto_backup', 'Enable Auto Backup')}</Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.auto_backup_desc', 'Automatically create backups on schedule')}</p>
               </div>
               <Switch
                 id="auto-backup"
@@ -452,20 +436,20 @@ const BackupSettings = () => {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="backup-frequency">Frequency</Label>
+                    <Label htmlFor="backup-frequency">{t('admin_settings.frequency', 'Frequency')}</Label>
                     <Select value={settings.backupFrequency} onValueChange={(value) => handleInputChange('backupFrequency', value)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="daily">{t('admin_settings.daily', 'Daily')}</SelectItem>
+                        <SelectItem value="weekly">{t('admin_settings.weekly', 'Weekly')}</SelectItem>
+                        <SelectItem value="monthly">{t('admin_settings.monthly', 'Monthly')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="backup-time">Time</Label>
+                    <Label htmlFor="backup-time">{t('common.time', 'Time')}</Label>
                     <Input
                       id="backup-time"
                       type="time"
@@ -475,7 +459,7 @@ const BackupSettings = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="retention">Retention Period (days)</Label>
+                  <Label htmlFor="retention">{t('admin_settings.retention_period', 'Retention Period (days)')}</Label>
                   <Input
                     id="retention"
                     type="number"
@@ -495,28 +479,28 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <HardDrive className="h-5 w-5" />
-              Storage Configuration
+              {t('admin_settings.storage_config', 'Storage Configuration')}
             </CardTitle>
-            <CardDescription>Configure backup storage options</CardDescription>
+            <CardDescription>{t('admin_settings.storage_config_desc', 'Configure backup storage options')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="storage-type">Storage Type</Label>
+              <Label htmlFor="storage-type">{t('admin_settings.storage_type', 'Storage Type')}</Label>
               <Select value={settings.storageType} onValueChange={(value) => handleInputChange('storageType', value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="local">Local Storage</SelectItem>
-                  <SelectItem value="cloud">Cloud Storage</SelectItem>
-                  <SelectItem value="hybrid">Hybrid (Local + Cloud)</SelectItem>
+                  <SelectItem value="local">{t('admin_settings.local_storage', 'Local Storage')}</SelectItem>
+                  <SelectItem value="cloud">{t('admin_settings.cloud_storage', 'Cloud Storage')}</SelectItem>
+                  <SelectItem value="hybrid">{t('admin_settings.hybrid_storage', 'Hybrid (Local + Cloud)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {settings.storageType !== 'cloud' && (
               <div className="space-y-2">
-                <Label htmlFor="local-path">Local Storage Path</Label>
+                <Label htmlFor="local-path">{t('admin_settings.local_path', 'Local Storage Path')}</Label>
                 <Input
                   id="local-path"
                   value={settings.localStoragePath}
@@ -529,21 +513,21 @@ const BackupSettings = () => {
             {(settings.storageType === 'cloud' || settings.storageType === 'hybrid') && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="cloud-provider">Cloud Provider</Label>
+                  <Label htmlFor="cloud-provider">{t('admin_settings.cloud_provider', 'Cloud Provider')}</Label>
                   <Select value={settings.cloudProvider} onValueChange={(value) => handleInputChange('cloudProvider', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="aws">Amazon Web Services</SelectItem>
-                      <SelectItem value="gcp">Google Cloud Platform</SelectItem>
-                      <SelectItem value="azure">Microsoft Azure</SelectItem>
-                      <SelectItem value="custom">Custom S3 Compatible</SelectItem>
+                      <SelectItem value="aws">{t('admin_settings.aws', 'Amazon Web Services')}</SelectItem>
+                      <SelectItem value="gcp">{t('admin_settings.gcp', 'Google Cloud Platform')}</SelectItem>
+                      <SelectItem value="azure">{t('admin_settings.azure', 'Microsoft Azure')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_settings.custom_s3', 'Custom S3 Compatible')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cloud-bucket">Bucket/Container Name</Label>
+                  <Label htmlFor="cloud-bucket">{t('admin_settings.bucket_name', 'Bucket/Container Name')}</Label>
                   <Input
                     id="cloud-bucket"
                     value={settings.cloudBucket}
@@ -556,8 +540,8 @@ const BackupSettings = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="encryption">Enable Encryption</Label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Encrypt backup data</p>
+                <Label htmlFor="encryption">{t('admin_settings.enable_encryption', 'Enable Encryption')}</Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.encrypt_desc', 'Encrypt backup data')}</p>
               </div>
               <Switch
                 id="encryption"
@@ -574,16 +558,16 @@ const BackupSettings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            Backup Content
+            {t('admin_settings.backup_content', 'Backup Content')}
           </CardTitle>
-          <CardDescription>Select what data to include in backups</CardDescription>
+          <CardDescription>{t('admin_settings.backup_content_desc', 'Select what data to include in backups')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-students">Student Data</Label>
-                <p className="text-sm text-gray-500">Student records and profiles</p>
+                <Label htmlFor="backup-students">{t('admin_settings.student_data', 'Student Data')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.student_data_desc', 'Student records and profiles')}</p>
               </div>
               <Switch
                 id="backup-students"
@@ -593,8 +577,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-teachers">Teacher Data</Label>
-                <p className="text-sm text-gray-500">Teacher records and profiles</p>
+                <Label htmlFor="backup-teachers">{t('admin_settings.teacher_data', 'Teacher Data')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.teacher_data_desc', 'Teacher records and profiles')}</p>
               </div>
               <Switch
                 id="backup-teachers"
@@ -604,8 +588,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-academic">Academic Data</Label>
-                <p className="text-sm text-gray-500">Grades, schedules, curriculum</p>
+                <Label htmlFor="backup-academic">{t('admin_settings.academic_data', 'Academic Data')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.academic_data_desc', 'Grades, schedules, curriculum')}</p>
               </div>
               <Switch
                 id="backup-academic"
@@ -615,8 +599,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-financial">Financial Data</Label>
-                <p className="text-sm text-gray-500">Fees, payments, transactions</p>
+                <Label htmlFor="backup-financial">{t('admin_settings.financial_data', 'Financial Data')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.financial_data_desc', 'Fees, payments, transactions')}</p>
               </div>
               <Switch
                 id="backup-financial"
@@ -626,8 +610,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-settings">System Settings</Label>
-                <p className="text-sm text-gray-500">Configuration and preferences</p>
+                <Label htmlFor="backup-settings">{t('admin_settings.system_settings', 'System Settings')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.system_settings_desc', 'Configuration and preferences')}</p>
               </div>
               <Switch
                 id="backup-settings"
@@ -637,8 +621,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-media">Media Files</Label>
-                <p className="text-sm text-gray-500">Images, documents, uploads</p>
+                <Label htmlFor="backup-media">{t('admin_settings.media_files', 'Media Files')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.media_files_desc', 'Images, documents, uploads')}</p>
               </div>
               <Switch
                 id="backup-media"
@@ -655,29 +639,29 @@ const BackupSettings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            Backup History
+            {t('admin_settings.backup_history', 'Backup History')}
           </CardTitle>
-          <CardDescription>Recent backup operations and their status</CardDescription>
+          <CardDescription>{t('admin_settings.backup_history_desc', 'Recent backup operations and their status')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {backupHistory.length === 0 ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>No backups found. Create your first backup to get started.</AlertDescription>
+                <AlertDescription>{t('admin_settings.no_backups_found', 'No backups found. Create your first backup to get started.')}</AlertDescription>
               </Alert>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Duration</TableHead>
-                      <TableHead>Storage</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('common.date_time', 'Date & Time')}</TableHead>
+                      <TableHead>{t('common.type', 'Type')}</TableHead>
+                      <TableHead>{t('common.status', 'Status')}</TableHead>
+                      <TableHead>{t('common.size', 'Size')}</TableHead>
+                      <TableHead>{t('common.duration', 'Duration')}</TableHead>
+                      <TableHead>{t('admin_settings.storage', 'Storage')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
