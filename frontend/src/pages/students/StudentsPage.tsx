@@ -67,8 +67,10 @@ import { StudentProfile } from '../../types/student';
 import { TouchFriendlyButton } from '../../components/common/TouchFriendlyButton';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import ApiDebugPanel from '../../components/debug/ApiDebugPanel';
+import { useTranslation } from 'react-i18next';
 
 export function StudentsPage() {
+  const { t } = useTranslation();
   useTheme();
   const { toast } = useToast();
   const isMobile = useMediaQuery('(max-width: 640px)');
@@ -186,10 +188,10 @@ export function StudentsPage() {
     const atRiskCount = analyticsSummary?.at_risk_students_count;
 
     return [
-      { name: "Total Students", value: String(totalStudents), icon: Users, color: "bg-blue-500" },
-      { name: "Average Attendance", value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
-      { name: "Average Performance", value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
-      { name: "At-Risk Students", value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
+      { name: t('students_page.total_students', 'Total Students'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
+      { name: t('students_page.avg_attendance', 'Average Attendance'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
+      { name: t('students_page.avg_performance', 'Average Performance'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
+      { name: t('students_page.at_risk_students', 'At-Risk Students'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
     ];
   };
 
@@ -485,7 +487,7 @@ export function StudentsPage() {
         className="flex items-center gap-2"
       >
         <Plus className="h-4 w-4" />
-        Add Student
+        {t('students_page.add_student', 'Add Student')}
       </TouchFriendlyButton>
       <TouchFriendlyButton
         size="sm"
@@ -494,7 +496,7 @@ export function StudentsPage() {
         className="flex items-center gap-2"
       >
         <Download className="h-4 w-4" />
-        Export
+        {t('common.export', 'Export')}
       </TouchFriendlyButton>
       <TouchFriendlyButton
         size="sm"
@@ -503,7 +505,7 @@ export function StudentsPage() {
         className="flex items-center gap-2"
       >
         <Printer className="h-4 w-4" />
-        Print
+        {t('common.print', 'Print')}
       </TouchFriendlyButton>
       <TouchFriendlyButton
         size="sm"
@@ -512,7 +514,7 @@ export function StudentsPage() {
         className="flex items-center gap-2"
       >
         <Share2 className="h-4 w-4" />
-        Share
+        {t('common.share', 'Share')}
       </TouchFriendlyButton>
     </div>
   );
@@ -523,7 +525,7 @@ export function StudentsPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search students by name, email, or ID..."
+            placeholder={t('students_page.search_placeholder', 'Search students by name, email, or ID...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -537,7 +539,7 @@ export function StudentsPage() {
           className="px-3 py-2 border rounded-md"
           data-testid="grade-filter"
         >
-          <option value="All">All Grades</option>
+          <option value="All">{t('students_page.all_grades', 'All Grades')}</option>
           <option value="Grade 1">Grade 1</option>
           <option value="Grade 2">Grade 2</option>
           <option value="Grade 3">Grade 3</option>
@@ -551,10 +553,10 @@ export function StudentsPage() {
           className="px-3 py-2 border rounded-md"
           data-testid="status-filter"
         >
-          <option value="All">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="graduated">Graduated</option>
+          <option value="All">{t('students_page.all_statuses', 'All Status')}</option>
+          <option value="active">{t('common.active', 'Active')}</option>
+          <option value="inactive">{t('common.inactive', 'Inactive')}</option>
+          <option value="graduated">{t('common.graduated', 'Graduated')}</option>
         </select>
       </div>
     </div>
@@ -568,14 +570,14 @@ export function StudentsPage() {
         onClick={() => setViewMode('list')}
         disabled={isMobile}
       >
-        List
+        {t('common.list', 'List')}
       </TouchFriendlyButton>
       <TouchFriendlyButton
         size="sm"
         variant={viewMode === 'grid' ? 'primary' : 'outline'}
         onClick={() => setViewMode('grid')}
       >
-        Grid
+        {t('common.grid', 'Grid')}
       </TouchFriendlyButton>
     </div>
   );
@@ -695,8 +697,8 @@ export function StudentsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading students...</p>
-            <p className="text-sm text-gray-500 mt-2">Fetching data from /api/v1/students</p>
+            <p className="text-gray-600">{t('students_page.loading_title', 'Loading students...')}</p>
+            <p className="text-sm text-gray-500 mt-2">{t('students_page.loading_desc', 'Fetching data from /api/v1/students')}</p>
           </div>
         </div>
       </div>
@@ -713,7 +715,7 @@ export function StudentsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center max-w-md">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Students</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('students_page.loading_error_title', 'Failed to Load Students')}</h3>
             <p className="text-gray-600 mb-4">{errorMessage}</p>
             
             {/* Detailed error information */}
@@ -730,13 +732,13 @@ export function StudentsPage() {
             
             <div className="flex gap-2 justify-center">
               <Button onClick={() => refetch()} variant="default">
-                Try Again
+                {t('common.try_again', 'Try Again')}
               </Button>
               <Button 
                 onClick={() => window.location.reload()} 
                 variant="outline"
               >
-                Refresh Page
+                {t('common.refresh_page', 'Refresh Page')}
               </Button>
             </div>
           </div>
@@ -750,8 +752,8 @@ export function StudentsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-            <p className="text-gray-600">Manage student records and academic information</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('navigation.students', 'Students')}</h1>
+            <p className="text-gray-600">{t('students_page.subtitle', 'Manage student records and academic information')}</p>
           </div>
           {renderQuickActions()}
         </div>
@@ -787,9 +789,9 @@ export function StudentsPage() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <CardTitle>Student Directory</CardTitle>
+                <CardTitle>{t('students_page.directory_title', 'Student Directory')}</CardTitle>
                 <CardDescription>
-                  {sortedStudents.length} students found
+                  {sortedStudents.length} {t('students_page.students_found', 'students found')}
                 </CardDescription>
               </div>
               {renderViewModeToggle()}
@@ -798,10 +800,10 @@ export function StudentsPage() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">All Students</TabsTrigger>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="inactive">Inactive</TabsTrigger>
-                <TabsTrigger value="graduated">Graduated</TabsTrigger>
+                <TabsTrigger value="all">{t('students_page.all_students', 'All Students')}</TabsTrigger>
+                <TabsTrigger value="active">{t('common.active', 'Active')}</TabsTrigger>
+                <TabsTrigger value="inactive">{t('common.inactive', 'Inactive')}</TabsTrigger>
+                <TabsTrigger value="graduated">{t('common.graduated', 'Graduated')}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="all" className="space-y-4">
@@ -813,7 +815,7 @@ export function StudentsPage() {
                     onRowClick={(student) => handleStudentSelect(student.id)}
                     containerHeight={600}
                     itemHeight={80}
-                    emptyMessage="No students found"
+                    emptyMessage={t('students_page.no_students_found', 'No students found')}
                     isLoading={isLoading}
                   />
                 ) : (
@@ -836,7 +838,7 @@ export function StudentsPage() {
                     onRowClick={(student) => handleStudentSelect(student.id)}
                     containerHeight={600}
                     itemHeight={80}
-                    emptyMessage="No active students found"
+                    emptyMessage={t('students_page.no_active_students_found', 'No active students found')}
                     isLoading={isLoading}
                   />
                 ) : (
@@ -859,7 +861,7 @@ export function StudentsPage() {
                     onRowClick={(student) => handleStudentSelect(student.id)}
                     containerHeight={600}
                     itemHeight={80}
-                    emptyMessage="No inactive students found"
+                    emptyMessage={t('students_page.no_inactive_students_found', 'No inactive students found')}
                     isLoading={isLoading}
                   />
                 ) : (
@@ -882,7 +884,7 @@ export function StudentsPage() {
                     onRowClick={(student) => handleStudentSelect(student.id)}
                     containerHeight={600}
                     itemHeight={80}
-                    emptyMessage="No graduated students found"
+                    emptyMessage={t('students_page.no_graduated_students_found', 'No graduated students found')}
                     isLoading={isLoading}
                   />
                 ) : (
@@ -977,9 +979,9 @@ export function StudentsPage() {
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete Student</DialogTitle>
+              <DialogTitle>{t('students_page.delete_student_title', 'Delete Student')}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete {studentToDelete?.name}? This action cannot be undone.
+                {t('students_page.delete_student_confirm', 'Are you sure you want to delete')} {studentToDelete?.name}? {t('common.cannot_be_undone', 'This action cannot be undone.')}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -987,14 +989,14 @@ export function StudentsPage() {
                 variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </Button>
               <Button
                 variant="destructive"
                 onClick={confirmDeleteStudent}
                 disabled={isDeletingStudent}
               >
-                {isDeletingStudent ? "Deleting..." : "Delete"}
+                {isDeletingStudent ? t('common.deleting', 'Deleting...') : t('common.delete', 'Delete')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1004,9 +1006,9 @@ export function StudentsPage() {
         <Dialog open={isImportExportDialogOpen} onOpenChange={setIsImportExportDialogOpen}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Import/Export Students</DialogTitle>
+              <DialogTitle>{t('students_page.import_export_title', 'Import/Export Students')}</DialogTitle>
               <DialogDescription>
-                Import students from CSV or export current student data.
+                {t('students_page.import_export_desc', 'Import students from CSV or export current student data.')}
               </DialogDescription>
             </DialogHeader>
             <StudentImportExport />

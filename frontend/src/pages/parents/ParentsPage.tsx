@@ -1,5 +1,6 @@
 // Top-level imports
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Home, ChevronRight, AlertCircle, BarChart3, BookOpen, FileText, MessageSquare, Clipboard, CreditCard } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -41,6 +42,7 @@ import ComposeMessage from "../../components/parents/ComposeMessage";
 export default ParentsPage;
 
 function ParentsPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offlineMode, setOfflineMode] = useState(false);
   const [selectedChild, setSelectedChild] = useState("child1");
@@ -178,8 +180,8 @@ function ParentsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-        <h1 className="text-2xl font-bold text-gray-800">Loading Parent Portal</h1>
-        <p className="text-gray-600 mt-2">Please wait while we load your children's information...</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t('parents_page.loading_title', 'Loading Parent Portal')}</h1>
+        <p className="text-gray-600 mt-2">{t('parents_page.loading_desc', "Please wait while we load your children's information...")}</p>
       </div>
     );
   }
@@ -189,10 +191,10 @@ function ParentsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-800">Data Loading Error</h1>
-        <p className="text-gray-600 mt-2">Unable to load parent data. Please try again later.</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t('parents_page.loading_error_title', 'Data Loading Error')}</h1>
+        <p className="text-gray-600 mt-2">{t('parents_page.loading_error_desc', 'Unable to load parent data. Please try again later.')}</p>
         <TouchFriendlyButton className="mt-4" onClick={() => window.location.reload()}>
-          Refresh Page
+          {t('common.refresh_page', 'Refresh Page')}
         </TouchFriendlyButton>
       </div>
     );
@@ -210,10 +212,10 @@ function ParentsPage() {
       <div className="flex items-center text-sm text-indigo-700 mb-2">
         <Link to="/parent/dashboard" className="flex items-center hover:text-indigo-900">
           <Home className="h-4 w-4 mr-1" />
-          <span>Dashboard</span>
+          <span>{t('navigation.dashboard', 'Dashboard')}</span>
         </Link>
         <ChevronRight className="h-4 w-4 mx-2" />
-        <span className="font-medium text-indigo-900">My Children</span>
+        <span className="font-medium text-indigo-900">{t('parent_portal.dashboard.cards.my_children', 'My Children')}</span>
       </div>
 
       {/* Offline mode indicator */}
@@ -221,7 +223,7 @@ function ParentsPage() {
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4 rounded-md">
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
-            <span>You are currently in offline mode. Changes will be saved locally and synced when you're back online.</span>
+            <span>{t('parents_page.offline_mode_warning', 'You are currently in offline mode. Changes will be saved locally and synced when you\'re back online.')}</span>
           </div>
         </div>
       )}
@@ -229,15 +231,15 @@ function ParentsPage() {
       {/* Page header with child selector */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-white bg-opacity-30 p-4 rounded-lg shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-indigo-900">My Children</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">{t('parent_portal.dashboard.cards.my_children', 'My Children')}</h1>
           <p className="mt-1 text-sm text-indigo-700">
-            Monitor your child's academic journey and school activities
+            {t('parents_page.subtitle', "Monitor your child's academic journey and school activities")}
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <Select value={selectedChild} onValueChange={setSelectedChild}>
           <SelectTrigger className="w-full sm:w-[200px] glass-button-outline">
-              <SelectValue placeholder="Select Child" />
+              <SelectValue placeholder={t('parents_page.select_child', 'Select Child')} />
             </SelectTrigger>
             <SelectContent>
               {parentData.children.map((child: ParentChild) => (
@@ -259,7 +261,7 @@ function ParentsPage() {
             icon={<FileText className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
-            Reports
+            {t('parent_portal.dashboard.shortcuts.admissions', 'Reports')}
           </TouchFriendlyButton>
           <TouchFriendlyButton 
             variant="outline" 
@@ -268,7 +270,7 @@ function ParentsPage() {
             icon={<MessageSquare className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
-            Message Teacher
+            {t('parents_page.message_teacher', 'Message Teacher')}
           </TouchFriendlyButton>
         </div>
       </div>
@@ -293,23 +295,23 @@ function ParentsPage() {
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
               <TabsTrigger value="dashboard" className="min-w-[120px]">
                 <BarChart3 className="h-4 w-4 mr-2" />
-                Dashboard
+                {t('navigation.dashboard', 'Dashboard')}
               </TabsTrigger>
               <TabsTrigger value="academics" className="min-w-[120px]">
                 <BookOpen className="h-4 w-4 mr-2" />
-                Academics
+                {t('navigation.academics', 'Academics')}
               </TabsTrigger>
               <TabsTrigger value="attendance" className="min-w-[120px]">
                 <Clipboard className="h-4 w-4 mr-2" />
-                Attendance
+                {t('navigation.attendance', 'Attendance')}
               </TabsTrigger>
               <TabsTrigger value="fees" className="min-w-[120px]">
                 <CreditCard className="h-4 w-4 mr-2" />
-                Fees
+                {t('parent_portal.dashboard.cards.pending_fees', 'Fees')}
               </TabsTrigger>
               <TabsTrigger value="messages" className="min-w-[120px]">
                 <MessageSquare className="h-4 w-4 mr-2" />
-                Messages
+                {t('parent_portal.dashboard.shortcuts.messages', 'Messages')}
               </TabsTrigger>
             </TabsList>
 

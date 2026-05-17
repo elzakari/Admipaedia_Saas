@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { 
@@ -114,6 +115,7 @@ const EmptyState: React.FC<{
 );
 
 const TeachersPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -455,7 +457,7 @@ const TeachersPage: React.FC = () => {
 
   // Early returns for loading and error states
   if (isLoadingTeachers && teachers.length === 0) {
-    return <LoadingState message="Loading teachers..." />;
+    return <LoadingState message={t('teachers_page.loading_title', 'Loading teachers...')} />;
   }
 
   if (teachersError && teachers.length === 0) {
@@ -463,7 +465,7 @@ const TeachersPage: React.FC = () => {
       <ErrorDisplay 
         error={teachersError} 
         onRetry={handleRefresh}
-        title="Failed to load teachers"
+        title={t('teachers_page.loading_error_title', 'Failed to load teachers')}
       />
     );
   }
@@ -477,14 +479,14 @@ const TeachersPage: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Users className="w-6 h-6" />
-              Teachers
+              {t('navigation.teachers', 'Teachers')}
             </h1>
             <Button
               onClick={() => setIsAddModalOpen(true)}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Teacher
+              {t('teachers_page.add_teacher', 'Add Teacher')}
             </Button>
           </div>
           
@@ -494,7 +496,7 @@ const TeachersPage: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search teachers..."
+                  placeholder={t('teachers_page.search_placeholder', 'Search teachers...')}
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="pl-10"
@@ -504,12 +506,12 @@ const TeachersPage: React.FC = () => {
             
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">
-                {totalTeachers} teachers found
+                {totalTeachers} {t('teachers_page.teachers_found', 'teachers found')}
               </span>
               {!isOnline && (
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  Offline
+                  {t('common.offline', 'Offline')}
                 </Badge>
               )}
               
@@ -550,9 +552,9 @@ const TeachersPage: React.FC = () => {
         <div className="flex-1 overflow-auto p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="management">Management</TabsTrigger>
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="management">{t('teachers_page.management_tab', 'Management')}</TabsTrigger>
+              <TabsTrigger value="dashboard">{t('navigation.dashboard', 'Dashboard')}</TabsTrigger>
+              <TabsTrigger value="analytics">{t('navigation.analytics', 'Analytics')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="management" className="mt-6">
@@ -571,22 +573,22 @@ const TeachersPage: React.FC = () => {
               
               {/* Teachers Display - Use only TeachersGrid */}
               {isLoadingTeachers ? (
-                <LoadingState message="Loading teachers..." />
+                <LoadingState message={t('teachers_page.loading_title', 'Loading teachers...')} />
               ) : teachersError ? (
                 <ErrorDisplay 
                   error={teachersError} 
                   onRetry={handleRefresh}
-                  title="Failed to load teachers"
+                  title={t('teachers_page.loading_error_title', 'Failed to load teachers')}
                 />
               ) : teachers.length === 0 ? (
                 <EmptyState
                   icon={Users}
-                  title="No teachers found"
-                  description="Get started by adding your first teacher or adjust your search filters."
+                  title={t('teachers_page.no_teachers_found', 'No teachers found')}
+                  description={t('teachers_page.no_teachers_desc', 'Get started by adding your first teacher or adjust your search filters.')}
                   action={
                     <Button onClick={() => setIsAddModalOpen(true)}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Teacher
+                      {t('teachers_page.add_teacher', 'Add Teacher')}
                     </Button>
                   }
                 />
@@ -627,7 +629,7 @@ const TeachersPage: React.FC = () => {
                 />
               ) : (
                 <div className="p-8 text-center text-gray-500">
-                  Select a teacher to view dashboard
+                  {t('teachers_page.select_teacher_dashboard', 'Select a teacher to view dashboard')}
                 </div>
               )}
             </TabsContent>
@@ -658,10 +660,10 @@ const TeachersPage: React.FC = () => {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Teacher</AlertDialogTitle>
+            <AlertDialogTitle>{t('teachers_page.delete_teacher_title', 'Delete Teacher')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {teacherToDelete?.firstName} {teacherToDelete?.lastName}? 
-              This action cannot be undone.
+              {t('teachers_page.delete_teacher_confirm', 'Are you sure you want to delete')} {teacherToDelete?.firstName} {teacherToDelete?.lastName}? 
+              {t('common.cannot_be_undone', 'This action cannot be undone.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -669,10 +671,10 @@ const TeachersPage: React.FC = () => {
               setIsDeleteDialogOpen(false);
               setTeacherToDelete(null);
             }}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm}>
-              Delete
+              {t('common.delete', 'Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

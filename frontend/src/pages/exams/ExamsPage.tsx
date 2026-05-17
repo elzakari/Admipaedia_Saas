@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { 
   Card, 
@@ -12,11 +13,12 @@ import { FileText } from 'lucide-react';
 import ExamManagement from '../../components/academics/ExamManagement';
 
 export const ExamsPage: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div className="container mx-auto py-6 space-y-6">
       <PageHeader
-        title="Exams Management"
-        description="Create, manage, and grade exams for all classes"
+        title={t('exams_page.title', 'Exams Management')}
+        description={t('exams_page.description', 'Create, manage, and grade exams for all classes')}
         icon={<FileText className="h-6 w-6 text-indigo-600" />}
       />
       

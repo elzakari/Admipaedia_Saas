@@ -975,5 +975,66 @@
         "overall_grade_average": "Overall Grade Average"
       }
     }
+  },
+  "students_page": {
+    "loading_title": "Loading students...",
+    "loading_desc": "Fetching data from /api/v1/students",
+    "loading_error_title": "Failed to Load Students",
+    "subtitle": "Manage student records and academic information",
+    "add_student": "Add Student",
+    "search_placeholder": "Search students by name, email, or ID...",
+    "all_grades": "All Grades",
+    "all_statuses": "All Status",
+    "directory_title": "Student Directory",
+    "students_found": "students found",
+    "all_students": "All Students",
+    "no_students_found": "No students found",
+    "no_active_students_found": "No active students found",
+    "no_inactive_students_found": "No inactive students found",
+    "no_graduated_students_found": "No graduated students found",
+    "delete_student_title": "Delete Student",
+    "delete_student_confirm": "Are you sure you want to delete",
+    "import_export_title": "Import/Export Students",
+    "import_export_desc": "Import students from CSV or export current student data.",
+    "total_students": "Total Students",
+    "avg_attendance": "Average Attendance",
+    "avg_performance": "Average Performance",
+    "at_risk_students": "At-Risk Students"
+  },
+  "teachers_page": {
+    "loading_title": "Loading teachers...",
+    "loading_error_title": "Failed to load teachers",
+    "add_teacher": "Add Teacher",
+    "search_placeholder": "Search teachers...",
+    "teachers_found": "teachers found",
+    "management_tab": "Management",
+    "no_teachers_found": "No teachers found",
+    "no_teachers_desc": "Get started by adding your first teacher or adjust your search filters.",
+    "select_teacher_dashboard": "Select a teacher to view dashboard",
+    "delete_teacher_title": "Delete Teacher",
+    "delete_teacher_confirm": "Are you sure you want to delete"
+  },
+  "parents_page": {
+    "loading_title": "Loading Parent Portal",
+    "loading_desc": "Please wait while we load your children's information...",
+    "loading_error_title": "Data Loading Error",
+    "loading_error_desc": "Unable to load parent data. Please try again later.",
+    "subtitle": "Monitor your child's academic journey and school activities",
+    "select_child": "Select Child",
+    "message_teacher": "Message Teacher",
+    "offline_mode_warning": "You are currently in offline mode. Changes will be saved locally and synced when you're back online."
+  },
+  "academics_page": {
+    "search_placeholder": "Search academics...",
+    "description": "Manage academic records, exams, and performance analytics",
+    "title": "Academic Management",
+    "management_desc": "Comprehensive academic management system for classes, exams, and student performance",
+    "class_records": "Class Records",
+    "exam_management": "Exam Management",
+    "scores_dashboard": "Scores Dashboard"
+  },
+  "exams_page": {
+    "title": "Exams Management",
+    "description": "Create, manage, and grade exams for all classes"
   }
 }

@@ -826,5 +826,213 @@
         "login_here": "Connectez-vous ici"
       }
     }
+  },
+  "teacher_portal": {
+    "dashboard": {
+      "title": "Portail Enseignant",
+      "subtitle": "Vos classes, emploi du temps et notifications",
+      "messages": "Messages",
+      "timetable": "Emploi du temps",
+      "my_classes": "Mes classes",
+      "assigned_to_you": "Assigné à vous",
+      "unread": "Non lu",
+      "updates_and_notices": "Mises à jour et avis",
+      "calendar": "Calendrier",
+      "school_events": "Événements scolaires",
+      "view": "Voir",
+      "todays_schedule": "Emploi du temps du jour",
+      "jump_into_class": "Rejoindre directement une classe",
+      "no_timetable_today": "Aucune entrée d'emploi du temps pour aujourd'hui.",
+      "quick_access": "Accès rapide",
+      "common_actions": "Actions courantes de l'enseignant"
+    },
+    "class_detail": {
+      "class_not_found": "Classe non trouvée",
+      "class_not_available": "La classe demandée n'est pas disponible.",
+      "back_to_classes": "Retour à mes classes",
+      "my_classes": "Mes classes",
+      "term": "Trimestre",
+      "students": "Élèves",
+      "actions_scoped": "Les actions sont limitées à cette classe.",
+      "tabs": {
+        "roster": "Effectif",
+        "attendance": "Présence",
+        "gradebook": "Carnet de notes",
+        "assignments": "Devoirs",
+        "announcements": "Annonces"
+      }
+    },
+    "gradebook": {
+      "title": "Carnet de notes",
+      "subtitle": "Saisir les notes pour cette classe uniquement",
+      "assessment_placeholder": "Nom de l'évaluation",
+      "load": "Charger",
+      "save": "Enregistrer",
+      "score_placeholder": "Note",
+      "grade_placeholder": "Appréciation",
+      "remark_placeholder": "Remarque"
+    },
+    "attendance": {
+      "title": "Présence",
+      "subtitle": "Marquer présent/absent/en retard, puis enregistrer",
+      "load": "Charger",
+      "save": "Enregistrer",
+      "note_placeholder": "Note facultative",
+      "status": {
+        "present": "Présent",
+        "absent": "Absent",
+        "late": "En retard"
+      }
+    }
+  },
+  "student_portal": {
+    "dashboard": {
+      "title": "Portail Élève",
+      "subtitle": "Vos cours, devoirs et mises à jour",
+      "messages": "Messages",
+      "timetable": "Emploi du temps",
+      "my_classes": "Mes classes",
+      "open_assignments": "Devoirs en cours",
+      "pending_submissions": "Soumissions en attente",
+      "unread": "Non lu",
+      "announcements_alerts": "Annonces & alertes",
+      "grades": "Notes",
+      "results_overview": "Aperçu des résultats",
+      "view": "Voir",
+      "todays_classes": "Cours d'aujourd'hui",
+      "quick_look": "Aperçu rapide de votre journée",
+      "timetable_coming_soon": "Intégration de l'emploi du temps bientôt disponible.",
+      "upcoming_exams": "Examens à venir",
+      "next_exams": "Prochains examens planifiés",
+      "loading": "Chargement...",
+      "no_upcoming_exams": "Aucun examen à venir."
+    },
+    "assignments": {
+      "title": "Devoirs",
+      "subtitle": "Suivre les échéances et le statut des soumissions",
+      "filter": {
+        "all": "Tout",
+        "open": "Ouvert",
+        "submitted": "Soumis",
+        "graded": "Noté"
+      },
+      "due": "Dû le"
+    },
+    "grades": {
+      "title": "Notes & Résultats",
+      "subtitle": "Voir vos résultats par trimestre",
+      "select_term": "Sélectionner le trimestre",
+      "results": "Résultats",
+      "read_only_for": "Résultats en lecture seule pour",
+      "columns": {
+        "subject": "Matière",
+        "score": "Note",
+        "grade": "Appréciation",
+        "remarks": "Remarques"
+      }
+    },
+    "attendance": {
+      "title": "Présence",
+      "subtitle": "Résumé et historique de votre présence",
+      "attendance_pct": "% Présence",
+      "present": "Présent",
+      "absent": "Absent",
+      "late": "En retard",
+      "history": "Historique",
+      "most_recent": "Entrées les plus récentes"
+    },
+    "enrolled": "inscrit"
+  },
+  "parent_portal": {
+    "dashboard": {
+      "title": "Portail Parent",
+      "buy_admission_form": "Acheter un formulaire d'admission",
+      "shortcuts": {
+        "my_children": "Mes enfants",
+        "admissions": "Admissions",
+        "messages": "Messages",
+        "notifications": "Notifications",
+        "schedule": "Emploi du temps"
+      },
+      "cards": {
+        "my_children": "Mes enfants",
+        "enrolled_students": "Élèves inscrits",
+        "active_applications": "Demandes actives",
+        "admission_in_progress": "Admission en cours",
+        "pending_fees": "Frais en attente",
+        "term_balance": "Solde du trimestre 2",
+        "next_event": "Prochain événement",
+        "no_upcoming_event": "Aucun événement à venir"
+      },
+      "recent_notifications": "Notifications récentes",
+      "loading": "Chargement...",
+      "no_notifications": "Aucune notification",
+      "performance": {
+        "title": "Performance de mes enfants",
+        "overall_attendance": "Présence globale (30j)",
+        "overall_grade_average": "Moyenne générale"
+      }
+    }
+  },
+  "students_page": {
+    "loading_title": "Chargement des élèves...",
+    "loading_desc": "Récupération des données depuis /api/v1/students",
+    "loading_error_title": "Échec du chargement des élèves",
+    "subtitle": "Gérer les dossiers des élèves et les informations académiques",
+    "add_student": "Ajouter un élève",
+    "search_placeholder": "Rechercher des élèves par nom, e-mail ou identifiant...",
+    "all_grades": "Toutes les classes",
+    "all_statuses": "Tous les statuts",
+    "directory_title": "Annuaire des élèves",
+    "students_found": "élèves trouvés",
+    "all_students": "Tous les élèves",
+    "no_students_found": "Aucun élève trouvé",
+    "no_active_students_found": "Aucun élève actif trouvé",
+    "no_inactive_students_found": "Aucun élève inactif trouvé",
+    "no_graduated_students_found": "Aucun élève diplômé trouvé",
+    "delete_student_title": "Supprimer l'élève",
+    "delete_student_confirm": "Êtes-vous sûr de vouloir supprimer",
+    "import_export_title": "Importer/Exporter des élèves",
+    "import_export_desc": "Importer des élèves à partir d'un fichier CSV ou exporter les données des élèves actuels.",
+    "total_students": "Nombre total d'élèves",
+    "avg_attendance": "Présence moyenne",
+    "avg_performance": "Performance moyenne",
+    "at_risk_students": "Élèves à risque"
+  },
+  "teachers_page": {
+    "loading_title": "Chargement des enseignants...",
+    "loading_error_title": "Échec du chargement des enseignants",
+    "add_teacher": "Ajouter un enseignant",
+    "search_placeholder": "Rechercher des enseignants...",
+    "teachers_found": "enseignants trouvés",
+    "management_tab": "Gestion",
+    "no_teachers_found": "Aucun enseignant trouvé",
+    "no_teachers_desc": "Commencez par ajouter votre premier enseignant ou ajustez vos filtres de recherche.",
+    "select_teacher_dashboard": "Sélectionnez un enseignant pour afficher son tableau de bord",
+    "delete_teacher_title": "Supprimer l'enseignant",
+    "delete_teacher_confirm": "Êtes-vous sûr de vouloir supprimer"
+  },
+  "parents_page": {
+    "loading_title": "Chargement du portail parent",
+    "loading_desc": "Veuillez patienter pendant que nous chargeons les informations de vos enfants...",
+    "loading_error_title": "Erreur de chargement des données",
+    "loading_error_desc": "Impossible de charger les données du parent. Veuillez réessayer plus tard.",
+    "subtitle": "Suivez le parcours académique et les activités scolaires de votre enfant",
+    "select_child": "Sélectionner l'enfant",
+    "message_teacher": "Contacter l'enseignant",
+    "offline_mode_warning": "Vous êtes actuellement en mode hors ligne. Les modifications seront enregistrées localement et synchronisées lors de votre prochaine connexion."
+  },
+  "academics_page": {
+    "search_placeholder": "Rechercher dans les études...",
+    "description": "Gérer les dossiers académiques, les examens et les analyses de performance",
+    "title": "Gestion académique",
+    "management_desc": "Système complet de gestion académique pour les classes, les examens et les performances des élèves",
+    "class_records": "Dossiers de classe",
+    "exam_management": "Gestion des examens",
+    "scores_dashboard": "Tableau de bord des notes"
+  },
+  "exams_page": {
+    "title": "Gestion des examens",
+    "description": "Créer, gérer et évaluer les examens pour toutes les classes"
   }
 }
