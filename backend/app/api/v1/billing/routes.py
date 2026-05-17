@@ -427,16 +427,72 @@ def platform_reject_plan_change_request(request_id: int):
 @tenant_required
 @school_admin_required
 def school_list_plans():
+    from app.models.tenant import Tenant
+    from app.services.billing.pricing_service import PricingService
+    from app.services.entitlements.service import EntitlementService
+    from app.models.academic_term import AcademicTerm
+
+    tenant_id = g.tenant_id
+    tenant = Tenant.query.filter_by(id=tenant_id).first()
+    if not tenant:
+        return jsonify({'success': False, 'message': 'Tenant not found'}), 404
+
+    # Resolve active student count for pricing calculation
+    term = AcademicTerm.query.filter_by(tenant_id=tenant.id).order_by(AcademicTerm.start_date.desc()).first()
+    if term:
+        count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), term.id)
+    else:
+        from app.models.student import Student
+        count = Student.query.filter_by(tenant_id=tenant.id, status='active').count()
+
     plans = subscription_change_ops.list_active_plans()
-    return jsonify({'success': True, 'plans': [subscription_change_ops.serialize_plan(p) for p in plans]}), 200
+    serialized_plans = []
+    for p in plans:
+        currency = tenant.currency or p.currency or 'USD'
+        price = PricingService.get_price_per_student_month(
+            plan=p,
+            student_count=count,
+            country_code=tenant.country_code,
+            currency=currency
+        )
+        sp = subscription_change_ops.serialize_plan(p)
+        sp['price_per_student'] = float(price)
+        sp['currency'] = currency
+        serialized_plans.append(sp)
+
+    return jsonify({'success': True, 'plans': serialized_plans}), 200
 
 
 @billing_bp.route('/school/academic-terms', methods=['GET'])
 @tenant_required
 @school_admin_required
 def school_list_academic_terms():
+    from app.models.academic_term import AcademicTerm
+    from app.services.academic_configuration_service import AcademicConfigurationService
+
     tenant_id = g.tenant_id
     terms = subscription_change_ops.list_terms_for_tenant(tenant_id)
+    if not terms:
+        # Automatically seed a default academic term if none exists
+        from datetime import date
+        from app.extensions import db
+        config = AcademicConfigurationService.build_harmonized_config(tenant_id)
+        term_name = config.get('currentTerm') or 'First Term'
+        today = date.today()
+        # Seed the term for the current calendar year
+        start_date = date(today.year, 1, 1)
+        end_date = date(today.year, 12, 31)
+
+        t = AcademicTerm(
+            tenant_id=tenant_id,
+            name=term_name,
+            start_date=start_date,
+            end_date=end_date
+        )
+        db.session.add(t)
+        db.session.commit()
+        terms = [t]
+
     return jsonify({'success': True, 'terms': [subscription_change_ops.serialize_term(t) for t in terms]}), 200
 
 
