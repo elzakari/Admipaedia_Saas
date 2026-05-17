@@ -1702,3 +1702,95 @@
     scrollbar-width: none;
   }
 }
+
+/* ==========================================
+   GLOBAL FORM INPUT CONTRAST & VISIBILITY REPAIR
+   ========================================== */
+
+/* 1. Base Styles & Global Selectors for Inputs, Selects, and Textareas */
+input,
+select,
+textarea,
+.ds-form-input,
+.ds-form-input-error,
+.ds-form-input-success,
+.ds-form-select,
+.modal-form-input,
+.modal-form-select,
+.modal-form-input-error {
+  /* Enforce crisp high-contrast dark text and light background by default in light mode */
+  background-color: #ffffff !important;
+  color: #0f172a !important; /* text-slate-900 */
+  border-color: #cbd5e1 !important; /* border-slate-300 */
+  
+  /* Robust transitions for smooth focus rings and outline animations */
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out !important;
+}
+
+/* 2. Global Active/Focus Target States */
+input:focus,
+select:focus,
+textarea:focus,
+.ds-form-input:focus,
+.ds-form-input:focus-visible,
+.ds-form-input-error:focus-visible,
+.ds-form-input-success:focus-visible,
+.ds-form-select:focus,
+.modal-form-input:focus,
+.modal-form-select:focus,
+.modal-form-input-error:focus {
+  outline: none !important;
+  border-color: #6366f1 !important; /* Indigo 500 */
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #6366f1, 0 4px 12px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* 3. Dark Theme Adaptations */
+.dark input,
+.dark select,
+.dark textarea,
+.dark .ds-form-input,
+.dark .ds-form-input-error,
+.dark .ds-form-input-success,
+.dark .ds-form-select,
+.dark .modal-form-input,
+.dark .modal-form-select,
+.dark .modal-form-input-error {
+  /* Crisp high-contrast bright text and dark background in dark configurations */
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #f8fafc !important; /* text-slate-50 */
+  border-color: #475569 !important; /* border-slate-600 */
+}
+
+/* 4. Dark Theme Active/Focus Target States */
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus,
+.dark .ds-form-input:focus,
+.dark .ds-form-input:focus-visible,
+.dark .ds-form-input-error:focus-visible,
+.dark .ds-form-input-success:focus-visible,
+.dark .ds-form-select:focus,
+.dark .modal-form-input:focus,
+.dark .modal-form-select:focus,
+.dark .modal-form-input-error:focus {
+  outline: none !important;
+  border-color: #818cf8 !important; /* Indigo 400 */
+  box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #818cf8, 0 4px 12px rgba(129, 140, 248, 0.3) !important;
+}
+
+/* 5. Placeholder Contrast Optimization */
+input::placeholder,
+textarea::placeholder,
+.ds-form-input::placeholder,
+.modal-form-input::placeholder {
+  color: #64748b !important; /* slate-500 */
+  opacity: 0.8 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder,
+.dark .ds-form-input::placeholder,
+.dark .modal-form-input::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+  opacity: 0.8 !important;
+}
