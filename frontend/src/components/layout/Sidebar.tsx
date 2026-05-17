@@ -92,6 +92,18 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
     icon: any;
   }
 
+  const getNavItemLabel = (item: NavItem): string => {
+    try {
+      const translated = t(item.labelKey);
+      if (!translated || translated === item.labelKey) {
+        return item.name || item.labelKey || 'Menu Item';
+      }
+      return translated;
+    } catch (e) {
+      return item.name || item.labelKey || 'Menu Item';
+    }
+  };
+
   const dashboardPath =
     (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
     user?.role === 'admin' ? '/admin/dashboard' :
@@ -337,7 +349,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right">
-                    <p>{t(item.labelKey, item.name)}</p>
+                    <p>{getNavItemLabel(item)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -472,7 +484,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
                       )}>
                         {item.icon}
                       </span>
-                      <span className="relative z-10 text-[14px]">{t(item.labelKey, item.name)}</span>
+                      <span className="relative z-10 text-[14px]">{getNavItemLabel(item)}</span>
                       {active && isCasaos && (
                         <motion.div
                           layoutId="sidebar-active-pill"

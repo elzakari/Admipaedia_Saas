@@ -11,6 +11,15 @@ i18n
     fallbackLng: 'en',
     supportedLngs: ['en', 'fr'],
     debug: process.env.NODE_ENV === 'development',
+    saveMissing: false,
+    parseMissingKeyHandler: (key: string, defaultValue?: string): string => {
+      if (defaultValue) return defaultValue;
+      const parts = key.split('.');
+      const lastPart = parts[parts.length - 1] || key;
+      return lastPart
+        .replace(/[_-]/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    },
     
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
