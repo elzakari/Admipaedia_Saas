@@ -84,8 +84,12 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     context = ssl.create_default_context()
     server = None
     try:
-        timeout = 12
-        if enc == 'ssl':
+        timeout = 5
+        if port == 587:
+            # Explicitly use standard SMTP with STARTTLS for port 587 to prevent connection hangs
+            server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+            server.starttls(context=context)
+        elif enc == 'ssl':
             server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
         else:
             server = smtplib.SMTP(host=host, port=port, timeout=timeout)
