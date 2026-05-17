@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Bell, CheckCheck, CheckCircle, ChevronLeft, Clock, Filter, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEnhancedNotifications } from '../../hooks/useEnhancedDashboardData';
+import { useTranslation } from 'react-i18next';
 
 type NotificationItem = {
   id: string | number;
@@ -21,6 +22,7 @@ const typeMeta: Record<NotificationItem['type'], { icon: any; color: string; lab
 };
 
 export function NotificationsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { notifications: raw, isLoading, isError, markAsRead, markAllAsRead } = useEnhancedNotifications({ limit: 50 });
 
@@ -100,8 +102,8 @@ export function NotificationsPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Notifications</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage your alerts and updates</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('notifications_page.title', 'Notifications')}</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('notifications_page.subtitle', 'Manage your alerts and updates')}</p>
             </div>
             <div className="flex space-x-3">
               <button
@@ -109,14 +111,14 @@ export function NotificationsPage() {
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
+                {t('common.back', 'Back')}
               </button>
               <button
                 onClick={() => markAllAsRead()}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <CheckCheck className="h-4 w-4 mr-2" />
-                Mark all read
+                {t('notifications_page.mark_all_read', 'Mark all read')}
               </button>
             </div>
           </div>
@@ -124,7 +126,7 @@ export function NotificationsPage() {
 
         {isError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
-            Failed to load notifications.
+            {t('notifications_page.failed_load', 'Failed to load notifications.')}
           </div>
         )}
 
@@ -135,7 +137,7 @@ export function NotificationsPage() {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search..."
+                  placeholder={t('notifications_page.search', 'Search...')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -148,7 +150,7 @@ export function NotificationsPage() {
               <div className="mt-4">
                 <div className="flex items-center mb-3">
                   <Filter className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Filter</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('notifications_page.filter', 'Filter')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -159,7 +161,7 @@ export function NotificationsPage() {
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    All
+                    {t('notifications_page.all', 'All')}
                   </button>
                   <button
                     onClick={() => setFilter('unread')}
@@ -169,19 +171,19 @@ export function NotificationsPage() {
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    Unread
+                    {t('notifications_page.unread', 'Unread')}
                   </button>
-                  {(['info', 'warning', 'success', 'error'] as const).map((t) => (
+                  {(['info', 'warning', 'success', 'error'] as const).map((tVal) => (
                     <button
-                      key={t}
-                      onClick={() => setFilter(t)}
+                      key={tVal}
+                      onClick={() => setFilter(tVal)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-full ${
-                        filter === t
+                        filter === tVal
                           ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
-                      {typeMeta[t].label}
+                      {t(`notifications_page.${tVal === 'info' ? 'info' : tVal === 'warning' ? 'warnings' : tVal === 'success' ? 'success' : 'errors'}`, typeMeta[tVal].label)}
                     </button>
                   ))}
                 </div>
@@ -190,7 +192,7 @@ export function NotificationsPage() {
 
             <div className="divide-y divide-gray-200 dark:divide-slate-700">
               {isLoading ? (
-                <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">Loading notifications...</div>
+                <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('common.loading', 'Loading notifications...')}</div>
               ) : currentItems.length > 0 ? (
                 currentItems.map((n) => {
                   const meta = typeMeta[n.type] || typeMeta.info;
@@ -240,9 +242,9 @@ export function NotificationsPage() {
               ) : (
                 <div className="p-8 text-center">
                   <Bell className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">No notifications</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">{t('parent_portal.dashboard.no_notifications', 'No notifications')}</h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {searchQuery ? 'No notifications match your search.' : "You're all caught up!"}
+                    {searchQuery ? t('notifications_page.no_matches', 'No notifications match your search.') : t('notifications_page.all_caught_up', "You're all caught up!")}
                   </p>
                 </div>
               )}
@@ -259,10 +261,10 @@ export function NotificationsPage() {
                       : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
                   }`}
                 >
-                  Previous
+                  {t('common.prev', 'Previous')}
                 </button>
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Page {safePage} of {totalPages}
+                  {t('common.page', 'Page')} {safePage} {t('common.of', 'of')} {totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
@@ -273,7 +275,7 @@ export function NotificationsPage() {
                       : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
                   }`}
                 >
-                  Next
+                  {t('common.next', 'Next')}
                 </button>
               </div>
             )}
@@ -281,7 +283,7 @@ export function NotificationsPage() {
 
           <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b border-gray-200 dark:border-slate-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Details</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t('common.details', 'Details')}</h2>
             </div>
             <div className="min-h-[420px]">
               {selectedNotification ? (
@@ -312,9 +314,9 @@ export function NotificationsPage() {
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                  <Bell className="h-16 w-16 text-gray-300 dark:text-gray-600" />
-                  <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">No notification selected</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Select a notification from the list to view details</p>
+                  <Bell className="h-16 w-16 text-gray-300 dark:text-gray-600 animate-pulse" />
+                  <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">{t('notifications_page.no_notification_selected', 'No notification selected')}</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('notifications_page.select_desc', 'Select a notification from the list to view details')}</p>
                 </div>
               )}
             </div>

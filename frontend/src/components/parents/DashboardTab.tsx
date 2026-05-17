@@ -13,6 +13,7 @@ import parentService from '../../services/parentService';
 import { useWebSocket } from '../../services/websocketService';
 import { useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTranslation } from "react-i18next";
 
 interface DashboardTabProps {
   currentChild: any;
@@ -35,6 +36,7 @@ function DashboardTab({
 }: DashboardTabProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { t } = useTranslation();
   
   // Enhanced API call for dashboard data
   const {
@@ -200,12 +202,12 @@ function DashboardTab({
                 <BookOpen className="h-5 w-5 text-blue-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                Grade {academicData?.overallGrade || 'N/A'}
+                {t('parents_page.grade', 'Class')} {academicData?.overallGrade || 'N/A'}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{academicData?.overallPercentage || 0}%</h3>
-              <p className="text-sm text-indigo-700">Academic Average</p>
+              <p className="text-sm text-indigo-700">{t('parents_page.academic_average', 'Academic Average')}</p>
             </div>
           </CardContent>
         </Card>
@@ -217,12 +219,12 @@ function DashboardTab({
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                This Month
+                {t('parent_portal.dashboard.cards.this_month', 'This Month')}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{attendanceData?.percentage || 0}%</h3>
-              <p className="text-sm text-indigo-700">Attendance Rate</p>
+              <p className="text-sm text-indigo-700">{t('parents_page.attendance_rate', 'Attendance Rate')}</p>
             </div>
           </CardContent>
         </Card>
@@ -239,7 +241,7 @@ function DashboardTab({
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">${feeData?.amount || 0}</h3>
-              <p className="text-sm text-indigo-700">Fee Status</p>
+              <p className="text-sm text-indigo-700">{t('parents_page.fee_status', 'Fee Status')}</p>
             </div>
           </CardContent>
         </Card>
@@ -251,12 +253,12 @@ function DashboardTab({
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                Pending
+                {t('common.pending', 'Pending')}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{homeworkData?.length || 0}</h3>
-              <p className="text-sm text-indigo-700">Assignments</p>
+              <p className="text-sm text-indigo-700">{t('parents_page.assignments', 'Assignments')}</p>
             </div>
           </CardContent>
         </Card>

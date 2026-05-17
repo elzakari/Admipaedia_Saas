@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
+import { useTranslation } from "react-i18next";
 
 interface ParentChildProfileProps {
   currentChild: any;
@@ -22,6 +23,8 @@ const ParentChildProfile = ({
   onIdCardClick,
   onFullProfileClick
 }: ParentChildProfileProps) => {
+  const { t } = useTranslation();
+
   return (
     <Card className="glass-card overflow-hidden border border-indigo-100 sticky top-4">
       <CardHeader className="pb-2">
@@ -32,13 +35,13 @@ const ParentChildProfile = ({
           </Avatar>
           <CardTitle className="text-indigo-900">{currentChild.name}</CardTitle>
           <p className="text-sm text-indigo-700">
-            Class {currentChild.class} • {currentChild.age} years
+            {t('parents_page.grade', 'Class')} {currentChild.class} • {currentChild.age} {t('common.years', 'years')}
           </p>
           <div className="flex items-center mt-2">
             <Badge variant="outline" className="mr-2">
               ID: {currentChild.studentId || currentChild.admissionNumber}
             </Badge>
-            <Badge variant="success">Active</Badge>
+            <Badge variant="success">{t('common.active', 'Active')}</Badge>
           </div>
         </div>
       </CardHeader>
@@ -46,24 +49,24 @@ const ParentChildProfile = ({
         <div className="grid grid-cols-1 gap-3">
           <div className="flex items-center">
             <GraduationCap className="h-4 w-4 mr-2 text-indigo-700" />
-            <span className="text-sm text-indigo-900">Class {currentChild.class}</span>
+            <span className="text-sm text-indigo-900">{t('parents_page.grade', 'Class')} {currentChild.class}</span>
           </div>
           <div className="flex items-center">
             <Award className="h-4 w-4 mr-2 text-indigo-700" />
-            <span className="text-sm text-indigo-900">Rank: {currentAcademicData.rank || `${currentAcademicData.classRank} of ${currentAcademicData.totalStudents}`}</span>
+            <span className="text-sm text-indigo-900">{t('parents_page.rank', 'Rank')}: {currentAcademicData.rank || `${currentAcademicData.classRank} of ${currentAcademicData.totalStudents}`}</span>
           </div>
           <div className="flex items-center">
             <CheckCircle className="h-4 w-4 mr-2 text-indigo-700" />
-            <span className="text-sm text-indigo-900">Attendance: {currentAttendanceData.percentage || currentAttendanceData.attendancePercentage}%</span>
+            <span className="text-sm text-indigo-900">{t('parents_page.attendance', 'Attendance')}: {currentAttendanceData.percentage || currentAttendanceData.attendancePercentage}%</span>
           </div>
           <div className="flex items-center">
             <CreditCard className="h-4 w-4 mr-2 text-indigo-700" />
-            <span className="text-sm text-indigo-900">Fees Balance: ${currentFeeData.balance || currentFeeData.due}</span>
+            <span className="text-sm text-indigo-900">{t('parents_page.fees_balance', 'Fees Balance')}: ${currentFeeData.balance || currentFeeData.due}</span>
           </div>
         </div>
 
         <div>
-          <h4 className="text-sm font-medium text-indigo-700 mb-2">Academic Progress</h4>
+          <h4 className="text-sm font-medium text-indigo-700 mb-2">{t('parents_page.academic_progress', 'Academic Progress')}</h4>
           <div className="flex items-center">
             <Progress value={currentAcademicData.overallPercentage || (currentAcademicData.overallGPA * 25)} className="flex-grow mr-4" />
             <span className="font-medium text-indigo-900">{currentAcademicData.overallPercentage || (currentAcademicData.overallGPA * 25)}%</span>
@@ -82,7 +85,7 @@ const ParentChildProfile = ({
           title="Open student ID card"
         >
           <Printer className="h-4 w-4 mr-2" />
-          <span>ID Card</span>
+          <span>{t('parents_page.id_card', 'ID Card')}</span>
         </Button>
 
         <Button
@@ -94,7 +97,7 @@ const ParentChildProfile = ({
           title="Open full profile"
         >
           <FileText className="h-4 w-4 mr-2" />
-          <span>Full Profile</span>
+          <span>{t('parents_page.full_profile', 'Full Profile')}</span>
           <ChevronRight className="h-4 w-4 ml-2" />
         </Button>
       </CardFooter>

@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { TouchFriendlyButton } from "../../components/common/TouchFriendlyButton";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import parentService from "../../services/parentService";
 
 // Import mock data
 import { 
@@ -20,7 +22,7 @@ import {
   schoolEvents 
 } from "../../data/parents-data";
 
-type ParentChild = (typeof parentData.children)[number];
+type ParentChild = any;
 type AcademicRecord = (typeof academicData)[keyof typeof academicData];
 type AcademicSubject = AcademicRecord['subjects'][number];
 
@@ -45,7 +47,7 @@ function ParentsPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offlineMode, setOfflineMode] = useState(false);
-  const [selectedChild, setSelectedChild] = useState("child1");
+  const [selectedChild, setSelectedChild] = useState("");
   const isMobile = useMediaQuery('(max-width: 640px)');
   
   // Modal states
@@ -55,39 +57,78 @@ function ParentsPage() {
   const [showReportForm, setShowReportForm] = useState(false);
   const [showComposeMessage, setShowComposeMessage] = useState(false);
 
+  // Live children API query
+  const { data: childrenData, isLoading: childrenLoading } = useQuery({
+    queryKey: ['parent-children'],
+    queryFn: () => parentService.getMyChildren(),
+    staleTime: 30_000
+  });
+
+  const childrenList = useMemo(() => childrenData || [], [childrenData]);
+
+  // Set the default selected child once the list loads
+  useEffect(() => {
+    if (!selectedChild && childrenList.length > 0) {
+      setSelectedChild(String(childrenList[0].id));
+    }
+  }, [childrenList, selectedChild]);
+
   // Get current child's data with proper type handling and transformation
-  const currentChildRaw: ParentChild | null =
-    parentData.children.find((child) => child.id === selectedChild) ??
-    (parentData.children.length > 0 ? parentData.children[0] : null);
+  const currentChildRaw = useMemo(() => {
+    if (!selectedChild) return childrenList[0] || null;
+    return childrenList.find((child: any) => String(child.id) === selectedChild) || childrenList[0] || null;
+  }, [childrenList, selectedChild]);
 
   // Build StudentData with safe defaults for required fields
-  const safeName =
-    typeof currentChildRaw?.name === "string" && currentChildRaw.name.trim()
-      ? currentChildRaw.name
-      : "Unknown";
+  const safeName = useMemo(() => {
+    if (!currentChildRaw) return "Unknown";
+    const nameVal = currentChildRaw.full_name || currentChildRaw.name;
+    if (typeof nameVal === "string" && nameVal.trim()) {
+      return nameVal;
+    }
+    if (typeof currentChildRaw.first_name === "string") {
+      return `${currentChildRaw.first_name} ${currentChildRaw.last_name || ""}`.trim();
+    }
+    return "Unknown";
+  }, [currentChildRaw]);
 
-  const currentChild = {
-    studentId: String(currentChildRaw?.admissionNumber ?? currentChildRaw?.id ?? "0"),
-    dob: String(currentChildRaw?.dateOfBirth ?? ""),
-    email: `${safeName.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
-    id: String(currentChildRaw?.id ?? "0"),
-    name: safeName,
-    photo: currentChildRaw?.photo ?? "",
-    age: typeof currentChildRaw?.age === "number" ? currentChildRaw.age : 0,
-    gender: currentChildRaw?.gender ?? "Unknown",
-    class: currentChildRaw?.class ?? "Unknown",
-    admissionNumber: String(currentChildRaw?.admissionNumber ?? ""),
-    dateOfBirth: String(currentChildRaw?.dateOfBirth ?? ""),
-    bloodGroup: currentChildRaw?.bloodGroup ?? "Unknown",
-    emergencyContact: currentChildRaw?.emergencyContact ?? "Unknown",
-    address: currentChildRaw?.address ?? "",
-    medicalConditions: Array.isArray(currentChildRaw?.medicalConditions)
-      ? currentChildRaw.medicalConditions
-      : []
-  };
+  const currentChild = useMemo(() => {
+    if (!currentChildRaw) return null;
+    const classVal =
+      currentChildRaw.class ||
+      currentChildRaw.class_name ||
+      (currentChildRaw.class_id ? `Class ${currentChildRaw.class_id}` : "Unknown");
 
-  const currentAcademicDataRaw = academicData[selectedChild as keyof typeof academicData];
-  const currentAttendanceDataRaw = attendanceData[selectedChild as keyof typeof attendanceData];
+    return {
+      studentId: String(currentChildRaw.admissionNumber ?? currentChildRaw.admission_number ?? currentChildRaw.id ?? "0"),
+      dob: String(currentChildRaw.dateOfBirth ?? currentChildRaw.date_of_birth ?? ""),
+      email: currentChildRaw.email || `${safeName.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
+      id: String(currentChildRaw.id ?? "0"),
+      name: safeName,
+      photo: currentChildRaw.photo ?? currentChildRaw.profile_picture ?? "",
+      age: typeof currentChildRaw.age === "number" ? currentChildRaw.age : 0,
+      gender: currentChildRaw.gender ?? "Unknown",
+      class: classVal,
+      admissionNumber: String(currentChildRaw.admissionNumber ?? currentChildRaw.admission_number ?? ""),
+      dateOfBirth: String(currentChildRaw.dateOfBirth ?? currentChildRaw.date_of_birth ?? ""),
+      bloodGroup: currentChildRaw.bloodGroup ?? currentChildRaw.blood_group ?? "Unknown",
+      emergencyContact: currentChildRaw.emergencyContact ?? currentChildRaw.father_contact ?? currentChildRaw.mother_contact ?? "Unknown",
+      address: currentChildRaw.address ?? currentChildRaw.residential_address ?? "",
+      medicalConditions: Array.isArray(currentChildRaw.medicalConditions)
+        ? currentChildRaw.medicalConditions
+        : typeof currentChildRaw.medical_conditions === "string" && currentChildRaw.medical_conditions
+        ? [currentChildRaw.medical_conditions]
+        : []
+    };
+  }, [currentChildRaw, safeName]);
+
+  const mockKey = useMemo(() => {
+    if (selectedChild === "child1" || selectedChild === "child2") return selectedChild;
+    return "child1";
+  }, [selectedChild]);
+
+  const currentAcademicDataRaw = academicData[mockKey as keyof typeof academicData];
+  const currentAttendanceDataRaw = attendanceData[mockKey as keyof typeof attendanceData];
 
   const currentAcademicData = {
     ...currentAcademicDataRaw,
@@ -118,8 +159,8 @@ function ParentsPage() {
     recentAbsences: currentAttendanceDataRaw?.recentAbsences ?? []
   };
 
-  const currentFeeData = feeData[selectedChild as keyof typeof feeData];
-  const currentHomeworkData = homeworkData[selectedChild as keyof typeof homeworkData];
+  const currentFeeData = feeData[mockKey as keyof typeof feeData];
+  const currentHomeworkData = homeworkData[mockKey as keyof typeof homeworkData];
   const allowedTabs = useMemo(() => ['dashboard', 'academics', 'attendance', 'fees', 'messages'], []);
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : 'dashboard';
@@ -142,20 +183,8 @@ function ParentsPage() {
     }, { replace: true });
   };
 
-  // NOTE: Removed duplicate re-declarations of currentChild/currentAcademicData/currentAttendanceData
-
-  
-
   // Loading state
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Simulate data loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  const isLoading = childrenLoading;
 
   // Handle offline mode
   useEffect(() => {
@@ -182,6 +211,20 @@ function ParentsPage() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
         <h1 className="text-2xl font-bold text-gray-800">{t('parents_page.loading_title', 'Loading Parent Portal')}</h1>
         <p className="text-gray-600 mt-2">{t('parents_page.loading_desc', "Please wait while we load your children's information...")}</p>
+      </div>
+    );
+  }
+
+  // If there are no students linked to this account
+  if (!isLoading && childrenList.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6 text-center">
+        <AlertCircle className="h-16 w-16 text-indigo-600 mb-4 animate-bounce" />
+        <h1 className="text-2xl font-bold text-indigo-900">{t('parents_page.no_students', 'No students linked to this account.')}</h1>
+        <p className="text-gray-600 mt-2 max-w-md">{t('parents_page.no_students_desc', 'If you believe this is an error, please contact the school administration.')}</p>
+        <TouchFriendlyButton className="mt-6 glass-button" onClick={() => window.location.reload()}>
+          {t('parents_page.contact_admin', 'Contact Support')}
+        </TouchFriendlyButton>
       </div>
     );
   }
@@ -238,21 +281,25 @@ function ParentsPage() {
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <Select value={selectedChild} onValueChange={setSelectedChild}>
-          <SelectTrigger className="w-full sm:w-[200px] glass-button-outline">
+            <SelectTrigger className="w-full sm:w-[200px] glass-button-outline">
               <SelectValue placeholder={t('parents_page.select_child', 'Select Child')} />
             </SelectTrigger>
             <SelectContent>
-              {parentData.children.map((child: ParentChild) => (
-                <SelectItem key={child.id} value={child.id}>
-                  <div className="flex items-center">
-                    <Avatar className="h-6 w-6 mr-2">
-                      <AvatarImage src={child.photo} alt={String(child.name || '')} />
-                      <AvatarFallback>{typeof child.name === 'string' ? child.name.charAt(0) : ''}</AvatarFallback>
-                    </Avatar>
-                    {child.name} - Class {child.class}
-                  </div>
-                </SelectItem>
-              ))}
+              {childrenList.map((child: any) => {
+                const childName = child.full_name || child.name || `${child.first_name || ''} ${child.last_name || ''}`.trim() || 'Student';
+                const childClass = child.class || child.class_name || (child.class_id ? `Class ${child.class_id}` : 'Class');
+                return (
+                  <SelectItem key={String(child.id)} value={String(child.id)}>
+                    <div className="flex items-center">
+                      <Avatar className="h-6 w-6 mr-2">
+                        <AvatarImage src={child.photo || child.profile_picture} alt={childName} />
+                        <AvatarFallback>{childName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {childName} - {childClass}
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <TouchFriendlyButton 
