@@ -50,7 +50,7 @@ const platformIntegrationsService = {
     params?: Record<string, any>
   }) {
     const res = await api.post('/platform/integrations/providers/test', input)
-    return res.data as { success: boolean; result: { supported: boolean; ok: boolean; message: string } }
+    return res.data as { success: boolean; result: { supported: boolean; ok: boolean; message: string; duration_ms: number } }
   },
 
   async listPlanTokenLimits() {

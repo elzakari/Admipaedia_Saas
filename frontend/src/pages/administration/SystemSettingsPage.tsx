@@ -119,6 +119,12 @@ const SystemSettingsPage: React.FC = () => {
   const [testSubject, setTestSubject] = useState('ADMIPAEDIA test');
   const [testMessage, setTestMessage] = useState('This is a test message from ADMIPAEDIA.');
   const [testingProvider, setTestingProvider] = useState(false);
+  const [testStatuses, setTestStatuses] = useState<Record<string, 'idle' | 'verified' | 'failed'>>({
+    email: 'idle',
+    sms: 'idle',
+    whatsapp: 'idle',
+    ai: 'idle',
+  });
 
   const openTest = (serviceType: 'email' | 'sms' | 'whatsapp' | 'ai') => {
     setTestServiceType(serviceType);
@@ -166,14 +172,17 @@ const SystemSettingsPage: React.FC = () => {
         params,
       });
 
-      if (res.result.ok) {
-        toast.success(res.result.message || 'Test successful');
+      if (res && res.result && res.result.ok === true) {
+        setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'verified' }));
+        toast.success(`${res.result.message || 'Test successful'} (Duration: ${res.result.duration_ms}ms)`);
         setTestOpen(false);
       } else {
-        toast.error(res.result.message || 'Test failed');
+        setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'failed' }));
+        toast.error(res?.result?.message || 'Test failed');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Test failed');
+      setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'failed' }));
+      toast.error(error.response?.data?.message || 'A network error occurred while running the test.');
     } finally {
       setTestingProvider(false);
     }
@@ -848,6 +857,12 @@ const SystemSettingsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">Email</div>
+                      {testStatuses.email === 'verified' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Verified</span>
+                      )}
+                      {testStatuses.email === 'failed' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -911,6 +926,12 @@ const SystemSettingsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">SMS</div>
+                      {testStatuses.sms === 'verified' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Verified</span>
+                      )}
+                      {testStatuses.sms === 'failed' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -962,6 +983,12 @@ const SystemSettingsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">WhatsApp</div>
+                      {testStatuses.whatsapp === 'verified' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Verified</span>
+                      )}
+                      {testStatuses.whatsapp === 'failed' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -1013,6 +1040,12 @@ const SystemSettingsPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Bot className="h-4 w-4 text-indigo-600" />
                       <div className="font-semibold">AI</div>
+                      {testStatuses.ai === 'verified' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Verified</span>
+                      )}
+                      {testStatuses.ai === 'failed' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button

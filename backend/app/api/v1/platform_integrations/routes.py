@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import smtplib
 import ssl
+import socket
+import time
 from email.message import EmailMessage
 
 from flask import jsonify, request
@@ -57,6 +59,20 @@ def _has_secret(v) -> bool:
     return True
 
 
+def _mask_username(uname: str) -> str:
+    if not uname:
+        return ''
+    if '@' in uname:
+        parts = uname.split('@', 1)
+        name, domain = parts[0], parts[1]
+        if len(name) > 2:
+            return name[:2] + '***@' + domain
+        return name[0] + '***@' + domain
+    if len(uname) > 3:
+        return uname[:2] + '***'
+    return '***'
+
+
 def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     host = str(cfg.get('smtpHost') or cfg.get('smtp_host') or '').strip()
     port = cfg.get('smtpPort') or cfg.get('smtp_port')
@@ -66,53 +82,83 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     from_email = str(cfg.get('fromEmail') or cfg.get('from_email') or '').strip()
     from_name = str(cfg.get('fromName') or cfg.get('from_name') or '').strip()
 
-    to_email = str(params.get('to_email') or params.get('toEmail') or '').strip()
+    to_email = str(params.get('to_email') or params.get('toEmail') or params.get('test_email') or params.get('testEmail') or '').strip()
     subject = str(params.get('subject') or 'ADMIPAEDIA test email').strip()
     message = str(params.get('message') or 'This is a test message from ADMIPAEDIA.').strip()
 
+    if not to_email:
+        to_email = 'support@admipaedia.easymsdigit.com'
+
+    # Early Validation
     if not host:
         return False, 'SMTP host is required'
     try:
-        port = int(port or 0)
+        port = int(port) if port is not None else None
     except Exception:
-        port = 0
-    if port <= 0:
+        return False, 'SMTP port must be a valid integer'
+    if not port or port <= 0:
         return False, 'SMTP port is required'
+    if not username:
+        return False, 'SMTP username is required'
+    if not password or password == '********':
+        return False, 'SMTP password is required'
     if not from_email:
         return False, 'From email is required'
 
     context = ssl.create_default_context()
     server = None
     try:
-        timeout = 5
-        if port == 587:
-            # Explicitly use standard SMTP with STARTTLS for port 587 to prevent connection hangs
+        timeout = 12
+        if port in (587, 2587):
+            # Explicitly use standard SMTP with STARTTLS for port 587 or 2587
             server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+            server.ehlo()
             server.starttls(context=context)
-        elif enc == 'ssl':
+            server.ehlo()
+        elif port == 465:
+            # Explicitly use strict SMTP_SSL for port 465
             server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
+            server.ehlo()
         else:
-            server = smtplib.SMTP(host=host, port=port, timeout=timeout)
-            if enc == 'tls':
-                server.starttls(context=context)
+            # Fallback for other ports (e.g. 25) using encryption settings
+            if enc == 'ssl':
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
+                server.ehlo()
+            else:
+                server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+                server.ehlo()
+                if enc == 'tls':
+                    server.starttls(context=context)
+                    server.ehlo()
 
-        if username:
-            if not _has_secret(password):
-                return False, 'SMTP password is required'
-            server.login(username, str(password))
+        server.login(username, str(password))
 
-        if to_email:
-            msg = EmailMessage()
-            msg['Subject'] = subject
-            msg['From'] = f'{from_name} <{from_email}>' if from_name else from_email
-            msg['To'] = to_email
-            msg.set_content(message or '')
-            server.send_message(msg)
-            return True, f'Test email sent to {to_email}'
-
-        return True, 'SMTP connection verified'
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = f'{from_name} <{from_email}>' if from_name else from_email
+        msg['To'] = to_email
+        msg.set_content(message or '')
+        
+        server.send_message(msg)
+        return True, f'Test email successfully processed and sent to {to_email}.'
+    except smtplib.SMTPAuthenticationError:
+        masked_user = _mask_username(username)
+        return False, f'SMTP authentication failed for user {masked_user}. Please check your username and password.'
+    except smtplib.SMTPDataError:
+        return False, 'SMTP transaction failed. The email was rejected by the server.'
+    except (socket.timeout, TimeoutError):
+        return False, 'SMTP connection timed out. Please verify host, port, and security settings.'
+    except socket.gaierror:
+        return False, 'DNS resolution failed. Please verify the SMTP host.'
+    except ConnectionRefusedError:
+        return False, 'SMTP connection refused. Please verify the host and port.'
     except Exception as e:
-        return False, str(e)
+        err_msg = str(e)
+        if username in err_msg:
+            err_msg = err_msg.replace(username, _mask_username(username))
+        if password in err_msg:
+            err_msg = err_msg.replace(password, '***')
+        return False, f'SMTP error: {err_msg}'
     finally:
         try:
             if server:
@@ -301,6 +347,7 @@ def update_plan_token_limits(plan_id: int):
 @jwt_required()
 @require_platform_super_admin()
 def test_provider_config():
+    start_time = time.time()
     data = request.get_json() or {}
     scope = str(data.get('scope') or 'platform').strip().lower()
     tenant_id = str(data.get('tenant_id') or '').strip() or None
@@ -362,6 +409,8 @@ def test_provider_config():
         supported = False
         message = 'Live test is not available for this provider yet.'
 
+    duration_ms = int((time.time() - start_time) * 1000)
+
     return jsonify({
         'success': True,
         'result': {
@@ -372,6 +421,7 @@ def test_provider_config():
             'supported': bool(supported),
             'ok': bool(ok),
             'message': message,
+            'duration_ms': duration_ms,
         }
     }), 200
 
