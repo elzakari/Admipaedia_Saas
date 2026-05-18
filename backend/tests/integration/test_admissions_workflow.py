@@ -59,7 +59,10 @@ def test_admission_approval_success(auth_client, app):
             status="submitted",
             form_data={
                 "gender": "male",
-                "date_of_birth": "2015-05-15",
+                "dob": "2015-05-15",
+                "home_address": "123 Cherry Lane, Accra",
+                "blood_group": "O+",
+                "emergency_contact": "+233244123456",
                 "middle_name": "Ray",
                 "nationality": "Ghanaian"
             }
@@ -105,6 +108,15 @@ def test_admission_approval_success(auth_client, app):
         assert student.date_of_birth == date(2015, 5, 15)
         assert student.middle_name == "Ray"
         assert student.nationality == "Ghanaian"
+        assert student.address == "123 Cherry Lane, Accra"
+        assert student.residential_address == "123 Cherry Lane, Accra"
+        assert student.blood_group == "O+"
+        assert student.phone == "+233244123456"
+        
+        # Verify parent-student relationship collection is populated and not empty!
+        parent_obj = Parent.query.get(parent_id)
+        assert parent_obj is not None
+        assert student in parent_obj.children
         
         # Verify user exists
         student_user = User.query.get(student.user_id)

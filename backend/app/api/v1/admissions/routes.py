@@ -222,15 +222,23 @@ def review_application(id):
     notes = data.get('notes')
 
     form_data = application.form_data or {}
-    review_block = form_data.get('_review', {}) if isinstance(form_data, dict) else {}
+    if isinstance(form_data, str):
+        try:
+            import json
+            form_data = json.loads(form_data)
+        except Exception:
+            form_data = {}
+    if not isinstance(form_data, dict):
+        form_data = {}
+
+    review_block = form_data.get('_review', {})
     review_block.update({
         'status': next_status,
         'notes': notes,
         'reviewed_at': datetime.utcnow().isoformat()
     })
-    if isinstance(form_data, dict):
-        form_data['_review'] = review_block
-        application.form_data = form_data
+    form_data['_review'] = review_block
+    application.form_data = form_data
 
     application.status = next_status
     
@@ -289,8 +297,8 @@ def review_application(id):
             else:
                 gender = 'female'
                 
-            # Resolve date of birth
-            dob_raw = form_data.get('date_of_birth') or form_data.get('dob') or form_data.get('dateOfBirth')
+            # Resolve date of birth (mapping dob / date_of_birth)
+            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
             if not dob_raw:
                 raise ValueError("Missing required field: date_of_birth")
                 
@@ -301,6 +309,11 @@ def review_application(id):
                     raise ValueError(f"Invalid date_of_birth format: {dob_raw}. Expected YYYY-MM-DD.")
             else:
                 date_of_birth = dob_raw
+                
+            # Resolve mapping attributes
+            address_val = form_data.get('home_address') or form_data.get('address') or form_data.get('residential_address')
+            blood_group_val = form_data.get('blood_group') or form_data.get('bloodGroup')
+            phone_val = form_data.get('emergency_contact') or form_data.get('phone_number') or form_data.get('phone') or form_data.get('telephone') or form_data.get('student_phone')
                 
             # Build student payload
             student_payload = {
@@ -313,21 +326,24 @@ def review_application(id):
                 'gender': gender,
                 'date_of_birth': date_of_birth,
                 
+                # Unpack form_data mapping
+                'address': address_val,
+                'residential_address': address_val,
+                'blood_group': blood_group_val,
+                'phone': phone_val,
+                
                 # Optional fields from form_data
                 'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
                 'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
                 'nationality': form_data.get('nationality'),
-                'blood_group': form_data.get('blood_group') or form_data.get('bloodGroup'),
                 'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination'),
                 'email': student_email,
-                'phone': form_data.get('student_phone') or form_data.get('phone') or form_data.get('telephone'),
-                'telephone': form_data.get('telephone') or form_data.get('student_phone'),
+                'telephone': form_data.get('telephone') or form_data.get('student_phone') or phone_val,
                 'whatsapp': form_data.get('whatsapp'),
-                'postal_address': form_data.get('postal_address') or form_data.get('address'),
+                'postal_address': form_data.get('postal_address') or address_val,
                 'digital_address': form_data.get('digital_address'),
                 'city': form_data.get('city'),
                 'country': form_data.get('country'),
-                'residential_address': form_data.get('residential_address') or form_data.get('address'),
                 'local_landmark': form_data.get('local_landmark'),
                 
                 # Health fields
@@ -366,9 +382,24 @@ def review_application(id):
             from app.services.student_service import StudentService
             student_service = StudentService(db.session)
             
+            from app.models.parent import Parent
+            parent_obj = None
+            if application.parent_id:
+                parent_obj = Parent.query.get(application.parent_id)
+                
             student, error = student_service.create_student(student_payload, tenant_id=tenant_id)
             if error:
                 raise ValueError(error)
+                
+            if parent_obj and student:
+                # Link bidirectional parent-student relationships to avoid orphaned records
+                student.parent = parent_obj
+                student.parent_id = parent_obj.id
+                if student not in parent_obj.children:
+                    parent_obj.children.append(student)
+                db.session.add(parent_obj)
+                db.session.add(student)
+                db.session.flush()
                 
         except Exception as e:
             db.session.rollback()
