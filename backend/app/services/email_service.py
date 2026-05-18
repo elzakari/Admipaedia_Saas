@@ -20,14 +20,14 @@ class EmailResult(dict):
 
 def send_email(subject: str, recipients: List[str], text_body: str, html_body: Optional[str] = None, sender: Optional[str] = None, attachments: Optional[List[Tuple[str, str, bytes]]] = None, provider: Optional[str] = None) -> EmailResult:
     """
-    Send an email using the configured provider (Amazon SES API, SMTP, or Resend).
+    Send an email using the active provider configured in the database, with fallback to environment configuration.
     
     Args:
         subject (str): Email subject
         recipients (list): List of recipient email addresses
         text_body (str): Plain text email body
         html_body (str, optional): HTML email body. Defaults to None.
-        sender (str, optional): Sender email address.
+        sender (str, optional): Sender email address override.
         attachments (list, optional): List of attachment tuples (filename, mimetype, data).
         provider (str, optional): Override the configured provider.
     
@@ -38,7 +38,7 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
     
     start_time = time.time()
     
-    # 1. Determine configuration variables
+    # 1. Check suppression setting
     try:
         supress_send = current_app.config.get('MAIL_SUPPRESS_SEND', False)
     except Exception:
@@ -49,31 +49,50 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
         logger.info("Email sending suppressed by configuration", subject=subject, recipients=recipients)
         return EmailResult(ok=True, provider="suppressed", message="Sending suppressed by configuration", message_id="", duration_ms=duration)
 
+    # 2. Defaults from environment/config
+    default_from = None
+    default_name = "Admipaedia Support"
     try:
-        cfg_provider = current_app.config.get('EMAIL_PROVIDER', 'smtp')
-        aws_region = current_app.config.get('AWS_REGION', 'us-east-1')
-        aws_access_key = current_app.config.get('AWS_ACCESS_KEY_ID')
-        aws_secret_key = current_app.config.get('AWS_SECRET_ACCESS_KEY')
-        resend_api_key = current_app.config.get('RESEND_API_KEY')
-        
         default_from = current_app.config.get('EMAIL_FROM_ADDRESS') or current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
-        from_name = current_app.config.get('EMAIL_FROM_NAME', 'Admipaedia Support')
-    except Exception as e:
-        cfg_provider = os.environ.get('EMAIL_PROVIDER', 'smtp')
-        aws_region = os.environ.get('AWS_REGION', 'us-east-1')
-        aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
-        aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-        resend_api_key = os.environ.get('RESEND_API_KEY')
+        default_name = current_app.config.get('EMAIL_FROM_NAME', 'Admipaedia Support')
+    except Exception:
         default_from = os.environ.get('EMAIL_FROM_ADDRESS') or os.environ.get('MAIL_DEFAULT_SENDER')
-        from_name = os.environ.get('EMAIL_FROM_NAME', 'Admipaedia Support')
+        default_name = os.environ.get('EMAIL_FROM_NAME', 'Admipaedia Support')
 
-    selected_provider = (provider or cfg_provider or 'smtp').lower()
-    
-    # Clean and format from address
-    from_addr = sender or default_from
-    if not from_addr:
-        from_addr = "support@admipaedia.easymsdigit.com"
+    selected_provider = (provider or os.environ.get('EMAIL_PROVIDER', 'smtp')).lower()
+    cfg = {}
+
+    # 3. Refactored Extraction Logic: Check decrypted database platform configurations
+    try:
+        from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
+        from flask import g
         
+        db_provider = None
+        # Try to resolve tenant-level override first if in a tenant context
+        tenant_id = getattr(g, 'tenant_id', None)
+        if tenant_id:
+            db_provider = TenantServiceProviderOverride.query.filter_by(
+                tenant_id=tenant_id, service_type='email', is_active=True
+            ).first()
+            
+        # Fallback to platform-level provider config
+        if not db_provider:
+            db_provider = PlatformServiceProviderConfig.query.filter_by(
+                service_type='email', is_active=True
+            ).first()
+            
+        if db_provider:
+            # Map database configuration parameters
+            cfg = db_provider.get_config() or {}
+            selected_provider = (provider or db_provider.provider_key or 'smtp').lower()
+            logger.info("Retrieved active email integration settings from DB", provider_key=selected_provider)
+    except Exception as e:
+        logger.warning(f"Could not load email configuration from database, falling back to env/defaults: {str(e)}")
+
+    # 4. Resolve sender address and formatted headers
+    from_addr = sender or cfg.get('fromEmail') or cfg.get('from_email') or default_from or "support@admipaedia.easymsdigit.com"
+    from_name = cfg.get('fromName') or cfg.get('from_name') or default_name
+    
     if from_name and '<' not in from_addr:
         sender_formatted = f"{from_name} <{from_addr}>"
     else:
@@ -83,9 +102,14 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
     message = ""
     message_id = ""
 
-    # 2. Dispatch to the appropriate handler
-    if selected_provider == 'ses':
-        ok, message, message_id = _send_via_ses(
+    # 5. Dispatch inside explicit isolation blocks
+    if selected_provider == 'ses_api':
+        # Amazon SES API Integration Block (boto3)
+        aws_region = cfg.get('awsRegion') or cfg.get('aws_region') or os.environ.get('AWS_REGION', 'us-east-1')
+        aws_key = cfg.get('awsAccessKeyId') or cfg.get('aws_access_key') or os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret = cfg.get('awsSecretAccessKey') or cfg.get('aws_secret_key') or os.environ.get('AWS_SECRET_ACCESS_KEY')
+        
+        ok, message, message_id = _send_via_ses_api(
             subject=subject,
             recipients=recipients,
             text_body=text_body,
@@ -93,37 +117,55 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
             sender=sender_formatted,
             attachments=attachments,
             aws_region=aws_region,
-            aws_access_key=aws_access_key,
-            aws_secret_key=aws_secret_key
+            aws_access_key=aws_key,
+            aws_secret_key=aws_secret
         )
     elif selected_provider == 'resend':
-        ok, message, message_id = _send_via_resend(
+        # Resend API Integration Block (Official SDK)
+        resend_key = cfg.get('apiKey') or cfg.get('api_key') or os.environ.get('RESEND_API_KEY')
+        
+        ok, message, message_id = _send_via_resend_api(
             subject=subject,
             recipients=recipients,
             text_body=text_body,
             html_body=html_body,
             sender=sender_formatted,
             attachments=attachments,
-            api_key=resend_api_key
+            api_key=resend_key
         )
     else:
-        # Default fallback to SMTP
-        ok, message, message_id = _send_via_smtp(
+        # SMTP / Amazon SES SMTP Integration Block (decoupled smtplib client)
+        smtp_host = cfg.get('smtpHost') or cfg.get('smtp_host') or os.environ.get('MAIL_SERVER', 'localhost')
+        smtp_port = cfg.get('smtpPort') or cfg.get('smtp_port')
+        smtp_user = cfg.get('smtpUsername') or cfg.get('smtp_username') or os.environ.get('MAIL_USERNAME')
+        smtp_pass = cfg.get('smtpPassword') or cfg.get('smtp_password') or os.environ.get('MAIL_PASSWORD')
+        smtp_enc = cfg.get('smtpEncryption') or cfg.get('smtp_encryption') or os.environ.get('MAIL_USE_TLS', 'tls')
+        
+        # Coerce port to int
+        if smtp_port is None:
+            smtp_port = os.environ.get('MAIL_PORT', 587)
+            
+        ok, message, message_id = _send_via_smtp_isolated(
             subject=subject,
             recipients=recipients,
             text_body=text_body,
             html_body=html_body,
             sender=sender_formatted,
-            attachments=attachments
+            attachments=attachments,
+            host=str(smtp_host),
+            port=smtp_port,
+            username=str(smtp_user or ''),
+            password=str(smtp_pass or ''),
+            encryption=str(smtp_enc)
         )
 
     duration = int((time.time() - start_time) * 1000)
     
-    # 3. Log results defensively (never logging raw secrets!)
+    # 6. Log results defensively
     if ok:
-        logger.info("Email sent successfully", provider=selected_provider, subject=subject, recipients=recipients, duration_ms=duration)
+        logger.info("Polymorphic email sent successfully", provider=selected_provider, subject=subject, duration_ms=duration)
     else:
-        logger.error("Failed to send email", provider=selected_provider, error=message, subject=subject, recipients=recipients, duration_ms=duration)
+        logger.error("Failed to send polymorphic email", provider=selected_provider, error=message, subject=subject, duration_ms=duration)
 
     return EmailResult(
         ok=ok,
@@ -134,8 +176,8 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
     )
 
 
-def _send_via_ses(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]], aws_region: str, aws_access_key: str, aws_secret_key: str) -> Tuple[bool, str, str]:
-    """Helper to send email via Amazon SES HTTPS API using boto3."""
+def _send_via_ses_api(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]], aws_region: Optional[str], aws_access_key: Optional[str], aws_secret_key: Optional[str]) -> Tuple[bool, str, str]:
+    """Decoupled Amazon SES client block using native boto3."""
     try:
         import boto3
         from email.mime.multipart import MIMEMultipart
@@ -143,13 +185,14 @@ def _send_via_ses(subject: str, recipients: List[str], text_body: str, html_body
         from email.mime.application import MIMEApplication
         
         if not aws_access_key or not aws_secret_key:
-            return False, "Amazon SES credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) are missing", ""
+            return False, "Amazon SES credentials are missing", ""
 
-        # Initialize Amazon SES Client (trying SES v2 first, falling back to v1)
+        region = aws_region or 'us-east-1'
+        
         try:
             client = boto3.client(
                 'sesv2',
-                region_name=aws_region or 'us-east-1',
+                region_name=region,
                 aws_access_key_id=aws_access_key,
                 aws_secret_access_key=aws_secret_key
             )
@@ -157,14 +200,13 @@ def _send_via_ses(subject: str, recipients: List[str], text_body: str, html_body
         except Exception:
             client = boto3.client(
                 'ses',
-                region_name=aws_region or 'us-east-1',
+                region_name=region,
                 aws_access_key_id=aws_access_key,
                 aws_secret_access_key=aws_secret_key
             )
             use_v2 = False
 
-        if attachments or use_v2 is False:
-            # Build standard MIME raw message
+        if attachments or not use_v2:
             msg = MIMEMultipart('mixed')
             msg['Subject'] = subject
             msg['From'] = sender
@@ -195,7 +237,6 @@ def _send_via_ses(subject: str, recipients: List[str], text_body: str, html_body
                     RawMessage={'Data': raw_payload.encode('utf-8')}
                 )
         else:
-            # Simple content structure for SES v2 API
             simple_content = {
                 'Simple': {
                     'Subject': {'Data': subject, 'Charset': 'UTF-8'},
@@ -215,18 +256,17 @@ def _send_via_ses(subject: str, recipients: List[str], text_body: str, html_body
 
         message_id = response.get('MessageId', '')
         return True, "Amazon SES API send succeeded", message_id
-
     except Exception as e:
         return False, f"Amazon SES API failed: {str(e)}", ""
 
 
-def _send_via_resend(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]], api_key: str) -> Tuple[bool, str, str]:
-    """Helper to send email via Resend API using the official resend package."""
+def _send_via_resend_api(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]], api_key: Optional[str]) -> Tuple[bool, str, str]:
+    """Decoupled Resend client block using the resend package."""
     try:
         import resend
         
         if not api_key:
-            return False, "Resend API Key (RESEND_API_KEY) is missing", ""
+            return False, "Resend API Key is missing", ""
             
         resend.api_key = api_key
         
@@ -250,34 +290,86 @@ def _send_via_resend(subject: str, recipients: List[str], text_body: str, html_b
         r = resend.Emails.send(params)
         message_id = getattr(r, "id", "") or r.get("id", "")
         return True, "Resend API send succeeded", message_id
-
     except Exception as e:
         return False, f"Resend API failed: {str(e)}", ""
 
 
-def _send_via_smtp(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]]) -> Tuple[bool, str, str]:
-    """Helper to send email via standard legacy SMTP protocol using flask-mail."""
-    try:
-        from app.extensions import mail
-        from flask_mail import Message
+def _send_via_smtp_isolated(subject: str, recipients: List[str], text_body: str, html_body: Optional[str], sender: str, attachments: Optional[List[Tuple[str, str, bytes]]], host: str, port: Any, username: str, password: str, encryption: str) -> Tuple[bool, str, str]:
+    """Decoupled smtplib client block, fully isolated from Flask-Mail application states."""
+    import smtplib
+    import ssl
+    import socket
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.application import MIMEApplication
+    
+    if not host:
+        return False, "SMTP host is required", ""
         
-        msg = Message(subject, sender=sender, recipients=recipients)
-        msg.body = text_body
-        if html_body:
-            msg.html = html_body
+    try:
+        port = int(port)
+    except Exception:
+        return False, f"Invalid SMTP port: {port}", ""
+        
+    context = ssl.create_default_context()
+    server = None
+    
+    try:
+        timeout = 15
+        if port in (587, 2587):
+            server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+            server.ehlo()
+            server.starttls(context=context)
+            server.ehlo()
+        elif port == 465:
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
+            server.ehlo()
+        else:
+            if str(encryption).lower() in ('ssl', 'true'):
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
+                server.ehlo()
+            else:
+                server = smtplib.SMTP(host=host, port=port, timeout=timeout)
+                server.ehlo()
+                if str(encryption).lower() in ('tls', 'starttls'):
+                    server.starttls(context=context)
+                    server.ehlo()
+                    
+        if username and password and password != '********':
+            server.login(username, password)
             
+        # Build Standard MIME Message
+        msg = MIMEMultipart('mixed')
+        msg['Subject'] = subject
+        msg['From'] = sender
+        msg['To'] = ", ".join(recipients)
+        
+        msg_body = MIMEMultipart('alternative')
+        msg_body.attach(MIMEText(text_body, 'plain', 'utf-8'))
+        if html_body:
+            msg_body.attach(MIMEText(html_body, 'html', 'utf-8'))
+        msg.attach(msg_body)
+        
         if attachments:
             for filename, mimetype, data in attachments:
-                msg.attach(filename=filename, content_type=mimetype, data=data)
+                att = MIMEApplication(data)
+                att.add_header('Content-Disposition', 'attachment', filename=filename)
+                msg.attach(att)
                 
-        mail.send(msg)
+        server.send_message(msg)
         return True, "SMTP send succeeded", ""
     except Exception as e:
-        return False, f"SMTP failed: {str(e)}", ""
+        return False, f"SMTP send failed: {str(e)}", ""
+    finally:
+        if server:
+            try:
+                server.quit()
+            except Exception:
+                pass
 
 
 def _send_email_background(subject: str, recipients: List[str], text_body: str, html_body: Optional[str] = None, sender: Optional[str] = None, attachments: Optional[List[Tuple[str, str, bytes]]] = None) -> bool:
-    """Asynchronous background dispatcher for email sending."""
+    """Asynchronous background thread wrapper for send_email."""
     try:
         app = current_app._get_current_object()
     except Exception:

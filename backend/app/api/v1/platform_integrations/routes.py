@@ -110,17 +110,14 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     try:
         timeout = 12
         if port in (587, 2587):
-            # Explicitly use standard SMTP with STARTTLS for port 587 or 2587
             server = smtplib.SMTP(host=host, port=port, timeout=timeout)
             server.ehlo()
             server.starttls(context=context)
             server.ehlo()
         elif port == 465:
-            # Explicitly use strict SMTP_SSL for port 465
             server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
             server.ehlo()
         else:
-            # Fallback for other ports (e.g. 25) using encryption settings
             if enc == 'ssl':
                 server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
                 server.ehlo()
@@ -167,6 +164,86 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
             pass
 
 
+def _test_ses_api_email(cfg: dict, params: dict) -> tuple[bool, str, str]:
+    try:
+        import boto3
+        aws_access_key = cfg.get('awsAccessKeyId') or cfg.get('aws_access_key')
+        aws_secret_key = cfg.get('awsSecretAccessKey') or cfg.get('aws_secret_key')
+        aws_region = cfg.get('awsRegion') or cfg.get('aws_region') or 'us-east-1'
+        from_email = cfg.get('fromEmail') or cfg.get('from_email')
+        from_name = cfg.get('fromName') or cfg.get('from_name')
+        
+        to_email = params.get('to_email') or params.get('toEmail') or 'support@admipaedia.easymsdigit.com'
+        subject = params.get('subject') or 'ADMIPAEDIA SES API Test'
+        message = params.get('message') or 'This is a test email via Amazon SES API.'
+        
+        if not aws_access_key or aws_access_key == '********':
+            return False, "AWS Access Key ID is required", ""
+        if not aws_secret_key or aws_secret_key == '********':
+            return False, "AWS Secret Access Key is required", ""
+        if not from_email:
+            return False, "From Email is required", ""
+            
+        client = boto3.client(
+            'sesv2',
+            region_name=aws_region,
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key
+        )
+        
+        sender_formatted = f"{from_name} <{from_email}>" if from_name else from_email
+        
+        simple_content = {
+            'Simple': {
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {
+                    'Text': {'Data': message, 'Charset': 'UTF-8'}
+                }
+            }
+        }
+        
+        response = client.send_email(
+            FromEmailAddress=sender_formatted,
+            Destination={'ToAddresses': [to_email]},
+            Content=simple_content
+        )
+        message_id = response.get('MessageId', '')
+        return True, f"Amazon SES API test succeeded and sent to {to_email}", message_id
+    except Exception as e:
+        return False, f"Amazon SES API failed: {str(e)}", ""
+
+
+def _test_resend_email(cfg: dict, params: dict) -> tuple[bool, str, str]:
+    try:
+        import resend
+        api_key = cfg.get('apiKey') or cfg.get('api_key')
+        from_email = cfg.get('fromEmail') or cfg.get('from_email')
+        from_name = cfg.get('fromName') or cfg.get('from_name')
+        
+        to_email = params.get('to_email') or params.get('toEmail') or 'support@admipaedia.easymsdigit.com'
+        subject = params.get('subject') or 'ADMIPAEDIA Resend API Test'
+        message = params.get('message') or 'This is a test email via Resend API.'
+        
+        if not api_key or api_key == '********':
+            return False, "Resend API Key is required", ""
+        if not from_email:
+            return False, "From Email is required", ""
+            
+        resend.api_key = api_key
+        sender_formatted = f"{from_name} <{from_email}>" if from_name else from_email
+        
+        r = resend.Emails.send({
+            "from": sender_formatted,
+            "to": [to_email],
+            "subject": subject,
+            "text": message
+        })
+        message_id = getattr(r, "id", "") or r.get("id", "")
+        return True, f"Resend API test succeeded and sent to {to_email}", message_id
+    except Exception as e:
+        return False, f"Resend API failed: {str(e)}", ""
+
+
 @jwt_required()
 @require_platform_super_admin()
 def list_provider_configs():
@@ -186,36 +263,57 @@ def list_provider_configs():
             ov_q = ov_q.filter_by(service_type=service_type)
         overrides = ov_q.order_by(TenantServiceProviderOverride.service_type.asc(), TenantServiceProviderOverride.priority.asc()).all()
 
+    # Legacy Backwards Compatibility on Load
+    providers_list = []
+    for p in providers:
+        p_key = p.provider_key
+        p_cfg = p.get_config() or {}
+        p_display = p.display_name
+        
+        # Legacy SMTP treating
+        if p_key == 'smtp' and p_cfg.get('smtpHost') and 'amazonaws.com' in str(p_cfg.get('smtpHost')).lower():
+            p_key = 'ses_smtp'
+            p_display = 'Amazon SES SMTP'
+            
+        providers_list.append({
+            'id': p.id,
+            'scope': 'platform',
+            'service_type': p.service_type,
+            'provider_key': p_key,
+            'display_name': p_display,
+            'priority': p.priority,
+            'is_active': bool(p.is_active),
+            'config': _redact_config(p_cfg),
+        })
+
+    overrides_list = []
+    for o in overrides:
+        o_key = o.provider_key
+        o_cfg = o.get_config() or {}
+        o_display = o.display_name
+        
+        # Legacy SMTP treating
+        if o_key == 'smtp' and o_cfg.get('smtpHost') and 'amazonaws.com' in str(o_cfg.get('smtpHost')).lower():
+            o_key = 'ses_smtp'
+            o_display = 'Amazon SES SMTP'
+            
+        overrides_list.append({
+            'id': o.id,
+            'scope': 'tenant',
+            'tenant_id': str(o.tenant_id),
+            'service_type': o.service_type,
+            'provider_key': o_key,
+            'display_name': o_display,
+            'priority': o.priority,
+            'is_active': bool(o.is_active),
+            'source': o.source,
+            'config': _redact_config(o_cfg),
+        })
+
     return jsonify({
         'success': True,
-        'providers': [
-            {
-                'id': p.id,
-                'scope': 'platform',
-                'service_type': p.service_type,
-                'provider_key': p.provider_key,
-                'display_name': p.display_name,
-                'priority': p.priority,
-                'is_active': bool(p.is_active),
-                'config': _redact_config(p.get_config() or {}),
-            }
-            for p in providers
-        ],
-        'overrides': [
-            {
-                'id': o.id,
-                'scope': 'tenant',
-                'tenant_id': str(o.tenant_id),
-                'service_type': o.service_type,
-                'provider_key': o.provider_key,
-                'display_name': o.display_name,
-                'priority': o.priority,
-                'is_active': bool(o.is_active),
-                'source': o.source,
-                'config': _redact_config(o.get_config() or {}),
-            }
-            for o in overrides
-        ]
+        'providers': providers_list,
+        'overrides': overrides_list
     }), 200
 
 
@@ -343,7 +441,6 @@ def update_plan_token_limits(plan_id: int):
         db.session.commit()
 
 
-
 @jwt_required()
 @require_platform_super_admin()
 def test_provider_config():
@@ -376,9 +473,19 @@ def test_provider_config():
     supported = True
     ok = False
     message = ''
+    message_id = ''
 
-    if service_type == 'email' and provider_key == 'smtp':
-        ok, message = _test_smtp_email(cfg, params)
+    # Handle polymorphic email testing routes
+    if service_type == 'email':
+        if provider_key in ('smtp', 'ses_smtp'):
+            ok, message = _test_smtp_email(cfg, params)
+        elif provider_key == 'ses_api':
+            ok, message, message_id = _test_ses_api_email(cfg, params)
+        elif provider_key == 'resend':
+            ok, message, message_id = _test_resend_email(cfg, params)
+        else:
+            supported = False
+            message = f"Unsupported email provider: {provider_key}"
     elif service_type in ('sms', 'whatsapp', 'ai'):
         supported = False
         if service_type == 'sms':
@@ -411,17 +518,14 @@ def test_provider_config():
 
     duration_ms = int((time.time() - start_time) * 1000)
 
+    # API Contract Verification Security Handlers Response Signature
     return jsonify({
         'success': True,
         'result': {
-            'scope': scope,
-            'tenant_id': tenant_id,
-            'service_type': service_type,
-            'provider_key': provider_key,
-            'supported': bool(supported),
             'ok': bool(ok),
+            'provider_key': provider_key,
             'message': message,
-            'duration_ms': duration_ms,
+            'message_id': message_id,
+            'duration_ms': duration_ms
         }
     }), 200
-

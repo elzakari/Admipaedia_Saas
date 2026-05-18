@@ -21,6 +21,7 @@ import {
 import api from '../../lib/api';
 import platformIntegrationsService from '../../services/platformIntegrationsService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { EmailProviderCard } from '../../components/settings/EmailProviderCard';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -852,74 +853,26 @@ const SystemSettingsPage: React.FC = () => {
               ) : null}
 
               <div className="grid grid-cols-1 gap-6">
-                <div className="border rounded-xl p-4 space-y-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-indigo-600" />
-                      <div className="font-semibold">Email</div>
-                      {testStatuses.email === 'verified' && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Verified</span>
-                      )}
-                      {testStatuses.email === 'failed' && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">Failed</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={upsertProviderMutation.isPending || testingProvider}
-                        onClick={() => openTest('email')}
-                      >
-                        <FlaskConical className="h-4 w-4 mr-2" />
-                        Test
-                      </Button>
-                      <Button
-                        disabled={upsertProviderMutation.isPending}
-                        onClick={() => {
-                          const { provider_key, display_name, ...cfg } = emailConfig
-                          upsertProviderMutation.mutate({
-                            scope: 'platform',
-                            service_type: 'email',
-                            provider_key,
-                            display_name,
-                            priority: 10,
-                            is_active: true,
-                            config: cfg
-                          })
-                        }}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Email
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>SMTP Host</Label>
-                      <Input value={emailConfig.smtpHost || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpHost: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>SMTP Port</Label>
-                      <Input value={String(emailConfig.smtpPort ?? '')} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPort: Number(e.target.value) }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>SMTP Username</Label>
-                      <Input value={emailConfig.smtpUsername || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpUsername: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>SMTP Password</Label>
-                      <Input value={emailConfig.smtpPassword || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPassword: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>From Email</Label>
-                      <Input value={emailConfig.fromEmail || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, fromEmail: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>From Name</Label>
-                      <Input value={emailConfig.fromName || ''} onChange={(e) => setEmailConfig((p) => ({ ...p, fromName: e.target.value }))} />
-                    </div>
-                  </div>
-                </div>
+                <EmailProviderCard
+                  emailConfig={emailConfig}
+                  setEmailConfig={setEmailConfig}
+                  onSave={() => {
+                    const { provider_key, display_name, ...cfg } = emailConfig;
+                    upsertProviderMutation.mutate({
+                      scope: 'platform',
+                      service_type: 'email',
+                      provider_key,
+                      display_name,
+                      priority: 10,
+                      is_active: true,
+                      config: cfg
+                    });
+                  }}
+                  onTest={() => openTest('email')}
+                  isSaving={upsertProviderMutation.isPending}
+                  isTesting={testingProvider}
+                  testStatus={testStatuses.email}
+                />
 
                 <div className="border rounded-xl p-4 space-y-4">
                   <div className="flex items-center justify-between gap-4 flex-wrap">
