@@ -510,3 +510,53 @@ def get_students_by_parent(parent_id):
             'success': False,
             'message': 'An unexpected error occurred while retrieving students'
         }), 500
+
+
+@students_bp.route('/<int:student_id>/generate-activation', methods=['POST'])
+@jwt_required()
+@admin_required
+@tenant_required
+def generate_activation_link(student_id):
+    """Generate a secure activation link for a student with pending activation."""
+    import secrets
+    import hashlib
+    from datetime import datetime, timedelta
+    
+    try:
+        student = student_service.get_student_by_id(student_id)
+        if student and getattr(student, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+            student = None
+            
+        if not student:
+            return jsonify({'success': False, 'message': 'Student not found'}), 404
+            
+        user = student.user
+        if not user:
+            return jsonify({'success': False, 'message': 'Associated user account not found'}), 404
+            
+        raw_token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+        expires_at = datetime.utcnow() + timedelta(hours=48)
+        
+        student.invitation_token_hash = token_hash
+        student.invitation_expires_at = expires_at
+        
+        user.invitation_token_hash = token_hash
+        user.invitation_expires_at = expires_at
+        
+        db.session.commit()
+        
+        activation_url = f"https://admipaedia.easymsdigit.com/auth/claim-account?token={raw_token}"
+        return jsonify({
+            'success': True,
+            'url': activation_url
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error generating activation link: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while generating the activation link'
+        }), 500
+

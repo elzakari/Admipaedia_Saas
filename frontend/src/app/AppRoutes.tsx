@@ -19,6 +19,7 @@ import MFAVerifyPage from '../pages/auth/MFAVerifyPage';
 import MFASetupPage from '../pages/auth/MFASetupPage';
 import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
 import VerifyEmailPage from '../pages/auth/VerifyEmailPage';
+import ClaimAccountPage from '../pages/auth/ClaimAccountPage';
 import SchoolRegistrationPage from '../pages/saas/SchoolRegistrationPage';
 import InviteAcceptPage from '../pages/auth/InviteAcceptPage';
 
@@ -256,6 +257,7 @@ export default function AppRoutes() {
       <Route path="/invite/:inviteId" element={<InviteAcceptPage />} />
       <Route path="/auth/mfa/verify" element={<MFAVerifyPage />} />
       <Route path="/auth/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/auth/claim-account" element={<ClaimAccountPage />} />
 
       <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
       <Route

@@ -257,18 +257,23 @@ def review_application(id):
             from app.models.user import User
             
             # Determine student email
-            student_email = form_data.get('student_email') or form_data.get('email')
-            if not student_email:
-                clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
-                clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
-                if not clean_first and not clean_last:
-                    clean_first = "student"
-                student_email = f"{clean_first}.{clean_last}.{application.id}@admipaedia.com"
+            student_email = form_data.get('student_email') or form_data.get('email') or None
                 
             # Create user account for student if not exists
-            student_user = User.query.filter_by(email=student_email).first()
+            student_user = None
+            if student_email:
+                student_user = User.query.filter_by(email=student_email).first()
+                
             if not student_user:
-                username = student_email.split('@')[0]
+                if student_email:
+                    username = student_email.split('@')[0]
+                else:
+                    clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
+                    clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
+                    if not clean_first and not clean_last:
+                        clean_first = "student"
+                    username = f"{clean_first}_{clean_last}"
+                
                 base_username = username
                 counter = 1
                 while User.query.filter_by(username=username).first():
@@ -278,9 +283,10 @@ def review_application(id):
                 student_user = User(
                     username=username,
                     email=student_email,
-                    role='student'
+                    role='student',
+                    status='pending_activation'
                 )
-                student_user.set_password('Password123!')
+                student_user.password_hash = None # permits newly provisioned student profiles to remain password-empty
                 db.session.add(student_user)
                 db.session.flush() # Flush to get student_user.id
                 
@@ -325,6 +331,7 @@ def review_application(id):
                 'class_id': application.target_class_id,
                 'gender': gender,
                 'date_of_birth': date_of_birth,
+                'status': 'pending_activation',
                 
                 # Unpack form_data mapping
                 'address': address_val,

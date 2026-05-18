@@ -4,7 +4,7 @@ import {
   User, Mail, Phone, Calendar, MapPin, GraduationCap, 
   BookOpen, Clock, Award, FileText, Printer, Share2, 
   Edit, ArrowLeft, Download, BarChart3, Users, 
-  CheckCircle, AlertCircle, XCircle
+  CheckCircle, AlertCircle, XCircle, Link2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -74,6 +74,28 @@ const StudentProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [copied, setCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+
+  const handleGenerateSetupLink = async () => {
+    if (!student) return;
+    try {
+      setGeneratingLink(true);
+      const res: any = await studentService.generateActivationLink(parseInt(student.id));
+      if (res && res.success && res.url) {
+        await navigator.clipboard.writeText(res.url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+      } else {
+        alert(res?.message || 'Failed to generate activation link');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error generating activation link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -234,6 +256,17 @@ const StudentProfilePage: React.FC = () => {
         </div>
         
         <div className="flex space-x-2 print:hidden">
+          {student.status?.toLowerCase() === 'pending_activation' && (
+            <Button 
+              variant="default" 
+              onClick={handleGenerateSetupLink}
+              disabled={generatingLink}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all"
+            >
+              <Link2 className="h-4 w-4 mr-2" />
+              {copied ? 'Link Copied!' : generatingLink ? 'Generating...' : 'Generate Setup Link'}
+            </Button>
+          )}
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print

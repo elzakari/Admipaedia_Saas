@@ -777,3 +777,88 @@ def reset_password():
     except Exception as err:
         logger.error("password_reset_error", error=str(err))
         return jsonify({"success": False, "error": "Password reset failed"}), 500
+
+
+@auth_bp.route('/claim-account', methods=['POST'])
+@rate_limit(limit=5, window=3600)  # 5 claim attempts per hour
+@sanitize_request_data()
+@security_headers()
+def claim_account():
+    """Claim a student account by establishing password credentials."""
+    import hashlib
+    from datetime import datetime
+    from app.models.student import Student
+    
+    try:
+        data = request.json or {}
+        token = data.get('token', '').strip()
+        new_password = data.get('new_password', '').strip()
+        confirm_password = data.get('confirm_password', '').strip()
+        
+        if not token:
+            return jsonify({"success": False, "error": "Activation token is required"}), 400
+            
+        if not new_password:
+            return jsonify({"success": False, "error": "New password is required"}), 400
+            
+        if new_password != confirm_password:
+            return jsonify({"success": False, "error": "Passwords do not match"}), 400
+            
+        # Validate password strength
+        is_valid, password_errors = PasswordSecurity.validate_password_strength(new_password)
+        if not is_valid:
+            return jsonify({
+                "success": False,
+                "error": "Password does not meet security requirements",
+                "requirements": password_errors
+            }), 400
+            
+        # Hash token using SHA-256
+        token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+        
+        # Look up matching user
+        user = User.query.filter_by(invitation_token_hash=token_hash).first()
+        if not user or (user.invitation_expires_at and user.invitation_expires_at < datetime.utcnow()):
+            log_security_event('invalid_account_claim_token', {
+                'token': token[:8] + '...',
+                'ip_address': request.remote_addr
+            })
+            return jsonify({"success": False, "error": "Invalid or expired activation link"}), 400
+            
+        # Overwrite default null password credentials
+        user.set_password(new_password)
+        user.password_changed_at = datetime.utcnow()
+        
+        # Transition profiles active status flags
+        user.status = 'active'
+        user.is_active = True
+        user.email_verified = True
+        
+        # Nullify token hashes
+        user.invitation_token_hash = None
+        user.invitation_expires_at = None
+        
+        # Look up matching student
+        student = Student.query.filter_by(user_id=user.id).first()
+        if student:
+            student.status = 'active'
+            student.invitation_token_hash = None
+            student.invitation_expires_at = None
+            
+        db.session.commit()
+        
+        log_security_event('account_claim_completed', {
+            'user_id': user.id,
+            'email': user.email
+        })
+        
+        return jsonify({
+            "success": True,
+            "message": "Account activated successfully. You can now log in with your new password."
+        }), 200
+        
+    except Exception as err:
+        db.session.rollback()
+        logger.error("account_claim_error", error=str(err))
+        return jsonify({"success": False, "error": "Account activation failed"}), 500
+

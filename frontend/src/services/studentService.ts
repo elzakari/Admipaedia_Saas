@@ -299,6 +299,16 @@ const studentService = {
     }
   },
 
+  generateActivationLink: async (studentId: number): Promise<{ success: boolean; url: string }> => {
+    try {
+      const response = await api.post(`/students/${studentId}/generate-activation`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error generating activation link for student ${studentId}:`, error);
+      ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
   // Student promotion
   promoteStudents: async (promotionData: {
     current_class_id: number;

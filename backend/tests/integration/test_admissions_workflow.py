@@ -122,7 +122,10 @@ def test_admission_approval_success(auth_client, app):
         student_user = User.query.get(student.user_id)
         assert student_user is not None
         assert student_user.role == 'student'
-        assert student_user.email == f"bobby.appleseed.{app_id}@admipaedia.com"
+        assert student_user.email is None
+        assert student_user.password_hash is None
+        assert student_user.status == 'pending_activation'
+        assert student.status == 'pending_activation'
 
 def test_admission_approval_failure_rollback(auth_client, app):
     """Test that missing required fields like date_of_birth cause a 500 error and roll back transaction."""

@@ -237,3 +237,7 @@ class Student(db.Model):
     
     student_email = db.Column(db.String(100), nullable=True)
     library_card_number = db.Column(db.String(50), nullable=True)
+    
+    # Secure activation / invitation properties
+    invitation_token_hash = db.Column(db.String(255), nullable=True)
+    invitation_expires_at = db.Column(db.DateTime, nullable=True)

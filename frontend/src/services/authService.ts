@@ -153,6 +153,16 @@ const authService = {
     return response.data;
   },
 
+  claimAccount: async (token: string, newPassword: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await api.post('/auth/claim-account', { token, new_password: newPassword, confirm_password: newPassword });
+      return response.data;
+    } catch (error) {
+      console.error('Error claiming account:', error);
+      throw error;
+    }
+  },
+
   logout: async (): Promise<void> => {
     try {
       await api.post('/auth/logout');
