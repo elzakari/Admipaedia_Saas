@@ -59,6 +59,12 @@ api.interceptors.response.use(
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as ExtendedAxiosRequestConfig;
+    const isLoginPage = typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname === '/super-admin/login');
+    const isAuthMe = originalRequest?.url?.includes('/auth/me');
+
+    if (isLoginPage && isAuthMe) {
+      return Promise.reject(error);
+    }
     
     // Handle timeout errors
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
@@ -83,7 +89,7 @@ api.interceptors.response.use(
     }
     
     // Handle 401 errors with token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       if (isRefreshing) {
         // Queue the request while refresh is in progress
         return new Promise((resolve, reject) => {
@@ -132,15 +138,17 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         
-        toast.error('Session Expired', {
-          description: 'Please log in again to continue.',
-          duration: 5000
-        });
-        
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 1000);
+        if (!isLoginPage) {
+          toast.error('Session Expired', {
+            description: 'Please log in again to continue.',
+            duration: 5000
+          });
+          
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1000);
+        }
         
         return Promise.reject(refreshError);
       } finally {

@@ -134,6 +134,14 @@ class EnhancedAuthService:
             print(f"--- DB: FIND USER ---")
             user = User.query.filter_by(email=email).first()
             
+            if user and not user.password_hash:
+                print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")
+                return {
+                    'success': False,
+                    'error': 'UNCLAIMED_PROFILE',
+                    'message': 'This account has not been claimed or activated yet. Please use the administrator setup link sent to your email to claim your account.'
+                }
+            
             # Context info
             ip_address = request.remote_addr if request else None
             user_agent = request.headers.get('User-Agent') if request else None

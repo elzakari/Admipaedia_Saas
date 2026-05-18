@@ -284,7 +284,14 @@ def login():
         logger.info("login_result", email=email, success=result.get('success', False))
         
         # Ensure status_code is a valid integer
-        status_code = 200 if result.get('success', False) else 401
+        if result.get('success', False):
+            status_code = 200
+        elif result.get('error') == 'EMAIL_NOT_VERIFIED':
+            status_code = 403
+        elif result.get('error') == 'UNCLAIMED_PROFILE':
+            status_code = 400
+        else:
+            status_code = 401
         
         # If MFA is required, we still return 200 OK so frontend can process the MFA flow
         if not result.get('success', False) and result.get('requires_mfa', False):

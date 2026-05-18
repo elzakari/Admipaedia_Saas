@@ -80,7 +80,13 @@ def enhanced_login():
         )
         
         if not result['success']:
-            return jsonify(result), 401
+            if result.get('error') == 'EMAIL_NOT_VERIFIED':
+                status_code = 403
+            elif result.get('error') == 'UNCLAIMED_PROFILE':
+                status_code = 400
+            else:
+                status_code = 401
+            return jsonify(result), status_code
         
         # Check if MFA is required
         if result.get('mfa_required'):

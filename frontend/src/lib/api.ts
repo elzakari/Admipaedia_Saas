@@ -68,6 +68,12 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const isLoginPage = typeof window !== 'undefined' && (window.location.pathname === '/login' || window.location.pathname === '/super-admin/login');
+    const isAuthMe = originalRequest?.url?.includes('/auth/me');
+
+    if (isLoginPage && isAuthMe) {
+      return Promise.reject(error);
+    }
 
     // Fix the response interceptor (around line 40-50)
     // Skip token refresh for login requests
@@ -102,7 +108,9 @@ api.interceptors.response.use(
         localStorage.removeItem('access_token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('refresh_token');
-        window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+        if (!isLoginPage) {
+          window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+        }
         return Promise.reject(refreshError);
       }
     }
