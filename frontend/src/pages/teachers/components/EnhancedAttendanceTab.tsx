@@ -87,7 +87,7 @@ export function EnhancedAttendanceTab({ teacherId }: EnhancedAttendanceTabProps)
         const response = await classService.getClassesByTeacher(teacherId);
         setClasses(response.data.map(cls => ({
           id: cls.id,
-          name: `${cls.name} - Grade ${cls.grade_level}${cls.section ? cls.section : ''}`
+          name: `${cls.name} - Grade ${typeof cls.grade_level === 'object' && cls.grade_level !== null ? (cls.grade_level as any).name : cls.grade_level}${cls.section ? cls.section : ''}`
         })));
         setIsClassesLoading(false);
       } catch (error) {

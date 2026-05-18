@@ -228,7 +228,7 @@ const ViewModal: React.FC<{
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.grade_level', 'Grade Level')}</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{(itemData as Class).grade_level || 'N/A'}</p>
+                    <p className="text-gray-900 dark:text-white font-medium">{typeof (itemData as Class).grade_level === 'object' && (itemData as Class).grade_level !== null ? ((itemData as Class).grade_level as any).name : ((itemData as Class).grade_level || 'N/A')}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('admin_academic.academic_year', 'Academic Year')}</label>
@@ -625,7 +625,7 @@ const ClassRecords: React.FC = () => {
         const csvContent = activeTab === 'classes'
           ? 'Name,Grade Level,Section,Enrollment,Teacher,Status\n' +
             selectedData.map((cls: Class) => 
-              `"${cls.name}","${cls.grade_level || ''}","${cls.section || ''}","${cls.current_enrollment || 0}","${cls.class_teacher || ''}","${cls.status || 'active'}"`
+              `"${cls.name}","${typeof cls.grade_level === 'object' && cls.grade_level !== null ? (cls.grade_level as any).name : (cls.grade_level || '')}","${cls.section || ''}","${cls.current_enrollment || 0}","${cls.class_teacher || ''}","${cls.status || 'active'}"`
             ).join('\n')
           : 'Name,Code,Department,Credits,Status\n' +
             selectedData.map((subject: Subject) => 
@@ -890,7 +890,7 @@ const ClassRecords: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell className="font-medium">{cls.name}</TableCell>
-                        <TableCell>{cls.grade_level || 'N/A'}</TableCell>
+                        <TableCell>{typeof cls.grade_level === 'object' && cls.grade_level !== null ? (cls.grade_level as any).name : (cls.grade_level || 'N/A')}</TableCell>
                         <TableCell>{cls.section || 'N/A'}</TableCell>
                         <TableCell>
                           {cls.current_enrollment || 0}/{cls.capacity || 0}

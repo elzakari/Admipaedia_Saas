@@ -81,7 +81,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
     },
     {
       header: 'Grade Level',
-      accessor: (classItem: any) => classItem.grade_level,
+      accessor: (classItem: any) => typeof classItem.grade_level === 'object' && classItem.grade_level !== null ? classItem.grade_level.name : classItem.grade_level,
       mobileLabel: 'Grade',
       priority: 'high' as const
     },

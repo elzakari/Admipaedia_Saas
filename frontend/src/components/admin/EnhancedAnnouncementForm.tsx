@@ -109,7 +109,7 @@ const EnhancedAnnouncementForm: React.FC<EnhancedAnnouncementFormProps> = ({ cla
             <Select placeholder="Select class">
               {classes.map((c: any) => (
                 <Option key={c.id} value={c.id}>
-                  {c.name || c.class_name || c.grade_level || `Class ${c.id}`}
+                  {c.name || c.class_name || (typeof c.grade_level === 'object' && c.grade_level !== null ? c.grade_level.name : c.grade_level) || `Class ${c.id}`}
                 </Option>
               ))}
             </Select>

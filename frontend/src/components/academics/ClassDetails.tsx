@@ -238,7 +238,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{classData.name}</h1>
             <p className="text-muted-foreground mt-1">
-              {classData.grade_level} • {classData.academic_year_name || t('admin_academic.current_year', 'Current Year')} • {t('admin_academic.room_label', 'Room')} {classData.room_number || 'N/A'}
+              {typeof classData.grade_level === 'object' && classData.grade_level !== null ? (classData.grade_level as any).name : classData.grade_level} • {classData.academic_year_name || t('admin_academic.current_year', 'Current Year')} • {t('admin_academic.room_label', 'Room')} {classData.room_number || 'N/A'}
             </p>
           </div>
           <Badge variant={classData.status === 'active' || !classData.status ? 'default' : 'secondary'}>

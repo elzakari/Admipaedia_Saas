@@ -184,7 +184,7 @@ const EnhancedClassRecords: React.FC = () => {
                   {searchConfig.data.map((cls: Class) => (
                     <TableRow key={cls.id}>
                       <TableCell className="font-medium">{cls.name}</TableCell>
-                      <TableCell>{cls.grade_level}</TableCell>
+                      <TableCell>{typeof cls.grade_level === 'object' && cls.grade_level !== null ? (cls.grade_level as any).name : cls.grade_level}</TableCell>
                       <TableCell>{cls.section || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

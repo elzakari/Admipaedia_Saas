@@ -417,7 +417,7 @@ const EnhancedGradingSystem: React.FC = () => {
                       <SelectContent>
                         {classes.map(cls => (
                           <SelectItem key={cls.id} value={cls.id.toString()}>
-                            {cls.name} ({cls.grade_level})
+                            {cls.name} ({typeof cls.grade_level === 'object' && cls.grade_level !== null ? (cls.grade_level as any).name : cls.grade_level})
                           </SelectItem>
                         ))}
                       </SelectContent>

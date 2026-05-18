@@ -485,7 +485,7 @@ export function EnhancedCurriculumPlanner() {
                             <div className="text-sm text-muted-foreground">{curriculum.subject_code}</div>
                           </div>
                         </td>
-                        <td className="p-3">{curriculum.grade_level}</td>
+                        <td className="p-3">{typeof curriculum.grade_level === 'object' && curriculum.grade_level !== null ? (curriculum.grade_level as any).name : curriculum.grade_level}</td>
                         <td className="p-3">{curriculum.academic_year}</td>
                         <td className="p-3">
                           <Badge 

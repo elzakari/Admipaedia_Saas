@@ -348,7 +348,7 @@ export function CurriculumPlanner() {
                       <tr key={curriculum.id} className="border-b">
                         <td className="p-2">{curriculum.title}</td>
                         <td className="p-2">{curriculum.subject_name}</td>
-                        <td className="p-2">{curriculum.grade_level}</td>
+                        <td className="p-2">{typeof curriculum.grade_level === 'object' && curriculum.grade_level !== null ? (curriculum.grade_level as any).name : curriculum.grade_level}</td>
                         <td className="p-2">{curriculum.academic_year}</td>
                         <td className="p-2">
                           <Badge 

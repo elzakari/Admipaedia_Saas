@@ -44,7 +44,7 @@ export function ClassDetails({ classId }: ClassDetailsProps) {
     <Card>
       <CardHeader>
         <CardTitle>{classData.name}</CardTitle>
-        <CardDescription>Grade {classData.grade_level} - Section {classData.section}</CardDescription>
+        <CardDescription>Grade {typeof classData.grade_level === 'object' && classData.grade_level !== null ? (classData.grade_level as any).name : classData.grade_level} - Section {classData.section}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
