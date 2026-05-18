@@ -4,6 +4,29 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 notifications_bp = Blueprint('notifications', __name__)
 
+@notifications_bp.route('', methods=['GET'])
+@notifications_bp.route('/', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    user_id = get_jwt_identity()
+    limit = request.args.get('limit', 20, type=int)
+    from app.services.notification_service import NotificationService
+    notifications = NotificationService.get_user_notifications(user_id, limit=limit)
+    return jsonify({
+        'success': True,
+        'data': [{
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'type': n.type,
+            'read': n.read,
+            'is_read': n.read,
+            'time': n.time.isoformat() if n.time else None,
+            'created_at': n.created_at.isoformat() if n.created_at else None,
+            'scope': n.scope
+        } for n in notifications]
+    }), 200
+
 @notifications_bp.route('/preferences', methods=['GET'])
 @jwt_required()
 def get_preferences():
@@ -31,3 +54,19 @@ def test_send():
     success, results = NotificationService.send_notification(user_id, message, channels)
     
     return jsonify({'success': success, 'results': results}), 200
+
+@notifications_bp.route('/mark-read', methods=['PATCH'])
+@jwt_required()
+def mark_read():
+    from app.extensions import db
+    from app.models.dashboard import Notification
+    
+    data = request.json or {}
+    notification_ids = data.get('notification_ids', [])
+    if not notification_ids:
+        return jsonify({'success': False, 'message': 'No notification_ids provided'}), 400
+        
+    Notification.query.filter(Notification.id.in_(notification_ids)).update({'read': True}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Notifications marked as read'}), 200
+

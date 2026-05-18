@@ -1,20 +1,73 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { teacherNotifications } from './teacherMockData';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Loader2 } from 'lucide-react';
+import notificationService from '../../services/notificationService';
 
 type Filter = 'all' | 'unread';
 
 const TeacherNotificationsPage: React.FC = () => {
   const [filter, setFilter] = useState<Filter>('all');
-  const [readIds, setReadIds] = useState<Set<string>>(new Set(teacherNotifications.filter((n) => !n.unread).map((n) => n.id)));
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const res = await notificationService.getNotifications();
+      const list = (res as any)?.data || (res as any)?.notifications || [];
+      setNotifications(list);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load notifications.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead([id]);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true, is_read: true } : n))
+      );
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+  };
 
   const items = useMemo(() => {
-    const list = teacherNotifications.map((n) => ({ ...n, unread: !readIds.has(n.id) }));
+    const list = notifications.map((n) => ({
+      id: n.id.toString(),
+      title: n.title,
+      body: n.message || n.body,
+      createdAt: n.created_at ? new Date(n.created_at).toLocaleDateString() : (n.time || ''),
+      unread: !(n.read || n.is_read),
+      kind: n.type || 'general'
+    }));
     if (filter === 'unread') return list.filter((n) => n.unread);
     return list;
-  }, [filter, readIds]);
+  }, [filter, notifications]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-600 dark:text-red-400">
+        <p className="font-medium">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -36,27 +89,33 @@ const TeacherNotificationsPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {items.map((n) => (
-              <div key={n.id} className={`rounded-lg border p-3 ${n.unread ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{n.title}</div>
-                    <div className="text-xs text-slate-500 mt-1">{n.createdAt} • {n.kind}</div>
-                  </div>
-                  {n.unread ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => setReadIds((prev) => new Set([...Array.from(prev), n.id]))}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="text-sm text-slate-700 dark:text-slate-300 mt-2">{n.body}</div>
+            {items.length === 0 ? (
+              <div className="text-center py-6 text-slate-500 dark:text-slate-400 border border-dashed rounded-lg border-slate-200 dark:border-slate-800">
+                No notifications found
               </div>
-            ))}
+            ) : (
+              items.map((n) => (
+                <div key={n.id} className={`rounded-lg border p-3 ${n.unread ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{n.title}</div>
+                      <div className="text-xs text-slate-500 mt-1">{n.createdAt} • {n.kind}</div>
+                    </div>
+                    {n.unread ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => handleMarkAsRead(n.id)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-300 mt-2">{n.body}</div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

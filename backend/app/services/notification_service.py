@@ -160,6 +160,7 @@ class NotificationService:
             list: List of notification objects
         """
         from sqlalchemy.orm import joinedload
+        from sqlalchemy import or_
         
         # Try to get from cache first
         cache_key = f"user_notifications:{user_id}:limit_{limit}:read_{include_read}"
@@ -167,10 +168,22 @@ class NotificationService:
         if cached_notifications:
             return cached_notifications
         
+        user = User.query.get(user_id)
+        role = user.role if user else None
+        
+        filters = [
+            Notification.user_id == user_id,
+            Notification.recipient_id == user_id,
+            Notification.scope == 'all'
+        ]
+        if role:
+            filters.append(Notification.scope == f"{role}s")
+            filters.append(Notification.scope == role)
+            
         query = Notification.query.options(
             joinedload(Notification.user)
         ).filter(
-            (Notification.user_id == user_id) | (Notification.user_id == None)
+            or_(*filters)
         )
         
         if not include_read:

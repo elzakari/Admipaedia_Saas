@@ -1,18 +1,92 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { teacherTimetable } from './teacherMockData';
-import { CalendarClock, ChevronRight } from 'lucide-react';
+import { CalendarClock, ChevronRight, Loader2 } from 'lucide-react';
+import teacherService from '../../services/teacherService';
+import api from '../../lib/api';
 
 const days: Array<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri'> = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
+const dayMapping: Record<string, 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri'> = {
+  monday: 'Mon', mon: 'Mon',
+  tuesday: 'Tue', tue: 'Tue',
+  wednesday: 'Wed', wed: 'Wed',
+  thursday: 'Thu', thu: 'Thu',
+  friday: 'Fri', fri: 'Fri'
+};
+
 const TeacherTimetablePage: React.FC = () => {
-  const byDay = useMemo(() => {
-    const map: Record<string, typeof teacherTimetable> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [] };
-    for (const item of teacherTimetable) map[item.day].push(item);
-    for (const d of days) map[d].sort((a, b) => a.start.localeCompare(b.start));
-    return map;
+  const [timetable, setTimetable] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadTimetable() {
+      try {
+        setLoading(true);
+        const profile = await teacherService.getOwnProfile();
+        if (profile && active) {
+          const res = await api.get('/timetable', { params: { teacher_id: profile.id } });
+          const slots = res.data?.data || res.data || [];
+          
+          if (active) {
+            const mapped = slots.map((s: any) => {
+              const day = dayMapping[s.day_of_week?.toLowerCase()] || 'Mon';
+              return {
+                id: s.id.toString(),
+                day,
+                start: s.start_time || '',
+                end: s.end_time || '',
+                classId: s.class_id?.toString() || '',
+                label: `${s.subject_name || 'Class'} — ${s.class_name || ''}`
+              };
+            });
+            setTimetable(mapped);
+          }
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || 'Failed to load timetable.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadTimetable();
+    return () => { active = false; };
   }, []);
+
+  const byDay = useMemo(() => {
+    const map: Record<string, any[]> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [] };
+    for (const item of timetable) {
+      if (map[item.day]) {
+        map[item.day].push(item);
+      }
+    }
+    for (const d of days) {
+      map[d].sort((a, b) => a.start.localeCompare(b.start));
+    }
+    return map;
+  }, [timetable]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-600 dark:text-red-400">
+        <p className="font-medium">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-6">

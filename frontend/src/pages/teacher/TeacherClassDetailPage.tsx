@@ -1,28 +1,88 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { teacherClasses } from './teacherMockData';
-import { ChevronRight, Users, CalendarCheck2, BadgeCheck, ClipboardList, Megaphone } from 'lucide-react';
+import { ChevronRight, Users, CalendarCheck2, BadgeCheck, ClipboardList, Megaphone, Loader2 } from 'lucide-react';
 import { TeacherClassRosterTab } from './components/TeacherClassRosterTab';
 import { TeacherClassAttendanceTab } from './components/TeacherClassAttendanceTab';
 import { TeacherClassGradebookTab } from './components/TeacherClassGradebookTab';
 import { TeacherClassAssignmentsTab } from './components/TeacherClassAssignmentsTab';
 import { TeacherClassAnnouncementsTab } from './components/TeacherClassAnnouncementsTab';
+import api from '../../lib/api';
 
 const TeacherClassDetailPage: React.FC = () => {
   const { t } = useTranslation();
   const { classId } = useParams();
-  const cls = useMemo(() => teacherClasses.find((c) => c.id === classId) ?? null, [classId]);
 
-  if (!cls) {
+  const [classInfo, setClassInfo] = useState<any>(null);
+  const [roster, setRoster] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadClassDetail() {
+      if (!classId) return;
+      try {
+        setLoading(true);
+        // Fetch class detail
+        const classRes = await api.get(`/classes/${classId}`);
+        const classData = classRes.data?.data || classRes.data?.class || classRes.data;
+        
+        // Fetch students in this class
+        const studentsRes = await api.get('/students', { params: { class_id: classId, per_page: 100 } });
+        const studentsData = studentsRes.data?.students || studentsRes.data?.data?.students || studentsRes.data?.data || [];
+        
+        if (active) {
+          setClassInfo(classData);
+          setRoster(studentsData.map((s: any) => ({
+            id: s.id.toString(),
+            name: s.full_name || `${s.first_name} ${s.last_name}`,
+            status: s.status || 'active'
+          })));
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || 'Failed to load class workspace.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadClassDetail();
+    return () => { active = false; };
+  }, [classId]);
+
+  const cls = useMemo(() => {
+    if (!classInfo) return null;
+    return {
+      id: classId!,
+      className: classInfo.name,
+      subject: classInfo.grade_level_name || 'Class Workspace',
+      room: classInfo.room || classInfo.room_number,
+      term: classInfo.academic_year,
+      roster: roster
+    };
+  }, [classInfo, roster, classId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error || !cls) {
     return (
       <div className="p-6">
         <Card>
           <CardHeader>
             <CardTitle>{t('teacher_portal.class_detail.class_not_found')}</CardTitle>
-            <CardDescription>{t('teacher_portal.class_detail.class_not_available')}</CardDescription>
+            <CardDescription>{error || t('teacher_portal.class_detail.class_not_available')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Link to="/teacher/classes" className="text-indigo-600 hover:text-indigo-700">{t('teacher_portal.class_detail.back_to_classes')}</Link>

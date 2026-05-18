@@ -57,7 +57,10 @@ class Notification(db.Model):
     read = db.Column(db.Boolean, default=False)
     type = db.Column(db.String(20), nullable=False)  # info, warning, success, error
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    scope = db.Column(db.String(50), nullable=True, default='all') # all, teachers, students, parents, admins
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    user = db.relationship('User', backref=db.backref('notifications', lazy=True))
+    user = db.relationship('User', backref=db.backref('notifications', lazy=True), foreign_keys=[user_id])
+    recipient = db.relationship('User', backref=db.backref('received_notifications', lazy=True), foreign_keys=[recipient_id])
