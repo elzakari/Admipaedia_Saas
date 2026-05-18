@@ -500,6 +500,8 @@ def update_notification_settings_v2():
 @role_required(['admin', 'super_admin'])
 def test_email_configuration_v2():
     from app.utils.platform_access import get_current_user
+    from app.services.email_service import send_email
+    
     actor = get_current_user()
     if getattr(actor, 'role', None) not in ('super_admin', 'super_manager'):
         return jsonify({'success': False, 'message': 'Email provider configuration is managed by the platform.'}), 403
@@ -507,7 +509,25 @@ def test_email_configuration_v2():
     email = (data.get('testEmail') or '').strip()
     if not email:
         return jsonify({'success': False, 'message': 'testEmail is required'}), 400
-    return jsonify({'success': True}), 200
+        
+    provider_override = (data.get('provider') or '').strip()
+    
+    subject = "ADMIPAEDIA - Connection Test Email"
+    text_body = "This is a real-time transactional connection test email from ADMIPAEDIA. Your configuration works perfectly!"
+    html_body = "<h3>ADMIPAEDIA Connection Test</h3><p>This is a real-time transactional connection test email from ADMIPAEDIA. Your configuration works perfectly!</p>"
+    
+    result = send_email(
+        subject=subject,
+        recipients=[email],
+        text_body=text_body,
+        html_body=html_body,
+        provider=provider_override if provider_override else None
+    )
+    
+    response_payload = dict(result)
+    response_payload['success'] = result.get('ok', False)
+    
+    return jsonify(response_payload), 200
 
 
 @jwt_required()

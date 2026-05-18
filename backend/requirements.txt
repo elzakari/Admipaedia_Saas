@@ -68,3 +68,7 @@ flask-security-too==5.2.0  # Additional security features
 geoip2==4.7.0  # IP geolocation for security monitoring
 icalendar
 Flask-Babel==4.0.0
+
+# Third-party email providers
+boto3==1.43.9
+resend==2.30.1

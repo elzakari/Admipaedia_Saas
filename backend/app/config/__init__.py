@@ -40,6 +40,15 @@ class BaseConfig:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
     
+    # Provider-based Email Configuration
+    EMAIL_PROVIDER = os.environ.get('EMAIL_PROVIDER', 'smtp')
+    AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    EMAIL_FROM_ADDRESS = os.environ.get('EMAIL_FROM_ADDRESS', 'support@admipaedia.easymsdigit.com')
+    EMAIL_FROM_NAME = os.environ.get('EMAIL_FROM_NAME', 'Admipaedia Support')
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+    
     # Frontend Configuration
     FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
     
