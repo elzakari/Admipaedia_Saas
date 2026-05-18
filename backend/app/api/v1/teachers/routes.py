@@ -530,11 +530,28 @@ def get_teacher_ai_insights(teacher_id):
 
 @teachers_bp.route('/<int:teacher_id>/schedule-assets', methods=['GET'])
 @jwt_required()
-@require_permission('teacher.read')
 @tenant_required
 def get_teacher_schedule_assets(teacher_id):
     """Aggregate recurring timetable slots and date-bound events for a teacher."""
     try:
+        from app.utils.rbac_decorators import get_current_user, has_permission
+        
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+            
+        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin
+        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() == 'admin'
+        
+        # 2. Or, authorize if the user is a teacher and this is their own record
+        if not is_authorized:
+            teacher_record = TeacherService.get_teacher_by_user_id(user.id)
+            if teacher_record and teacher_record.id == teacher_id:
+                is_authorized = True
+                
+        if not is_authorized:
+            return jsonify({"error": "Insufficient permissions to read teacher schedule assets"}), 403
+            
         from app.models.timetable import TimetableSlot
         from app.models.subject import Subject
         from app.models.class_ import Class
@@ -585,5 +602,32 @@ def get_teacher_schedule_assets(teacher_id):
         return jsonify({
             'success': False,
             'message': 'Failed to compile schedule assets',
+            'error': str(e)
+        }), 500
+
+
+@teachers_bp.route('/me/schedule-assets', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_current_teacher_schedule_assets():
+    """Aggregate recurring timetable slots and date-bound events for the logged-in teacher."""
+    try:
+        from app.utils.rbac_decorators import get_current_user
+        
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+            
+        teacher_record = TeacherService.get_teacher_by_user_id(user.id)
+        if not teacher_record:
+            return jsonify({'success': False, 'message': 'Teacher record not found for the authenticated user'}), 404
+            
+        # Re-use the existing logic to compile and return the schedule assets
+        return get_teacher_schedule_assets(teacher_record.id)
+    except Exception as e:
+        current_app.logger.error(f"Error compiling own schedule assets: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to compile own schedule assets',
             'error': str(e)
         }), 500
