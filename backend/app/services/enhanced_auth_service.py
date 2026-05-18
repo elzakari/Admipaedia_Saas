@@ -163,7 +163,16 @@ class EnhancedAuthService:
             )
             db.session.add(login_attempt)
             
-            # Check user status
+            # Check user status & email verification early
+            if user.status in ('pending_email_verification', 'pending_verification') or (not getattr(user, 'email_verified', False) and user.status != 'active'):
+                print(f"--- AUTH FAILED: EMAIL NOT VERIFIED ---")
+                login_attempt.success = False
+                db.session.commit()
+                return {
+                    'success': False,
+                    'error': 'EMAIL_NOT_VERIFIED'
+                }
+
             if user.status != 'active':
                 print(f"--- AUTH FAILED: STATUS {user.status} ---")
                 login_attempt.success = False # Mark as failed because of status

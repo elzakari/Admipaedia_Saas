@@ -18,6 +18,7 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 import MFAVerifyPage from '../pages/auth/MFAVerifyPage';
 import MFASetupPage from '../pages/auth/MFASetupPage';
 import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
+import VerifyEmailPage from '../pages/auth/VerifyEmailPage';
 import SchoolRegistrationPage from '../pages/saas/SchoolRegistrationPage';
 import InviteAcceptPage from '../pages/auth/InviteAcceptPage';
 
@@ -254,6 +255,7 @@ export default function AppRoutes() {
       <Route path="/school/register" element={<SchoolRegistrationPage />} />
       <Route path="/invite/:inviteId" element={<InviteAcceptPage />} />
       <Route path="/auth/mfa/verify" element={<MFAVerifyPage />} />
+      <Route path="/auth/verify-email" element={<VerifyEmailPage />} />
 
       <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
       <Route

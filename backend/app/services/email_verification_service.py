@@ -30,14 +30,28 @@ class EmailVerificationRepository:
         except Exception as e:
             logger.warning("Runtime metadata creation bypassed or not yet bound to an engine", error=str(e))
 
-    def create_token(self, user_id: int, email: str, expires_in_hours: int = 24) -> Tuple[str, EmailVerificationToken]:
+    def create_token(self, user_id: int, email: str, expires_in_minutes: int = 60, expires_in_hours: Optional[int] = None) -> Tuple[str, EmailVerificationToken]:
         """
-        Generate a secure url-safe cryptographic token, SHA-256 hash it, and persist to database.
+        Generate a secure url-safe cryptographic token via secrets.token_urlsafe(48),
+        SHA-256 hash it, invalidate prior tokens, and persist to database.
         Returns a tuple of (plain_token, token_record).
         """
-        plain_token = secrets.token_urlsafe(32)
+        if expires_in_hours is not None:
+            expires_in_minutes = expires_in_hours * 60
+        # 1. Single-active tracking state sweeps: Sweep any existing active verification tokens for this user
+        try:
+            EmailVerificationToken.query.filter_by(user_id=int(user_id), is_used=False).update({
+                'is_used': True,
+                'used_at': datetime.utcnow()
+            })
+            db.session.flush()
+        except Exception as e:
+            logger.warning("Single-active tracking sweep encountered a dynamic context override", error=str(e))
+
+        # 2. Highly unpredictable token generation
+        plain_token = secrets.token_urlsafe(48)
         token_hash = hashlib.sha256(plain_token.encode('utf-8')).hexdigest()
-        expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+        expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
         record = EmailVerificationToken(
             user_id=int(user_id),

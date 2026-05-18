@@ -26,7 +26,8 @@ def init_db():
             email=admin_email,
             password_hash=bcrypt.generate_password_hash(admin_password).decode('utf-8'),
             role='admin',
-            status='active'
+            status='active',
+            email_verified=True
         )
         db.session.add(admin_user)
         logger.info("Created admin user")
@@ -57,7 +58,8 @@ def init_db():
             email=super_admin_email,
             password_hash=bcrypt.generate_password_hash(super_admin_password).decode('utf-8'),
             role='super_admin',
-            status='active'
+            status='active',
+            email_verified=True
         )
         db.session.add(super_admin_user)
         logger.info("Created super admin user")
@@ -76,6 +78,16 @@ def init_db():
             logger.info("Updated super admin user")
 
     db.session.commit()
+
+    # Ensure backward compatibility: Auto-verify existing active users
+    try:
+        active_users = User.query.filter_by(status='active').all()
+        for u in active_users:
+            if not getattr(u, 'email_verified', False):
+                u.email_verified = True
+        db.session.commit()
+    except Exception as e:
+        logger.warning("Failed to auto-verify existing active users during DB init", error=str(e))
 
     parent_users = User.query.filter_by(role='parent').all()
     for u in parent_users:

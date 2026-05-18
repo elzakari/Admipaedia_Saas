@@ -143,6 +143,16 @@ const authService = {
     }
   },
 
+  verifyEmail: async (token: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post('/auth/verify-email', { token });
+    return response.data;
+  },
+
+  resendVerificationEmail: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post('/auth/resend-verification', { email });
+    return response.data;
+  },
+
   logout: async (): Promise<void> => {
     try {
       await api.post('/auth/logout');

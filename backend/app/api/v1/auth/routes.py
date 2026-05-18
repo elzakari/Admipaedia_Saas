@@ -124,7 +124,7 @@ def register():
             email=data['email'],
             role=requested_role
         )
-        user.status = 'pending_verification'
+        user.status = 'pending_email_verification'
         user.set_password_hash(data['password'])
         
         db.session.add(user)

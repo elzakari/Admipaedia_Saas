@@ -150,7 +150,7 @@ class TestEmailVerificationRoutes:
         # Check user status in db is pending_verification
         user = User.query.filter_by(email=email).first()
         assert user is not None
-        assert user.status == 'pending_verification'
+        assert user.status == 'pending_email_verification'
         assert user.email_verified is False
 
         # Check that a verification token was generated
@@ -199,3 +199,19 @@ class TestEmailVerificationRoutes:
         data2 = json.loads(response2.data)
         assert data2['success'] is True
         assert not mock_send.called
+
+    def test_login_blocks_unverified_user(self, client, app, test_user):
+        user = db.session.merge(test_user)
+        user.email_verified = False
+        user.status = 'pending_email_verification'
+        db.session.add(user)
+        db.session.commit()
+
+        response = client.post('/api/v1/auth/login', json={
+            'email': user.email,
+            'password': 'SecurePassword123!'
+        })
+        assert response.status_code == 401
+        data = json.loads(response.data)
+        assert data['success'] is False
+        assert data['error'] == 'EMAIL_NOT_VERIFIED'
