@@ -6,11 +6,13 @@ import ClassFormModal from '../ClassFormModal';
 // Import services to be mocked
 import teacherService from '@/services/teacherService';
 import classService from '@/services/classService';
+import academicService from '@/services/academicService';
 import authService from '@/services/authService';
 
 // Mock the modules using their relative paths from the test file
 vi.mock('../../../services/teacherService');
 vi.mock('../../../services/classService');
+vi.mock('../../../services/academicService');
 vi.mock('../../../services/authService');
 
 describe('ClassFormModal Component', () => {
@@ -22,6 +24,10 @@ describe('ClassFormModal Component', () => {
     
     // Set up default mock returns
     vi.mocked(teacherService.getTeachers).mockResolvedValue({ teachers: [], pagination: { total: 0, pages: 0, page: 1, per_page: 10 } } as any);
+    vi.mocked(academicService.getStandardGradeLevels).mockResolvedValue([
+      { id: 'Grade 1', name: 'Grade 1', order_index: 1 },
+      { id: 'Grade 2', name: 'Grade 2', order_index: 2 },
+    ]);
     vi.mocked(authService.getCurrentUser).mockResolvedValue({ role: 'admin', id: 1, email: 'admin@test.com' } as any);
   });
 

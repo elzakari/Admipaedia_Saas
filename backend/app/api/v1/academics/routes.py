@@ -42,6 +42,39 @@ def get_educational_levels():
         logger.error(f"Error retrieving educational levels: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@academics_bp.route('/standard-grade-levels', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_standard_grade_levels():
+    """Get all standardized grade levels scoped to the tenant's educational system configuration."""
+    try:
+        from app.models.educational_system import GradeLevel
+        from app.extensions import db
+        levels = db.session.query(GradeLevel).filter(GradeLevel.is_active == True).order_by(GradeLevel.numeric_value.asc()).all()
+        
+        if not levels:
+            # Fallback sequence to match the attendance module
+            levels_data = [{
+                'id': f"Grade {i}",
+                'name': f"Grade {i}",
+                'order_index': i
+            } for i in range(1, 13)]
+        else:
+            levels_data = [{
+                'id': f"Grade {level.numeric_value}",
+                'name': f"Grade {level.numeric_value}",
+                'order_index': level.order_index
+            } for level in levels]
+
+        return jsonify({
+            'success': True,
+            'levels': levels_data
+        }), 200
+    except Exception as e:
+        logger.error(f"Error retrieving standard grade levels: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @academics_bp.route('/core-competencies', methods=['GET'])
 @jwt_required()
 def get_core_competencies():

@@ -783,6 +783,16 @@ const academicService = {
           console.error(`Error deleting resource ${resourceId}:`, error);
           throw error;
       }
+  },
+
+  getStandardGradeLevels: async (): Promise<any[]> => {
+    try {
+      const response = await api.get('/academics/standard-grade-levels');
+      return response.data.success ? response.data.levels : [];
+    } catch (error) {
+      console.error('Error fetching standard grade levels:', error);
+      throw error;
+    }
   }
 };
 

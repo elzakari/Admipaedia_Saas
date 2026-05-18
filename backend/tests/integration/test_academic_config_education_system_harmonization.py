@@ -450,3 +450,48 @@ def test_upsert_non_dict_and_sync_grading_scheme_skips_invalid_entries(auth_clie
         },
     )
     assert GradingScheme.query.filter_by(tenant_id=tenant.id, is_default=True).count() == 1
+
+
+@pytest.mark.academic_harmonization
+def test_standard_grade_levels_endpoint(auth_client):
+    tenant = _create_tenant_and_membership(auth_client)
+
+    # Let's request the endpoint first - it should return the default fallback levels (Grade 1 to 12)
+    resp = auth_client.get('/api/v1/academics/standard-grade-levels')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data.get('success') is True
+    assert len(data.get('levels')) == 12
+    assert data['levels'][0]['id'] == 'Grade 1'
+    assert data['levels'][0]['name'] == 'Grade 1'
+
+    # Now let's add custom GradeLevel records and make sure they are returned sequentially
+    cfg = EducationalSystemConfig(
+        tenant_id=tenant.id,
+        template_key='GH_GES',
+        name='Ghana (GES)',
+        config={'phases': []},
+        is_active=True
+    )
+    db.session.add(cfg)
+    db.session.flush()
+
+    db.session.add_all([
+        GradeLevel(tenant_id=tenant.id, educational_system_id=cfg.id, name='Primary 2', order_index=2, is_terminal=False),
+        GradeLevel(tenant_id=tenant.id, educational_system_id=cfg.id, name='Primary 1', order_index=1, is_terminal=False),
+    ])
+    db.session.commit()
+
+    resp = auth_client.get('/api/v1/academics/standard-grade-levels')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data.get('success') is True
+    assert len(data.get('levels')) == 2
+    # Should be sorted sequentially by order_index / numeric_value
+    assert data['levels'][0]['id'] == 'Grade 1'
+    assert data['levels'][0]['name'] == 'Grade 1'
+    assert data['levels'][0]['order_index'] == 1
+    assert data['levels'][1]['id'] == 'Grade 2'
+    assert data['levels'][1]['name'] == 'Grade 2'
+    assert data['levels'][1]['order_index'] == 2
+

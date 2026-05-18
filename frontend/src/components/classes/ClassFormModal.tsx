@@ -12,6 +12,7 @@ import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import teacherService from '../../services/teacherService';
 import classService from '../../services/classService';
+import academicService from '../../services/academicService';
 import authService, { User } from '../../services/authService';
 
 interface ClassFormData {
@@ -76,6 +77,17 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Fetch standardized grade levels sequentially
+  const {
+    data: gradeLevelsData,
+    isLoading: isLoadingGradeLevels,
+    error: gradeLevelsError,
+  } = useQuery({
+    queryKey: ['standardGradeLevels'],
+    queryFn: () => academicService.getStandardGradeLevels(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Enhanced teacher options with better error handling
@@ -426,21 +438,25 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 <SelectValue placeholder="Select grade level" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Nursery">Nursery</SelectItem>
-                <SelectItem value="KG1">KG1</SelectItem>
-                <SelectItem value="KG2">KG2</SelectItem>
-                <SelectItem value="Primary 1">Primary 1</SelectItem>
-                <SelectItem value="Primary 2">Primary 2</SelectItem>
-                <SelectItem value="Primary 3">Primary 3</SelectItem>
-                <SelectItem value="Primary 4">Primary 4</SelectItem>
-                <SelectItem value="Primary 5">Primary 5</SelectItem>
-                <SelectItem value="Primary 6">Primary 6</SelectItem>
-                <SelectItem value="JHS 1">JHS 1</SelectItem>
-                <SelectItem value="JHS 2">JHS 2</SelectItem>
-                <SelectItem value="JHS 3">JHS 3</SelectItem>
-                <SelectItem value="SHS 1">SHS 1</SelectItem>
-                <SelectItem value="SHS 2">SHS 2</SelectItem>
-                <SelectItem value="SHS 3">SHS 3</SelectItem>
+                {isLoadingGradeLevels ? (
+                  <SelectItem value="loading" disabled>
+                    Loading grade levels...
+                  </SelectItem>
+                ) : gradeLevelsError ? (
+                  <SelectItem value="error" disabled>
+                    Error loading grade levels
+                  </SelectItem>
+                ) : Array.isArray(gradeLevelsData) && gradeLevelsData.length > 0 ? (
+                  gradeLevelsData.map((level: any) => (
+                    <SelectItem key={level.id} value={level.id}>
+                      {level.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No grade levels available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             {errors.grade_level && (

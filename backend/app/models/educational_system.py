@@ -2,6 +2,7 @@ from app.extensions import db
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import JSON
 from sqlalchemy.sql import func
+from sqlalchemy.ext.hybrid import hybrid_property
 import uuid
 
 class EducationalSystemTemplate(db.Model):
@@ -74,6 +75,22 @@ class GradeLevel(db.Model):
     
     # Relationships
     next_level = db.relationship('GradeLevel', remote_side=[id], backref='previous_level')
+
+    @hybrid_property
+    def is_active(self):
+        return True
+
+    @is_active.expression
+    def is_active(cls):
+        return db.literal(True)
+
+    @hybrid_property
+    def numeric_value(self):
+        return self.order_index
+
+    @numeric_value.expression
+    def numeric_value(cls):
+        return cls.order_index
 
     def __repr__(self):
         return f'<GradeLevel {self.name}>'
