@@ -665,6 +665,128 @@ def get_user_audit_logs():
         logger.error("Error fetching audit logs", error=str(e))
         return jsonify({'success': False, 'error': 'Failed to fetch audit logs'}), 500
 
+@users_bp.route('/profile', methods=['PUT', 'PATCH'])
+@jwt_required()
+@rate_limit(limit=20, window=3600)
+@sanitize_request_data()
+@security_headers()
+def update_current_user_profile():
+    """Update profile information of the currently logged-in user."""
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+        data = request.json or {}
+        
+        # 1. Update basic User properties: first_name, email, phone (or phone_number)
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        if 'email' in data:
+            email = data['email'].strip()
+            if email != user.email:
+                if User.query.filter_by(email=email).first():
+                    return jsonify({'success': False, 'error': 'Email already registered'}), 400
+                user.email = email
+                
+        # Handle linked teacher, student, or parent phone number if applicable
+        from app.models.teacher import Teacher
+        from app.models.student import Student
+        from app.models.parent import Parent
+        
+        phone = data.get('phone') or data.get('phone_number')
+        if phone:
+            user_role_str = getattr(user, 'role', '')
+            if not user_role_str and user.roles:
+                user_role_str = user.roles[0].name
+                
+            if user_role_str == 'teacher':
+                teacher = Teacher.query.filter_by(user_id=user_id).first()
+                if teacher:
+                    teacher.phone_number = phone
+            elif user_role_str == 'student':
+                student = Student.query.filter_by(user_id=user_id).first()
+                if student:
+                    student.phone_number = phone
+            elif user_role_str == 'parent':
+                parent = Parent.query.filter_by(user_id=user_id).first()
+                if parent:
+                    parent.phone_number = phone
+                    
+        # 2. Update password if provided (Security Preferences tab)
+        if 'password' in data or 'new_password' in data:
+            new_password = data.get('password') or data.get('new_password')
+            current_password = data.get('current_password')
+            
+            if not current_password:
+                return jsonify({'success': False, 'error': 'Current password is required to change password'}), 400
+            if not user.check_password_hash(current_password):
+                return jsonify({'success': False, 'error': 'Invalid current password'}), 400
+                
+            password_validation = PasswordSecurity.validate_password_strength(new_password)
+            if not password_validation['is_valid']:
+                return jsonify({
+                    'success': False,
+                    'error': 'Password does not meet security requirements',
+                    'requirements': password_validation['requirements']
+                }), 400
+                
+            user.set_password_hash(new_password)
+            user.password_changed_at = datetime.utcnow()
+            
+            # Store in password history
+            password_history = PasswordHistory(
+                user_id=user.id,
+                password_hash=user.password_hash
+            )
+            db.session.add(password_history)
+            
+        db.session.commit()
+        
+        # Log security event
+        log_security_event('profile_updated_by_user', {
+            'user_id': user.id,
+            'updated_fields': list(data.keys())
+        })
+        
+        # Query phone to display
+        ret_phone = None
+        user_role_str = getattr(user, 'role', '')
+        if not user_role_str and user.roles:
+            user_role_str = user.roles[0].name
+            
+        if user_role_str == 'teacher':
+            teacher = Teacher.query.filter_by(user_id=user_id).first()
+            ret_phone = teacher.phone_number if teacher else None
+        elif user_role_str == 'student':
+            student = Student.query.filter_by(user_id=user_id).first()
+            ret_phone = student.phone_number if student else None
+        elif user_role_str == 'parent':
+            parent = Parent.query.filter_by(user_id=user_id).first()
+            ret_phone = parent.phone_number if parent else None
+            
+        return jsonify({
+            'success': True,
+            'message': 'Profile updated successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': getattr(user, 'first_name', None),
+                'last_name': getattr(user, 'last_name', None),
+                'phone': ret_phone,
+                'role': user_role_str
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error("Error updating own user profile", error=str(e))
+        return jsonify({'success': False, 'error': 'Failed to update profile'}), 500
+
+
 # Error Handlers
 @users_bp.errorhandler(404)
 def not_found(error):

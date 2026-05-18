@@ -348,6 +348,20 @@ const teacherService = {
     }
   },
 
+  getTeacherScheduleAssets: async (teacherId: number): Promise<{ timetable_slots: any[]; calendar_events: any[] }> => {
+    try {
+      const response = await api.get(`/teachers/${teacherId}/schedule-assets`);
+      return {
+        timetable_slots: response.data?.timetable_slots || [],
+        calendar_events: response.data?.calendar_events || []
+      };
+    } catch (error) {
+      console.error(`Error fetching schedule assets for teacher ${teacherId}:`, error);
+      ApiResponseStandardizer.handleApiError(error);
+      return { timetable_slots: [], calendar_events: [] };
+    }
+  },
+
   // Get teacher's assigned subjects
   getTeacherSubjects: async (teacherId: number, params?: { academic_year?: string }): Promise<any[]> => {
     try {

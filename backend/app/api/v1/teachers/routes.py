@@ -273,6 +273,7 @@ def get_teacher_classes(teacher_id):
     """Get classes taught by a specific teacher."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
+    status = request.args.get('status')
     
     # Reuse the existing service method
     from app.services.class_service import ClassService
@@ -280,7 +281,20 @@ def get_teacher_classes(teacher_id):
     if not teacher or getattr(teacher, 'tenant_id', None) != getattr(g, 'tenant_id', None):
         return jsonify({'success': False, 'message': 'Teacher not found'}), 404
 
-    paginated_classes = ClassService.get_classes_by_teacher_id(teacher_id, page, per_page, tenant_id=getattr(g, 'tenant_id', None))
+    if status:
+        from app.models.class_ import Class as ClassModel
+        query = ClassModel.query.filter_by(teacher_id=teacher_id)
+        if getattr(g, 'tenant_id', None) is not None:
+            query = query.filter(ClassModel.tenant_id == getattr(g, 'tenant_id', None))
+        
+        if status == 'active':
+            query = query.filter(ClassModel.status == 'active')
+        elif status == 'past':
+            query = query.filter(ClassModel.status != 'active')
+            
+        paginated_classes = query.paginate(page=page, per_page=per_page, error_out=False)
+    else:
+        paginated_classes = ClassService.get_classes_by_teacher_id(teacher_id, page, per_page, tenant_id=getattr(g, 'tenant_id', None))
     
     return jsonify({
         'success': True,
@@ -512,3 +526,64 @@ def get_teacher_ai_insights(teacher_id):
         return jsonify({'success': False, 'message': error}), 400
         
     return jsonify(insights)
+
+
+@teachers_bp.route('/<int:teacher_id>/schedule-assets', methods=['GET'])
+@jwt_required()
+@require_permission('teacher.read')
+@tenant_required
+def get_teacher_schedule_assets(teacher_id):
+    """Aggregate recurring timetable slots and date-bound events for a teacher."""
+    try:
+        from app.models.timetable import TimetableSlot
+        from app.models.subject import Subject
+        from app.models.class_ import Class
+        from app.extensions import db
+        from sqlalchemy.orm import joinedload
+        
+        teacher = TeacherService.get_teacher_by_id(teacher_id)
+        if not teacher or getattr(teacher, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+            return jsonify({'success': False, 'message': 'Teacher not found'}), 404
+            
+        # 1. Fetch recurring timetable slots
+        slots = TimetableSlot.query.options(
+            joinedload(TimetableSlot.class_),
+            joinedload(TimetableSlot.subject),
+            joinedload(TimetableSlot.period)
+        ).filter(TimetableSlot.teacher_id == teacher_id).all()
+        
+        mapped_slots = []
+        for s in slots:
+            mapped_slots.append({
+                'id': s.id,
+                'class_id': s.class_id,
+                'class_name': s.class_.name if s.class_ else '',
+                'subject_id': s.subject_id,
+                'subject_name': s.subject.name if s.subject else '',
+                'period_name': s.period.name if s.period else '',
+                'start_time': s.period.start_time.strftime('%H:%M') if s.period and s.period.start_time else '',
+                'end_time': s.period.end_time.strftime('%H:%M') if s.period and s.period.end_time else '',
+                'day_of_week': s.day_of_week,
+                'term': s.term,
+                'academic_year': s.academic_year
+            })
+            
+        # 2. Fetch date-bound calendar events
+        user_id = get_jwt_identity()
+        from app.services.calendar_service import CalendarService
+        events = CalendarService.get_events_for_user(
+            user_id=user_id
+        )
+        
+        return jsonify({
+            'success': True,
+            'timetable_slots': mapped_slots,
+            'calendar_events': events
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error compiling schedule assets: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to compile schedule assets',
+            'error': str(e)
+        }), 500
