@@ -267,47 +267,99 @@ def get_own_profile():
 
 @teachers_bp.route('/<int:teacher_id>/classes', methods=['GET'])
 @jwt_required()
-@require_permission('teacher.read')
 @tenant_required
 def get_teacher_classes(teacher_id):
     """Get classes taught by a specific teacher."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    status = request.args.get('status')
-    
-    # Reuse the existing service method
-    from app.services.class_service import ClassService
-    teacher = TeacherService.get_teacher_by_id(teacher_id)
-    if not teacher or getattr(teacher, 'tenant_id', None) != getattr(g, 'tenant_id', None):
-        return jsonify({'success': False, 'message': 'Teacher not found'}), 404
-
-    if status:
-        from app.models.class_ import Class as ClassModel
-        query = ClassModel.query.filter_by(teacher_id=teacher_id)
-        if getattr(g, 'tenant_id', None) is not None:
-            query = query.filter(ClassModel.tenant_id == getattr(g, 'tenant_id', None))
+    try:
+        from app.utils.rbac_decorators import get_current_user, has_permission
         
-        if status == 'active':
-            query = query.filter(ClassModel.status == 'active')
-        elif status == 'past':
-            query = query.filter(ClassModel.status != 'active')
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
             
-        paginated_classes = query.paginate(page=page, per_page=per_page, error_out=False)
-    else:
-        paginated_classes = ClassService.get_classes_by_teacher_id(teacher_id, page, per_page, tenant_id=getattr(g, 'tenant_id', None))
-    
-    return jsonify({
-        'success': True,
-        'classes': classes_schema.dump(paginated_classes.items),
-        'pagination': {
-            'total': paginated_classes.total,
-            'pages': paginated_classes.pages,
-            'page': paginated_classes.page,
-            'per_page': paginated_classes.per_page,
-            'next': paginated_classes.next_num,
-            'prev': paginated_classes.prev_num
-        }
-    }), 200
+        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin
+        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() == 'admin'
+        
+        # 2. Or, authorize if the user is a teacher and this is their own record
+        if not is_authorized:
+            teacher_record = TeacherService.get_teacher_by_user_id(user.id)
+            if teacher_record and teacher_record.id == teacher_id:
+                is_authorized = True
+                
+        if not is_authorized:
+            return jsonify({"error": "Insufficient permissions to read teacher classes"}), 403
+
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        
+        from app.services.class_service import ClassService
+        teacher = TeacherService.get_teacher_by_id(teacher_id)
+        if not teacher or getattr(teacher, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+            return jsonify({'success': False, 'message': 'Teacher not found'}), 404
+
+        if status:
+            from app.models.class_ import Class as ClassModel
+            query = ClassModel.query.filter_by(teacher_id=teacher_id)
+            if getattr(g, 'tenant_id', None) is not None:
+                query = query.filter(ClassModel.tenant_id == getattr(g, 'tenant_id', None))
+            
+            if status == 'active':
+                query = query.filter(ClassModel.status == 'active')
+            elif status == 'past':
+                query = query.filter(ClassModel.status != 'active')
+                
+            paginated_classes = query.paginate(page=page, per_page=per_page, error_out=False)
+        else:
+            paginated_classes = ClassService.get_classes_by_teacher_id(teacher_id, page, per_page, tenant_id=getattr(g, 'tenant_id', None))
+        
+        dumped_classes = classes_schema.dump(paginated_classes.items)
+        return jsonify({
+            'success': True,
+            'data': dumped_classes,
+            'classes': dumped_classes,
+            'pagination': {
+                'total': paginated_classes.total,
+                'pages': paginated_classes.pages,
+                'page': paginated_classes.page,
+                'per_page': paginated_classes.per_page,
+                'next': paginated_classes.next_num,
+                'prev': paginated_classes.prev_num
+            }
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error compiling teacher classes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to compile teacher classes',
+            'error': str(e)
+        }), 500
+
+
+@teachers_bp.route('/me/classes', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_current_teacher_classes():
+    """Get classes taught by the logged-in teacher."""
+    try:
+        from app.utils.rbac_decorators import get_current_user
+        
+        user = get_current_user()
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+            
+        teacher_record = TeacherService.get_teacher_by_user_id(user.id)
+        if not teacher_record:
+            return jsonify({'success': False, 'message': 'Teacher record not found for the authenticated user'}), 404
+            
+        return get_teacher_classes(teacher_record.id)
+    except Exception as e:
+        current_app.logger.error(f"Error compiling own classes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to compile own classes',
+            'error': str(e)
+        }), 500
 
 
 @teachers_bp.route('/<int:teacher_id>/classes', methods=['POST'])
