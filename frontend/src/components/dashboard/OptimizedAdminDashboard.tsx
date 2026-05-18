@@ -313,7 +313,7 @@ export default function OptimizedAdminDashboard() {
   }, [isMobile, viewMode, currentLayout.columns, selectedLayout]);
 
   return (
-    <div className={cn(containerClasses, "pb-20 md:pb-6")} {...(isMobile ? swipeHandlers : {})}>
+    <div className={cn(containerClasses, "pt-4 sm:pt-6 pb-20 md:pb-6")} {...(isMobile ? swipeHandlers : {})}>
       {/* Visually hidden ARIA live region for status announcements */}
       <div
         className="sr-only"

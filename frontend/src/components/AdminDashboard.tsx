@@ -353,7 +353,7 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
   };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 ${className}`}>
+    <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-4 sm:pt-6 ${className}`}>
       {/* Enhanced Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -451,7 +451,7 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
         )}
 
         {/* Statistics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
           {enhancedStats.map((stat, index) => (
             <motion.div
               key={stat.title}
@@ -481,8 +481,8 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
                           </span>
                         </div>
                       </div>
-                      <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                        <div className={stat.color}>{stat.icon}</div>
+                      <div className={`p-3 rounded-full ${stat.bgColor} flex items-center justify-center w-12 h-12 shrink-0`}>
+                        <div className={cn(stat.color, "flex items-center justify-center")}>{stat.icon}</div>
                       </div>
                     </div>
                   )}

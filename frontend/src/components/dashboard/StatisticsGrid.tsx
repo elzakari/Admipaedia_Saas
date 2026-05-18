@@ -176,7 +176,7 @@ const StatisticCard = React.memo<StatisticCardProps>(({
         </div>
         
         <div className={cn(
-          "p-2 rounded-xl shrink-0 transition-all duration-300 group-hover:rotate-6 group-hover:scale-105",
+          "p-2 rounded-xl shrink-0 transition-all duration-300 group-hover:rotate-6 group-hover:scale-105 flex items-center justify-center w-8 h-8 min-w-[2rem] min-h-[2rem]",
           colorClasses[color]
         )}>
           {renderIcon()}
@@ -418,7 +418,7 @@ const StatisticsGrid: React.FC<StatisticsGridProps> = ({
         ) : (
           <div
             className={cn(
-              "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3",
+              "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3",
               className
             )}
             role="list"

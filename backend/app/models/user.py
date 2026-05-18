@@ -1,6 +1,7 @@
 from datetime import datetime
 import re
 import secrets
+from typing import Optional
 from app.extensions import db, bcrypt
 
 # Association table for many-to-many relationship between users and roles
@@ -16,7 +17,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(128), nullable=True)
-    invitation_token_hash = db.Column(db.String(255), nullable=True)
+    invitation_token_hash: Optional[str] = db.Column(db.String(255), nullable=True)
     invitation_expires_at = db.Column(db.DateTime, nullable=True)
     role = db.Column(db.String(20), default='user')  # Keep for backward compatibility
     status = db.Column(db.String(20), default='active')
@@ -25,7 +26,8 @@ class User(db.Model):
     last_login = db.Column(db.DateTime, nullable=True)
     
     # Email verification
-    email_verified = db.Column(db.Boolean, default=False)
+    email_verified: Optional[bool] = db.Column(db.Boolean, default=False)
+    email_verified_at: Optional[datetime] = db.Column(db.DateTime, nullable=True)
     email_verification_token = db.Column(db.String(255), nullable=True)
     email_verification_expires = db.Column(db.DateTime, nullable=True)
     

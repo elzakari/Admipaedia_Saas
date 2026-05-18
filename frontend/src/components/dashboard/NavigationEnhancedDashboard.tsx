@@ -142,7 +142,7 @@ export default function NavigationEnhancedDashboard() {
   
   return (
     <div className={cn(
-      "flex h-full",
+      "flex h-full pt-4 sm:pt-6",
       theme === 'casaos' ? "bg-transparent" : "bg-gray-50 dark:bg-slate-900"
     )}>
       {/* Main Content */}
