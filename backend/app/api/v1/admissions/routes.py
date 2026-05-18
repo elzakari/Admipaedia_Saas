@@ -233,6 +233,150 @@ def review_application(id):
         application.form_data = form_data
 
     application.status = next_status
+    
+    if next_status == 'approved':
+        try:
+            from flask import g
+            tenant_id = (
+                getattr(g, 'tenant_id', None) or 
+                (application.target_class.tenant_id if application.target_class else None) or 
+                (application.parent.tenant_id if application.parent else None)
+            )
+            if not tenant_id:
+                raise ValueError("Could not resolve a valid tenant context for student creation.")
+                
+            from app.models.student import Student
+            from app.models.user import User
+            
+            # Determine student email
+            student_email = form_data.get('student_email') or form_data.get('email')
+            if not student_email:
+                clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
+                clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
+                if not clean_first and not clean_last:
+                    clean_first = "student"
+                student_email = f"{clean_first}.{clean_last}.{application.id}@admipaedia.com"
+                
+            # Create user account for student if not exists
+            student_user = User.query.filter_by(email=student_email).first()
+            if not student_user:
+                username = student_email.split('@')[0]
+                base_username = username
+                counter = 1
+                while User.query.filter_by(username=username).first():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
+                
+                student_user = User(
+                    username=username,
+                    email=student_email,
+                    role='student'
+                )
+                student_user.set_password('Password123!')
+                db.session.add(student_user)
+                db.session.flush() # Flush to get student_user.id
+                
+            # Resolve gender
+            gender = form_data.get('gender')
+            if gender:
+                gender = str(gender).lower()
+                if gender in ('m', 'male'):
+                    gender = 'male'
+                elif gender in ('f', 'female'):
+                    gender = 'female'
+                else:
+                    gender = 'other'
+            else:
+                gender = 'female'
+                
+            # Resolve date of birth
+            dob_raw = form_data.get('date_of_birth') or form_data.get('dob') or form_data.get('dateOfBirth')
+            if not dob_raw:
+                raise ValueError("Missing required field: date_of_birth")
+                
+            if isinstance(dob_raw, str):
+                try:
+                    date_of_birth = datetime.strptime(dob_raw.split('T')[0], '%Y-%m-%d').date()
+                except Exception:
+                    raise ValueError(f"Invalid date_of_birth format: {dob_raw}. Expected YYYY-MM-DD.")
+            else:
+                date_of_birth = dob_raw
+                
+            # Build student payload
+            student_payload = {
+                'tenant_id': tenant_id,
+                'user_id': student_user.id,
+                'first_name': application.student_first_name or "",
+                'last_name': application.student_last_name or "",
+                'parent_id': application.parent_id,
+                'class_id': application.target_class_id,
+                'gender': gender,
+                'date_of_birth': date_of_birth,
+                
+                # Optional fields from form_data
+                'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
+                'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
+                'nationality': form_data.get('nationality'),
+                'blood_group': form_data.get('blood_group') or form_data.get('bloodGroup'),
+                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination'),
+                'email': student_email,
+                'phone': form_data.get('student_phone') or form_data.get('phone') or form_data.get('telephone'),
+                'telephone': form_data.get('telephone') or form_data.get('student_phone'),
+                'whatsapp': form_data.get('whatsapp'),
+                'postal_address': form_data.get('postal_address') or form_data.get('address'),
+                'digital_address': form_data.get('digital_address'),
+                'city': form_data.get('city'),
+                'country': form_data.get('country'),
+                'residential_address': form_data.get('residential_address') or form_data.get('address'),
+                'local_landmark': form_data.get('local_landmark'),
+                
+                # Health fields
+                'medical_conditions': form_data.get('medical_conditions') or form_data.get('special_circumstance'),
+                'special_circumstance': form_data.get('special_circumstance') or form_data.get('medical_conditions'),
+                'allergies': form_data.get('allergies'),
+                'medication': form_data.get('medication'),
+                'physician_name': form_data.get('physician_name'),
+                'physician_phone': form_data.get('physician_phone'),
+                
+                # Academic fields
+                'previous_school': form_data.get('previous_school'),
+                'previous_class': form_data.get('previous_class'),
+                'previous_team': form_data.get('previous_team'),
+                'previous_year': form_data.get('previous_year'),
+                
+                # Parent/Guardian details
+                'father_name': form_data.get('father_name') or form_data.get('fatherName'),
+                'father_contact': form_data.get('father_contact') or form_data.get('fatherContact') or form_data.get('father_phone'),
+                'father_address': form_data.get('father_address') or form_data.get('fatherAddress'),
+                'father_email': form_data.get('father_email') or form_data.get('fatherEmail'),
+                'father_profession': form_data.get('father_profession') or form_data.get('fatherProfession'),
+                'father_workplace': form_data.get('father_workplace') or form_data.get('fatherWorkplace'),
+                
+                'mother_name': form_data.get('mother_name') or form_data.get('motherName'),
+                'mother_contact': form_data.get('mother_contact') or form_data.get('motherContact') or form_data.get('mother_phone'),
+                'mother_address': form_data.get('mother_address') or form_data.get('motherAddress'),
+                'mother_email': form_data.get('mother_email') or form_data.get('motherEmail'),
+                'mother_profession': form_data.get('mother_profession') or form_data.get('motherProfession'),
+                'mother_workplace': form_data.get('mother_workplace') or form_data.get('motherWorkplace'),
+                
+                'guardian_name': form_data.get('guardian_name') or form_data.get('guardianName'),
+                'guardian_contact': form_data.get('guardian_contact') or form_data.get('guardianContact') or form_data.get('guardian_phone'),
+            }
+            
+            from app.services.student_service import StudentService
+            student_service = StudentService(db.session)
+            
+            student, error = student_service.create_student(student_payload, tenant_id=tenant_id)
+            if error:
+                raise ValueError(error)
+                
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': f"Student record generation failed: {str(e)}"
+            }), 500
+
     db.session.commit()
 
     return jsonify({
