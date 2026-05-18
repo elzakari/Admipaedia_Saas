@@ -68,6 +68,7 @@ import { TouchFriendlyButton } from '../../components/common/TouchFriendlyButton
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import ApiDebugPanel from '../../components/debug/ApiDebugPanel';
 import { useTranslation } from 'react-i18next';
+import { getNormalizedGradeLevel } from "../../utils/formatters";
 
 export function StudentsPage() {
   const { t } = useTranslation();
@@ -147,7 +148,7 @@ export function StudentsPage() {
       full_name: student.full_name,
       name: student.display_name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || "Unknown Student",
       studentId: student.admission_number,
-      grade: student.class_id ? `Grade ${student.class_id}` : "Unassigned",
+      grade: getNormalizedGradeLevel(student),
       // Use real contact data with proper fallbacks
       email: student.email || "No email provided",
       phone: student.phone || student.telephone || "No phone provided",
@@ -404,7 +405,29 @@ export function StudentsPage() {
     },
     { 
       header: 'Class', 
-      accessor: (student: any) => student.grade,
+      accessor: (student: any) => {
+        const gradeStr = student.grade || "Unassigned";
+        let badgeColor = "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700";
+        if (gradeStr.includes("KG") || gradeStr.includes("Phase 1") || gradeStr.includes("Nursery")) {
+          badgeColor = "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/30";
+        } else if (gradeStr.includes("Grade 1") || gradeStr.includes("Grade 2") || gradeStr.includes("B1") || gradeStr.includes("B2")) {
+          badgeColor = "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800/30";
+        } else if (gradeStr.includes("Grade 3") || gradeStr.includes("Grade 4") || gradeStr.includes("B3") || gradeStr.includes("B4")) {
+          badgeColor = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/30";
+        } else if (gradeStr.includes("Grade 5") || gradeStr.includes("Grade 6") || gradeStr.includes("B5") || gradeStr.includes("B6")) {
+          badgeColor = "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/30";
+        } else if (gradeStr.includes("JHS") || gradeStr.includes("Junior")) {
+          badgeColor = "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800/30";
+        } else if (gradeStr.includes("SHS") || gradeStr.includes("Senior")) {
+          badgeColor = "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/30";
+        }
+
+        return (
+          <Badge variant="outline" className={`font-medium px-2 py-0.5 rounded ${badgeColor}`}>
+            {gradeStr}
+          </Badge>
+        );
+      },
       mobileLabel: 'Class',
       priority: 'medium' as const
     },

@@ -34,6 +34,16 @@ class EducationalLevel(db.Model):
         return f'<EducationalLevel {self.level_code}: {self.level_name}>'
 
     @property
+    def name(self):
+        """Alias for level_name"""
+        return self.level_name
+
+    @property
+    def code(self):
+        """Alias for level_code"""
+        return self.level_code
+
+    @property
     def key_phase_description(self):
         """Get human-readable key phase description"""
         descriptions = {

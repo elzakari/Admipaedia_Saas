@@ -10,6 +10,7 @@ import AttendanceHeatmap from '../../components/students/analytics/AttendanceHea
 import StudentRiskAssessment from '../../components/students/analytics/StudentRiskAssessment';
 import { useApiCall } from '../../hooks/useApiCall';
 import studentService from '../../services/studentService';
+import { getNormalizedGradeLevel } from '../../utils/formatters';
 import type { Student } from '../../types/student.types';
 
 const StudentDetailPage: React.FC = () => {
@@ -96,7 +97,7 @@ const StudentDetailPage: React.FC = () => {
               <GraduationCap className="h-8 w-8 text-blue-500 mr-3" />
               <div>
                 <p className="text-sm text-gray-600">Class</p>
-                <p className="font-semibold">{student.class_name}</p>
+                <p className="font-semibold">{getNormalizedGradeLevel(student)}</p>
               </div>
             </div>
           </CardContent>
@@ -171,7 +172,7 @@ const StudentDetailPage: React.FC = () => {
                       <span className="font-medium">Admission Number:</span> {student.admission_number}
                     </div>
                     <div>
-                      <span className="font-medium">Class:</span> {student.class_name}
+                      <span className="font-medium">Class:</span> {getNormalizedGradeLevel(student)}
                     </div>
                     <div>
                       <span className="font-medium">Gender:</span> {student.gender}

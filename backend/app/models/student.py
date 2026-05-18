@@ -161,6 +161,22 @@ class Student(db.Model):
     def display_name(self):
         """Generate display name (First Last)."""
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def grade_level(self):
+        """Get the educational level/grade level for this student"""
+        if self.class_ and self.class_.educational_level:
+            return self.class_.educational_level
+        return None
+
+    @property
+    def grade_level_name(self):
+        """Get the grade level name for this student"""
+        if self.grade_level:
+            return self.grade_level.name
+        if self.class_:
+            return self.class_.grade_level
+        return None
     
     status = db.Column(db.String(20), default='active')  # active, inactive, graduated, transferred
     

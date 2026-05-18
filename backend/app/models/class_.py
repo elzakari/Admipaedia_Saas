@@ -73,3 +73,10 @@ class Class(db.Model):
     def room_number(self):
         """Alias for room"""
         return self.room
+
+    @property
+    def grade_level_name(self):
+        """Get the name of the grade level"""
+        if self.educational_level:
+            return self.educational_level.name
+        return self.grade_level

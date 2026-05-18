@@ -1,5 +1,11 @@
 from marshmallow import Schema, fields, validate
 
+class GradeLevelMinimalSchema(Schema):
+    """Schema for minimal grade level representation"""
+    id = fields.String(dump_only=True)
+    name = fields.String(dump_only=True)
+    code = fields.String(dump_only=True)
+
 class EducationalLevelSchema(Schema):
     """Schema for EducationalLevel model"""
     id = fields.Integer(dump_only=True)

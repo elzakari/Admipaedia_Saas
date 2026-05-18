@@ -1,5 +1,6 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError, pre_load
 from datetime import datetime
+from app.schemas.educational_level import GradeLevelMinimalSchema
 
 # Add these fields to StudentSchema, StudentCreateSchema, and StudentUpdateSchema
 # Example for StudentSchema:
@@ -82,6 +83,9 @@ class StudentSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     
+    grade_level_name = fields.String(dump_only=True)
+    grade_level = fields.Method("get_grade_level", dump_only=True)
+    
     @validates('date_of_birth')
     def validate_date_of_birth(self, value, **kwargs):
         """Validate that date of birth is not in the future"""
@@ -127,6 +131,34 @@ class StudentSchema(Schema):
             return obj.get('display_name')
         if hasattr(obj, 'display_name'):
             return obj.display_name
+        return None
+
+    def get_grade_level(self, obj):
+        if isinstance(obj, dict):
+            gl = obj.get("grade_level")
+            if isinstance(gl, dict):
+                return gl
+            gl_name = obj.get("grade_level_name")
+            if gl_name:
+                return {
+                    "id": "unassigned",
+                    "name": gl_name,
+                    "code": None
+                }
+            return None
+            
+        if obj.grade_level:
+            return {
+                "id": str(obj.grade_level.id),
+                "name": obj.grade_level.name,
+                "code": getattr(obj.grade_level, "code", None)
+            }
+        elif obj.class_ and obj.class_.grade_level:
+            return {
+                "id": "unassigned",
+                "name": obj.class_.grade_level,
+                "code": None
+            }
         return None
 
 class StudentCreateSchema(Schema):
@@ -359,6 +391,9 @@ class StudentListSchema(Schema):
     phone = fields.String(allow_none=True)
     status = fields.String()
     
+    grade_level_name = fields.String(dump_only=True)
+    grade_level = fields.Method("get_grade_level", dump_only=True)
+    
     # Add computed metrics
     attendance_percentage = fields.Method('get_attendance_percentage')
     performance_average = fields.Method('get_performance_average')
@@ -370,6 +405,34 @@ class StudentListSchema(Schema):
     def get_display_name(self, obj):
         """Get the display name of the student"""
         return obj.display_name
+
+    def get_grade_level(self, obj):
+        if isinstance(obj, dict):
+            gl = obj.get("grade_level")
+            if isinstance(gl, dict):
+                return gl
+            gl_name = obj.get("grade_level_name")
+            if gl_name:
+                return {
+                    "id": "unassigned",
+                    "name": gl_name,
+                    "code": None
+                }
+            return None
+            
+        if obj.grade_level:
+            return {
+                "id": str(obj.grade_level.id),
+                "name": obj.grade_level.name,
+                "code": getattr(obj.grade_level, "code", None)
+            }
+        elif obj.class_ and obj.class_.grade_level:
+            return {
+                "id": "unassigned",
+                "name": obj.class_.grade_level,
+                "code": None
+            }
+        return None
     
     def get_attendance_percentage(self, obj):
         """Calculate attendance percentage from attendance records"""
