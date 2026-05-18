@@ -202,14 +202,23 @@ const billingService = {
     const res = await api.get('/billing/school/subscription-change-requests')
     return res.data as { success: boolean; requests: SubscriptionChangeRequest[] }
   },
-  upgradeSubscription: async (payload: { plan_slug: string; academic_term_id: number; payment_channel?: string; return_url?: string; notify_url?: string }) => {
+  upgradeSubscription: async (payload: {
+    plan_slug: string
+    plan?: string
+    academic_term_id: number | string
+    term_id?: number | string
+    payment_channel?: string
+    channel?: string
+    return_url?: string
+    notify_url?: string
+  }) => {
     const res = await api.post('/billing/school/subscription/upgrade', {
       plan_slug: payload.plan_slug,
-      plan: payload.plan_slug,
+      plan: payload.plan || payload.plan_slug,
       academic_term_id: payload.academic_term_id,
-      term_id: payload.academic_term_id,
+      term_id: payload.term_id || payload.academic_term_id,
       payment_channel: payload.payment_channel,
-      channel: payload.payment_channel,
+      channel: payload.channel || payload.payment_channel,
       return_url: payload.return_url,
       notify_url: payload.notify_url
     })
@@ -222,13 +231,19 @@ const billingService = {
       change_request: SubscriptionChangeRequest
     }
   },
-  requestDowngrade: async (payload: { plan_slug: string; effective_academic_term_id: number }) => {
+  requestDowngrade: async (payload: {
+    plan_slug: string
+    plan?: string
+    effective_academic_term_id: number | string
+    effective_term_id?: number | string
+    term_id?: number | string
+  }) => {
     const res = await api.post('/billing/school/subscription/downgrade-request', {
       plan_slug: payload.plan_slug,
-      plan: payload.plan_slug,
+      plan: payload.plan || payload.plan_slug,
       effective_academic_term_id: payload.effective_academic_term_id,
-      effective_term_id: payload.effective_academic_term_id,
-      term_id: payload.effective_academic_term_id
+      effective_term_id: payload.effective_term_id || payload.effective_academic_term_id,
+      term_id: payload.term_id || payload.effective_academic_term_id
     })
     return res.data as { success: boolean; request: SubscriptionChangeRequest }
   },

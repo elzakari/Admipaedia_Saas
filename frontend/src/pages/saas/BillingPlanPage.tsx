@@ -126,8 +126,9 @@ export default function BillingPlanPage() {
 
   async function onConfirmUpgrade() {
     if (!upgradePlanSlug) return
-    const termId = Number(upgradeTermId)
-    if (!Number.isFinite(termId) || termId <= 0) {
+    const parsedTerm = Number(upgradeTermId)
+    const termValue = Number.isFinite(parsedTerm) && parsedTerm > 0 ? parsedTerm : upgradeTermId
+    if (!termValue || termValue === 'none') {
       toast({ variant: 'destructive', title: 'Select a term', description: 'Choose an academic term for billing.' })
       return
     }
@@ -135,8 +136,11 @@ export default function BillingPlanPage() {
     try {
       const res = await billingService.upgradeSubscription({
         plan_slug: upgradePlanSlug,
-        academic_term_id: termId,
+        plan: upgradePlanSlug,
+        academic_term_id: termValue,
+        term_id: termValue,
         payment_channel: upgradeChannel,
+        channel: upgradeChannel,
         return_url: window.location.origin + '/app/billing/invoices'
       })
       toast({ title: 'Upgrade applied', description: res.plan.name })
@@ -156,14 +160,21 @@ export default function BillingPlanPage() {
 
   async function onConfirmDowngrade() {
     if (!downgradePlanSlug) return
-    const termId = Number(downgradeTermId)
-    if (!Number.isFinite(termId) || termId <= 0) {
+    const parsedTerm = Number(downgradeTermId)
+    const termValue = Number.isFinite(parsedTerm) && parsedTerm > 0 ? parsedTerm : downgradeTermId
+    if (!termValue || termValue === 'none') {
       toast({ variant: 'destructive', title: 'Select a future term', description: 'Choose the term the downgrade should start.' })
       return
     }
     setDowngrading(true)
     try {
-      const res = await billingService.requestDowngrade({ plan_slug: downgradePlanSlug, effective_academic_term_id: termId })
+      const res = await billingService.requestDowngrade({
+        plan_slug: downgradePlanSlug,
+        plan: downgradePlanSlug,
+        effective_academic_term_id: termValue,
+        effective_term_id: termValue,
+        term_id: termValue
+      })
       toast({ title: 'Downgrade requested', description: res.request.status })
       setDowngradeOpen(false)
       await load()

@@ -505,6 +505,23 @@ def school_list_plan_change_requests():
     return jsonify({'success': True, 'requests': [subscription_change_ops.serialize_change_request(r) for r in items]}), 200
 
 
+def _resolve_academic_term_id(tenant_id, value) -> Optional[int]:
+    if value is None:
+        return None
+    # Try to parse as integer directly
+    try:
+        return int(float(str(value)))
+    except (ValueError, TypeError):
+        pass
+    
+    # Try to find by name for the tenant
+    from app.models.academic_term import AcademicTerm
+    term = AcademicTerm.query.filter_by(tenant_id=tenant_id).filter(AcademicTerm.name.ilike(str(value).strip())).first()
+    if term:
+        return int(term.id)
+    return None
+
+
 @billing_bp.route('/school/subscription/upgrade', methods=['POST'])
 @tenant_required
 @school_admin_required
@@ -513,9 +530,10 @@ def school_upgrade_plan():
     user_id = getattr(g, 'current_user', None).id
     data = request.get_json() or {}
     plan_slug = data.get('plan_slug') or data.get('plan')
-    academic_term_id = data.get('academic_term_id') or data.get('term_id')
+    raw_term = data.get('academic_term_id') or data.get('term_id')
+    academic_term_id = _resolve_academic_term_id(tenant_id, raw_term)
     if not academic_term_id:
-        return jsonify({'success': False, 'message': 'academic_term_id is required'}), 400
+        return jsonify({'success': False, 'message': 'academic_term_id could not be resolved or is missing'}), 400
     result, err = subscription_change_ops.create_upgrade(
         tenant_id=tenant_id,
         user_id=int(user_id),
@@ -538,9 +556,10 @@ def school_request_downgrade():
     user_id = getattr(g, 'current_user', None).id
     data = request.get_json() or {}
     plan_slug = data.get('plan_slug') or data.get('plan')
-    effective_term_id = data.get('effective_academic_term_id') or data.get('effective_term_id') or data.get('term_id')
+    raw_term = data.get('effective_academic_term_id') or data.get('effective_term_id') or data.get('term_id')
+    effective_term_id = _resolve_academic_term_id(tenant_id, raw_term)
     if not effective_term_id:
-        return jsonify({'success': False, 'message': 'effective_academic_term_id is required'}), 400
+        return jsonify({'success': False, 'message': 'effective_academic_term_id could not be resolved or is missing'}), 400
     req, err = subscription_change_ops.request_downgrade(
         tenant_id=tenant_id,
         user_id=int(user_id),
