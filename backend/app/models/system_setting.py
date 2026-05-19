@@ -49,3 +49,22 @@ class SystemSetting(db.Model):
 
     def __repr__(self):
         return f'<SystemSetting {self.key}: {self.value}>'
+
+
+class SystemSettings(db.Model):
+    """
+    Model representing platform-wide dynamic system settings configuration block.
+    Maps SMTP settings from integrations form saves.
+    """
+    __tablename__ = 'system_settings_config'
+
+    id = db.Column(db.Integer, primary_key=True)
+    smtp_host = db.Column(db.String(255), nullable=True)
+    smtp_password = db.Column(db.String(255), nullable=True)
+    smtp_username = db.Column(db.String(255), nullable=True)
+    smtp_port = db.Column(db.Integer, nullable=True)
+    smtp_encryption = db.Column(db.String(50), nullable=True)
+
+    def __repr__(self):
+        return f'<SystemSettings SMTP: {self.smtp_host}>'
+

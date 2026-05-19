@@ -135,11 +135,51 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
         )
     else:
         # SMTP / Amazon SES SMTP Integration Block (decoupled smtplib client)
-        smtp_host = cfg.get('smtpHost') or cfg.get('smtp_host') or os.environ.get('MAIL_SERVER', 'localhost')
-        smtp_port = cfg.get('smtpPort') or cfg.get('smtp_port')
-        smtp_user = cfg.get('smtpUsername') or cfg.get('smtp_username') or os.environ.get('MAIL_USERNAME')
-        smtp_pass = cfg.get('smtpPassword') or cfg.get('smtp_password') or os.environ.get('MAIL_PASSWORD')
-        smtp_enc = cfg.get('smtpEncryption') or cfg.get('smtp_encryption') or os.environ.get('MAIL_USE_TLS', 'tls')
+        db_smtp_host = None
+        db_smtp_port = None
+        db_smtp_user = None
+        db_smtp_pass = None
+        db_smtp_enc = None
+
+        try:
+            from app.extensions import db
+            from app.models.system_setting import SystemSettings
+            from app.models.service_tokens import PlatformServiceProviderConfig
+
+            # Synchronize active platform provider config (email service type) to SystemSettings
+            provider_config = PlatformServiceProviderConfig.query.filter_by(
+                service_type='email', is_active=True
+            ).first()
+
+            settings = db.session.query(SystemSettings).first()
+            if not settings:
+                settings = SystemSettings(id=1)
+                db.session.add(settings)
+                db.session.flush()
+
+            if provider_config:
+                p_cfg = provider_config.get_config() or {}
+                settings.smtp_host = p_cfg.get('smtpHost') or p_cfg.get('smtp_host')
+                settings.smtp_password = p_cfg.get('smtpPassword') or p_cfg.get('smtp_password')
+                settings.smtp_username = p_cfg.get('smtpUsername') or p_cfg.get('smtp_username')
+                settings.smtp_port = p_cfg.get('smtpPort') or p_cfg.get('smtp_port')
+                settings.smtp_encryption = p_cfg.get('smtpEncryption') or p_cfg.get('smtp_encryption')
+                db.session.commit()
+
+            # Dynamic hydration from SystemSettings database record
+            db_smtp_host = settings.smtp_host
+            db_smtp_port = settings.smtp_port
+            db_smtp_user = settings.smtp_username
+            db_smtp_pass = settings.smtp_password
+            db_smtp_enc = settings.smtp_encryption
+        except Exception as e:
+            logger.warning(f"Failed to query dynamic SystemSettings block: {str(e)}")
+
+        smtp_host = cfg.get('smtpHost') or cfg.get('smtp_host') or db_smtp_host or os.environ.get('MAIL_SERVER', 'localhost')
+        smtp_port = cfg.get('smtpPort') or cfg.get('smtp_port') or db_smtp_port
+        smtp_user = cfg.get('smtpUsername') or cfg.get('smtp_username') or db_smtp_user or os.environ.get('MAIL_USERNAME')
+        smtp_pass = cfg.get('smtpPassword') or cfg.get('smtp_password') or db_smtp_pass or os.environ.get('MAIL_PASSWORD')
+        smtp_enc = cfg.get('smtpEncryption') or cfg.get('smtp_encryption') or db_smtp_enc or os.environ.get('MAIL_USE_TLS', 'tls')
         
         # Coerce port to int
         if smtp_port is None:

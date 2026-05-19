@@ -146,7 +146,7 @@ from app.models.timetable import Period, TimetableSlot
 from app.models.admission import AdmissionApplication
 
 # System Settings
-from app.models.system_setting import SystemSetting
+from app.models.system_setting import SystemSetting, SystemSettings
 
 # Academic Calendar models
 from app.models.academic_calendar import AcademicYear, Term

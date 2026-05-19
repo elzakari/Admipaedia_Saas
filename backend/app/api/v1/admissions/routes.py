@@ -239,11 +239,10 @@ def review_application(id):
     })
     form_data['_review'] = review_block
     application.form_data = form_data
-
-    application.status = next_status
     
     if next_status == 'approved':
         try:
+            application.status = next_status
             from flask import g
             tenant_id = (
                 getattr(g, 'tenant_id', None) or 
@@ -261,6 +260,7 @@ def review_application(id):
                 
             # Create user account for student if not exists
             student_user = None
+            raw_token = None
             if student_email:
                 student_user = User.query.filter_by(email=student_email).first()
                 
@@ -280,11 +280,20 @@ def review_application(id):
                     username = f"{base_username}_{counter}"
                     counter += 1
                 
+                import secrets
+                import hashlib
+                from datetime import timedelta
+                
+                raw_token = secrets.token_urlsafe(32)
+                token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+                
                 student_user = User(
                     username=username,
                     email=student_email,
                     role='student',
-                    status='pending_activation'
+                    status='pending_activation',
+                    password_reset_token=token_hash,
+                    password_reset_expires=datetime.utcnow() + timedelta(days=7)
                 )
                 student_user.password_hash = None # permits newly provisioned student profiles to remain password-empty
                 db.session.add(student_user)
@@ -408,12 +417,27 @@ def review_application(id):
                 db.session.add(student)
                 db.session.flush()
                 
+            # Send activation email using isolated try/except block
+            if student_email and raw_token:
+                try:
+                    from app.services.email_service import send_password_reset_email
+                    mail_sent = send_password_reset_email(student_email, raw_token)
+                    if not mail_sent:
+                        raise Exception("Mail dispatch returned False status")
+                except Exception as mail_err:
+                    import sys
+                    print(f"[MAIL FALLBACK] Resend API failed: {str(mail_err)}. Fallback generated raw token for email {student_email}: {raw_token}", file=sys.stdout)
+                    sys.stdout.flush()
+                
+            db.session.commit()
         except Exception as e:
             db.session.rollback()
             return jsonify({
                 'success': False,
                 'message': f"Student record generation failed: {str(e)}"
             }), 500
+    else:
+        application.status = next_status
 
     db.session.commit()
 
