@@ -34,8 +34,6 @@ export default function NavigationEnhancedDashboard() {
     isMobile,
   } = useEnhancedNavigation();
   
-  const [showQuickActions, setShowQuickActions] = useState(true);
-
   const [showFilters, setShowFilters] = useState(false);
 
   // Inject Search and Actions into Global Header
@@ -92,23 +90,6 @@ export default function NavigationEnhancedDashboard() {
           <span>Commands</span>
         </Button>
         
-        <Button
-          variant={showQuickActions ? "default" : "outline"}
-          size="sm"
-          onClick={() => setShowQuickActions(!showQuickActions)}
-          className={cn(
-            "flex items-center gap-2 rounded-xl h-10 px-4",
-            theme === 'casaos' 
-              ? showQuickActions 
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20 border-0" 
-                : "bg-white/5 border-white/10 text-slate-300 hover:text-white"
-              : ""
-          )}
-        >
-          {showQuickActions && <X className="h-4 w-4" />}
-          <span>{showQuickActions ? 'Hide Actions' : 'Show Actions'}</span>
-        </Button>
-
         <div className="w-px h-6 bg-white/10 mx-2 hidden sm:block" />
 
         <Button 
@@ -138,7 +119,7 @@ export default function NavigationEnhancedDashboard() {
       setHeaderSearch(null);
       setHeaderActions(null);
     };
-  }, [filters.searchQuery, isMobile, showQuickActions, setHeaderSearch, setHeaderActions, setIsCommandPaletteOpen, theme]);
+  }, [filters.searchQuery, isMobile, setHeaderSearch, setHeaderActions, setIsCommandPaletteOpen, theme]);
   
   return (
     <div className={cn(
@@ -147,27 +128,6 @@ export default function NavigationEnhancedDashboard() {
     )}>
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Quick Actions Sidebar */}
-        {showQuickActions && (
-          <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: isMobile ? '100%' : '350px', opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className={cn(
-              "overflow-y-auto",
-              isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative h-full',
-              theme === 'casaos' 
-                ? "bg-[#12151C]/60 backdrop-blur-xl border-r border-white/5" 
-                : "bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700"
-            )}
-          >
-            <div className="p-4">
-              <QuickActionsBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
-            </div>
-          </motion.aside>
-        )}
-        
         {/* Dashboard Content */}
         <main className={cn(
           "flex-1 overflow-y-auto",
@@ -200,14 +160,6 @@ export default function NavigationEnhancedDashboard() {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
       />
-      
-      {/* Mobile Overlay */}
-      {isMobile && showQuickActions && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20"
-          onClick={() => setShowQuickActions(false)}
-        />
-      )}
     </div>
   );
 }

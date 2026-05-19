@@ -88,6 +88,18 @@ export function useEnhancedNavigation() {
       shortcut: 'Ctrl+A',
     },
     {
+      id: 'open-calendar',
+      label: 'Open Calendar',
+      labelKey: 'quick_actions.open_calendar.label',
+      description: 'Open the school calendar',
+      descriptionKey: 'quick_actions.open_calendar.description',
+      icon: 'Calendar',
+      action: () => navigate('/calendar'),
+      category: 'navigation',
+      keywords: ['calendar', 'schedule', 'events'],
+      shortcut: 'Ctrl+Shift+C',
+    },
+    {
       id: 'generate-report',
       label: 'Generate Report',
       labelKey: 'quick_actions.generate_report.label',

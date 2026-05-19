@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useEnhancedNavigation } from '../../hooks/useEnhancedNavigation';
+import { Calendar } from 'lucide-react';
 import {
   Plus,
   Search,
@@ -41,7 +42,7 @@ export default function QuickActionsBar({ onOpenCommandPalette }: QuickActionsBa
   // Get icon component
   const getIcon = (iconName: string) => {
     const icons: Record<string, any> = {
-      Plus, Search, Command, Star, Clock, ChevronRight, ChevronLeft, MoreHorizontal,
+      Plus, Search, Command, Star, Clock, ChevronRight, ChevronLeft, MoreHorizontal, Calendar,
     };
     return icons[iconName] || Search;
   };

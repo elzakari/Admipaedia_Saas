@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 import { useEnhancedNavigation } from '../../hooks/useEnhancedNavigation';
+import { Calendar } from 'lucide-react';
 import {
   Search,
   Command,
@@ -103,7 +104,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // Get icon component
   const getIcon = (iconName: string) => {
     const icons: Record<string, any> = {
-      Search, Command, Clock, Star, ArrowRight, Keyboard, Hash, Navigation, Zap,
+      Search, Command, Clock, Star, ArrowRight, Keyboard, Hash, Navigation, Zap, Calendar,
     };
     return icons[iconName] || Search;
   };

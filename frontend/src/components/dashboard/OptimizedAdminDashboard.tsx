@@ -11,6 +11,8 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWebSocket } from '../../services/websocketService';
+import { useEnhancedNavigation } from '../../hooks/useEnhancedNavigation';
+import { Plus, ArrowRight } from 'lucide-react';
 import {
   LazyStatisticsGrid,
   LazyCalendarWidget,
@@ -94,6 +96,15 @@ const COMPONENT_ICONS = {
 export default function OptimizedAdminDashboard() {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const { executeAction, quickActions } = useEnhancedNavigation();
+
+  const handleQuickActionClick = (actionId: string) => {
+    const action = quickActions.find(a => a.id === actionId);
+    if (action) {
+      executeAction(action);
+    }
+  };
+
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [selectedLayout, setSelectedLayout] = useLocalStorage('dashboard-layout', 'overview');
   
@@ -524,6 +535,130 @@ export default function OptimizedAdminDashboard() {
                 );
               })}
             </div>
+          </div>
+        </Card>
+
+        {/* Quick Actions Card */}
+        <Card className={cn(
+          "p-6 transition-all duration-300",
+          isCasaosTheme ? "glass-card border-0 shadow-2xl" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl"
+        )}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className={cn(
+              "text-lg font-bold tracking-tight",
+              isCasaosTheme ? "text-white" : "text-slate-900 dark:text-white"
+            )}>
+              Quick Actions
+            </h2>
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
+              Shortcuts to frequent tasks
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => handleQuickActionClick('create-student')}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group focus:outline-none focus:ring-2 focus:ring-blue-500/50",
+                isCasaosTheme
+                  ? "bg-white/5 border-white/5 hover:bg-white/10"
+                  : "bg-slate-50 dark:bg-slate-800/50 hover:bg-white border-slate-100 dark:border-slate-700/50 hover:border-blue-100 dark:hover:border-blue-900/50"
+              )}
+            >
+              <div className="p-3 bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 rounded-xl group-hover:scale-105 transition-transform">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className={cn(
+                  "block text-sm font-semibold truncate",
+                  isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
+                )}>
+                  Add New Student
+                </span>
+                <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  Create student profile
+                </span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors shrink-0" />
+            </button>
+
+            <button
+              onClick={() => handleQuickActionClick('view-attendance')}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
+                isCasaosTheme
+                  ? "bg-white/5 border-white/5 hover:bg-white/10"
+                  : "bg-slate-50 dark:bg-slate-800/50 hover:bg-white border-slate-100 dark:border-slate-700/50 hover:border-emerald-100 dark:hover:border-emerald-900/50"
+              )}
+            >
+              <div className="p-3 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-500 rounded-xl group-hover:scale-105 transition-transform">
+                <Activity className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className={cn(
+                  "block text-sm font-semibold truncate",
+                  isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
+                )}>
+                  View Attendance
+                </span>
+                <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  Check daily records
+                </span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors shrink-0" />
+            </button>
+
+            <button
+              onClick={() => handleQuickActionClick('generate-report')}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group focus:outline-none focus:ring-2 focus:ring-purple-500/50",
+                isCasaosTheme
+                  ? "bg-white/5 border-white/5 hover:bg-white/10"
+                  : "bg-slate-50 dark:bg-slate-800/50 hover:bg-white border-slate-100 dark:border-slate-700/50 hover:border-purple-100 dark:hover:border-purple-900/50"
+              )}
+            >
+              <div className="p-3 bg-purple-500/10 dark:bg-purple-500/20 text-purple-500 rounded-xl group-hover:scale-105 transition-transform">
+                <Download className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className={cn(
+                  "block text-sm font-semibold truncate",
+                  isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
+                )}>
+                  Generate Report
+                </span>
+                <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  Create custom exports
+                </span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors shrink-0" />
+            </button>
+
+            <button
+              onClick={() => handleQuickActionClick('open-calendar')}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md group focus:outline-none focus:ring-2 focus:ring-amber-500/50",
+                isCasaosTheme
+                  ? "bg-white/5 border-white/5 hover:bg-white/10"
+                  : "bg-slate-50 dark:bg-slate-800/50 hover:bg-white border-slate-100 dark:border-slate-700/50 hover:border-amber-100 dark:hover:border-amber-900/50"
+              )}
+            >
+              <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-xl group-hover:scale-105 transition-transform">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className={cn(
+                  "block text-sm font-semibold truncate",
+                  isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
+                )}>
+                  Open Calendar
+                </span>
+                <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  View events & schedules
+                </span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 transition-colors shrink-0" />
+            </button>
           </div>
         </Card>
 
