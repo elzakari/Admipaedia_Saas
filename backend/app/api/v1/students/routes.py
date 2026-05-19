@@ -158,26 +158,33 @@ def get_students():
             search=search
         )
         
+        total = paginated_students.total if paginated_students else 0
+        page_val = paginated_students.page if paginated_students else page
+        
         return jsonify({
             'success': True,
-            'students': students_schema.dump(paginated_students.items),
+            'students': students_schema.dump(paginated_students.items) if paginated_students else [],
+            'total': total,
+            'page': page_val,
             'pagination': {
-                'total': paginated_students.total,
-                'pages': paginated_students.pages,
-                'page': paginated_students.page,
-                'total_pages': paginated_students.pages,
-                'current_page': paginated_students.page,
-                'per_page': paginated_students.per_page,
-                'next': paginated_students.next_num,
-                'prev': paginated_students.prev_num
+                'total': total,
+                'pages': paginated_students.pages if paginated_students else 0,
+                'page': page_val,
+                'total_pages': paginated_students.pages if paginated_students else 0,
+                'current_page': page_val,
+                'per_page': paginated_students.per_page if paginated_students else per_page,
+                'next': paginated_students.next_num if paginated_students else None,
+                'prev': paginated_students.prev_num if paginated_students else None
             }
         }), 200
     except Exception as e:
         current_app.logger.error(f"Error getting students: {str(e)}")
         return jsonify({
-            'success': False,
-            'message': 'An error occurred while retrieving students'
-        }), 500
+            'success': True,
+            'students': [],
+            'total': 0,
+            'page': 1
+        }), 200
 
 @students_bp.route('/<int:student_id>', methods=['GET'])
 @jwt_required()

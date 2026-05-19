@@ -218,17 +218,26 @@ def db_isolation(app):
     db.session = session
 
     # Implement nested transactions (savepoints)
-    nested = connection.begin_nested()
+    nested = session.begin_nested()
     from sqlalchemy import event
+    active = True
     @event.listens_for(session, "after_transaction_end")
     def restart_savepoint(session, transaction):
         nonlocal nested
+        if not active:
+            return
         if not nested.is_active:
-            nested = connection.begin_nested()
+            nested = session.begin_nested()
 
     try:
         yield
     finally:
+        active = False
+        from sqlalchemy import event
+        try:
+            event.remove(session, "after_transaction_end", restart_savepoint)
+        except Exception:
+            pass
         try:
             session.remove()
             transaction.rollback()

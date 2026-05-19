@@ -3,16 +3,18 @@ import StatisticsGrid from '../../components/dashboard/StatisticsGrid';
 import CalendarWidget from '../../components/dashboard/CalendarWidget';
 import NotificationList from '../../components/dashboard/NotificationList';
 import { useAuth } from '@/contexts/AuthContext';
-import ResponsiveLayout from '../../components/layout/ResponsiveLayout';
-import SidebarNav from '../../components/layout/Sidebar';
-import Header from '../../components/layout/Header';
-import Footer from '../../components/layout/Footer';
+import { DashboardShell } from '../../components/layout/DashboardShell';
 
 interface DashboardPageProps {}
 
 const DashboardPage: React.FC<DashboardPageProps> = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const [greeting, setGreeting] = useState<string>('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   useEffect(() => {
     // Set greeting based on time of day
@@ -32,14 +34,19 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
     setGreeting(`${greetingText}, ${displayName}`);
   }, [user]);
 
+  const activeUser = {
+    name: user?.username || 'User',
+    role: user?.role || 'Admin',
+    initials: user?.username?.substring(0, 2).toUpperCase() || 'AD'
+  };
+
   if (authLoading) {
     return (
-      <ResponsiveLayout
-        headerContent={<Header />}
-        sidebarContent={<SidebarNav isOpen={false} toggleSidebar={function (): void {
-          throw new Error('Function not implemented.');
-        } } />}
-        footerContent={<Footer />}
+      <DashboardShell
+        isMenuOpen={isMenuOpen}
+        toggleMenu={toggleMenu}
+        handleLogout={logout}
+        activeUser={activeUser}
       >
         <div className="dashboard-container animate-pulse">
           <div className="mb-8">
@@ -61,18 +68,16 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
             <div className="bg-white rounded-lg shadow h-64"></div>
           </div>
         </div>
-      </ResponsiveLayout>
+      </DashboardShell>
     );
   }
 
   return (
-    <ResponsiveLayout
-      headerContent={<Header />}
-      sidebarContent={<SidebarNav isOpen={false} toggleSidebar={function (): void {
-        throw new Error('Function not implemented.');
-      } } />}
-      footerContent={<Footer />}
-      showResponsiveHelper={process.env.NODE_ENV === 'development'}
+    <DashboardShell
+      isMenuOpen={isMenuOpen}
+      toggleMenu={toggleMenu}
+      handleLogout={logout}
+      activeUser={activeUser}
     >
       <div className="dashboard-container">
         <div className="mb-6 sm:mb-8">
@@ -94,7 +99,7 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
           </div>
         </div>
       </div>
-    </ResponsiveLayout>
+    </DashboardShell>
   );
 };
 

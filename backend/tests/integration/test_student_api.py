@@ -1,50 +1,88 @@
 import json
 import pytest
+import uuid
 from app.models.student import Student
-from app.extensions import db
+from app.models.tenant import Tenant, TenantMembership
+from app.models.user import User
 
-@pytest.fixture
-def student_payload():
-    return {
-        'name': 'John Doe',
-        'email': 'john@example.com',
-        'admission_number': 'A12345',
+def _create_tenant(db):
+    t = Tenant(
+        id=uuid.uuid4(),
+        slug=f"t-{uuid.uuid4().hex[:8]}",
+        name="Test Tenant",
+        country_code="US",
+        schema_name=f"tenant_{uuid.uuid4().hex[:8]}",
+        status="active",
+    )
+    db.session.add(t)
+    db.session.flush()
+    return t
+
+def _create_membership(db, tenant_id, user_id):
+    m = TenantMembership(tenant_id=tenant_id, user_id=user_id, role="school_admin", status="active")
+    db.session.add(m)
+    db.session.flush()
+    return m
+
+def test_create_student_api(app, db, client, auth_headers):
+    # Get authenticated user to associate with tenant
+    user = User.query.filter_by(email="test@example.com").first()
+    assert user is not None
+
+    tenant = _create_tenant(db)
+    _create_membership(db, tenant.id, user.id)
+
+    payload = {
+        'first_name': 'John',
+        'last_name': 'Doe',
+        'email': f'john_{uuid.uuid4().hex[:6]}@example.com',
+        'admission_number': f'ADM_{uuid.uuid4().hex[:6]}'.upper(),
         'date_of_birth': '2000-01-01',
-        'gender': 'male',
-        'status': 'active'
+        'gender': 'male'
     }
 
-def test_create_student_api(client, student_payload):
-    # Test student creation API
     response = client.post(
         '/api/v1/students',
-        data=json.dumps(student_payload),
-        content_type='application/json'
+        data=json.dumps(payload),
+        content_type='application/json',
+        headers={**auth_headers, 'X-Tenant-ID': str(tenant.id)}
     )
     
-    data = json.loads(response.data)
     assert response.status_code == 201
-    assert data['student']['name'] == student_payload['name']
-    assert data['student']['email'] == student_payload['email']
-    
-    # Verify student was created in the database
-    with client.application.app_context():
-        student = Student.query.filter_by(email=student_payload['email']).first()
-        assert student is not None
-        assert student.name == student_payload['name']
+    data = response.get_json()
+    assert data['student']['first_name'] == 'John'
 
-def test_get_students_api(client, student_payload):
+def test_get_students_api(app, db, client, auth_headers):
+    user = User.query.filter_by(email="test@example.com").first()
+    assert user is not None
+
+    tenant = _create_tenant(db)
+    _create_membership(db, tenant.id, user.id)
+
+    payload = {
+        'first_name': 'Jane',
+        'last_name': 'Smith',
+        'email': f'jane_{uuid.uuid4().hex[:6]}@example.com',
+        'admission_number': f'ADM_{uuid.uuid4().hex[:6]}'.upper(),
+        'date_of_birth': '2000-01-01',
+        'gender': 'female'
+    }
+
     # Create a student first
-    client.post(
+    res_create = client.post(
         '/api/v1/students',
-        data=json.dumps(student_payload),
-        content_type='application/json'
+        data=json.dumps(payload),
+        content_type='application/json',
+        headers={**auth_headers, 'X-Tenant-ID': str(tenant.id)}
     )
+    assert res_create.status_code == 201
     
     # Test get students API
-    response = client.get('/api/v1/students')
-    data = json.loads(response.data)
-    
+    response = client.get(
+        '/api/v1/students',
+        headers={**auth_headers, 'X-Tenant-ID': str(tenant.id)}
+    )
     assert response.status_code == 200
+    data = response.get_json()
     assert len(data['students']) >= 1
-    assert data['pagination']['total'] >= 1
+    assert data['total'] >= 1

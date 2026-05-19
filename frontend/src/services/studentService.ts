@@ -183,8 +183,18 @@ const studentService = {
     class_id?: number;
     date_from?: string;
     date_to?: string;
+    tenant_id?: string;
   }): Promise<StudentAnalyticsSummary> => {
-    const response = await api.get('/enhanced-students/analytics/summary', { params });
+    const tenantId = params?.tenant_id || localStorage.getItem('saas_current_tenant_id');
+    const finalParams = {
+      ...params,
+      tenant_id: tenantId,
+      tenantId: tenantId
+    };
+    const response = await api.get('/enhanced-students/analytics/summary', {
+      params: finalParams,
+      headers: tenantId ? { 'X-Tenant-ID': tenantId } : undefined
+    });
     return response.data?.data as StudentAnalyticsSummary;
   },
 

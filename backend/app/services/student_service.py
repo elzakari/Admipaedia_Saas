@@ -56,7 +56,21 @@ class StudentService:
         )
 
         if tenant_id is not None and hasattr(Student, 'tenant_id'):
-            query = query.filter(Student.tenant_id == tenant_id)
+            resolved_tenant_id = tenant_id
+            if isinstance(tenant_id, str):
+                import uuid
+                try:
+                    resolved_tenant_id = uuid.UUID(tenant_id)
+                except ValueError:
+                    # Look up Tenant by slug
+                    from app.models.tenant import Tenant
+                    t = Tenant.query.filter_by(slug=tenant_id).first()
+                    if t:
+                        resolved_tenant_id = t.id
+                    else:
+                        # Fallback to a dummy UUID so that query executes successfully but returns zero results
+                        resolved_tenant_id = uuid.uuid4()
+            query = query.filter(Student.tenant_id == resolved_tenant_id)
         
         if class_id:
             query = query.filter(Student.class_id == class_id)
