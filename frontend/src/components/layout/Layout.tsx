@@ -22,6 +22,7 @@ import { cn } from '../../lib/utils'; // Add this import
 import Footer from './Footer';
 import SidebarNav from './Sidebar'; // Renamed to avoid conflict with the Sidebar icon from lucide-react
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import ThemeToggle from '../common/ThemeToggle';
 import { MobileBottomNavigation } from '../navigation/MobileBottomNavigation';
 import { useMobileNavigation } from '../../hooks/useMobileNavigation';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -309,6 +310,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
               </div>
 
               <LanguageSwitcher />
+              <ThemeToggle />
               <div className="w-px h-6 bg-slate-200/60 dark:bg-white/10 hidden sm:block" />
 
               <div className="relative shrink-0" ref={profileDropdownRef}>

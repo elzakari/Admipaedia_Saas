@@ -11,7 +11,9 @@ import {
   BookOpen,
   Settings,
   Plus,
-  Users
+  UserCheck,
+  FileEdit,
+  Bell
 } from 'lucide-react';
 
 interface MobileBottomNavigationProps {
@@ -185,49 +187,61 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
 
               {/* Grid actions */}
               <div className="grid grid-cols-2 gap-4">
-                <a
-                  href="/students"
-                  onClick={() => setIsActionsOpen(false)}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                <button
+                  onClick={() => {
+                    console.log('Attendance');
+                    setIsActionsOpen(false);
+                    window.location.href = '/attendance';
+                  }}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <Plus className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-green-500/20">
+                    <UserCheck className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Add Student</span>
-                </a>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Mark Attendance</span>
+                </button>
 
-                <a
-                  href="/attendance"
-                  onClick={() => setIsActionsOpen(false)}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                <button
+                  onClick={() => {
+                    console.log('Grade');
+                    setIsActionsOpen(false);
+                    window.location.href = '/academics';
+                  }}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50 dark:hover:bg-blue-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-blue-500/20">
+                    <GraduationCap className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Attendance</span>
-                </a>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Add Grade</span>
+                </button>
 
-                <a
-                  href="/academics"
-                  onClick={() => setIsActionsOpen(false)}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                <button
+                  onClick={() => {
+                    console.log('Template');
+                    setIsActionsOpen(false);
+                    window.location.href = '/settings';
+                  }}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-orange-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <BookOpen className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                  <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-orange-500/20">
+                    <FileEdit className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Classes</span>
-                </a>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">New Template</span>
+                </button>
 
-                <a
-                  href="/settings"
-                  onClick={() => setIsActionsOpen(false)}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                <button
+                  onClick={() => {
+                    console.log('Notify');
+                    setIsActionsOpen(false);
+                    window.location.href = '/notifications';
+                  }}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <Settings className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  <div className="w-12 h-12 rounded-xl bg-purple-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-purple-500/20">
+                    <Bell className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Settings</span>
-                </a>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Send Notification</span>
+                </button>
               </div>
             </motion.div>
           </>

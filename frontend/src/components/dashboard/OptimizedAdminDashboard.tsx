@@ -47,7 +47,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '../ui/dropdown-menu';
-import MobileQuickActions from './MobileQuickActions';
 import { useSwipeable } from 'react-swipeable';
 
 interface DashboardLayout {
@@ -785,8 +784,6 @@ export default function OptimizedAdminDashboard() {
           </div>
         )}
 
-        {/* Mobile FAB */}
-        <MobileQuickActions />
       </div>
     </div>
   );
