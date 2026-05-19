@@ -115,3 +115,64 @@ def test_email_service_dynamic_db_hydration(app):
                 assert settings.smtp_host == 'smtp.dynamic-database.com'
                 assert settings.smtp_username == 'db-admin-user'
                 assert settings.smtp_password == 'db-admin-password-super-secret'
+
+
+def test_email_service_raw_tuple_hydration(app):
+    """
+    Test that when the email service database query returns a raw database tuple/mapping,
+    the polymorphic email engine successfully parses the fields defensively and resolves them.
+    """
+    with app.app_context():
+        app.config['MAIL_SUPPRESS_SEND'] = False
+        
+        # Clear configs first
+        db.session.query(SystemSettings).delete()
+        db.session.query(PlatformServiceProviderConfig).delete()
+        db.session.commit()
+
+        # Let's craft an encrypted config payload using the model helper
+        temp_model = PlatformServiceProviderConfig()
+        temp_model.set_config({
+            'smtpHost': 'smtp.tuple-raw.com',
+            'smtpPort': 465,
+            'smtpUsername': 'tuple-raw-user',
+            'smtpPassword': 'tuple-raw-password',
+            'smtpEncryption': 'ssl'
+        })
+        enc_payload = temp_model.config_encrypted
+
+        # Standard raw database tuple: (id, service_type, provider_key, display_name, priority, is_active, config_encrypted, created_at, updated_at)
+        raw_tuple = (
+            999,                    # id
+            'email',                # service_type
+            'smtp',                 # provider_key
+            'Raw Tuple Provider',   # display_name
+            100,                    # priority
+            True,                   # is_active
+            enc_payload,            # config_encrypted
+            None,                   # created_at
+            None                    # updated_at
+        )
+
+        with patch('app.models.service_tokens.PlatformServiceProviderConfig.query') as mock_query:
+            # mock_query.filter_by().first() returns the raw tuple
+            mock_query.filter_by.return_value.first.return_value = raw_tuple
+            
+            with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
+                mock_send.return_value = (True, "Sent", "msg-tuple-101")
+                
+                send_email(
+                    subject="Tuple Test",
+                    recipients=["test@example.com"],
+                    text_body="Testing polymorphic tuple query.",
+                    provider="smtp"
+                )
+                
+                # Check that dynamic db values from raw tuple override environmental defaults
+                args, kwargs = mock_send.call_args
+                assert kwargs['host'] == 'smtp.tuple-raw.com'
+                assert int(kwargs['port']) == 465
+                assert kwargs['username'] == 'tuple-raw-user'
+                assert kwargs['password'] == 'tuple-raw-password'
+                assert kwargs['encryption'] == 'ssl'
+

@@ -83,8 +83,40 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
             
         if db_provider:
             # Map database configuration parameters
-            cfg = db_provider.get_config() or {}
-            selected_provider = (provider or db_provider.provider_key or 'smtp').lower()
+            if hasattr(db_provider, 'get_config'):
+                cfg = db_provider.get_config() or {}
+                provider_key = db_provider.provider_key
+            else:
+                # db_provider is a tuple, row mapping, or dict
+                provider_key = None
+                config_encrypted = None
+                try:
+                    provider_key = db_provider['provider_key']
+                    config_encrypted = db_provider['config_encrypted']
+                except Exception:
+                    try:
+                        provider_key = db_provider[2]
+                        config_encrypted = db_provider[6]
+                    except Exception:
+                        pass
+                
+                cfg = {}
+                if config_encrypted:
+                    try:
+                        from flask import current_app
+                        from app.utils.secret_crypto import decrypt_value
+                        import json
+                        secret = current_app.config.get('SECRET_KEY') or ''
+                        salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
+                        raw = decrypt_value(config_encrypted, secret=secret, salt=salt)
+                        if raw:
+                            parsed = json.loads(raw)
+                            if isinstance(parsed, dict):
+                                cfg = parsed
+                    except Exception as dec_err:
+                        logger.warning(f"Failed to decrypt dynamic email config tuple: {str(dec_err)}")
+            
+            selected_provider = (provider or provider_key or 'smtp').lower()
             logger.info("Retrieved active email integration settings from DB", provider_key=selected_provider)
     except Exception as e:
         logger.warning(f"Could not load email configuration from database, falling back to env/defaults: {str(e)}")
@@ -158,7 +190,33 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                 db.session.flush()
 
             if provider_config:
-                p_cfg = provider_config.get_config() or {}
+                p_cfg = {}
+                if hasattr(provider_config, 'get_config'):
+                    p_cfg = provider_config.get_config() or {}
+                else:
+                    config_encrypted = None
+                    try:
+                        config_encrypted = provider_config['config_encrypted']
+                    except Exception:
+                        try:
+                            config_encrypted = provider_config[6]
+                        except Exception:
+                            pass
+                    if config_encrypted:
+                        try:
+                            from flask import current_app
+                            from app.utils.secret_crypto import decrypt_value
+                            import json
+                            secret = current_app.config.get('SECRET_KEY') or ''
+                            salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
+                            raw = decrypt_value(config_encrypted, secret=secret, salt=salt)
+                            if raw:
+                                parsed = json.loads(raw)
+                                if isinstance(parsed, dict):
+                                    p_cfg = parsed
+                        except Exception as dec_err:
+                            logger.warning(f"Failed to decrypt provider_config dynamic SMTP tuple: {str(dec_err)}")
+
                 settings.smtp_host = p_cfg.get('smtpHost') or p_cfg.get('smtp_host')
                 settings.smtp_password = p_cfg.get('smtpPassword') or p_cfg.get('smtp_password')
                 settings.smtp_username = p_cfg.get('smtpUsername') or p_cfg.get('smtp_username')
