@@ -1,35 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useResponsive } from '../../hooks/useResponsive';
 import {
   LayoutDashboard,
-  Users,
-  Building2,
   GraduationCap,
   BookOpen,
-  ClipboardList,
-  BadgeCheck,
-  Calendar,
-  FilePlus2,
-  Bell,
-  MessageSquare,
-  CreditCard,
   Settings,
-  Library,
-  FileText,
-  BarChart3
+  Plus,
+  Users
 } from 'lucide-react';
-
-interface NavItem {
-  name: string;
-  labelKey: string;
-  path: string;
-  icon: React.ReactNode;
-  roles?: string[];
-}
 
 interface MobileBottomNavigationProps {
   className?: string;
@@ -40,338 +23,217 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
   const location = useLocation();
   const { user } = useAuth();
   const { isMobile } = useResponsive();
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
 
-  // Define navigation items with role-based filtering
-  const allNavItems: NavItem[] = [
-    {
-      name: 'Dashboard',
-      labelKey: 'navigation.dashboard',
-      path: user?.role === 'super_admin' ? '/super-admin' :
-            user?.role === 'admin' ? '/admin/dashboard' :
-            user?.role === 'teacher' ? '/teacher/dashboard' :
-            user?.role === 'student' ? '/student/dashboard' :
-            user?.role === 'parent' ? '/parent/dashboard' :
-            '/dashboard',
-      icon: <LayoutDashboard size={20} />
-    },
-    {
-      name: 'Users',
-      labelKey: 'navigation.users',
-      path: '/super-admin/users',
-      icon: <Users size={20} />,
-      roles: ['super_admin']
-    },
-    {
-      name: 'Audit Logs',
-      labelKey: 'navigation.audit_logs',
-      path: '/super-admin/audit-logs',
-      icon: <FileText size={20} />,
-      roles: ['super_admin']
-    },
-    {
-      name: 'Schools',
-      labelKey: 'navigation.schools',
-      path: '/super-admin/schools',
-      icon: <Building2 size={20} />,
-      roles: ['super_admin']
-    },
-    {
-      name: 'Financial Insights',
-      labelKey: 'navigation.financial_oversight',
-      path: '/super-admin/financial',
-      icon: <BarChart3 size={20} />,
-      roles: ['super_admin']
-    },
-    {
-      name: 'Academics',
-      labelKey: 'navigation.academics',
-      path: '/academics',
-      icon: <BookOpen size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'Students',
-      labelKey: 'navigation.students',
-      path: '/students',
-      icon: <GraduationCap size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'My Children',
-      labelKey: 'navigation.my_children',
-      path: '/parent-portal',
-      icon: <Users size={20} />,
-      roles: ['parent']
-    },
-    {
-      name: 'Admissions',
-      labelKey: 'navigation.admissions',
-      path: '/admissions',
-      icon: <FilePlus2 size={20} />,
-      roles: ['parent', 'admin']
-    },
-    {
-      name: 'Teachers',
-      labelKey: 'navigation.teachers',
-      path: '/teachers',
-      icon: <Users size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'Schedule',
-      labelKey: 'navigation.schedule',
-      path: '/schedule',
-      icon: <Calendar size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'Schedule',
-      labelKey: 'navigation.schedule',
-      path: '/parent/schedule',
-      icon: <Calendar size={20} />,
-      roles: ['parent']
-    },
-    {
-      name: 'Library',
-      labelKey: 'navigation.library',
-      path: '/library',
-      icon: <Library size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'Messages',
-      labelKey: 'navigation.messages',
-      path: '/messages',
-      icon: <MessageSquare size={20} />,
-      roles: ['admin', 'parent']
-    },
-    {
-      name: 'Notifications',
-      labelKey: 'navigation.notifications',
-      path: '/notifications',
-      icon: <Bell size={20} />,
-      roles: ['admin', 'parent']
-    },
-    {
-      name: 'My Classes',
-      labelKey: 'navigation.classes',
-      path: '/student/classes',
-      icon: <BookOpen size={20} />,
-      roles: ['student']
-    },
-    {
-      name: 'Assignments',
-      labelKey: 'navigation.assignments',
-      path: '/student/assignments',
-      icon: <ClipboardList size={20} />,
-      roles: ['student']
-    },
-    {
-      name: 'Grades',
-      labelKey: 'navigation.grades',
-      path: '/student/grades',
-      icon: <BadgeCheck size={20} />,
-      roles: ['student']
-    },
-    {
-      name: 'Timetable',
-      labelKey: 'navigation.timetable',
-      path: '/student/timetable',
-      icon: <Calendar size={20} />,
-      roles: ['student']
-    },
-    {
-      name: 'Student Messages',
-      labelKey: 'navigation.messages',
-      path: '/student/messages',
-      icon: <MessageSquare size={20} />,
-      roles: ['student']
-    },
-    {
-      name: 'Student Notifications',
-      labelKey: 'navigation.notifications',
-      path: '/student/notifications',
-      icon: <Bell size={20} />,
-      roles: ['student']
-    },
-
-    {
-      name: 'My Classes',
-      labelKey: 'navigation.classes',
-      path: '/teacher/classes',
-      icon: <BookOpen size={20} />,
-      roles: ['teacher']
-    },
-    {
-      name: 'Timetable',
-      labelKey: 'navigation.timetable',
-      path: '/teacher/timetable',
-      icon: <Calendar size={20} />,
-      roles: ['teacher']
-    },
-    {
-      name: 'Teacher Messages',
-      labelKey: 'navigation.messages',
-      path: '/teacher/messages',
-      icon: <MessageSquare size={20} />,
-      roles: ['teacher']
-    },
-    {
-      name: 'Teacher Notifications',
-      labelKey: 'navigation.notifications',
-      path: '/teacher/notifications',
-      icon: <Bell size={20} />,
-      roles: ['teacher']
-    },
-    {
-      name: 'Fees',
-      labelKey: 'navigation.fees',
-      path: user?.role === 'parent' ? '/parent-portal?tab=fees' : '/fees',
-      icon: <CreditCard size={20} />,
-      roles: ['admin']
-    },
-    {
-      name: 'Settings',
-      labelKey: 'navigation.settings',
-      path: '/settings',
-      icon: <Settings size={20} />
-    }
-  ];
-
-  // Filter navigation items based on user role and select top 5 most relevant
-  const getFilteredNavItems = (): NavItem[] => {
-    if (!user || !user.role) return allNavItems.slice(0, 5);
-    
-    const roleBasedItems = allNavItems.filter(item => 
-      !item.roles || item.roles.includes(user.role)
-    );
-
-    // Prioritize items based on user role
-    switch(user.role) {
-      case 'super_admin':
-        return [
-          roleBasedItems.find(item => item.name === 'Dashboard')!,
-          roleBasedItems.find(item => item.name === 'Users')!,
-          roleBasedItems.find(item => item.name === 'Schools')!,
-          roleBasedItems.find(item => item.name === 'Financial Insights')!,
-          { ...roleBasedItems.find(item => item.name === 'Settings')!, path: '/super-admin/settings' }
-        ].filter(Boolean);
-      case 'admin':
-        return [
-          roleBasedItems.find(item => item.name === 'Dashboard')!,
-          roleBasedItems.find(item => item.name === 'Students')!,
-          roleBasedItems.find(item => item.name === 'Teachers')!,
-          roleBasedItems.find(item => item.name === 'Academics')!,
-          roleBasedItems.find(item => item.name === 'Settings')!
-        ].filter(Boolean);
-      case 'teacher':
-        return [
-          roleBasedItems.find(item => item.name === 'Dashboard')!,
-          roleBasedItems.find(item => item.name === 'My Classes')!,
-          roleBasedItems.find(item => item.name === 'Timetable')!,
-          roleBasedItems.find(item => item.name === 'Teacher Messages')!,
-          roleBasedItems.find(item => item.name === 'Teacher Notifications')!
-        ].filter(Boolean);
-      case 'student':
-        return [
-          roleBasedItems.find(item => item.name === 'Dashboard')!,
-          roleBasedItems.find(item => item.name === 'My Classes')!,
-          roleBasedItems.find(item => item.name === 'Assignments')!,
-          roleBasedItems.find(item => item.name === 'Student Messages')!,
-          roleBasedItems.find(item => item.name === 'Student Notifications')!
-        ].filter(Boolean);
-      case 'parent':
-        return [
-          roleBasedItems.find(item => item.name === 'Dashboard')!,
-          roleBasedItems.find(item => item.name === 'Schedule')!,
-          roleBasedItems.find(item => item.name === 'My Children')!,
-          roleBasedItems.find(item => item.name === 'Notifications')!,
-          roleBasedItems.find(item => item.name === 'Messages')!
-        ].filter(Boolean);
-      default:
-        return roleBasedItems.slice(0, 5);
-    }
+  // Dynamic Dashboard path based on user role context
+  const getDashboardPath = () => {
+    return user?.role === 'super_admin' ? '/super-admin' :
+           user?.role === 'admin' ? '/admin/dashboard' :
+           user?.role === 'teacher' ? '/teacher/dashboard' :
+           user?.role === 'student' ? '/student/dashboard' :
+           user?.role === 'parent' ? '/parent/dashboard' :
+           '/dashboard';
   };
 
-  // Check if a path is active
+  // Active state matching hooks
   const isActive = (path: string) => {
     const basePath = path.split('?')[0];
-    if (basePath === '/dashboard' && location.pathname === '/dashboard') {
-      return true;
-    }
-    return basePath !== '/dashboard' && location.pathname.startsWith(basePath);
+    if (basePath === '/admin/dashboard' && location.pathname === '/admin/dashboard') return true;
+    if (basePath === '/teacher/dashboard' && location.pathname === '/teacher/dashboard') return true;
+    if (basePath === '/student/dashboard' && location.pathname === '/student/dashboard') return true;
+    if (basePath === '/parent/dashboard' && location.pathname === '/parent/dashboard') return true;
+    if (basePath === '/dashboard' && location.pathname === '/dashboard') return true;
+    
+    return (
+      basePath !== '/dashboard' && 
+      basePath !== '/admin/dashboard' && 
+      basePath !== '/teacher/dashboard' && 
+      basePath !== '/student/dashboard' && 
+      basePath !== '/parent/dashboard' && 
+      location.pathname.startsWith(basePath)
+    );
   };
 
-  // Don't render on desktop or if not mobile
+  // Don't render on desktop viewports
   if (!isMobile) {
     return null;
   }
 
-  const navItems = getFilteredNavItems();
-
   return (
-    <nav 
-      className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200',
-        'dark:bg-slate-900/95 dark:border-slate-700',
-        'safe-area-inset-bottom', // Handle iPhone notch
-        className
-      )}
-      role="navigation"
-      aria-label={t('common.mobile_bottom_navigation', 'Mobile bottom navigation')}
-    >
-      <div className="flex items-center justify-around px-2 py-2 pb-safe">
-        {navItems.map((item) => {
-          const active = isActive(item.path);
+    <>
+      <nav 
+        className={cn(
+          'fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] pb-safe pt-2',
+          className
+        )}
+        role="navigation"
+        aria-label={t('common.mobile_bottom_navigation', 'Mobile bottom navigation')}
+      >
+        <div className="flex items-center justify-between px-4 relative">
           
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'flex flex-col items-center justify-center min-w-0 flex-1 px-1 py-2 rounded-lg',
-                'transition-all duration-200 ease-in-out',
-                'touch-manipulation', // Optimize for touch
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-                active
-                  ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-slate-800'
-              )}
-              aria-label={t(item.labelKey, item.name)}
+          {/* Index 0: Dashboard */}
+          <Link
+            to={getDashboardPath()}
+            className={cn(
+              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+              isActive(getDashboardPath())
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+          >
+            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive(getDashboardPath()) && 'scale-110')}>
+              <LayoutDashboard size={20} />
+            </div>
+            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.dashboard', 'Dashboard')}</span>
+          </Link>
+
+          {/* Index 1: Students */}
+          <Link
+            to="/students"
+            className={cn(
+              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+              isActive('/students')
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+          >
+            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/students') && 'scale-110')}>
+              <GraduationCap size={20} />
+            </div>
+            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.students', 'Students')}</span>
+          </Link>
+
+          {/* Index 2: Primary '+' Action Trigger */}
+          <div className="flex-1 flex justify-center relative -mt-5">
+            <button
+              onClick={() => setIsActionsOpen(true)}
+              className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 border-4 border-white dark:border-slate-900 active:scale-95 transition-all duration-200"
+              aria-label="Quick Actions"
             >
-              {/* Icon */}
-              <div className={cn(
-                'flex items-center justify-center w-6 h-6 mb-1',
-                'transition-transform duration-200',
-                active && 'scale-110'
-              )}>
-                {React.cloneElement(item.icon as React.ReactElement, {
-                  size: 20,
-                  className: cn(
-                    'transition-colors duration-200',
-                    active ? 'text-blue-600 dark:text-blue-400' : 'text-current'
-                  )
-                })}
+              <Plus size={28} className="text-white" />
+            </button>
+          </div>
+
+          {/* Index 3: Academics */}
+          <Link
+            to="/academics"
+            className={cn(
+              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+              isActive('/academics')
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+          >
+            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/academics') && 'scale-110')}>
+              <BookOpen size={20} />
+            </div>
+            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.academics', 'Academics')}</span>
+          </Link>
+
+          {/* Index 4: Settings */}
+          <Link
+            to="/settings"
+            className={cn(
+              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+              isActive('/settings')
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+          >
+            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/settings') && 'scale-110')}>
+              <Settings size={20} />
+            </div>
+            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.settings', 'Settings')}</span>
+          </Link>
+
+        </div>
+      </nav>
+
+      {/* Slide-up Quick Actions Modal Sheet */}
+      <AnimatePresence>
+        {isActionsOpen && (
+          <>
+            {/* Backdrop blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsActionsOpen(false)}
+              className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-sm"
+            />
+
+            {/* Modal Sheet container */}
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed inset-x-0 bottom-0 z-[101] bg-white dark:bg-slate-900 rounded-t-[32px] p-6 pb-10 shadow-2xl border-t border-slate-200/60 dark:border-slate-800"
+            >
+              {/* Drag/Indicator Handle */}
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6" />
+
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Quick Actions</h3>
+                <button
+                  onClick={() => setIsActionsOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+                >
+                  <Plus className="rotate-45" size={20} />
+                </button>
               </div>
-              
-              {/* Label */}
-              <span className={cn(
-                'text-[10px] sm:text-xs font-medium leading-tight text-center line-clamp-2 max-w-full',
-                'transition-colors duration-200',
-                active ? 'text-blue-600 dark:text-blue-400' : 'text-current'
-              )}>
-                {t(item.labelKey, item.name)}
-              </span>
-              
-              {/* Active indicator */}
-              {active && (
-                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 dark:bg-blue-400 rounded-full" />
-              )}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+
+              {/* Grid actions */}
+              <div className="grid grid-cols-2 gap-4">
+                <a
+                  href="/students"
+                  onClick={() => setIsActionsOpen(false)}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Plus className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Add Student</span>
+                </a>
+
+                <a
+                  href="/attendance"
+                  onClick={() => setIsActionsOpen(false)}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Users className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Attendance</span>
+                </a>
+
+                <a
+                  href="/academics"
+                  onClick={() => setIsActionsOpen(false)}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <BookOpen className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Classes</span>
+                </a>
+
+                <a
+                  href="/settings"
+                  onClick={() => setIsActionsOpen(false)}
+                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Settings className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Settings</span>
+                </a>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

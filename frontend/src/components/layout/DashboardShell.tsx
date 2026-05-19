@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Home, Users, Calendar, BarChart3, Settings, Menu, LayoutGrid, User, Activity, Bell } from 'lucide-react';
+import { MobileBottomNavigation } from '../navigation/MobileBottomNavigation';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -14,6 +15,39 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout, activeUser }: DashboardShellProps) {
+  const [showHeader, setShowHeader] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.adm-main-container');
+    
+    const handleScroll = () => {
+      const currentScrollY = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+      
+      // Determine scrolling direction and toggle header visibility based on directional velocity
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        // Scrolling Down: hide the header
+        setShowHeader(false);
+      } else {
+        // Scrolling Up: show the header
+        setShowHeader(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [lastScrollY]);
+
   useEffect(() => {
     // Escape closes mobile responsive menu
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,7 +118,7 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
       {/* Main Content Pane */}
       <div className="adm-main-container">
         {/* Deep-blue Mobile Brand Header */}
-        <header className="adm-mobile-header">
+        <header className={`adm-mobile-header transition-transform duration-300 transform ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
           <button 
             className="adm-mobile-menu-trigger" 
             onClick={toggleMenu} 
@@ -209,31 +243,7 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
       </div>
 
       {/* Sticky Fixed Bottom Navigation Bar */}
-      <nav className="adm-mobile-bottom-nav">
-        <a href="/admin/dashboard" className="adm-mobile-nav-tab active" aria-label="Dashboard">
-          <div className="adm-mobile-tab-icon-wrapper">
-            <Home className="adm-mobile-tab-icon" />
-            <span className="adm-mobile-active-dot" />
-          </div>
-          <span className="adm-mobile-tab-label">Dashboard</span>
-        </a>
-        <a href="/students" className="adm-mobile-nav-tab" aria-label="Students">
-          <Users className="adm-mobile-tab-icon" />
-          <span className="adm-mobile-tab-label">Students</span>
-        </a>
-        <a href="/attendance" className="adm-mobile-nav-tab" aria-label="Attendance">
-          <Calendar className="adm-mobile-tab-icon" />
-          <span className="adm-mobile-tab-label">Attendance</span>
-        </a>
-        <a href="/reports" className="adm-mobile-nav-tab" aria-label="Reports">
-          <BarChart3 className="adm-mobile-tab-icon" />
-          <span className="adm-mobile-tab-label">Reports</span>
-        </a>
-        <a href="/settings" className="adm-mobile-nav-tab" aria-label="Settings">
-          <Settings className="adm-mobile-tab-icon" />
-          <span className="adm-mobile-tab-label">Settings</span>
-        </a>
-      </nav>
+      <MobileBottomNavigation />
     </div>
   );
 }
