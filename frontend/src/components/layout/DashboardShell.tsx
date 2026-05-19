@@ -115,7 +115,7 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           </div>
         </header>
 
-        <header className="adm-topbar">
+        <header className="adm-topbar hidden md:flex">
           <button className="adm-mobile-menu-trigger" onClick={toggleMenu} aria-label="Toggle Navigation Menu">
             <span className="adm-menu-bar" />
           </button>

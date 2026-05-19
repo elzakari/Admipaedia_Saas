@@ -1876,6 +1876,7 @@ textarea::placeholder,
     position: relative;
     padding-top: 60px !important;
     padding-bottom: 74px !important;
+    background-color: #f6f7fb;
   }
 
   .adm-phone-viewport-only .adm-content-wrapper {
@@ -1883,8 +1884,13 @@ textarea::placeholder,
     width: 100%;
     max-width: 1500px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.25rem;
     box-sizing: border-box;
+    background-color: #f6f7fb;
+  }
+
+  .adm-phone-viewport-only .adm-topbar {
+    display: none !important;
   }
 
   .adm-phone-viewport-only .adm-dashboard-grid {
