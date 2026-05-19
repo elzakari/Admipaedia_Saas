@@ -318,14 +318,14 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <LanguageSwitcher />
                 <div className="w-px h-6 bg-slate-200/60 dark:bg-white/10 hidden sm:block" />
 
                 <div className="relative shrink-0" ref={profileDropdownRef}>
                   <button
                     className={cn(
-                      "flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all",
+                      "flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all whitespace-nowrap shrink-0",
                       isCasaos
                         ? "bg-white/5 hover:bg-white/10 text-white"
                         : "bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900"

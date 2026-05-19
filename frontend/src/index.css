@@ -1828,108 +1828,26 @@ textarea::placeholder,
   --topbar-height: 76px;
 }
 
-body.adm-premium-design {
-  font-family: "Inter", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-  background-color: var(--adm-bg);
-  color: var(--adm-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
-}
-
-/* Structural Layout Scaffolding */
-.adm-dashboard-shell {
-  display: flex;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-.adm-sidebar-overlay {
-  transition: opacity 0.3s ease;
-}
-
-.adm-main-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100vh;
-  overflow-y: auto;
-  position: relative;
-}
-
-.adm-content-wrapper {
-  flex: 1;
-  width: 100%;
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 2rem;
-  box-sizing: border-box;
-}
-
-/* Core Structural Desktop Grid Rules */
-.adm-dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.9fr);
-  gap: 1.75rem;
-  margin-top: 2rem;
-}
-
-/* ==========================================
-   Breakpoint: Tablet Framework (<= 1180px)
-   ========================================== */
-@media (max-width: 1180px) {
-  :root {
-    --sidebar-width: 86px;
-  }
-  
-  .adm-sidebar-brand .adm-brand-info,
-  .adm-sidebar-nav .adm-nav-label,
-  .adm-sidebar-footer span {
-    display: none;
-  }
-  
-  .adm-sidebar-brand {
-    justify-content: center;
-    padding: 1.5rem 0;
-  }
-  
-  .adm-sidebar-nav .adm-nav-item {
-    justify-content: center;
-    padding: 0;
-    width: 48px;
-    height: 44px;
-    margin: 0.5rem auto;
-  }
-
-  .adm-dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ==========================================
-   Breakpoint: Compact Tablet Canvas (<= 820px)
-   ========================================== */
+/* Encapsulated Phone-Only Breakpoints to avoid global pollution */
 @media (max-width: 820px) {
-  :root {
-    --sidebar-width: 280px;
+  .adm-phone-viewport-only body.adm-premium-design,
+  body.adm-premium-design.adm-phone-viewport-only {
+    font-family: "Inter", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    background-color: var(--adm-bg);
+    color: var(--adm-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
   }
 
-  .adm-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Structural Scaffolding */
+  .adm-phone-viewport-only .adm-dashboard-shell {
+    display: flex;
+    min-height: 100vh;
+    overflow: hidden;
   }
 
-  .adm-dashboard-shell.is-menu-open .adm-sidebar {
-    transform: translateX(0);
-  }
-
-  .adm-sidebar-overlay {
+  .adm-phone-viewport-only .adm-sidebar-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1943,12 +1861,54 @@ body.adm-premium-design {
     transition: opacity 0.3s ease;
   }
 
-  .adm-dashboard-shell.is-menu-open .adm-sidebar-overlay {
+  .adm-phone-viewport-only .adm-dashboard-shell.is-menu-open .adm-sidebar-overlay {
     opacity: 1;
     pointer-events: auto;
   }
 
-  .adm-mobile-menu-trigger {
+  .adm-phone-viewport-only .adm-main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+    overflow-y: auto;
+    position: relative;
+    padding-top: 60px !important;
+    padding-bottom: 74px !important;
+  }
+
+  .adm-phone-viewport-only .adm-content-wrapper {
+    flex: 1;
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 2rem;
+    box-sizing: border-box;
+  }
+
+  .adm-phone-viewport-only .adm-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+    margin-top: 2rem;
+  }
+
+  .adm-phone-viewport-only .adm-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .adm-phone-viewport-only .adm-dashboard-shell.is-menu-open .adm-sidebar {
+    transform: translateX(0);
+  }
+
+  .adm-phone-viewport-only .adm-mobile-menu-trigger {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1960,50 +1920,7 @@ body.adm-premium-design {
     cursor: pointer;
   }
 
-  .adm-topbar {
-    padding: 0 1rem;
-    gap: 1rem;
-  }
-
-  .adm-search-wrapper {
-    position: absolute;
-    top: var(--topbar-height);
-    left: 0;
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background: var(--adm-surface);
-    border-bottom: 1px solid var(--adm-border);
-    box-sizing: border-box;
-  }
-}
-
-/* ==========================================
-   Breakpoint: Mobile Handset Pane (<= 520px)
-   ========================================== */
-@media (max-width: 520px) {
-  .adm-topbar-right .adm-btn-commands,
-  .adm-topbar-right .adm-user-meta {
-    display: none;
-  }
-
-  .adm-dashboard-header .adm-header-title {
-    font-size: 31px !important;
-  }
-
-  .adm-panel-heading {
-    font-size: 17px !important;
-  }
-}
-
-/* ========================================================
-   Responsive Mobile UI: brand headers, bottom nav, widgets
-   ======================================================== */
-@media (max-width: 820px) {
-  .adm-topbar {
-    display: none !important;
-  }
-
-  .adm-mobile-header {
+  .adm-phone-viewport-only .adm-mobile-header {
     position: fixed;
     top: 0;
     left: 0;
@@ -2020,13 +1937,13 @@ body.adm-premium-design {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   }
 
-  .adm-mobile-brand-left {
+  .adm-phone-viewport-only .adm-mobile-brand-left {
     display: flex;
     align-items: center;
     gap: 0.75rem;
   }
 
-  .adm-mobile-logo-wrapper {
+  .adm-phone-viewport-only .adm-mobile-logo-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2037,7 +1954,7 @@ body.adm-premium-design {
     box-shadow: 0 0 12px rgba(88, 70, 220, 0.4);
   }
 
-  .adm-mobile-brand-title {
+  .adm-phone-viewport-only .adm-mobile-brand-title {
     font-family: 'Inter', sans-serif;
     font-size: 1.1rem;
     font-weight: 800;
@@ -2045,7 +1962,7 @@ body.adm-premium-design {
     color: #ffffff;
   }
 
-  .adm-mobile-header .adm-mobile-menu-trigger {
+  .adm-phone-viewport-only .adm-mobile-header .adm-mobile-menu-trigger {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -2058,14 +1975,14 @@ body.adm-premium-design {
     transition: all 0.2s ease;
   }
 
-  .adm-mobile-header .adm-mobile-menu-trigger:hover,
-  .adm-mobile-header .adm-mobile-menu-trigger:focus-visible {
+  .adm-phone-viewport-only .adm-mobile-header .adm-mobile-menu-trigger:hover,
+  .adm-phone-viewport-only .adm-mobile-header .adm-mobile-menu-trigger:focus-visible {
     background: rgba(255, 255, 255, 0.12);
     border-color: rgba(255, 255, 255, 0.25);
     outline: none;
   }
 
-  .adm-mobile-bottom-nav {
+  .adm-phone-viewport-only .adm-mobile-bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
@@ -2082,7 +1999,7 @@ body.adm-premium-design {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  .adm-mobile-nav-tab {
+  .adm-phone-viewport-only .adm-mobile-nav-tab {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2100,29 +2017,29 @@ body.adm-premium-design {
     background: none;
   }
 
-  .adm-mobile-nav-tab:hover,
-  .adm-mobile-nav-tab:focus-visible {
+  .adm-phone-viewport-only .adm-mobile-nav-tab:hover,
+  .adm-phone-viewport-only .adm-mobile-nav-tab:focus-visible {
     color: #ffffff;
     outline: none;
   }
 
-  .adm-mobile-nav-tab.active {
+  .adm-phone-viewport-only .adm-mobile-nav-tab.active {
     color: var(--adm-accent);
   }
 
-  .adm-mobile-tab-icon-wrapper {
+  .adm-phone-viewport-only .adm-mobile-tab-icon-wrapper {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  .adm-mobile-tab-icon {
+  .adm-phone-viewport-only .adm-mobile-tab-icon {
     width: 20px;
     height: 20px;
   }
 
-  .adm-mobile-active-dot {
+  .adm-phone-viewport-only .adm-mobile-active-dot {
     position: absolute;
     top: -2px;
     right: -6px;
@@ -2133,13 +2050,19 @@ body.adm-premium-design {
     box-shadow: 0 0 8px var(--adm-accent);
   }
 
-  .adm-main-container {
-    padding-top: 60px !important;
-    padding-bottom: 74px !important;
+  /* Specific micro handset adjustments under 520px nested scoping */
+  @media (max-width: 520px) {
+    .adm-phone-viewport-only .adm-dashboard-header .adm-header-title {
+      font-size: 31px !important;
+    }
+
+    .adm-phone-viewport-only .adm-panel-heading {
+      font-size: 17px !important;
+    }
   }
 }
 
-/* Hide mobile controls on desktop */
+/* Hide mobile controls on desktop completely */
 @media (min-width: 821px) {
   .adm-mobile-header,
   .adm-mobile-bottom-nav {
