@@ -23,6 +23,8 @@ class TestDashboardStatistics:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'statistics' in data:
+            data = data['statistics']
         assert isinstance(data, list)
         
         # Verify expected statistics structure
@@ -43,6 +45,8 @@ class TestDashboardStatistics:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'statistics' in data:
+            data = data['statistics']
         assert isinstance(data, list)
     
     def test_get_statistics_student_role(self, auth_client, db):
@@ -51,6 +55,8 @@ class TestDashboardStatistics:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'statistics' in data:
+            data = data['statistics']
         assert isinstance(data, list)
     
     def test_get_statistics_no_role_specified(self, auth_client, db):
@@ -59,6 +65,8 @@ class TestDashboardStatistics:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'statistics' in data:
+            data = data['statistics']
         assert isinstance(data, list)
 
 
@@ -74,6 +82,8 @@ class TestDashboardEvents:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'events' in data:
+            data = data['events']
         assert isinstance(data, list)
         
         # Verify event structure if events exist
@@ -91,6 +101,8 @@ class TestDashboardEvents:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'events' in data:
+            data = data['events']
         assert isinstance(data, list)
     
     def test_get_events_no_parameters(self, auth_client, db):
@@ -99,6 +111,8 @@ class TestDashboardEvents:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'events' in data:
+            data = data['events']
         assert isinstance(data, list)
 
 
@@ -111,6 +125,8 @@ class TestDashboardNotifications:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'notifications' in data:
+            data = data['notifications']
         assert isinstance(data, list)
         assert len(data) <= 10  # Default limit
         
@@ -130,6 +146,8 @@ class TestDashboardNotifications:
         assert response.status_code == 200
         
         data = response.get_json()
+        if isinstance(data, dict) and 'notifications' in data:
+            data = data['notifications']
         assert isinstance(data, list)
         assert len(data) <= 5
     
@@ -252,6 +270,13 @@ class TestDashboardIntegrationWorkflow:
         events_data = events_response.get_json()
         notifications_data = notifications_response.get_json()
         
+        if isinstance(stats_data, dict) and 'statistics' in stats_data:
+            stats_data = stats_data['statistics']
+        if isinstance(events_data, dict) and 'events' in events_data:
+            events_data = events_data['events']
+        if isinstance(notifications_data, dict) and 'notifications' in notifications_data:
+            notifications_data = notifications_data['notifications']
+            
         assert isinstance(stats_data, list)
         assert isinstance(events_data, list)
         assert isinstance(notifications_data, list)
@@ -289,6 +314,8 @@ class TestDashboardIntegrationWorkflow:
             assert response.status_code == 200
             
             data = response.get_json()
+            if isinstance(data, dict) and 'statistics' in data:
+                data = data['statistics']
             assert isinstance(data, list)
             
             # Each role should potentially have different statistics
@@ -355,6 +382,8 @@ class TestDashboardPerformance:
             assert response.status_code == 200
             
             data = response.get_json()
+            if isinstance(data, dict) and 'notifications' in data:
+                data = data['notifications']
             assert len(data) <= limit
     
     def test_concurrent_notification_creation(self, auth_client, db):
