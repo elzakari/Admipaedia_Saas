@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Home, Users, Calendar, BarChart3, Settings, Menu } from 'lucide-react';
+import { Home, Users, Calendar, BarChart3, Settings, Menu, LayoutGrid, User, Activity, Bell } from 'lucide-react';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -56,10 +56,6 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           <div className="adm-brand-icon-wrapper" />
           <div className="adm-brand-info">
             <span className="adm-brand-name">COLLEGE-GERMINOS</span>
-            <div className="adm-status-indicator">
-              <span className="adm-status-dot" />
-              <span className="adm-status-text">Système en ligne</span>
-            </div>
           </div>
         </div>
 
@@ -89,7 +85,16 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
       <div className="adm-main-container">
         {/* Deep-blue Mobile Brand Header */}
         <header className="adm-mobile-header">
-          <div className="adm-mobile-brand-left">
+          <button 
+            className="adm-mobile-menu-trigger" 
+            onClick={toggleMenu} 
+            aria-expanded={isMenuOpen}
+            aria-label="Toggle Navigation Menu"
+          >
+            <Menu className="h-6 w-6 text-white" />
+          </button>
+
+          <div className="adm-mobile-brand-center flex items-center gap-2">
             <div className="adm-mobile-logo-wrapper">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="adm-mobile-logo h-5 w-5 text-white animate-pulse">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -99,14 +104,15 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
             </div>
             <span className="adm-mobile-brand-title">ADMIPAEDIA</span>
           </div>
-          <button 
-            className="adm-mobile-menu-trigger" 
-            onClick={toggleMenu} 
-            aria-expanded={isMenuOpen}
-            aria-label="Toggle Navigation Menu"
-          >
-            <Menu className="h-6 w-6 text-white" />
-          </button>
+
+          <div className="adm-mobile-actions-right flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white shadow-inner">
+              {activeUser?.initials || "SM"}
+            </div>
+            <button className="text-white hover:text-indigo-200" aria-label="View Notifications">
+              <Bell className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         <header className="adm-topbar">
@@ -115,7 +121,6 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           </button>
           
           <div className="adm-topbar-left">
-            <h1 className="adm-topbar-title">Tableau de bord</h1>
             <div className="adm-search-wrapper">
               <input type="text" placeholder="Rechercher... (Ctrl+K)" className="adm-search-input" />
               <kbd className="adm-search-hint">Ctrl + K</kbd>
@@ -140,32 +145,66 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
         </header>
 
         <main className="adm-content-wrapper">
-          {/* Dashboard Header Blocks */}
-          <section className="adm-dashboard-header">
-            <div className="adm-header-left">
-              <span className="adm-eyebrow-pill">System dashboard</span>
-              <h2 className="adm-header-title">Monitor your school operations with clarity.</h2>
-              <p className="adm-header-subtitle">
-                Track performance, manage daily actions, review academic activity, and keep your educational platform running smoothly from one centralized workspace.
-              </p>
-            </div>
-          </section>
+          {/* Active Purple Layout Menu Interface Module */}
+          <div className="mb-6">
+            <div className="grid grid-cols-4 gap-3">
+              <button className="flex flex-col items-center justify-center p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 transition-all transform hover:scale-102">
+                <LayoutGrid className="h-5 w-5 mb-1.5 text-white animate-pulse" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Tableau de bord</span>
+              </button>
+              
+              <a href="/students" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <Users className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Élèves</span>
+              </a>
 
-          {/* Layout Configuration Panel */}
-          <div className="adm-layout-config-card">
-            <div className="adm-config-info">
-              <h3>Layout Configuration</h3>
-              <p>Customize the dashboard widgets and workspace view.</p>
-            </div>
-            <div className="adm-config-tabs">
-              <button className="adm-tab-item active">Overview <span className="adm-badge">4 widgets</span></button>
-              <button className="adm-tab-item">Statistics</button>
-              <button className="adm-tab-item">Calendar</button>
-              <button className="adm-tab-item">Notifications</button>
+              <a href="/teachers" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <Users className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Enseignants</span>
+              </a>
+
+              <a href="/profile" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <User className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Profils</span>
+              </a>
+
+              <button className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <Activity className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Rapides</span>
+              </button>
+
+              <a href="/calendar" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <Calendar className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Calendrier</span>
+              </a>
+
+              <a href="/reports" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <BarChart3 className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Overrlevs</span>
+              </a>
+
+              <a href="/settings" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
+                <Settings className="h-5 w-5 mb-1.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-center tracking-tight">Contalmer</span>
+              </a>
             </div>
           </div>
 
           {children}
+
+          {/* Mobile Footer Status & Terminate Session */}
+          <div className="adm-mobile-footer mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between pb-8">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Système en ligne</span>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:border-red-500 hover:text-red-500 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors bg-white dark:bg-slate-850 shadow-sm"
+            >
+              Terminer la session
+            </button>
+          </div>
         </main>
       </div>
 

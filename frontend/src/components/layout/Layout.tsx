@@ -248,7 +248,8 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                 : "bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800"
             )}
           >
-            <div className="flex items-center gap-3 min-w-0">
+            {/* Left Side: Mobile Menu Trigger and Left-aligned Search Wrapper */}
+            <div className="flex items-center flex-1 gap-4 min-w-0">
               <button
                 className={cn(
                   "md:hidden shrink-0 rounded-xl h-9 w-9 inline-flex items-center justify-center transition-colors",
@@ -260,21 +261,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                 <Menu size={18} />
               </button>
 
-              <h1
-                className={cn(
-                  "text-lg font-black tracking-tight truncate",
-                  isCasaos ? "text-white" : "text-slate-900 dark:text-white"
-                )}
-              >
-                {(() => {
-                  const item = navigation.find((i) => i.href === location.pathname)
-                  if (item) return t(item.labelKey, item.name)
-                  return pageTitle
-                })()}
-              </h1>
-            </div>
-
-            <div className="flex items-center flex-1 gap-3 justify-end min-w-0">
+              {/* Left-aligned Desktop Global Search */}
               <div className="hidden md:flex flex-1 max-w-2xl">
                 {headerSearch ? (
                   <div className="w-full">{headerSearch}</div>
@@ -300,7 +287,10 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                   </div>
                 )}
               </div>
+            </div>
 
+            {/* Right Side: Commands, Language, and Profile Badge */}
+            <div className="flex items-center gap-4 shrink-0">
               <div className="hidden md:flex items-center gap-2">
                 {headerActions ? (
                   headerActions
@@ -318,65 +308,63 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
-                <LanguageSwitcher />
-                <div className="w-px h-6 bg-slate-200/60 dark:bg-white/10 hidden sm:block" />
+              <LanguageSwitcher />
+              <div className="w-px h-6 bg-slate-200/60 dark:bg-white/10 hidden sm:block" />
 
-                <div className="relative shrink-0" ref={profileDropdownRef}>
-                  <button
+              <div className="relative shrink-0" ref={profileDropdownRef}>
+                <button
+                  className={cn(
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all whitespace-nowrap shrink-0",
+                    isCasaos
+                      ? "bg-white/5 hover:bg-white/10 text-white"
+                      : "bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900"
+                  )}
+                  onClick={toggleProfileDropdown}
+                  aria-expanded={profileDropdownOpen}
+                  aria-label={t('common.user_menu', 'User menu')}
+                >
+                  <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-[11px] font-black text-white">
+                    {user?.username?.substring(0, 2).toUpperCase() || 'AD'}
+                  </div>
+                  <span className={cn(
+                    "text-sm font-semibold hidden sm:inline-block",
+                    isCasaos ? "text-white" : "text-slate-800 dark:text-slate-100"
+                  )}>
+                    {user?.username || 'admin'}
+                  </span>
+                  <ChevronDown size={14} className={isCasaos ? "text-slate-500" : "text-slate-500"} />
+                </button>
+
+                {profileDropdownOpen && (
+                  <div
                     className={cn(
-                      "flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-all whitespace-nowrap shrink-0",
-                      isCasaos
-                        ? "bg-white/5 hover:bg-white/10 text-white"
-                        : "bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-900"
+                      "absolute right-0 mt-3 w-56 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden",
+                      isCasaos ? "bg-[#1A1F26] border border-white/5" : "bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700"
                     )}
-                    onClick={toggleProfileDropdown}
-                    aria-expanded={profileDropdownOpen}
-                    aria-label={t('common.user_menu', 'User menu')}
                   >
-                    <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-[11px] font-black text-white">
-                      {user?.username?.substring(0, 2).toUpperCase() || 'AD'}
-                    </div>
-                    <span className={cn(
-                      "text-sm font-semibold hidden sm:inline-block",
-                      isCasaos ? "text-white" : "text-slate-800 dark:text-slate-100"
-                    )}>
-                      {user?.username || 'admin'}
-                    </span>
-                    <ChevronDown size={14} className={isCasaos ? "text-slate-500" : "text-slate-500"} />
-                  </button>
-
-                  {profileDropdownOpen && (
-                    <div
+                    <Link
+                      to="/profile"
                       className={cn(
-                        "absolute right-0 mt-3 w-56 rounded-2xl shadow-2xl py-2 z-50 overflow-hidden",
-                        isCasaos ? "bg-[#1A1F26] border border-white/5" : "bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700"
+                        "flex items-center px-4 py-2.5 text-sm font-medium transition-colors",
+                        isCasaos ? "text-slate-300 hover:bg-white/5 hover:text-white" : "text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
                       )}
                     >
-                      <Link
-                        to="/profile"
-                        className={cn(
-                          "flex items-center px-4 py-2.5 text-sm font-medium transition-colors",
-                          isCasaos ? "text-slate-300 hover:bg-white/5 hover:text-white" : "text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
-                        )}
-                      >
-                        <User size={18} className="mr-3 text-slate-500" />
-                        {t('common.profile', 'Profile')}
-                      </Link>
-                      <div className={cn("h-px mx-2 my-1", isCasaos ? "bg-white/5" : "bg-slate-200/60 dark:bg-slate-700")} />
-                      <button
-                        onClick={signOut}
-                        className={cn(
-                          "flex items-center w-full text-left px-4 py-2.5 text-sm font-medium transition-colors",
-                          isCasaos ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                        )}
-                      >
-                        <LogOut size={18} className="mr-3" />
-                        {t('common.logout', 'Logout')}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                      <User size={18} className="mr-3 text-slate-500" />
+                      {t('common.profile', 'Profile')}
+                    </Link>
+                    <div className={cn("h-px mx-2 my-1", isCasaos ? "bg-white/5" : "bg-slate-200/60 dark:bg-slate-700")} />
+                    <button
+                      onClick={signOut}
+                      className={cn(
+                        "flex items-center w-full text-left px-4 py-2.5 text-sm font-medium transition-colors",
+                        isCasaos ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      )}
+                    >
+                      <LogOut size={18} className="mr-3" />
+                      {t('common.logout', 'Logout')}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </header>
