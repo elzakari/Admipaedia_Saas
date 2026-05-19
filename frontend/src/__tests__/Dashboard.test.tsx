@@ -127,8 +127,8 @@ describe('AdminDashboard', () => {
     render(<AdminDashboard />);
     
     await waitFor(() => {
-      // It uses the hook now, we expect 1,234 from our mock hook
-      expect(screen.getByText('1,234')).toBeInTheDocument();
+      // It uses the hook now, we expect 1,234 from our mock hook (which may appear in both desktop and mobile views)
+      expect(screen.getAllByText('1,234')[0]).toBeInTheDocument();
     });
   });
 

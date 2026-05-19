@@ -17,6 +17,8 @@ import { useDashboardStatistics, useAttendanceAnalytics } from '../hooks/useAnal
 import { analyticsService } from '../services/analyticsService';
 import { LineChart, Line, AreaChart, Area, PieChart as RechartsPieChart, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
+import StatisticsPanel from './dashboard/StatisticsPanel';
 
 // Lazy load heavy components
 const AdvancedAnalytics = lazy(() => import('./dashboard/AdvancedAnalyticsDashboard'));
@@ -413,8 +415,153 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Welcome Message */}
-        <AnimatePresence>
+        {/* Responsive Mobile-Only Dashboard UI */}
+        <div className="block lg:hidden space-y-6">
+          {/* Top Actor Badges horizontal scroll */}
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-3">Quick Navigation</h3>
+            <div className="flex overflow-x-auto space-x-4 py-2 no-scrollbar">
+              {[
+                { label: 'Students', path: '/students', color: 'from-blue-500 to-indigo-600', initials: 'ST' },
+                { label: 'Teachers', path: '/teachers', color: 'from-emerald-400 to-teal-600', initials: 'TE' },
+                { label: 'Parents', path: '/parents', color: 'from-purple-500 to-pink-500', initials: 'PA' },
+                { label: 'Exams', path: '/exams', color: 'from-amber-400 to-orange-600', initials: 'EX' }
+              ].map((actor) => (
+                <a 
+                  key={actor.label} 
+                  href={actor.path} 
+                  className="flex flex-col items-center space-y-1.5 shrink-0 group focus:outline-none"
+                >
+                  <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${actor.color} flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:scale-105 transition-transform group-focus-visible:ring-2 group-focus-visible:ring-blue-500 group-focus-visible:ring-offset-2`}>
+                    {actor.initials}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700">{actor.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions Grid */}
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-3">Quick Actions</h3>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: 'Add Student', icon: <Plus className="h-5 w-5" />, path: '/students?action=add', color: 'bg-blue-50 text-blue-600' },
+                { label: 'Attendance', icon: <Activity className="h-5 w-5" />, path: '/attendance', color: 'bg-emerald-50 text-emerald-600' },
+                { label: 'Reports', icon: <Download className="h-5 w-5" />, path: '/reports', color: 'bg-purple-50 text-purple-600' },
+                { label: 'Calendar', icon: <Calendar className="h-5 w-5" />, path: '/calendar', color: 'bg-amber-50 text-amber-600' }
+              ].map((action) => (
+                <a 
+                  key={action.label} 
+                  href={action.path}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <div className={`p-2.5 rounded-xl ${action.color} mb-1.5 flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                    {action.icon}
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-600 text-center leading-tight truncate w-full">{action.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Overview Metric Stack */}
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-3">Overview Metrics</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'TOTAL STUDENTS', value: getStatValue('students', '1,248'), icon: <Users className="h-5 w-5 text-blue-600" />, backdrop: 'bg-blue-50', change: '8.4%', trend: 'up' },
+                { label: 'TEACHERS', value: getStatValue('teachers', '86'), icon: <GraduationCap className="h-5 w-5 text-emerald-600" />, backdrop: 'bg-emerald-50', change: '2.1%', trend: 'up' },
+                { label: 'ATTENDANCE', value: getStatValue('attendance', '94.2%'), icon: <Activity className="h-5 w-5 text-purple-600" />, backdrop: 'bg-purple-50', change: '0.8%', trend: 'up' },
+                { label: 'FEE COLLECTION', value: '$45,280', icon: <BookOpen className="h-5 w-5 text-amber-600" />, backdrop: 'bg-amber-50', change: '5.2%', trend: 'down' }
+              ].map((metric) => (
+                <div key={metric.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-gray-500 tracking-wider uppercase">{metric.label}</span>
+                    <div className={`p-2 rounded-xl ${metric.backdrop} flex items-center justify-center shrink-0`}>
+                      {metric.icon}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-black text-gray-900 tracking-tight leading-none">{metric.value}</span>
+                    <div className="flex items-center mt-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        metric.trend === 'up' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                      }`}>
+                        {metric.trend === 'up' ? '▲' : '▼'} {metric.change}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Statistics Sync Issue Alert Card inline */}
+          {statsError && (
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start space-x-3 shadow-sm" role="alert">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5 text-red-600">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-gray-900 leading-tight">Statistics sync issue</h4>
+                <p className="text-xs text-gray-600 mt-1">
+                  The dashboard couldn't fetch the latest statistics due to a server error.
+                </p>
+                <button 
+                  onClick={handleRefresh}
+                  className="mt-2.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Activity List */}
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-3">Recent Activity</h3>
+            <div className="space-y-2.5">
+              {[
+                { name: 'Sarah K.', action: 'registered a new student profile', time: '10m ago', status: 'Completed', color: 'bg-green-50 text-green-700 border-green-200', initials: 'SK' },
+                { name: 'Michael B.', action: 'updated attendance logs for Grade 10', time: '1h ago', status: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200', initials: 'MB' },
+                { name: 'David L.', action: 'submitted exam roster sheets', time: '3h ago', status: 'Attention', color: 'bg-amber-50 text-amber-700 border-amber-200', initials: 'DL' }
+              ].map((activity, idx) => (
+                <div 
+                  key={idx}
+                  className="flex items-center justify-between p-3.5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-700 shrink-0">
+                      {activity.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-800 leading-tight">
+                        <span className="font-bold text-gray-900">{activity.name}</span> {activity.action}
+                      </p>
+                      <span className="text-[10px] text-gray-400 font-medium mt-1 inline-block">{activity.time}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${activity.color}`}>
+                      {activity.status}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 group-focus:text-gray-500 transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop-Only Dashboard UI */}
+        <div className="hidden lg:block">
+          {/* Welcome Message */}
+          <AnimatePresence>
           {showWelcome && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -451,46 +598,48 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
         )}
 
         {/* Statistics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
-          {enhancedStats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className="hover:shadow-lg transition-shadow duration-200">
-                <CardContent className="p-6">
-                  {isLoading ? (
-                    <div className="space-y-3">
-                      <Skeleton className="h-4 w-20" />
-                      <Skeleton className="h-8 w-16" />
-                      <Skeleton className="h-3 w-12" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                        <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                        <div className="flex items-center mt-2 space-x-1">
-                          {renderTrendIcon(stat.trend)}
-                          <span className={`text-sm ${
-                            stat.change > 0 ? 'text-green-600' : stat.change < 0 ? 'text-red-600' : 'text-gray-600'
-                          }`}>
-                            {stat.change > 0 ? '+' : ''}{stat.change}%
-                          </span>
+        <StatisticsPanel errorState={statsError} onRetry={handleRefresh}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
+            {enhancedStats.map((stat, index) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <CardContent className="p-6">
+                    {isLoading ? (
+                      <div className="space-y-3">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-8 w-16" />
+                        <Skeleton className="h-3 w-12" />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                          <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                          <div className="flex items-center mt-2 space-x-1">
+                            {renderTrendIcon(stat.trend)}
+                            <span className={`text-sm ${
+                              stat.change > 0 ? 'text-green-600' : stat.change < 0 ? 'text-red-600' : 'text-gray-600'
+                            }`}>
+                              {stat.change > 0 ? '+' : ''}{stat.change}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className={`p-3 rounded-full ${stat.bgColor} flex items-center justify-center w-12 h-12 shrink-0`}>
+                          <div className={cn(stat.color, "flex items-center justify-center")}>{stat.icon}</div>
                         </div>
                       </div>
-                      <div className={`p-3 rounded-full ${stat.bgColor} flex items-center justify-center w-12 h-12 shrink-0`}>
-                        <div className={cn(stat.color, "flex items-center justify-center")}>{stat.icon}</div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </StatisticsPanel>
 
         {/* Main Dashboard Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -715,6 +864,7 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
             )}
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );
