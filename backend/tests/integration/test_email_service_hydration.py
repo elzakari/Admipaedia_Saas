@@ -142,21 +142,19 @@ def test_email_service_raw_tuple_hydration(app):
         enc_payload = temp_model.config_encrypted
 
         # Standard raw database tuple: (id, service_type, provider_key, display_name, priority, is_active, config_encrypted, created_at, updated_at)
-        raw_tuple = (
-            999,                    # id
-            'email',                # service_type
-            'smtp',                 # provider_key
-            'Raw Tuple Provider',   # display_name
-            100,                    # priority
-            True,                   # is_active
-            enc_payload,            # config_encrypted
-            None,                   # created_at
-            None                    # updated_at
-        )
+        mock_mapping = {
+            'id': 999,
+            'service_type': 'email',
+            'provider_key': 'smtp',
+            'display_name': 'Raw Mapped Provider',
+            'priority': 100,
+            'is_active': True,
+            'config_encrypted': enc_payload
+        }
 
-        with patch('app.models.service_tokens.PlatformServiceProviderConfig.query') as mock_query:
-            # mock_query.filter_by().first() returns the raw tuple
-            mock_query.filter_by.return_value.first.return_value = raw_tuple
+        with patch('app.extensions.db.session.execute') as mock_execute:
+            # mock_execute().mappings().first() returns the mock_mapping
+            mock_execute.return_value.mappings.return_value.first.return_value = mock_mapping
             
             with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
                 mock_send.return_value = (True, "Sent", "msg-tuple-101")

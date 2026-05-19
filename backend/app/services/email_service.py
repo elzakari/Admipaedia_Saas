@@ -77,9 +77,11 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
             
         # Fallback to platform-level provider config
         if not db_provider:
-            db_provider = PlatformServiceProviderConfig.query.filter_by(
-                service_type='email', is_active=True
-            ).first()
+            from sqlalchemy import text
+            from app.extensions import db
+            query = text("SELECT id, service_type, provider_key, display_name, priority, is_active, config_encrypted FROM platform_service_provider_configs WHERE service_type = 'email' AND is_active = :is_active LIMIT 1")
+            result = db.session.execute(query, {"is_active": True})
+            db_provider = result.mappings().first()
             
         if db_provider:
             # Map database configuration parameters
@@ -87,18 +89,9 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                 cfg = db_provider.get_config() or {}
                 provider_key = db_provider.provider_key
             else:
-                # db_provider is a tuple, row mapping, or dict
-                provider_key = None
-                config_encrypted = None
-                try:
-                    provider_key = db_provider['provider_key']
-                    config_encrypted = db_provider['config_encrypted']
-                except Exception:
-                    try:
-                        provider_key = db_provider[2]
-                        config_encrypted = db_provider[6]
-                    except Exception:
-                        pass
+                # db_provider is a row mapping or dict
+                provider_key = db_provider.get('provider_key')
+                config_encrypted = db_provider.get('config_encrypted')
                 
                 cfg = {}
                 if config_encrypted:
@@ -106,15 +99,15 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                         from flask import current_app
                         from app.utils.secret_crypto import decrypt_value
                         import json
-                        secret = current_app.config.get('SECRET_KEY') or ''
+                        secret = current_app.config.get('SECRET_KEY') or current_app.config.get('ENCRYPTION_KEY') or ''
                         salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
-                        raw = decrypt_value(config_encrypted, secret=secret, salt=salt)
-                        if raw:
-                            parsed = json.loads(raw)
-                            if isinstance(parsed, dict):
-                                cfg = parsed
+                        decrypted_text = decrypt_value(config_encrypted, secret=secret, salt=salt)
+                        if decrypted_text:
+                            config_data = json.loads(decrypted_text)
+                            if isinstance(config_data, dict):
+                                cfg = config_data
                     except Exception as dec_err:
-                        logger.warning(f"Failed to decrypt dynamic email config tuple: {str(dec_err)}")
+                        logger.warning(f"Failed to decrypt dynamic email config: {str(dec_err)}")
             
             selected_provider = (provider or provider_key or 'smtp').lower()
             logger.info("Retrieved active email integration settings from DB", provider_key=selected_provider)
@@ -179,9 +172,10 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
             from app.models.service_tokens import PlatformServiceProviderConfig
 
             # Synchronize active platform provider config (email service type) to SystemSettings
-            provider_config = PlatformServiceProviderConfig.query.filter_by(
-                service_type='email', is_active=True
-            ).first()
+            from sqlalchemy import text
+            query = text("SELECT id, service_type, provider_key, display_name, priority, is_active, config_encrypted FROM platform_service_provider_configs WHERE service_type = 'email' AND is_active = :is_active LIMIT 1")
+            result = db.session.execute(query, {"is_active": True})
+            provider_config = result.mappings().first()
 
             settings = db.session.query(SystemSettings).first()
             if not settings:
@@ -194,28 +188,21 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                 if hasattr(provider_config, 'get_config'):
                     p_cfg = provider_config.get_config() or {}
                 else:
-                    config_encrypted = None
-                    try:
-                        config_encrypted = provider_config['config_encrypted']
-                    except Exception:
-                        try:
-                            config_encrypted = provider_config[6]
-                        except Exception:
-                            pass
+                    config_encrypted = provider_config.get('config_encrypted')
                     if config_encrypted:
                         try:
                             from flask import current_app
                             from app.utils.secret_crypto import decrypt_value
                             import json
-                            secret = current_app.config.get('SECRET_KEY') or ''
+                            secret = current_app.config.get('SECRET_KEY') or current_app.config.get('ENCRYPTION_KEY') or ''
                             salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
-                            raw = decrypt_value(config_encrypted, secret=secret, salt=salt)
-                            if raw:
-                                parsed = json.loads(raw)
-                                if isinstance(parsed, dict):
-                                    p_cfg = parsed
+                            decrypted_text = decrypt_value(config_encrypted, secret=secret, salt=salt)
+                            if decrypted_text:
+                                config_data = json.loads(decrypted_text)
+                                if isinstance(config_data, dict):
+                                    p_cfg = config_data
                         except Exception as dec_err:
-                            logger.warning(f"Failed to decrypt provider_config dynamic SMTP tuple: {str(dec_err)}")
+                            logger.warning(f"Failed to decrypt provider_config dynamic SMTP settings: {str(dec_err)}")
 
                 settings.smtp_host = p_cfg.get('smtpHost') or p_cfg.get('smtp_host')
                 settings.smtp_password = p_cfg.get('smtpPassword') or p_cfg.get('smtp_password')
