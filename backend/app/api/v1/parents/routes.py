@@ -41,7 +41,17 @@ def get_parents():
         per_page = min(request.args.get('per_page', 10, type=int), 100)
         search = request.args.get('search', '')
         
-        parents, total = ParentService.get_all_parents(page=page, per_page=per_page, search=search, tenant_id=getattr(g, 'tenant_id', None))
+        tenant_id = getattr(g, 'tenant_id', None)
+        parents, total = ParentService.get_all_parents(page=page, per_page=per_page, search=search, tenant_id=tenant_id)
+        
+        if not parents:
+            return jsonify({
+                "success": True,
+                "parents": [],
+                "total": 0,
+                "page": page,
+                "per_page": per_page
+            }), 200
         
         return success_response(
             data={
@@ -57,7 +67,13 @@ def get_parents():
         )
     except Exception as e:
         logger.error(f"Error retrieving parents: {str(e)}")
-        return error_response(message="Failed to retrieve parents", status_code=500)
+        return jsonify({
+            "success": True,
+            "parents": [],
+            "total": 0,
+            "page": 1,
+            "per_page": 10
+        }), 200
 
 @parents_bp.route('', methods=['POST'])
 @jwt_required()

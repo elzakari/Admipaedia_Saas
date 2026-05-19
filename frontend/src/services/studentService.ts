@@ -188,8 +188,7 @@ const studentService = {
     const tenantId = params?.tenant_id || localStorage.getItem('saas_current_tenant_id');
     const finalParams = {
       ...params,
-      tenant_id: tenantId,
-      tenantId: tenantId
+      tenant_id: tenantId
     };
     const response = await api.get('/enhanced-students/analytics/summary', {
       params: finalParams,
