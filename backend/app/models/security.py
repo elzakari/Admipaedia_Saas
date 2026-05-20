@@ -147,23 +147,50 @@ class PasswordResetToken(db.Model):
 
     @staticmethod
     def validate_token(token: str):
+        """Validate a password reset token.
+
+        Returns (row_mapping, None) on success, or (None, error_str) on failure.
+        The returned row mapping supports dict-style key access, e.g. row['user_id'].
+        """
         if not token:
             return None, 'Reset token is required'
 
+        from sqlalchemy import text
         token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
-        reset_token = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+        query = text(
+            "SELECT id, user_id, expires_at, is_used, used_at "
+            "FROM password_reset_tokens "
+            "WHERE token_hash = :token_hash "
+            "LIMIT 1"
+        )
+        reset_token = db.session.execute(query, {"token_hash": token_hash}).mappings().first()
         if not reset_token:
             return None, 'Invalid reset token'
 
-        if reset_token.is_used:
+        if reset_token['is_used']:
             return None, 'Reset token has already been used'
 
-        if reset_token.expires_at and _as_utc_aware(reset_token.expires_at) < _utcnow():
+        expires_at = reset_token['expires_at']
+        if expires_at and _as_utc_aware(expires_at) < _utcnow():
             return None, 'Reset token has expired'
 
         return reset_token, None
 
+    @staticmethod
+    def mark_as_used_by_id(token_id: int):
+        """Mark a password reset token as used by its primary key ID (for use after validate_token)."""
+        from sqlalchemy import text
+        db.session.execute(
+            text(
+                "UPDATE password_reset_tokens "
+                "SET is_used = :is_used, used_at = :used_at "
+                "WHERE id = :id"
+            ),
+            {"is_used": True, "used_at": datetime.utcnow(), "id": token_id}
+        )
+
     def mark_as_used(self):
+        """Mark this ORM-loaded token instance as used."""
         self.is_used = True
         self.used_at = datetime.utcnow()
 

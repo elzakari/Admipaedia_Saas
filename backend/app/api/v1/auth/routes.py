@@ -741,7 +741,7 @@ def reset_password():
             return jsonify({"success": False, "error": error}), 400
         
         # Get user and validate
-        user = User.query.get(reset_token.user_id)
+        user = User.query.get(reset_token['user_id'])
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
@@ -764,7 +764,7 @@ def reset_password():
         db.session.add(password_history)
         
         # Mark token as used
-        reset_token.mark_as_used()
+        PasswordResetToken.mark_as_used_by_id(reset_token['id'])
         
         # Revoke all existing sessions for security
         SessionToken.query.filter_by(user_id=user.id, is_revoked=False).update({'is_revoked': True})
