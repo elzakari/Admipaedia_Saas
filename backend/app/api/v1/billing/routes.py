@@ -181,8 +181,17 @@ def platform_generate_invoice(tenant_id: str):
 @school_admin_required
 def school_list_invoices():
     tenant_id = g.tenant_id
-    items = PaymentService.list_invoices_for_tenant(tenant_id)
-    return jsonify({'success': True, 'invoices': [PaymentService.serialize_invoice(i) for i in items]}), 200
+    try:
+        items = PaymentService.list_invoices_for_tenant(tenant_id)
+        serialized = []
+        for i in items:
+            try:
+                serialized.append(PaymentService.serialize_invoice(i))
+            except Exception:
+                pass
+        return jsonify({'success': True, 'invoices': serialized}), 200
+    except Exception as ex:
+        return jsonify({'success': False, 'message': str(ex) or 'Failed to load invoices', 'invoices': []}), 200
 
 
 @billing_bp.route('/school/payments', methods=['GET'])
@@ -190,8 +199,18 @@ def school_list_invoices():
 @school_admin_required
 def school_list_payments():
     tenant_id = g.tenant_id
-    items = PaymentService.list_payments_for_tenant(tenant_id)
-    return jsonify({'success': True, 'payments': [PaymentService.serialize_payment(p) for p in items]}), 200
+    try:
+        items = PaymentService.list_payments_for_tenant(tenant_id)
+        serialized = []
+        for p in items:
+            try:
+                serialized.append(PaymentService.serialize_payment(p))
+            except Exception:
+                # Skip records with missing columns rather than crashing
+                pass
+        return jsonify({'success': True, 'payments': serialized}), 200
+    except Exception as ex:
+        return jsonify({'success': False, 'message': str(ex) or 'Failed to load payments', 'payments': []}), 200
 
 
 @billing_bp.route('/school/payment-options', methods=['GET'])
@@ -199,13 +218,17 @@ def school_list_payments():
 @school_admin_required
 def school_payment_options():
     tenant_id = g.tenant_id
-    selected, err = PaymentService.get_best_gateway_for_school(tenant_id)
+    try:
+        selected, err = PaymentService.get_best_gateway_for_school(tenant_id)
+    except Exception as ex:
+        return jsonify({'success': False, 'message': str(ex) or 'Gateway lookup failed'}), 400
     if err or not selected:
-        return jsonify({'success': False, 'message': err or 'No gateway'}), 400
+        return jsonify({'success': False, 'message': err or 'No gateway configured for this school'}), 400
+    channels = getattr(selected, 'supported_channels', None) or []
     return jsonify({
         'success': True,
         'gateway': PaymentService.serialize_gateway(selected),
-        'supported_channels': selected.supported_channels or [],
+        'supported_channels': channels,
     }), 200
 
 

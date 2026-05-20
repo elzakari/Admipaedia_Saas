@@ -52,34 +52,40 @@ class PaymentService:
 
     @staticmethod
     def serialize_payment(p: Payment) -> dict[str, Any]:
+        _dt = lambda v: v.isoformat() if v else None  # noqa: E731
+        paid_at = getattr(p, 'paid_at', None)
+        verified_at = getattr(p, 'verified_at', None)
+        reviewed_at = getattr(p, 'reviewed_at', None)
+        manual_paid_at = getattr(p, 'manual_paid_at', None)
         return {
             'id': int(p.id),
             'invoice_id': int(p.invoice_id),
             'school_id': str(p.school_id),
             'payment_gateway_id': int(p.payment_gateway_id) if p.payment_gateway_id is not None else None,
-            'gateway_name': p.gateway_name,
-            'payment_reference': p.payment_reference,
-            'gateway_transaction_id': p.gateway_transaction_id,
+            'gateway_name': getattr(p, 'gateway_name', None),
+            'payment_reference': getattr(p, 'payment_reference', None),
+            'gateway_transaction_id': getattr(p, 'gateway_transaction_id', None),
             'amount': float(p.amount) if p.amount is not None else 0.0,
-            'currency': p.currency,
-            'payment_channel': p.payment_channel,
-            'status': p.status,
-            'payment_link': p.payment_link,
-            'paid_at': p.paid_at.isoformat() if p.paid_at else None,
-            'verified_at': p.verified_at.isoformat() if p.verified_at else None,
-            'submitted_by_user_id': p.submitted_by_user_id,
-            'reviewed_by_user_id': p.reviewed_by_user_id,
-            'review_note': p.review_note,
-            'reviewed_at': p.reviewed_at.isoformat() if p.reviewed_at else None,
-            'proof_path': p.proof_path,
-            'manual_method': p.manual_method,
-            'manual_reference': p.manual_reference,
-            'manual_paid_at': p.manual_paid_at.isoformat() if p.manual_paid_at else None,
-            'created_at': p.created_at.isoformat() if p.created_at else None,
+            'currency': getattr(p, 'currency', ''),
+            'payment_channel': getattr(p, 'payment_channel', ''),
+            'status': getattr(p, 'status', 'pending'),
+            'payment_link': getattr(p, 'payment_link', None),
+            'paid_at': _dt(paid_at),
+            'verified_at': _dt(verified_at),
+            'submitted_by_user_id': getattr(p, 'submitted_by_user_id', None),
+            'reviewed_by_user_id': getattr(p, 'reviewed_by_user_id', None),
+            'review_note': getattr(p, 'review_note', None),
+            'reviewed_at': _dt(reviewed_at),
+            'proof_path': getattr(p, 'proof_path', None),
+            'manual_method': getattr(p, 'manual_method', None),
+            'manual_reference': getattr(p, 'manual_reference', None),
+            'manual_paid_at': _dt(manual_paid_at),
+            'created_at': _dt(getattr(p, 'created_at', None)),
         }
 
     @staticmethod
     def serialize_invoice(inv: BillingInvoice) -> dict[str, Any]:
+        _dt = lambda v: v.isoformat() if v else None  # noqa: E731
         return {
             'id': int(inv.id),
             'invoice_number': inv.invoice_number,
@@ -93,18 +99,18 @@ class PaymentService:
             'discount_amount': float(inv.discount_amount or 0),
             'tax_amount': float(inv.tax_amount or 0),
             'total_amount': float(inv.total_amount or 0),
-            'currency': inv.currency,
-            'status': inv.status,
-            'due_date': inv.due_date.isoformat() if inv.due_date else None,
-            'paid_at': inv.paid_at.isoformat() if inv.paid_at else None,
-            'payment_status': inv.payment_status,
-            'payment_link': inv.payment_link,
-            'payment_reference': inv.payment_reference,
-            'gateway_name': inv.gateway_name,
-            'amount_paid': float(inv.amount_paid or 0),
-            'balance_due': float(inv.balance_due or 0),
-            'created_at': inv.created_at.isoformat() if inv.created_at else None,
-            'updated_at': inv.updated_at.isoformat() if inv.updated_at else None,
+            'currency': getattr(inv, 'currency', ''),
+            'status': getattr(inv, 'status', 'pending'),
+            'due_date': _dt(getattr(inv, 'due_date', None)),
+            'paid_at': _dt(getattr(inv, 'paid_at', None)),
+            'payment_status': getattr(inv, 'payment_status', 'unpaid'),
+            'payment_link': getattr(inv, 'payment_link', None),
+            'payment_reference': getattr(inv, 'payment_reference', None),
+            'gateway_name': getattr(inv, 'gateway_name', None),
+            'amount_paid': float(getattr(inv, 'amount_paid', None) or 0),
+            'balance_due': float(getattr(inv, 'balance_due', None) or 0),
+            'created_at': _dt(getattr(inv, 'created_at', None)),
+            'updated_at': _dt(getattr(inv, 'updated_at', None)),
         }
 
     @staticmethod

@@ -68,12 +68,12 @@ class PaymentGateway(db.Model):
 
 
 class Payment(db.Model):
-    __tablename__ = 'payments'
+    __tablename__ = 'billing_payments'
     __table_args__ = (
-        db.Index('idx_payments_invoice', 'invoice_id'),
-        db.Index('idx_payments_school', 'school_id'),
-        db.Index('idx_payments_reference', 'payment_reference'),
-        db.UniqueConstraint('gateway_name', 'payment_reference', name='uq_payments_gateway_reference'),
+        db.Index('idx_billing_payments_invoice', 'invoice_id'),
+        db.Index('idx_billing_payments_school', 'school_id'),
+        db.Index('idx_billing_payments_reference', 'payment_reference'),
+        db.UniqueConstraint('gateway_name', 'payment_reference', name='uq_billing_payments_gateway_reference'),
     )
 
     id = db.Column(db.Integer, primary_key=True)

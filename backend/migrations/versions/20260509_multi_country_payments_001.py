@@ -55,9 +55,9 @@ def upgrade():
         op.create_index('idx_payment_gateways_country_currency_active', 'payment_gateways', ['country_code', 'currency', 'is_active'], unique=False)
         op.create_index('idx_payment_gateways_name_active', 'payment_gateways', ['name', 'is_active'], unique=False)
 
-    if not insp.has_table('payments'):
+    if not insp.has_table('billing_payments'):
         op.create_table(
-            'payments',
+            'billing_payments',
             sa.Column('id', sa.Integer(), primary_key=True, nullable=False),
             sa.Column('invoice_id', sa.Integer(), nullable=False),
             sa.Column('school_id', postgresql.UUID(as_uuid=True), nullable=False),
@@ -84,16 +84,16 @@ def upgrade():
             sa.Column('idempotency_key', sa.String(length=64), nullable=True, unique=True),
             sa.Column('created_at', sa.DateTime(timezone=True), server_default=now_default),
             sa.Column('updated_at', sa.DateTime(timezone=True), server_default=now_default),
-            sa.ForeignKeyConstraint(['invoice_id'], ['billing_invoices.id'], name='fk_payments_invoice_id'),
-            sa.ForeignKeyConstraint(['school_id'], ['tenants.id'], name='fk_payments_school_id'),
-            sa.ForeignKeyConstraint(['payment_gateway_id'], ['payment_gateways.id'], name='fk_payments_gateway_id'),
-            sa.ForeignKeyConstraint(['submitted_by_user_id'], ['users.id'], name='fk_payments_submitted_by_user_id'),
-            sa.ForeignKeyConstraint(['reviewed_by_user_id'], ['users.id'], name='fk_payments_reviewed_by_user_id'),
-            sa.UniqueConstraint('gateway_name', 'payment_reference', name='uq_payments_gateway_reference'),
+            sa.ForeignKeyConstraint(['invoice_id'], ['billing_invoices.id'], name='fk_billing_payments_invoice_id'),
+            sa.ForeignKeyConstraint(['school_id'], ['tenants.id'], name='fk_billing_payments_school_id'),
+            sa.ForeignKeyConstraint(['payment_gateway_id'], ['payment_gateways.id'], name='fk_billing_payments_gateway_id'),
+            sa.ForeignKeyConstraint(['submitted_by_user_id'], ['users.id'], name='fk_billing_payments_submitted_by_user_id'),
+            sa.ForeignKeyConstraint(['reviewed_by_user_id'], ['users.id'], name='fk_billing_payments_reviewed_by_user_id'),
+            sa.UniqueConstraint('gateway_name', 'payment_reference', name='uq_billing_payments_gateway_reference'),
         )
-        op.create_index('idx_payments_invoice', 'payments', ['invoice_id'], unique=False)
-        op.create_index('idx_payments_school', 'payments', ['school_id'], unique=False)
-        op.create_index('idx_payments_reference', 'payments', ['payment_reference'], unique=False)
+        op.create_index('idx_billing_payments_invoice', 'billing_payments', ['invoice_id'], unique=False)
+        op.create_index('idx_billing_payments_school', 'billing_payments', ['school_id'], unique=False)
+        op.create_index('idx_billing_payments_reference', 'billing_payments', ['payment_reference'], unique=False)
 
     if insp.has_table('billing_invoices'):
         cols = {c['name'] for c in insp.get_columns('billing_invoices')}
@@ -119,11 +119,11 @@ def downgrade():
         for col in ['balance_due', 'amount_paid', 'gateway_name', 'payment_reference', 'payment_link', 'payment_status']:
             if col in cols:
                 op.drop_column('billing_invoices', col)
-    if insp.has_table('payments'):
-        op.drop_index('idx_payments_reference', table_name='payments')
-        op.drop_index('idx_payments_school', table_name='payments')
-        op.drop_index('idx_payments_invoice', table_name='payments')
-        op.drop_table('payments')
+    if insp.has_table('billing_payments'):
+        op.drop_index('idx_billing_payments_reference', table_name='billing_payments')
+        op.drop_index('idx_billing_payments_school', table_name='billing_payments')
+        op.drop_index('idx_billing_payments_invoice', table_name='billing_payments')
+        op.drop_table('billing_payments')
     if insp.has_table('payment_gateways'):
         op.drop_index('idx_payment_gateways_name_active', table_name='payment_gateways')
         op.drop_index('idx_payment_gateways_country_currency_active', table_name='payment_gateways')
