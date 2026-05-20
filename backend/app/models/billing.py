@@ -175,22 +175,10 @@ class BillingInvoice(db.Model):
     plan = db.relationship('Plan', backref=db.backref('invoices', lazy=True))
 
 
-class BillingInvoicePayment(db.Model):
-    __tablename__ = 'billing_invoice_payments'
-    __table_args__ = (
-        db.Index('idx_billing_invoice_payments_invoice', 'invoice_id'),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    invoice_id = db.Column(db.Integer, db.ForeignKey('billing_invoices.id'), nullable=False)
-    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
-    amount = db.Column(db.Numeric(12, 2), nullable=False)
-    method = db.Column(db.String(50), nullable=True)
-    reference = db.Column(db.String(200), nullable=True)
-    paid_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=func.now())
-    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
-
-    invoice = db.relationship('BillingInvoice', backref=db.backref('payments', lazy=True, cascade='all, delete-orphan'))
+# NOTE: BillingInvoicePayment (billing_invoice_payments) has been consolidated
+# into the Payment model in app/models/payments.py, which now owns this table
+# with the full schema including manual_method, idempotency_key, gateway_name, etc.
+# The Payment.invoice relationship carries backref='gateway_payments' on BillingInvoice.
 
 
 class PlanPricingTier(db.Model):

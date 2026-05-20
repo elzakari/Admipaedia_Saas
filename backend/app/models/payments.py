@@ -68,12 +68,12 @@ class PaymentGateway(db.Model):
 
 
 class Payment(db.Model):
-    __tablename__ = 'billing_payments'
+    __tablename__ = 'billing_invoice_payments'
     __table_args__ = (
-        db.Index('idx_billing_payments_invoice', 'invoice_id'),
-        db.Index('idx_billing_payments_school', 'school_id'),
-        db.Index('idx_billing_payments_reference', 'payment_reference'),
-        db.UniqueConstraint('gateway_name', 'payment_reference', name='uq_billing_payments_gateway_reference'),
+        db.Index('idx_billing_invoice_payments_invoice', 'invoice_id'),
+        db.Index('idx_billing_invoice_payments_school', 'school_id'),
+        db.Index('idx_billing_invoice_payments_reference', 'payment_reference'),
+        db.UniqueConstraint('gateway_name', 'payment_reference', name='uq_billing_invoice_payments_gateway_reference'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -115,7 +115,7 @@ class Payment(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     gateway = db.relationship('PaymentGateway', backref=db.backref('payments', lazy=True))
-    invoice = db.relationship('BillingInvoice', backref=db.backref('gateway_payments', lazy=True, cascade='all, delete-orphan'))
+    invoice = db.relationship('BillingInvoice', backref=db.backref('payments', lazy=True, cascade='all, delete-orphan'))
 
 
 def new_reference(prefix: str = 'PMT') -> str:
