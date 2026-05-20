@@ -437,7 +437,8 @@ def school_list_plans():
     if not tenant:
         return jsonify({'success': False, 'message': 'Tenant not found'}), 404
 
-    # Resolve active student count for pricing calculation
+    # Resolve active student count — use the most recent term if available,
+    # otherwise fall back to all active students for the school.
     term = AcademicTerm.query.filter_by(tenant_id=tenant.id).order_by(AcademicTerm.start_date.desc()).first()
     if term:
         count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), term.id)
@@ -445,12 +446,31 @@ def school_list_plans():
         from app.models.student import Student
         count = Student.query.filter_by(tenant_id=tenant.id, status='active').count()
 
+    # Determine the school's current active plan for marking in the response.
+    current_plan_slug: str | None = None
+    active_plan, _ = EntitlementService.getSchoolActivePlan(str(tenant.id))
+    if not active_plan:
+        # Trial fallback: any subscription (even non-active-status)
+        from app.models.billing import SchoolPlanSubscription, Plan as _Plan
+        _sub = (
+            SchoolPlanSubscription.query
+            .filter_by(school_id=tenant.id)
+            .order_by(SchoolPlanSubscription.starts_at.desc())
+            .first()
+        )
+        if _sub:
+            _p = _Plan.query.get(_sub.plan_id)
+            if _p:
+                current_plan_slug = str(_p.slug or '').strip().lower()
+    else:
+        current_plan_slug = str(active_plan.plan.slug or '').strip().lower()
+
     plans = subscription_change_ops.list_active_plans()
     serialized_plans = []
     for p in plans:
-        # Use resolve_price_and_currency so the displayed currency is always
-        # authoritative from the configured pricing tier, not the tenant record.
-        # This fixes "0.00 GHS" when tiers are configured for XOF/TG.
+        # resolve_price_and_currency applies the trial-alias fallback automatically:
+        # if the school is on 'trial' and tiers only exist on 'basic', it uses
+        # the 'basic' tier price while returning the tier's authoritative currency.
         resolved = PricingService.resolve_price_and_currency(
             plan=p,
             student_count=count,
@@ -462,9 +482,19 @@ def school_list_plans():
         sp['currency'] = resolved.resolved_currency
         sp['active_student_count'] = count
         sp['total_per_month'] = round(resolved.price * count, 2)
+        sp['is_current_plan'] = (
+            str(p.slug or '').strip().lower() == current_plan_slug
+        )
+        sp['pricing_via_alias'] = resolved.via_alias
         serialized_plans.append(sp)
 
-    return jsonify({'success': True, 'plans': serialized_plans}), 200
+    return jsonify({
+        'success': True,
+        'plans': serialized_plans,
+        'current_plan_slug': current_plan_slug,
+        'active_student_count': count,
+    }), 200
+
 
 
 
