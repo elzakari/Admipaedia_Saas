@@ -357,7 +357,14 @@ def upsert_provider_config():
         row.is_active = active
         row.source = str(data.get('source') or row.source or 'manual')
         merged = _merge_secrets(row.get_config(), config if isinstance(config, dict) else {})
-        row.set_config(merged or {})
+        
+        # Explicitly serialize to a clean string block before encrypting
+        import json
+        from app.utils.secret_crypto import encrypt_value
+        secret, salt = row._crypto_secret()
+        payload = json.dumps(merged or {}, separators=(',', ':'))
+        row.config_encrypted = encrypt_value(payload, secret=secret, salt=salt)
+        
         db.session.commit()
         return jsonify({'success': True, 'id': row.id}), 200
 
@@ -369,7 +376,14 @@ def upsert_provider_config():
     row.priority = prio
     row.is_active = active
     merged = _merge_secrets(row.get_config(), config if isinstance(config, dict) else {})
-    row.set_config(merged or {})
+    
+    # Explicitly serialize to a clean string block before encrypting
+    import json
+    from app.utils.secret_crypto import encrypt_value
+    secret, salt = row._crypto_secret()
+    payload = json.dumps(merged or {}, separators=(',', ':'))
+    row.config_encrypted = encrypt_value(payload, secret=secret, salt=salt)
+    
     db.session.commit()
     return jsonify({'success': True, 'id': row.id}), 200
 
@@ -458,15 +472,43 @@ def test_provider_config():
     if not provider_key:
         return jsonify({'success': False, 'message': 'provider_key is required'}), 400
 
-    row = None
+    provider = None
     if scope == 'tenant':
         if not tenant_id:
             return jsonify({'success': False, 'message': 'tenant_id is required for tenant scope'}), 400
-        row = TenantServiceProviderOverride.query.filter_by(tenant_id=tenant_id, service_type=service_type, provider_key=provider_key).first()
+        from sqlalchemy import text
+        query = text("SELECT id, tenant_id, service_type, provider_key, display_name, priority, is_active, source, config_encrypted FROM tenant_service_provider_overrides WHERE tenant_id = :tenant_id AND service_type = :service_type AND provider_key = :provider_key LIMIT 1")
+        provider = db.session.execute(query, {
+            "tenant_id": tenant_id,
+            "service_type": service_type,
+            "provider_key": provider_key
+        }).mappings().first()
     else:
-        row = PlatformServiceProviderConfig.query.filter_by(service_type=service_type, provider_key=provider_key).first()
+        from sqlalchemy import text
+        query = text("SELECT id, service_type, provider_key, display_name, priority, is_active, config_encrypted FROM platform_service_provider_configs WHERE service_type = :service_type AND provider_key = :provider_key LIMIT 1")
+        provider = db.session.execute(query, {
+            "service_type": service_type,
+            "provider_key": provider_key
+        }).mappings().first()
 
-    existing_cfg = row.get_config() if row else {}
+    existing_cfg = {}
+    if provider:
+        config_encrypted = provider.get('config_encrypted')
+        if config_encrypted:
+            try:
+                from flask import current_app
+                from app.utils.secret_crypto import decrypt_value
+                import json
+                secret = current_app.config.get('SECRET_KEY') or current_app.config.get('ENCRYPTION_KEY') or ''
+                salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
+                decrypted_text = decrypt_value(config_encrypted, secret=secret, salt=salt)
+                if decrypted_text:
+                    config_data = json.loads(decrypted_text)
+                    if isinstance(config_data, dict):
+                        existing_cfg = config_data
+            except Exception as dec_err:
+                current_app.logger.warning(f"Failed to decrypt dynamic email config mapping for test: {str(dec_err)}")
+
     cfg = _merge_secrets(existing_cfg, incoming_cfg) if incoming_cfg is not None else existing_cfg
     cfg = cfg or {}
 
