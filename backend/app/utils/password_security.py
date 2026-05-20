@@ -206,6 +206,37 @@ class PasswordSecurity:
             # If the check fails, don't block the user but log the error
             return False
 
+    @classmethod
+    def is_password_reused(cls, user_id: int, new_password: str) -> bool:
+        """
+        Check if the new password has been used recently by the user.
+        Checks against current password and up to 5 previous passwords.
+        """
+        from app.models.user import User
+        from app.models.security import PasswordHistory
+        from app.extensions import bcrypt
+
+        # 1. Check current password
+        user = User.query.get(user_id)
+        if user and user.password_hash:
+            try:
+                if bcrypt.check_password_hash(user.password_hash, new_password):
+                    return True
+            except Exception as e:
+                logger.error("error_checking_current_password_in_history", error=str(e))
+
+        # 2. Check password history (limit to last 5)
+        history = PasswordHistory.query.filter_by(user_id=user_id).order_by(PasswordHistory.created_at.desc()).limit(5).all()
+        for past in history:
+            try:
+                if bcrypt.check_password_hash(past.password_hash, new_password):
+                    return True
+            except Exception as e:
+                logger.error("error_checking_past_password_in_history", error=str(e))
+
+        return False
+
+
 class AccountSecurity:
     """Account security and lockout management"""
     

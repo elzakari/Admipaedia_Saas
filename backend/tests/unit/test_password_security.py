@@ -212,6 +212,62 @@ class TestPasswordSecurity:
         
         assert entropy < 30  # Weak password should have low entropy
 
+    @patch('app.models.user.User')
+    @patch('app.models.security.PasswordHistory')
+    @patch('app.extensions.bcrypt')
+    def test_is_password_reused_match_current(self, mock_bcrypt, mock_history_cls, mock_user_cls):
+        """Test is_password_reused when new password matches the current password."""
+        mock_user = MagicMock()
+        mock_user.password_hash = "hashed_current"
+        mock_user_cls.query.get.return_value = mock_user
+
+        mock_bcrypt.check_password_hash.side_effect = lambda h, p: h == "hashed_current" and p == "new_password"
+
+        mock_history_cls.query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = []
+
+        result = PasswordSecurity.is_password_reused(1, "new_password")
+        assert result is True
+        mock_bcrypt.check_password_hash.assert_called_with("hashed_current", "new_password")
+
+    @patch('app.models.user.User')
+    @patch('app.models.security.PasswordHistory')
+    @patch('app.extensions.bcrypt')
+    def test_is_password_reused_match_history(self, mock_bcrypt, mock_history_cls, mock_user_cls):
+        """Test is_password_reused when new password matches a past password from history."""
+        mock_user = MagicMock()
+        mock_user.password_hash = "hashed_current"
+        mock_user_cls.query.get.return_value = mock_user
+
+        past1 = MagicMock()
+        past1.password_hash = "hashed_past1"
+        past2 = MagicMock()
+        past2.password_hash = "hashed_past2"
+        mock_history_cls.query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = [past1, past2]
+
+        mock_bcrypt.check_password_hash.side_effect = lambda h, p: h == "hashed_past2" and p == "new_password"
+
+        result = PasswordSecurity.is_password_reused(1, "new_password")
+        assert result is True
+
+    @patch('app.models.user.User')
+    @patch('app.models.security.PasswordHistory')
+    @patch('app.extensions.bcrypt')
+    def test_is_password_reused_no_match(self, mock_bcrypt, mock_history_cls, mock_user_cls):
+        """Test is_password_reused when new password does not match any current or past passwords."""
+        mock_user = MagicMock()
+        mock_user.password_hash = "hashed_current"
+        mock_user_cls.query.get.return_value = mock_user
+
+        past1 = MagicMock()
+        past1.password_hash = "hashed_past1"
+        mock_history_cls.query.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value = [past1]
+
+        mock_bcrypt.check_password_hash.return_value = False
+
+        result = PasswordSecurity.is_password_reused(1, "new_password")
+        assert result is False
+
+
 
 class TestAccountSecurity:
     """Test cases for AccountSecurity class."""
