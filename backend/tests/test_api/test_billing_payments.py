@@ -60,6 +60,9 @@ def _create_school_membership(*, tenant_id, user_id: int):
 
 
 def _create_plan(currency: str) -> Plan:
+    existing = Plan.query.filter_by(name="Trial").first()
+    if existing:
+        return existing
     p = Plan(name="Trial", slug=f"trial-{uuid.uuid4().hex[:6]}", price_per_student=0, currency=currency, is_active=True)
     db.session.add(p)
     db.session.flush()

@@ -193,10 +193,38 @@ class PaymentService:
 
         active, err = EntitlementService.getSchoolActivePlan(str(tenant.id))
         if err or not active:
-            return None, err or 'School has no active plan'
+            # Fallback: accept Trial or any subscription for the school so that
+            # invoice generation is not blocked during trial periods.
+            from app.models.billing import SchoolPlanSubscription, Plan
+            sub = (
+                SchoolPlanSubscription.query
+                .filter_by(school_id=tenant.id)
+                .order_by(SchoolPlanSubscription.starts_at.desc())
+                .first()
+            )
+            if sub:
+                plan_obj = Plan.query.get(sub.plan_id)
+                if plan_obj:
+                    from app.services.entitlements.service import ActivePlan
+                    active = ActivePlan(subscription=sub, plan=plan_obj)
+                    err = None
+            if err or not active:
+                return None, err or 'School has no active plan'
 
         count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), int(academic_term_id))
-        currency = (tenant.currency or active.plan.currency or 'USD').upper()
+
+        # Use resolve_price_and_currency so the invoice currency is always
+        # authoritative from the configured pricing tier, not the tenant record.
+        # This fixes invoices being generated with 0 amount when tenant.currency
+        # differs from the pricing tier currency (e.g. GHS vs XOF).
+        resolved = PricingService.resolve_price_and_currency(
+            plan=active.plan,
+            student_count=int(count),
+            country_code=tenant.country_code,
+            preferred_currency=tenant.currency or None,
+        )
+        price = resolved.price
+        currency = resolved.resolved_currency
 
         min_months = int(getattr(active.plan, 'billing_min_months', 3) or 3)
         if months is None:
@@ -206,13 +234,8 @@ class PaymentService:
             if months_to_bill < max(3, min_months):
                 months_to_bill = max(3, min_months)
 
-        price = PricingService.get_price_per_student_month(
-            plan=active.plan,
-            student_count=int(count),
-            country_code=tenant.country_code,
-            currency=currency,
-        )
-        subtotal = float(price) * float(count) * float(months_to_bill)
+        # total_amount = active_student_count * tier_price_per_student * billing_months
+        subtotal = round(float(price) * float(count) * float(months_to_bill), 2)
 
         invoice = BillingInvoice.query.filter_by(tenant_id=tenant.id, academic_term_id=int(academic_term_id)).first()
         if invoice:
@@ -251,6 +274,7 @@ class PaymentService:
         db.session.add(invoice)
         db.session.commit()
         return invoice, None
+
 
     @staticmethod
     def list_invoices_for_tenant(tenant_id) -> list[BillingInvoice]:

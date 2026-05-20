@@ -448,19 +448,24 @@ def school_list_plans():
     plans = subscription_change_ops.list_active_plans()
     serialized_plans = []
     for p in plans:
-        currency = tenant.currency or p.currency or 'USD'
-        price = PricingService.get_price_per_student_month(
+        # Use resolve_price_and_currency so the displayed currency is always
+        # authoritative from the configured pricing tier, not the tenant record.
+        # This fixes "0.00 GHS" when tiers are configured for XOF/TG.
+        resolved = PricingService.resolve_price_and_currency(
             plan=p,
             student_count=count,
             country_code=tenant.country_code,
-            currency=currency
+            preferred_currency=tenant.currency or None,
         )
         sp = subscription_change_ops.serialize_plan(p)
-        sp['price_per_student'] = float(price)
-        sp['currency'] = currency
+        sp['price_per_student'] = resolved.price
+        sp['currency'] = resolved.resolved_currency
+        sp['active_student_count'] = count
+        sp['total_per_month'] = round(resolved.price * count, 2)
         serialized_plans.append(sp)
 
     return jsonify({'success': True, 'plans': serialized_plans}), 200
+
 
 
 @billing_bp.route('/school/academic-terms', methods=['GET'])
