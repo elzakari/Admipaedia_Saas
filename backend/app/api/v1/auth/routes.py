@@ -697,6 +697,39 @@ def request_password_reset():
         logger.error("password_reset_request_error", error=str(err))
         return jsonify({"success": False, "error": "Password reset request failed"}), 500
 
+def token_value(row, key: str, fallback_index: int = 0):
+    """Safely extract a field from a reset-token result row.
+
+    Handles plain dicts, SQLAlchemy RowMappings, LegacyRow objects, and bare
+    tuples produced by different driver versions.  Returns *None* on any access
+    failure so callers never receive a TypeError regardless of row shape.
+
+    Args:
+        row:             The row/dict returned by validate_token.
+        key:             The string field name to look up.
+        fallback_index:  Positional index used only if *row* is a plain tuple
+                         and string-key access is unavailable.
+    """
+    if row is None:
+        return None
+    # 1. Preferred path — dict, RowMapping, or any Mapping-compatible object
+    try:
+        return row[key]
+    except (KeyError, TypeError):
+        pass
+    # 2. Attribute access (ORM model instance)
+    try:
+        return getattr(row, key)
+    except AttributeError:
+        pass
+    # 3. Positional fallback for raw tuples
+    try:
+        return row[fallback_index]
+    except (IndexError, TypeError):
+        pass
+    return None
+
+
 @auth_bp.route('/reset-password', methods=['POST'])
 @rate_limit(limit=5, window=3600)  # 5 resets per hour
 @sanitize_request_data()
@@ -741,7 +774,7 @@ def reset_password():
             return jsonify({"success": False, "error": error}), 400
         
         # Get user and validate
-        user = User.query.get(reset_token['user_id'])
+        user = User.query.get(token_value(reset_token, 'user_id', 1))
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
@@ -764,7 +797,7 @@ def reset_password():
         db.session.add(password_history)
         
         # Mark token as used
-        PasswordResetToken.mark_as_used_by_id(reset_token['id'])
+        PasswordResetToken.mark_as_used_by_id(token_value(reset_token, 'id', 0))
         
         # Revoke all existing sessions for security
         SessionToken.query.filter_by(user_id=user.id, is_revoked=False).update({'is_revoked': True})

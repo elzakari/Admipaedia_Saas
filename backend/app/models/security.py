@@ -149,11 +149,25 @@ class PasswordResetToken(db.Model):
     def validate_token(token: str):
         """Validate a password reset token.
 
-        Returns (row_mapping, None) on success, or (None, error_str) on failure.
-        The returned row mapping supports dict-style key access, e.g. row['user_id'].
+        Returns a plain dict on success, or (None, error_str) on failure.
+        The plain dict is guaranteed to contain: 'id', 'user_id', 'expires_at',
+        'is_used', and 'used_at' — always accessible via string key regardless of
+        the underlying SQLAlchemy driver row type.
         """
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
+
         if not token:
             return None, 'Reset token is required'
+
+        # Defensive log — only type info and a safe token prefix, never the full value
+        _log.debug(
+            'validate_token called',
+            extra={
+                'token_prefix': (token[:8] + '...') if len(token) > 8 else '[short]',
+                'token_type': type(token).__name__,
+            }
+        )
 
         from sqlalchemy import text
         token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
@@ -163,9 +177,36 @@ class PasswordResetToken(db.Model):
             "WHERE token_hash = :token_hash "
             "LIMIT 1"
         )
-        reset_token = db.session.execute(query, {"token_hash": token_hash}).mappings().first()
-        if not reset_token:
+        raw_row = db.session.execute(query, {"token_hash": token_hash}).mappings().first()
+
+        _log.debug(
+            'validate_token raw_row type',
+            extra={'raw_row_type': type(raw_row).__name__}
+        )
+
+        if not raw_row:
             return None, 'Invalid reset token'
+
+        # Normalize: extract fields explicitly into a plain dict so callers are
+        # never exposed to RowMapping, LegacyRow, KeyedTuple, or any other driver
+        # variant that might later reject string-key access.
+        try:
+            reset_token = {
+                'id':         int(raw_row['id']),
+                'user_id':    int(raw_row['user_id']),
+                'expires_at': raw_row['expires_at'],
+                'is_used':    bool(raw_row['is_used']),
+                'used_at':    raw_row['used_at'],
+            }
+        except Exception as norm_err:
+            _log.error(
+                'validate_token normalization failed',
+                extra={
+                    'error': str(norm_err),
+                    'raw_row_type': type(raw_row).__name__,
+                }
+            )
+            return None, 'Token lookup error'
 
         if reset_token['is_used']:
             return None, 'Reset token has already been used'
