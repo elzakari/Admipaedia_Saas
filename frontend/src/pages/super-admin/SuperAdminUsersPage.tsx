@@ -19,7 +19,7 @@ import {
 import { superAdminService, SuperAdminUser, SuperAdminUserRole } from '@/services/superAdminService'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
-import { Eye, KeyRound, Trash2, UserCheck, UserX } from 'lucide-react'
+import { Eye, KeyRound, Trash2, UserCheck, UserX, Copy, Check, Mail, RefreshCw } from 'lucide-react'
 
 const baseRoleOptions: Array<{ value: SuperAdminUserRole; key: string; fallback: string }> = [
   { value: 'admin', key: 'super_admin.roles.admin', fallback: 'Admin' },
@@ -53,6 +53,12 @@ const SuperAdminUsersPage: React.FC = () => {
   const [createError, setCreateError] = useState<string | null>(null)
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
   const [resettingUserId, setResettingUserId] = useState<number | null>(null)
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resetUser, setResetUser] = useState<SuperAdminUser | null>(null)
+  const [resetLink, setResetLink] = useState('')
+  const [fetchingResetLink, setFetchingResetLink] = useState(false)
+  const [sendingResetEmail, setSendingResetEmail] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [purgeUser, setPurgeUser] = useState<SuperAdminUser | null>(null)
   const [purgeConfirmText, setPurgeConfirmText] = useState('')
@@ -153,6 +159,65 @@ const SuperAdminUsersPage: React.FC = () => {
 
   const mutateUser = (next: SuperAdminUser) => {
     setItems((prev) => prev.map((u) => (u.id === next.id ? next : u)))
+  }
+
+  const handleResetClick = async (user: SuperAdminUser) => {
+    setResetUser(user)
+    setResetModalOpen(true)
+    setFetchingResetLink(true)
+    setResetLink('')
+    setCopiedLink(false)
+    try {
+      const res = await superAdminService.sendReset(user.id, { send_email: false })
+      if (res.success && res.link) {
+        setResetLink(res.link)
+      } else {
+        toast.error(t('super_admin.users.reset.failed_link', 'Failed to generate password reset link.'))
+      }
+    } catch (e) {
+      void e
+      toast.error(t('super_admin.users.reset.failed_link', 'Failed to generate password reset link.'))
+    } finally {
+      setFetchingResetLink(false)
+    }
+  }
+
+  const handleSendMail = async () => {
+    if (!resetUser) return
+    setSendingResetEmail(true)
+    try {
+      const res = await superAdminService.sendReset(resetUser.id, { send_email: true })
+      if (res.email_sent) {
+        toast.success(t('super_admin.users.reset.sent', 'Reset email queued'), {
+          description: t('super_admin.users.reset.sent_desc', 'A reset link has been sent to the user.')
+        })
+        setResetModalOpen(false)
+      } else {
+        toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
+          description: t('super_admin.users.reset.failed_desc', 'Email could not be sent. Please verify mail settings.')
+        })
+      }
+    } catch (e) {
+      void e
+      toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
+        description: t('super_admin.users.reset.try_again', 'Please try again.')
+      })
+    } finally {
+      setSendingResetEmail(false)
+    }
+  }
+
+  const handleCopyLink = async () => {
+    if (!resetLink) return
+    try {
+      await navigator.clipboard.writeText(resetLink)
+      setCopiedLink(true)
+      toast.success(t('super_admin.users.reset.copied', 'Copied to clipboard'))
+      setTimeout(() => setCopiedLink(false), 2000)
+    } catch (err) {
+      void err
+      toast.error(t('super_admin.users.reset.copy_failed', 'Failed to copy'))
+    }
   }
 
   return (
@@ -261,6 +326,146 @@ const SuperAdminUsersPage: React.FC = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={resetModalOpen}
+        onOpenChange={(v) => {
+          setResetModalOpen(v)
+          if (!v) {
+            setResetUser(null)
+            setResetLink('')
+            setFetchingResetLink(false)
+            setSendingResetEmail(false)
+            setCopiedLink(false)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg p-6 bg-background rounded-xl border shadow-xl transition-all duration-300">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
+              <KeyRound className="h-5 w-5 text-indigo-500 animate-pulse" />
+              {t('super_admin.users.reset_modal.title', 'Reset Password Options')}
+            </DialogTitle>
+          </DialogHeader>
+
+          {resetUser && (
+            <div className="mt-4 space-y-5">
+              <div className="p-4 rounded-lg bg-muted/40 border border-border space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t('super_admin.users.reset_modal.target_user', 'Target User')}
+                </div>
+                <div className="font-medium text-foreground">{resetUser.username}</div>
+                <div className="text-sm text-muted-foreground">{resetUser.email}</div>
+              </div>
+
+              {fetchingResetLink ? (
+                <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                  <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
+                  <span className="text-sm text-muted-foreground">
+                    {t('super_admin.users.reset_modal.generating', 'Generating fresh reset token link...')}
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Option A: Send Automation Mail */}
+                  <div className="p-4 rounded-xl border border-indigo-100/50 bg-indigo-50/20 dark:border-indigo-900/30 dark:bg-indigo-950/10 space-y-3 transition-all hover:shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-indigo-100/70 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 mt-0.5">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {t('super_admin.users.reset_modal.option_email_title', 'Option 1: Send Automation Mail')}
+                        </h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {t('super_admin.users.reset_modal.option_email_desc', 'Fires the background mail service task to securely transmit the password reset link to the user\'s registered inbox.')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <Button
+                        type="button"
+                        onClick={handleSendMail}
+                        disabled={sendingResetEmail}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all duration-200"
+                      >
+                        {sendingResetEmail ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            {t('super_admin.users.reset_modal.sending', 'Sending...')}
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            {t('super_admin.users.reset_modal.send_btn', 'Send Automation Mail')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Option B: Copy Link Manual */}
+                  <div className="p-4 rounded-xl border border-border bg-background space-y-3 transition-all hover:shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-muted text-muted-foreground mt-0.5">
+                        <KeyRound className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          {t('super_admin.users.reset_modal.option_copy_title', 'Option 2: Manual Copy Link')}
+                        </h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {t('super_admin.users.reset_modal.option_copy_desc', 'Calculates and fetches the raw tokenized reset link so you can manually copy and share it directly with the user.')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        value={resetLink}
+                        readOnly
+                        className="font-mono text-xs select-all bg-muted/30 border-muted-foreground/20 text-muted-foreground pr-3 h-9"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCopyLink}
+                        className={`h-9 px-4 shrink-0 font-medium transition-all duration-200 border-border ${
+                          copiedLink
+                            ? "border-emerald-500 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-700"
+                            : ""
+                        }`}
+                      >
+                        {copiedLink ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2 text-emerald-500 animate-bounce" />
+                            {t('common.copied', 'Copied')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2 text-muted-foreground" />
+                            {t('super_admin.users.reset_modal.copy_btn', 'Copy Link')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setResetModalOpen(false)}
+                  className="font-medium"
+                >
+                  {t('common.close', 'Close')}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -427,37 +632,10 @@ const SuperAdminUsersPage: React.FC = () => {
                           <Button
                             variant="secondary"
                             size="sm"
-                            disabled={resettingUserId === u.id}
-                            onClick={async () => {
-                              try {
-                                setResettingUserId(u.id)
-                                const res = await superAdminService.sendReset(u.id)
-                                const baseTitle = t('super_admin.users.reset.sent', 'Reset email queued')
-                                if (res.email_suppressed && res.reset_url) {
-                                  toast.success(baseTitle, {
-                                    description: res.reset_url
-                                  })
-                                } else if (res.email_sent) {
-                                  toast.success(baseTitle, {
-                                    description: t('super_admin.users.reset.sent_desc', 'A reset link has been sent to the user.')
-                                  })
-                                } else {
-                                  toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
-                                    description: t('super_admin.users.reset.failed_desc', 'Email could not be sent. Please verify mail settings.')
-                                  })
-                                }
-                              } catch (e) {
-                                void e
-                                toast.error(t('super_admin.users.reset.failed', 'Reset failed'), {
-                                  description: t('super_admin.users.reset.try_again', 'Please try again.')
-                                })
-                              } finally {
-                                setResettingUserId(null)
-                              }
-                            }}
+                            onClick={() => handleResetClick(u)}
                           >
                             <KeyRound className="h-4 w-4 mr-1.5" />
-                            {resettingUserId === u.id ? t('super_admin.users.reset.sending', 'Sending...') : t('super_admin.users.actions.reset', 'Reset')}
+                            {t('super_admin.users.actions.reset', 'Reset')}
                           </Button>
                           {u.status === 'active' ? (
                             <AlertDialog>

@@ -445,28 +445,39 @@ def super_admin_send_password_reset(user_id: int):
         user_agent=request.headers.get('User-Agent')
     )
 
-    from app.services.email_service import send_password_reset_email
+    data = request.get_json(silent=True) or {}
+    send_email = data.get('send_email', True)
+
     frontend_url = _resolve_frontend_url()
     if not frontend_url:
         frontend_url = 'http://localhost:3000'
     if 'localhost:5173' in frontend_url:
         frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
-    email_sent = send_password_reset_email(target.email, token, frontend_url=frontend_url, async_send=True)
     reset_url = f"{frontend_url}/reset-password?token={token}"
+    email_sent = False
 
-    _audit('super_admin.user_reset_sent', actor.id, {
-        'target_user_id': target.id,
-        'email_sent': bool(email_sent)
-    })
+    if send_email:
+        from app.services.email_service import send_password_reset_email
+        email_sent = send_password_reset_email(target.email, token, frontend_url=frontend_url, async_send=True)
+
+        _audit('super_admin.user_reset_sent', actor.id, {
+            'target_user_id': target.id,
+            'email_sent': bool(email_sent)
+        })
+    else:
+        _audit('super_admin.user_reset_link_generated', actor.id, {
+            'target_user_id': target.id
+        })
     db.session.commit()
 
     payload = {
         'success': True,
-        'email_sent': bool(email_sent),
-        'email_queued': True,
-        'email_suppressed': bool(current_app.config.get('MAIL_SUPPRESS_SEND'))
+        'email_sent': bool(email_sent) if send_email else False,
+        'email_queued': True if (send_email and email_sent) else False,
+        'email_suppressed': bool(current_app.config.get('MAIL_SUPPRESS_SEND')) if send_email else False,
+        'link': reset_url
     }
-    if current_app.debug or current_app.config.get('MAIL_SUPPRESS_SEND'):
+    if current_app.debug or current_app.config.get('MAIL_SUPPRESS_SEND') or not send_email:
         payload['reset_url'] = reset_url
     return jsonify(payload), 200
 

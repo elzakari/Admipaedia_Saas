@@ -194,9 +194,10 @@ export const superAdminService = {
   },
 
   sendReset: async (
-    id: number
-  ): Promise<{ success: boolean; email_sent: boolean; email_queued?: boolean; email_suppressed?: boolean; reset_url?: string }> => {
-    const res = await api.post(`/super-admin/users/${id}/send-reset`)
+    id: number,
+    payload?: { send_email?: boolean }
+  ): Promise<{ success: boolean; email_sent: boolean; email_queued?: boolean; email_suppressed?: boolean; reset_url?: string; link?: string }> => {
+    const res = await api.post(`/super-admin/users/${id}/send-reset`, payload)
     return res.data
   },
 
