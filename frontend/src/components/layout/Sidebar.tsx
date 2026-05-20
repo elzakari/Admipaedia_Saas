@@ -495,7 +495,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   
           {/* Footer with theme toggle and system status */}
           <div className="p-6 border-t border-white/5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className={cn("flex items-center justify-between", !isOpen && "hidden md:flex")}>
               <div className="flex items-center space-x-3 group cursor-default">
                 <div className="relative">
                   <div className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
