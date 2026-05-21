@@ -1,6 +1,7 @@
 from app.extensions import db
 from app.models.tenant import Tenant, TenantMembership, PlatformInvoice, PlatformPayment
-from app.models.billing import Plan, SchoolPlanSubscription
+from app.models.billing import Plan, SchoolPlanSubscription, BillingInvoice
+from app.models.payments import Payment as BillingPayment
 from app.services.integrations.token_service import ServiceTokenService
 from app.services.saas.plan_ops import assign_plan_to_tenant
 
@@ -231,15 +232,35 @@ def platform_kpis():
         except Exception:
             continue
 
-    invoice_total = db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).scalar() or 0
-    payment_total = db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).scalar() or 0
-
+    # --- Platform invoices / payments (legacy SaaS billing) ---
+    platform_invoice_total = float(
+        db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).scalar() or 0
+    )
+    platform_payment_total = float(
+        db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).scalar() or 0
+    )
     invoices_count = PlatformInvoice.query.count()
     paid_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'paid').count()
     sent_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'sent').count()
 
-    invoice_total_f = float(invoice_total)
-    payment_total_f = float(payment_total)
+    # --- Billing invoices / payments (school-fee SaaS billing) ---
+    billing_invoice_total = float(
+        db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
+        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+        .scalar() or 0
+    )
+    billing_payment_total = float(
+        db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
+        .filter(BillingPayment.status == 'successful')
+        .scalar() or 0
+    )
+    billing_invoices_count = BillingInvoice.query.count()
+    billing_paid_invoices = BillingInvoice.query.filter(
+        BillingInvoice.payment_status == 'paid'
+    ).count()
+
+    invoice_total_f = platform_invoice_total + billing_invoice_total
+    payment_total_f = platform_payment_total + billing_payment_total
 
     return {
         'tenants_total': len(tenants),
@@ -250,9 +271,9 @@ def platform_kpis():
         'invoice_total': invoice_total_f,
         'payment_total': payment_total_f,
         'outstanding_total': max(0.0, invoice_total_f - payment_total_f),
-        'invoices_count': int(invoices_count),
+        'invoices_count': int(invoices_count + billing_invoices_count),
         'invoices_sent_count': int(sent_invoices),
-        'invoices_paid_count': int(paid_invoices)
+        'invoices_paid_count': int(paid_invoices + billing_paid_invoices),
     }
 
 
@@ -401,32 +422,73 @@ def platform_update_tenant(tenant_id, status=None, plan=None):
 
 def platform_financial_summary():
     tenants = Tenant.query.all()
-    invoices = PlatformInvoice.query.all()
-    payments = PlatformPayment.query.all()
 
-    invoice_total = sum([float(i.amount) for i in invoices])
-    payment_total = sum([float(p.amount) for p in payments])
+    # --- Platform invoices / payments (legacy SaaS billing) ---
+    platform_invoices = PlatformInvoice.query.all()
+    platform_payments = PlatformPayment.query.all()
+    platform_inv_total = sum(float(i.amount) for i in platform_invoices)
+    platform_pmt_total = sum(float(p.amount) for p in platform_payments)
 
+    # --- Billing invoices / payments (school-fee SaaS billing) ---
+    billing_inv_total = float(
+        db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
+        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+        .scalar() or 0
+    )
+    billing_pmt_total = float(
+        db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
+        .filter(BillingPayment.status == 'successful')
+        .scalar() or 0
+    )
+
+    invoice_total = platform_inv_total + billing_inv_total
+    payment_total = platform_pmt_total + billing_pmt_total
+
+    # Build per-tenant breakdown (platform billing only for now)
     by_tenant = {}
     for t in tenants:
         by_tenant[str(t.id)] = {
             'tenant_id': str(t.id),
             'tenant_name': t.name,
             'invoice_total': 0.0,
-            'payment_total': 0.0
+            'payment_total': 0.0,
         }
-    for i in invoices:
+    for i in platform_invoices:
         key = str(i.tenant_id)
         if key in by_tenant:
             by_tenant[key]['invoice_total'] += float(i.amount)
-    for p in payments:
+    for p in platform_payments:
         key = str(p.tenant_id)
         if key in by_tenant:
             by_tenant[key]['payment_total'] += float(p.amount)
+
+    # Add school-fee billing totals per tenant
+    billing_inv_by_tenant = (
+        db.session.query(BillingInvoice.tenant_id, func.sum(BillingInvoice.total_amount))
+        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+        .group_by(BillingInvoice.tenant_id)
+        .all()
+    )
+    billing_pmt_by_tenant = (
+        db.session.query(BillingPayment.school_id, func.sum(BillingPayment.amount))
+        .filter(BillingPayment.status == 'successful')
+        .group_by(BillingPayment.school_id)
+        .all()
+    )
+    for tid, total in billing_inv_by_tenant:
+        key = str(tid)
+        if key in by_tenant:
+            by_tenant[key]['invoice_total'] += float(total or 0)
+        else:
+            by_tenant[key] = {'tenant_id': key, 'tenant_name': key, 'invoice_total': float(total or 0), 'payment_total': 0.0}
+    for tid, total in billing_pmt_by_tenant:
+        key = str(tid)
+        if key in by_tenant:
+            by_tenant[key]['payment_total'] += float(total or 0)
 
     return {
         'invoice_total': invoice_total,
         'payment_total': payment_total,
         'outstanding_total': max(0.0, invoice_total - payment_total),
-        'by_tenant': list(by_tenant.values())
+        'by_tenant': list(by_tenant.values()),
     }

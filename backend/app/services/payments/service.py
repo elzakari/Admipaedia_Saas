@@ -537,11 +537,41 @@ class PaymentService:
             p.status = 'successful'
             p.paid_at = p.paid_at or (p.manual_paid_at or datetime.utcnow())
             PaymentService.apply_payment_success(p, verified_amount=float(p.amount or 0), verified_currency=p.currency)
+
+            # ── Post-approval: activate tenant plan ──────────────────────────
+            # When a manual payment is approved, upgrade the school's plan from
+            # Trial to the plan associated with their billing invoice, so that
+            # the frontend sidebar features and plan context are unlocked.
+            try:
+                inv = BillingInvoice.query.get(int(p.invoice_id)) if p.invoice_id else None
+                if inv:
+                    from app.models.billing import SchoolPlanSubscription, Plan as BillingPlan
+                    from app.services.saas.plan_ops import assign_plan_to_tenant
+
+                    # Determine target plan: use invoice's plan_id, falling
+                    # back to 'basic' if the plan is still on trial.
+                    target_plan_id = getattr(inv, 'plan_id', None)
+                    target_plan = BillingPlan.query.get(int(target_plan_id)) if target_plan_id else None
+                    target_slug = (target_plan.slug if target_plan else None) or 'basic'
+
+                    # Don't downgrade — only upgrade away from trial
+                    tenant = Tenant.query.get(inv.tenant_id)
+                    if tenant:
+                        current_plan_slug = (tenant.plan or '').strip().lower()
+                        if current_plan_slug in ('', 'trial', None) or current_plan_slug != target_slug:
+                            tenant.status = 'active'
+                            assign_plan_to_tenant(tenant, target_slug, actor_user_id=reviewer_id)
+            except Exception as _act_err:
+                # Activation failure must not roll back the payment approval
+                current_app.logger.warning(
+                    'post-payment plan activation failed for payment %s: %s', payment_id, _act_err
+                )
         else:
             p.status = 'failed'
 
         db.session.commit()
         return p, None
+
 
     @staticmethod
     def platform_list_payments(
