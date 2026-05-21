@@ -7,14 +7,43 @@ export function usePlanContext() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [token, setToken] = useState(() => localStorage.getItem('token'))
+  const [tenantId, setTenantId] = useState(() => localStorage.getItem('saas_current_tenant_id'))
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const currentToken = localStorage.getItem('token')
+      const currentTenant = localStorage.getItem('saas_current_tenant_id')
+      if (currentToken !== token) {
+        setToken(currentToken)
+      }
+      if (currentTenant !== tenantId) {
+        setTenantId(currentTenant)
+      }
+    }
+
+    window.addEventListener('local-storage-change', handleStorageChange)
+    window.addEventListener('storage', handleStorageChange)
+
+    const interval = setInterval(handleStorageChange, 1000)
+
+    return () => {
+      window.removeEventListener('local-storage-change', handleStorageChange)
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [token, tenantId])
+
   const refresh = useCallback(async () => {
-    if (!localStorage.getItem('token')) {
+    const currentToken = localStorage.getItem('token')
+    const currentTenant = localStorage.getItem('saas_current_tenant_id')
+    if (!currentToken) {
       setData(null)
       setError(null)
       setIsLoading(false)
       return
     }
-    if (!localStorage.getItem('saas_current_tenant_id')) {
+    if (!currentTenant) {
       setData(null)
       setError(null)
       setIsLoading(false)
@@ -35,8 +64,7 @@ export function usePlanContext() {
 
   useEffect(() => {
     refresh()
-  }, [refresh])
+  }, [refresh, token, tenantId])
 
   return { data, isLoading, error, refresh }
 }
-

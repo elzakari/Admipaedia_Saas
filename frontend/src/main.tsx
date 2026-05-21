@@ -1,3 +1,16 @@
+// Intercept localStorage operations globally to enable same-window reactivity
+const originalSetItem = localStorage.setItem;
+localStorage.setItem = function (key: string, value: string) {
+  originalSetItem.call(localStorage, key, value);
+  window.dispatchEvent(new CustomEvent('local-storage-change', { detail: { key, value } }));
+};
+
+const originalRemoveItem = localStorage.removeItem;
+localStorage.removeItem = function (key: string) {
+  originalRemoveItem.call(localStorage, key);
+  window.dispatchEvent(new CustomEvent('local-storage-change', { detail: { key, value: null } }));
+};
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

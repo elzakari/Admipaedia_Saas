@@ -9,12 +9,39 @@ export function useSaasTenant() {
   const [items, setItems] = useState<SaaSTenantItem[] | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEY)
   })
 
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const currentToken = localStorage.getItem('token')
+      const currentTenant = localStorage.getItem(STORAGE_KEY)
+      if (currentToken !== token) {
+        setToken(currentToken)
+      }
+      if (currentTenant !== currentTenantId) {
+        setCurrentTenantId(currentTenant)
+      }
+    }
+
+    window.addEventListener('local-storage-change', handleStorageChange)
+    window.addEventListener('storage', handleStorageChange)
+
+    const interval = setInterval(handleStorageChange, 1000)
+
+    return () => {
+      window.removeEventListener('local-storage-change', handleStorageChange)
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [token, currentTenantId])
+
   const refresh = useCallback(async () => {
-    if (!localStorage.getItem('token')) {
+    const currentToken = localStorage.getItem('token')
+    if (!currentToken) {
       setItems(null)
       setError(null)
       setIsLoading(false)
@@ -45,7 +72,7 @@ export function useSaasTenant() {
 
   useEffect(() => {
     refresh()
-  }, [refresh])
+  }, [refresh, token])
 
   const current = useMemo(() => {
     if (!items || !currentTenantId) return null
