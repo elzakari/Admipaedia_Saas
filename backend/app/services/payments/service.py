@@ -9,7 +9,7 @@ from flask import current_app
 from sqlalchemy import and_
 
 from app.extensions import db
-from app.models.billing import BillingInvoice
+from app.models.billing import BillingInvoice, PendingInvoiceAdjustment
 from app.models.payments import Payment, PaymentGateway, new_reference
 from app.models.academic_term import AcademicTerm
 from app.models.tenant import Tenant, TenantMembership
@@ -271,8 +271,13 @@ class PaymentService:
             if months_to_bill < min_months:
                 months_to_bill = min_months
 
-        # total_amount = active_student_count * tier_price_per_student * billing_months
+        # Query pending adjustments for this tenant
+        adjustments = PendingInvoiceAdjustment.query.filter_by(tenant_id=tenant.id, status='pending').all()
+        adjustment_total = sum(float(adj.amount) for adj in adjustments if adj.currency == currency)
+
+        # total_amount = active_student_count * tier_price_per_student * billing_months + adjustments
         subtotal = round(float(price) * float(count) * float(months_to_bill), 2)
+        total_amount = round(subtotal + adjustment_total, 2)
 
         invoice = BillingInvoice.query.filter_by(tenant_id=tenant.id, academic_term_id=int(academic_term_id)).first()
         if invoice:
@@ -280,11 +285,18 @@ class PaymentService:
             invoice.billing_months = months_to_bill
             invoice.active_student_count = count
             invoice.subtotal = subtotal
-            invoice.total_amount = subtotal
+            invoice.total_amount = total_amount
             invoice.currency = currency
             if float(invoice.amount_paid or 0) <= 0:
-                invoice.balance_due = subtotal
+                invoice.balance_due = total_amount
                 invoice.payment_status = 'unpaid'
+            
+            # Associate pending adjustments and mark billed
+            for adj in adjustments:
+                if adj.currency == currency:
+                    adj.status = 'billed'
+                    adj.invoice_id = invoice.id
+            
             db.session.commit()
             return invoice, None
 
@@ -300,15 +312,23 @@ class PaymentService:
             subtotal=subtotal,
             discount_amount=0,
             tax_amount=0,
-            total_amount=subtotal,
+            total_amount=total_amount,
             currency=currency,
             status='pending',
             due_date=due_date,
             payment_status='unpaid',
             amount_paid=0,
-            balance_due=subtotal,
+            balance_due=total_amount,
         )
         db.session.add(invoice)
+        db.session.flush()
+
+        # Associate pending adjustments and mark billed
+        for adj in adjustments:
+            if adj.currency == currency:
+                adj.status = 'billed'
+                adj.invoice_id = invoice.id
+
         db.session.commit()
         return invoice, None
 

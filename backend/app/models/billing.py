@@ -231,3 +231,22 @@ class SubscriptionChangeRequest(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     requested_plan = db.relationship('Plan', backref=db.backref('change_requests', lazy=True))
+
+
+class PendingInvoiceAdjustment(db.Model):
+    __tablename__ = 'pending_invoice_adjustments'
+    __table_args__ = (
+        db.Index('idx_pending_invoice_adj_tenant_status', 'tenant_id', 'status'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('billing_invoices.id'), nullable=True, index=True)
+    amount = db.Column(db.Numeric(12, 2), nullable=False, server_default='0')
+    currency = db.Column(db.String(3), nullable=False, server_default='USD')
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, server_default='pending') # pending, billed
+
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+

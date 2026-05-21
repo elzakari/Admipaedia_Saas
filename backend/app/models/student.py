@@ -1,7 +1,10 @@
 from app.extensions import db
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import re
 import uuid
+import calendar
+from decimal import Decimal
+from sqlalchemy import event, text
 from sqlalchemy.dialects.postgresql import UUID
 from app.models.user import User
 
@@ -241,3 +244,178 @@ class Student(db.Model):
     # Secure activation / invitation properties
     invitation_token_hash = db.Column(db.String(255), nullable=True)
     invitation_expires_at = db.Column(db.DateTime, nullable=True)
+
+
+def parse_date(val):
+    if not val:
+        return None
+    if isinstance(val, date):
+        return val
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, str):
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(val.split('+')[0].strip(), fmt).date()
+            except ValueError:
+                pass
+    return None
+
+
+@event.listens_for(Student, 'after_insert')
+def handle_student_billing_proration(mapper, connection, target):
+    try:
+        tenant_id = target.tenant_id
+        if not tenant_id:
+            return
+
+        # Handle string or UUID representation of tenant_id safely
+        if isinstance(tenant_id, str):
+            try:
+                tenant_uuid = uuid.UUID(tenant_id)
+            except ValueError:
+                tenant_uuid = None
+        else:
+            tenant_uuid = tenant_id
+
+        # SQLite stores UUIDs as 32-character hex strings without dashes,
+        # whereas PostgreSQL uses standard UUID objects or 36-character strings with dashes.
+        if connection.dialect.name == 'sqlite':
+            tenant_param = tenant_uuid.hex if tenant_uuid else str(tenant_id)
+        else:
+            tenant_param = str(tenant_id)
+
+        today = date.today()
+
+        # 1. Fetch Tenant details
+        tenant_res = connection.execute(
+            text("SELECT country_code, currency, plan FROM tenants WHERE id = :tenant_id"),
+            {"tenant_id": tenant_param}
+        ).fetchone()
+
+        if not tenant_res:
+            return
+
+        country_code = tenant_res[0]
+        tenant_currency = tenant_res[1]
+        tenant_plan_slug = tenant_res[2]
+
+        # 2. Get active student count
+        count_res = connection.execute(
+            text("SELECT COUNT(*) FROM students WHERE tenant_id = :tenant_id AND status = 'active'"),
+            {"tenant_id": tenant_param}
+        ).scalar()
+        student_count = max(1, int(count_res or 0))
+
+        # 3. Resolve active plan dates and Plan object/slug
+        starts_at = None
+        ends_at = None
+        plan_id = None
+        plan_slug = None
+
+        # A. Try school_plan_subscriptions
+        sps_res = connection.execute(
+            text("""
+                SELECT starts_at, ends_at, plan_id FROM school_plan_subscriptions 
+                WHERE school_id = :tenant_id AND status = 'active' AND starts_at <= :today 
+                AND (ends_at IS NULL OR ends_at >= :today) 
+                ORDER BY starts_at DESC LIMIT 1
+            """),
+            {"tenant_id": tenant_param, "today": today}
+        ).fetchone()
+
+        if sps_res:
+            starts_at, ends_at, plan_id = sps_res[0], sps_res[1], sps_res[2]
+        else:
+            # B. Try subscriptions
+            sub_res = connection.execute(
+                text("""
+                    SELECT starts_at, ends_at, plan FROM subscriptions 
+                    WHERE tenant_id = :tenant_id AND status = 'active' AND starts_at <= :today 
+                    AND (ends_at IS NULL OR ends_at >= :today) 
+                    ORDER BY starts_at DESC LIMIT 1
+                """),
+                {"tenant_id": tenant_param, "today": today}
+            ).fetchone()
+            if sub_res:
+                starts_at, ends_at, plan_slug = sub_res[0], sub_res[1], sub_res[2]
+
+        # Fetch Plan info
+        plan_res = None
+        if plan_id:
+            plan_res = connection.execute(
+                text("SELECT id, name, slug, price_per_student, currency, billing_min_months FROM plans WHERE id = :plan_id"),
+                {"plan_id": plan_id}
+            ).fetchone()
+        elif plan_slug:
+            plan_res = connection.execute(
+                text("SELECT id, name, slug, price_per_student, currency, billing_min_months FROM plans WHERE slug = :plan_slug LIMIT 1"),
+                {"plan_slug": plan_slug}
+            ).fetchone()
+        else:
+            plan_res = connection.execute(
+                text("SELECT id, name, slug, price_per_student, currency, billing_min_months FROM plans WHERE slug = :tenant_plan LIMIT 1"),
+                {"tenant_plan": tenant_plan_slug}
+            ).fetchone()
+
+        if not plan_res:
+            return
+
+        # Fetch the SQLAlchemy PlanModel object safely
+        from app.models.billing import Plan as PlanModel
+        plan_obj = PlanModel.query.get(plan_res[0])
+        if not plan_obj:
+            return
+
+        # 4. Resolve price and currency
+        from app.services.billing.pricing_service import PricingService
+        resolved = PricingService.resolve_price_and_currency(
+            plan=plan_obj,
+            student_count=student_count,
+            country_code=country_code,
+            preferred_currency=tenant_currency,
+        )
+        rate = resolved.price
+        currency = resolved.resolved_currency
+
+        # 5. Calculate proration ratio
+        starts_at = parse_date(starts_at)
+        ends_at = parse_date(ends_at)
+
+        if not starts_at or not ends_at:
+            return
+
+        total_days = (ends_at - starts_at).days
+        if total_days <= 0:
+            total_days = 30
+        remaining_days = (ends_at - today).days
+        remaining_days = max(0, min(total_days, remaining_days))
+
+        proration_ratio = Decimal(remaining_days) / Decimal(total_days)
+        fee = Decimal(rate) * proration_ratio
+        fee = round(fee, 2)
+
+        # 6. Insert ledger record immediately using connection
+        # Only log if fee > 0
+        if fee > 0:
+            student_name = f"{target.first_name or ''} {target.last_name or ''}".strip()
+            description = f"Prorated addition for Student: {student_name}"
+
+            connection.execute(
+                text("""
+                    INSERT INTO pending_invoice_adjustments (tenant_id, amount, currency, description, status, created_at, updated_at)
+                    VALUES (:tenant_id, :amount, :currency, :description, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """),
+                {
+                    "tenant_id": tenant_param,
+                    "amount": float(fee),
+                    "currency": currency,
+                    "description": description
+                }
+            )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error executing student proration hook: {str(e)}", exc_info=True)
+
+

@@ -124,7 +124,8 @@ from app.models.billing import (
     SchoolLimitOverride,
     StudentTermRegistration,
     SubscriptionChangeRequest,
-    PlanPricingTier
+    PlanPricingTier,
+    PendingInvoiceAdjustment
 )
 from app.models.educational_system import EducationalSystemTemplate, EducationalSystemConfig, GradeLevel
 from app.models.tenant_academic_settings import TenantAcademicSettings
