@@ -26,10 +26,10 @@ class PaymentService:
             m = 1
         term = AcademicTerm.query.filter_by(id=int(academic_term_id), tenant_id=tenant_id).first()
         if not term or not term.start_date or not term.end_date:
-            return max(3, m)
+            return m
         days = (term.end_date - term.start_date).days
         months = int((days + 29) // 30) or 1
-        return max(months, max(3, m))
+        return max(months, m)
 
     @staticmethod
     def serialize_gateway(g: PaymentGateway) -> dict[str, Any]:
@@ -219,6 +219,37 @@ class PaymentService:
 
         count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), int(academic_term_id))
 
+        # Anti-tampering logic: check historical peak and running average recorded in tenant_academic_settings
+        from app.models.tenant_academic_settings import TenantAcademicSettings
+        settings_rec = TenantAcademicSettings.query.filter_by(tenant_id=tenant.id).first()
+        if settings_rec and isinstance(settings_rec.settings, dict):
+            settings = settings_rec.settings
+            peak_keys = ('billing_peak_students', 'peak_student_count', 'historical_peak_active_students')
+            avg_keys = ('billing_average_students', 'average_student_count', 'running_average_active_students')
+            
+            peak_val = None
+            for pk in peak_keys:
+                if pk in settings and settings[pk] is not None:
+                    try:
+                        peak_val = int(settings[pk])
+                        break
+                    except (ValueError, TypeError):
+                        pass
+            
+            avg_val = None
+            for ak in avg_keys:
+                if ak in settings and settings[ak] is not None:
+                    try:
+                        avg_val = int(settings[ak])
+                        break
+                    except (ValueError, TypeError):
+                        pass
+            
+            if peak_val is not None:
+                count = max(count, peak_val)
+            if avg_val is not None:
+                count = max(count, avg_val)
+
         # Use resolve_price_and_currency so the invoice currency is always
         # authoritative from the configured pricing tier, not the tenant record.
         # This fixes invoices being generated with 0 amount when tenant.currency
@@ -237,8 +268,8 @@ class PaymentService:
             months_to_bill = PaymentService._months_for_term(tenant.id, int(academic_term_id), min_months=min_months)
         else:
             months_to_bill = int(months)
-            if months_to_bill < max(3, min_months):
-                months_to_bill = max(3, min_months)
+            if months_to_bill < min_months:
+                months_to_bill = min_months
 
         # total_amount = active_student_count * tier_price_per_student * billing_months
         subtotal = round(float(price) * float(count) * float(months_to_bill), 2)

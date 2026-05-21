@@ -73,6 +73,22 @@ class PricingService:
         return q.first()
 
     @staticmethod
+    def _get_highest_tier(
+        plan_id: int,
+        *,
+        country_code: Optional[str],
+        currency: str,
+    ) -> Optional[PlanPricingTier]:
+        """Return the highest active tier for the plan within (country_code, currency) when count exceeds defined bounds."""
+        q = PricingService._query_tiers(int(plan_id), country_code=country_code, currency=currency)
+        q = q.order_by(
+            PlanPricingTier.min_students.desc(),
+            PlanPricingTier.max_students.desc().nullsfirst(),
+            PlanPricingTier.id.desc(),
+        )
+        return q.first()
+
+    @staticmethod
     def _any_tier_for_country(
         plan_id: int,
         count: int,
@@ -98,6 +114,26 @@ class PricingService:
         q = q.order_by(
             PlanPricingTier.min_students.desc(),
             PlanPricingTier.max_students.asc().nullsfirst(),
+            PlanPricingTier.id.desc(),
+        )
+        return q.first()
+
+    @staticmethod
+    def _any_highest_tier_for_country(
+        plan_id: int,
+        country_code: Optional[str],
+    ) -> Optional[PlanPricingTier]:
+        """Find the highest active tier for *country_code* regardless of currency when count exceeds defined bounds."""
+        q = PlanPricingTier.query.filter_by(plan_id=int(plan_id), is_active=True)
+        if country_code is None:
+            q = q.filter(PlanPricingTier.country_code.is_(None))
+        else:
+            q = q.filter(
+                PlanPricingTier.country_code == (country_code or '').strip().upper()
+            )
+        q = q.order_by(
+            PlanPricingTier.min_students.desc(),
+            PlanPricingTier.max_students.desc().nullsfirst(),
             PlanPricingTier.id.desc(),
         )
         return q.first()
@@ -142,6 +178,11 @@ class PricingService:
             PricingService._pick_tier_in_range(int(plan.id), count, country_code=cc, currency=cur)
             or PricingService._pick_tier_in_range(int(plan.id), count, country_code=None, currency=cur)
         )
+        if not tier:
+            tier = (
+                PricingService._get_highest_tier(int(plan.id), country_code=cc, currency=cur)
+                or PricingService._get_highest_tier(int(plan.id), country_code=None, currency=cur)
+            )
         if tier:
             return float(tier.price_per_student_month or 0)
 
@@ -152,6 +193,11 @@ class PricingService:
                 PricingService._pick_tier_in_range(int(alias.id), count, country_code=cc, currency=cur)
                 or PricingService._pick_tier_in_range(int(alias.id), count, country_code=None, currency=cur)
             )
+            if not alias_tier:
+                alias_tier = (
+                    PricingService._get_highest_tier(int(alias.id), country_code=cc, currency=cur)
+                    or PricingService._get_highest_tier(int(alias.id), country_code=None, currency=cur)
+                )
             if alias_tier:
                 return float(alias_tier.price_per_student_month or 0)
 
@@ -173,7 +219,7 @@ class PricingService:
         3. Global fallback: any global tier (country_code=NULL) on the plan's own tiers
         4. Trial alias: repeat steps 1-3 on the TRIAL_FALLBACK_SLUG ('basic') plan
            when the school's plan slug is in PRICING_ALIAS_SLUGS ('trial', etc.)
-        5. Hard fallback: plan.price_per_student with preferred_currency
+         5. Hard fallback: plan.price_per_student with preferred_currency
 
         This prevents the "0.00 GHS" problem where:
         - The tenant's stored currency differs from configured tier currencies, OR
@@ -192,6 +238,11 @@ class PricingService:
                     PricingService._pick_tier_in_range(pid, count, country_code=cc, currency=pref_cur)
                     or PricingService._pick_tier_in_range(pid, count, country_code=None, currency=pref_cur)
                 )
+                if not tier:
+                    tier = (
+                        PricingService._get_highest_tier(pid, country_code=cc, currency=pref_cur)
+                        or PricingService._get_highest_tier(pid, country_code=None, currency=pref_cur)
+                    )
                 if tier:
                     return ResolvedPrice(
                         price=float(tier.price_per_student_month or 0),
@@ -202,6 +253,8 @@ class PricingService:
             # Step B: country fallback — any currency configured for this country
             if cc:
                 tier = PricingService._any_tier_for_country(pid, count, country_code=cc)
+                if not tier:
+                    tier = PricingService._any_highest_tier_for_country(pid, country_code=cc)
                 if tier:
                     return ResolvedPrice(
                         price=float(tier.price_per_student_month or 0),
@@ -211,6 +264,8 @@ class PricingService:
 
             # Step C: global fallback — tiers with no country restriction
             tier = PricingService._any_tier_for_country(pid, count, country_code=None)
+            if not tier:
+                tier = PricingService._any_highest_tier_for_country(pid, country_code=None)
             if tier:
                 return ResolvedPrice(
                     price=float(tier.price_per_student_month or 0),
