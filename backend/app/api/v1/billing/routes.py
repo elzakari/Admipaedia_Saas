@@ -286,7 +286,7 @@ def school_submit_manual_payment(invoice_id: int):
     user_id = getattr(g, 'current_user', None).id
 
     amount_raw = request.form.get('amount')
-    currency = request.form.get('currency')
+    currency = (request.form.get('currency') or '').strip().upper() or None
     method = request.form.get('method')
     reference = request.form.get('reference')
     paid_at_raw = request.form.get('paid_at')
@@ -299,6 +299,40 @@ def school_submit_manual_payment(invoice_id: int):
         return jsonify({'success': False, 'message': 'amount must be > 0'}), 400
 
     paid_at = _parse_datetime(paid_at_raw)
+
+    # ── Currency resolution ──────────────────────────────────────────────────
+    # If the school's form did not supply a currency (or supplied a blank),
+    # resolve it dynamically from the tenant's workspace configuration so
+    # that the payment currency always matches the invoice currency.
+    # This prevents the currency-mismatch rejection in apply_payment_success().
+    if not currency:
+        try:
+            from app.models.tenant import Tenant
+            from app.services.billing.pricing_service import PricingService
+            from app.services.entitlements.service import EntitlementService
+            from app.models.billing import BillingInvoice as _BInv
+
+            # Prefer the currency already on the invoice (source of truth)
+            _inv = _BInv.query.filter_by(id=int(invoice_id), tenant_id=tenant_id).first()
+            if _inv and _inv.currency:
+                currency = str(_inv.currency).strip().upper()
+            else:
+                # Fall back to PricingService resolution via tenant's country + currency
+                _tenant = Tenant.query.get(tenant_id)
+                if _tenant:
+                    _plan_ctx, _ = EntitlementService.getSchoolActivePlan(str(tenant_id))
+                    if _plan_ctx and _plan_ctx.plan:
+                        _resolved = PricingService.resolve_price_and_currency(
+                            plan=_plan_ctx.plan,
+                            student_count=0,
+                            country_code=_tenant.country_code,
+                            preferred_currency=_tenant.currency or None,
+                        )
+                        currency = _resolved.resolved_currency
+                    else:
+                        currency = (_tenant.currency or 'USD').strip().upper()
+        except Exception:
+            currency = None  # let submit_manual_payment fall back to inv.currency
 
     proof_path = None
     if 'proof' in request.files:
@@ -320,6 +354,7 @@ def school_submit_manual_payment(invoice_id: int):
     if err or not p:
         return jsonify({'success': False, 'message': err or 'Failed'}), 400
     return jsonify({'success': True, 'payment': PaymentService.serialize_payment(p)}), 201
+
 
 
 @billing_bp.route('/plans', methods=['GET'])

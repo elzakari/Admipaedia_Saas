@@ -71,7 +71,8 @@ class Payment(db.Model):
     __tablename__ = 'billing_invoice_payments'
     __table_args__ = (
         db.Index('idx_billing_invoice_payments_invoice', 'invoice_id'),
-        db.Index('idx_billing_invoice_payments_school', 'school_id'),
+        # Index references the DB column name 'tenant_id' (mapped from school_id attr)
+        db.Index('idx_billing_invoice_payments_school', 'tenant_id'),
         db.Index('idx_billing_invoice_payments_reference', 'payment_reference'),
         db.UniqueConstraint('gateway_name', 'payment_reference', name='uq_billing_invoice_payments_gateway_reference'),
     )
@@ -79,7 +80,19 @@ class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     invoice_id = db.Column(db.Integer, db.ForeignKey('billing_invoices.id'), nullable=False)
-    school_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+
+    # `school_id` is the canonical Python attribute name used throughout the application
+    # (views, serializers, service methods).  The DB column is named `tenant_id` — the
+    # original NOT NULL column from the first migration.  The `name` parameter below
+    # ensures SQLAlchemy maps writes from this attribute directly to the `tenant_id`
+    # DB column, eliminating the school_id/tenant_id desync that caused NULL violations.
+    school_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey('tenants.id'),
+        nullable=False,
+        index=True,
+        name='tenant_id',       # canonical DB column name
+    )
 
     payment_gateway_id = db.Column(db.Integer, db.ForeignKey('payment_gateways.id'), nullable=True)
     gateway_name = db.Column(db.String(64), nullable=False)
@@ -96,6 +109,7 @@ class Payment(db.Model):
     payment_link = db.Column(db.Text, nullable=True)
     gateway_response = db.Column(JSON().with_variant(JSONB(), 'postgresql'), nullable=True)
 
+    # paid_at is NULL for pending/failed payments; set only when status → successful
     paid_at = db.Column(db.DateTime(timezone=True), nullable=True)
     verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
