@@ -67,6 +67,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const isCasaos = theme === 'casaos';
   const { current } = useSaasTenant()
+  const userRole = user?.role === 'school_admin' ? 'admin' : (user?.role || 'user');
 
   const brandTitle =
     user?.role === 'super_admin'
@@ -94,7 +95,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
   const getNavItemLabel = (item: NavItem): string => {
     try {
-      const translated = t(item.labelKey);
+      const translated = t(item.labelKey, item.name);
       if (!translated || translated === item.labelKey) {
         return item.name || item.labelKey || 'Menu Item';
       }
@@ -106,10 +107,10 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
   const dashboardPath =
     (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
-    user?.role === 'admin' ? '/admin/dashboard' :
-    user?.role === 'teacher' ? '/teacher/dashboard' :
-    user?.role === 'student' ? '/student/dashboard' :
-    user?.role === 'parent' ? '/parent/dashboard' :
+    userRole === 'admin' ? '/admin/dashboard' :
+    userRole === 'teacher' ? '/teacher/dashboard' :
+    userRole === 'student' ? '/student/dashboard' :
+    userRole === 'parent' ? '/parent/dashboard' :
     '/dashboard';
 
   const navItemsByRole: Record<string, NavItem[]> = {
@@ -256,14 +257,42 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
     return location.pathname.startsWith(pathOnly);
   };
 
-  const baseNavItems: NavItem[] = navItemsByRole[user?.role || 'user'] ?? navItemsByRole.user ?? [];
+  const simpleFeatureByPath: Record<string, string[]> = {
+    '/students': ['students', 'student_management'],
+    '/teachers': ['teachers'],
+    '/parents': ['parents'],
+    '/academics': ['academics', 'classes', 'subjects'],
+    '/attendance': ['attendance'],
+    '/exams': ['exams'],
+    '/reports': ['reports'],
+    '/admissions': ['admissions'],
+    '/fees': ['fees'],
+    '/library': ['library'],
+    '/schedule': ['schedule', 'classes'],
+    '/parent/schedule': ['schedule', 'classes'],
+    '/calendar': ['calendar', 'schedule', 'classes'],
+    '/parent/calendar': ['calendar', 'schedule', 'classes'],
+    '/notifications': ['messaging', 'notifications'],
+    '/messages': ['messaging', 'messages'],
+    '/admin/administration': ['administration']
+  };
+
+  const baseNavItems: NavItem[] = navItemsByRole[userRole] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
-    if (user?.role === 'super_admin' || user?.role === 'super_manager') return true
-    const fk = featureByPath[item.path]
-    if (!fk) return true
-    if (entitlementsLoading) return true
-    return hasFeature(fk)
-  })
+    if (user?.role === 'super_admin' || user?.role === 'super_manager') return true;
+
+    // Check direct enabled features first
+    const directFeatures = simpleFeatureByPath[item.path];
+    if (directFeatures && current?.tenant?.enabled_features) {
+      const hasDirect = directFeatures.some((f) => current.tenant.enabled_features?.includes(f));
+      if (hasDirect) return true;
+    }
+
+    const fk = featureByPath[item.path];
+    if (!fk) return true;
+    if (entitlementsLoading) return true;
+    return hasFeature(fk);
+  });
 
   // Quick action handlers
   const handleAddStudent = () => {
@@ -357,7 +386,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
           </div>
   
           {/* Floating Action Button - MOVED TO BOTTOM */}
-          {user?.role === 'admin' && (
+          {userRole === 'admin' && (
           <div className="mt-auto">
             <DropdownMenu>
               <TooltipProvider>

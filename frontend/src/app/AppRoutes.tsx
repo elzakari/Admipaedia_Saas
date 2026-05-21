@@ -348,7 +348,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<MFASetupPage />} 
-            allowedRoles={['admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="MFA Setup"
           />
         } 
@@ -360,7 +360,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<AdminDashboard />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Admin Dashboard"
           />
         } 
@@ -371,7 +371,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute
             element={<AdminERegistrationBillingPage />}
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Billing & E-Registration Plan"
           />
         }
@@ -382,7 +382,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute
             element={<AdminInvitationsPage />}
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Invitations"
           />
         }
@@ -604,7 +604,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<AdmissionsPage />} 
-            allowedRoles={['parent', 'admin']}
+            allowedRoles={['parent', 'admin', 'school_admin']}
             componentName="Admissions"
           />
         } 
@@ -615,7 +615,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<AdmissionFormPage />} 
-            allowedRoles={['parent', 'admin']}
+            allowedRoles={['parent', 'admin', 'school_admin']}
             componentName="Admission Form"
           />
         } 
@@ -630,7 +630,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<AcademicsPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Academics"
               />
             )
@@ -645,7 +645,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<StudentsPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Students Management"
               />
             )
@@ -657,7 +657,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<StudentProfilePage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Student Profile"
           />
         } 
@@ -668,7 +668,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<StudentEditPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Edit Student"
           />
         } 
@@ -679,7 +679,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<TeachersPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Teachers Management"
           />
         } 
@@ -690,7 +690,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<ParentManagementPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Parents Management"
           />
         } 
@@ -716,7 +716,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<AttendancePage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Attendance"
               />
             )
@@ -728,7 +728,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<ReportsPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Reports"
           />
         } 
@@ -742,7 +742,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<ExamsPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Exams"
               />
             )
@@ -757,7 +757,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<ClassesPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Classes"
               />
             )
@@ -798,7 +798,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<CalendarPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Calendar"
               />
             )
@@ -810,7 +810,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<ExportPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Data Export"
           />
         } 
@@ -824,7 +824,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<LibraryPage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Library"
               />
             )
@@ -843,7 +843,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<SchedulePage />} 
-                allowedRoles={['admin']}
+                allowedRoles={['admin', 'school_admin']}
                 componentName="Schedule"
               />
             )
@@ -860,7 +860,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<NotificationsPage />} 
-                allowedRoles={['admin', 'parent']}
+                allowedRoles={['admin', 'school_admin', 'parent']}
                 componentName="Notifications"
               />
             )
@@ -877,7 +877,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<MessagesPage />} 
-                allowedRoles={['admin', 'parent']}
+                allowedRoles={['admin', 'school_admin', 'parent']}
                 componentName="Messages"
               />
             )
@@ -889,7 +889,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<FeesPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Fees Management"
           />
         } 
@@ -900,7 +900,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<AdministrationPage />} 
-            allowedRoles={['admin']}
+            allowedRoles={['admin', 'school_admin']}
             componentName="Administration"
           />
         } 
@@ -940,7 +940,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<SettingsPage />} 
-                allowedRoles={['admin', 'teacher', 'student', 'parent']}
+                allowedRoles={['admin', 'school_admin', 'teacher', 'student', 'parent']}
                 componentName="Settings"
               />
             )
@@ -952,7 +952,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<ProfilePage />} 
-            allowedRoles={['super_admin', 'admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['super_admin', 'admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="Profile"
           />
         } 
@@ -968,7 +968,7 @@ export default function AppRoutes() {
             : (
               <ProtectedRoute 
                 element={<AnnouncementsPage />} 
-                allowedRoles={['admin', 'parent']}
+                allowedRoles={['admin', 'school_admin', 'parent']}
                 componentName="Announcements"
               />
             )
@@ -980,7 +980,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<HelpPage />} 
-            allowedRoles={['super_admin', 'admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['super_admin', 'admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="Help Center"
           />
         } 
@@ -991,7 +991,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<GuidesPage />} 
-            allowedRoles={['super_admin', 'admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['super_admin', 'admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="User Documentation"
           />
         } 
@@ -1002,7 +1002,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<TermsPage />} 
-            allowedRoles={['super_admin', 'admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['super_admin', 'admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="Terms of Service"
           />
         } 
@@ -1013,7 +1013,7 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute 
             element={<PrivacyPage />} 
-            allowedRoles={['super_admin', 'admin', 'teacher', 'student', 'parent']}
+            allowedRoles={['super_admin', 'admin', 'school_admin', 'teacher', 'student', 'parent']}
             componentName="Privacy Policy"
           />
         } 
@@ -1027,9 +1027,11 @@ export default function AppRoutes() {
             to={
               user?.role === 'super_admin'
                 ? '/super-admin'
-                : user?.role
-                  ? `/${user.role}/dashboard`
-                  : '/login'
+                : user?.role === 'school_admin'
+                  ? '/admin/dashboard'
+                  : user?.role
+                    ? `/${user.role}/dashboard`
+                    : '/login'
             }
             replace
           />

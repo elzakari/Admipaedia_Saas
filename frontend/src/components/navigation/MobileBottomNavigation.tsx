@@ -30,7 +30,7 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
   // Dynamic Dashboard path based on user role context
   const getDashboardPath = () => {
     return user?.role === 'super_admin' ? '/super-admin' :
-           user?.role === 'admin' ? '/admin/dashboard' :
+           (user?.role === 'admin' || user?.role === 'school_admin') ? '/admin/dashboard' :
            user?.role === 'teacher' ? '/teacher/dashboard' :
            user?.role === 'student' ? '/student/dashboard' :
            user?.role === 'parent' ? '/parent/dashboard' :
