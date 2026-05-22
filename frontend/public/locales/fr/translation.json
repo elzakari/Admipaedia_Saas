@@ -1125,13 +1125,20 @@
       "description": "Afficher et modifier les informations de votre compte",
       "name": "Nom",
       "role": "Rôle",
+      "role_parent": "Parent d'élève",
       "open_profile": "Ouvrir le profil"
     },
     "language": {
       "title": "Langue",
       "description": "Choisissez comment ADMIPAEDIA s'affiche pour vous",
       "preferred": "Langue préférée",
-      "select": "Sélectionner la langue"
+      "select": "Sélectionner la langue",
+      "languages": {
+        "en": "Anglais",
+        "fr": "Français",
+        "es": "Espagnol",
+        "ar": "Arabe"
+      }
     },
     "theme": {
       "title": "Thème & Apparence",
@@ -1187,6 +1194,42 @@
       "saved_toast": "Vos préférences de notification ont été mises à jour.",
       "reset_toast": "Les préférences de notification ont été réinitialisées par défaut."
     }
+  },
+  "schedule": {
+    "upcoming_events": "Événements à venir",
+    "events_description": "Événements et activités de l'école",
+    "no_events": "Aucun événement à venir ce mois-ci.",
+    "title": "Emploi du temps",
+    "subtitle": "Horaires, examens et événements",
+    "select_child": "Sélectionner un enfant",
+    "term": "Trimestre",
+    "academic_year": "Année académique",
+    "terms": {
+      "term_1": "Trimestre 1",
+      "term_2": "Trimestre 2",
+      "term_3": "Trimestre 3"
+    },
+    "tabs": {
+      "timetable": "Emploi du temps",
+      "exams": "Examens",
+      "events": "Événements"
+    },
+    "days": {
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi"
+    },
+    "no_periods": "Aucune période configurée pour le moment.",
+    "no_exams": "Aucun examen trouvé.",
+    "no_events_found": "Aucun événement trouvé.",
+    "export": "Exporter"
+  },
+  "calendar": {
+    "title": "Calendrier",
+    "description": "Calendrier scolaire en lecture seule",
+    "no_events_current_month": "Aucun événement ce mois-ci."
   },
   "parent_admissions": {
     "title": "Demandes d'admission",

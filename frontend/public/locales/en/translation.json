@@ -1125,13 +1125,20 @@
       "description": "View and edit your account information",
       "name": "Name",
       "role": "Role",
+      "role_parent": "Parent",
       "open_profile": "Open Profile"
     },
     "language": {
       "title": "Language",
       "description": "Choose how ADMIPEDIA is displayed for you",
       "preferred": "Preferred language",
-      "select": "Select language"
+      "select": "Select language",
+      "languages": {
+        "en": "English",
+        "fr": "French",
+        "es": "Spanish",
+        "ar": "Arabic"
+      }
     },
     "theme": {
       "title": "Theme & Appearance",
@@ -1187,6 +1194,42 @@
       "saved_toast": "Your notification preferences have been updated.",
       "reset_toast": "Notification preferences were reset to defaults."
     }
+  },
+  "schedule": {
+    "upcoming_events": "Upcoming Events",
+    "events_description": "School events and activities",
+    "no_events": "No upcoming events this month.",
+    "title": "Schedule",
+    "subtitle": "Timetable, exams, and events",
+    "select_child": "Select child",
+    "term": "Term",
+    "academic_year": "Academic year",
+    "terms": {
+      "term_1": "Term 1",
+      "term_2": "Term 2",
+      "term_3": "Term 3"
+    },
+    "tabs": {
+      "timetable": "Timetable",
+      "exams": "Exams",
+      "events": "Events"
+    },
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday"
+    },
+    "no_periods": "No periods configured yet.",
+    "no_exams": "No exams found.",
+    "no_events_found": "No events found.",
+    "export": "Export"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "description": "Read-only school calendar",
+    "no_events_current_month": "No events this month."
   },
   "parent_admissions": {
     "title": "Admission Applications",

@@ -64,8 +64,8 @@ const ParentGeneralSettings: React.FC = () => {
             </div>
             <div>
               <div className="text-xs text-slate-500">{t('parent_settings.profile.role', 'Role')}</div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize">
-                {user?.role || 'parent'}
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {user?.role === 'parent' ? t('parent_settings.profile.role_parent', 'Parent') : user?.role || ''}
               </div>
             </div>
           </div>
@@ -95,7 +95,7 @@ const ParentGeneralSettings: React.FC = () => {
             <SelectContent>
               {supportedLanguages.map((l) => (
                 <SelectItem key={l.value} value={l.value}>
-                  {l.label}
+                  {t(`parent_settings.language.languages.${l.value}`, l.label)}
                 </SelectItem>
               ))}
             </SelectContent>

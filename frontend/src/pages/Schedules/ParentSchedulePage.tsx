@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Calendar, Download } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -37,6 +38,7 @@ const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
 
 const ParentSchedulePage: React.FC = () => {
+  const { t, i18n } = useTranslation()
   const [activeTab, setActiveTab] = useState<'timetable' | 'exams' | 'events'>('timetable')
   const [academicYear, setAcademicYear] = useState('2024/2025')
   const [term, setTerm] = useState<'Term 1' | 'Term 2' | 'Term 3'>('Term 1')
@@ -127,23 +129,23 @@ const ParentSchedulePage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Upcoming Events</CardTitle>
-            <CardDescription>School events and activities</CardDescription>
+            <CardTitle>{t('schedule.upcoming_events', 'Upcoming Events')}</CardTitle>
+            <CardDescription>{t('schedule.events_description', 'School events and activities')}</CardDescription>
           </CardHeader>
           <CardContent>
             {eventsLoading ? (
-              <div className="text-sm text-slate-600">Loading…</div>
+              <div className="text-sm text-slate-600">{t('common.loading', 'Loading…')}</div>
             ) : upcomingEvents.length ? (
               <div className="space-y-3">
                 {upcomingEvents.map((e: any) => (
                   <div key={e.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="text-sm font-semibold text-slate-900">{e.title}</div>
-                    <div className="text-xs text-slate-600">{e.date ? new Date(e.date).toLocaleString() : ''}</div>
+                    <div className="text-xs text-slate-600">{e.date ? new Date(e.date).toLocaleString(i18n.language) : ''}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-slate-600">No upcoming events this month.</div>
+              <div className="text-sm text-slate-600">{t('schedule.no_events', 'No upcoming events this month.')}</div>
             )}
           </CardContent>
         </Card>
@@ -151,8 +153,8 @@ const ParentSchedulePage: React.FC = () => {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Schedule</CardTitle>
-              <CardDescription>Timetable, exams, and events</CardDescription>
+              <CardTitle>{t('schedule.title', 'Schedule')}</CardTitle>
+              <CardDescription>{t('schedule.subtitle', 'Timetable, exams, and events')}</CardDescription>
             </div>
             <div className="flex gap-2 items-center">
               <Select
@@ -161,7 +163,7 @@ const ParentSchedulePage: React.FC = () => {
                 disabled={childrenLoading}
               >
                 <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Select child" />
+                  <SelectValue placeholder={t('schedule.select_child', 'Select child')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(children || []).map((c: any) => (
@@ -173,17 +175,17 @@ const ParentSchedulePage: React.FC = () => {
               </Select>
               <Select value={term} onValueChange={(v) => setTerm(v as any)}>
                 <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Term" />
+                  <SelectValue placeholder={t('schedule.term', 'Term')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Term 1">Term 1</SelectItem>
-                  <SelectItem value="Term 2">Term 2</SelectItem>
-                  <SelectItem value="Term 3">Term 3</SelectItem>
+                  <SelectItem value="Term 1">{t('schedule.terms.term_1', 'Term 1')}</SelectItem>
+                  <SelectItem value="Term 2">{t('schedule.terms.term_2', 'Term 2')}</SelectItem>
+                  <SelectItem value="Term 3">{t('schedule.terms.term_3', 'Term 3')}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={academicYear} onValueChange={setAcademicYear}>
                 <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Academic year" />
+                  <SelectValue placeholder={t('schedule.academic_year', 'Academic year')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="2024/2025">2024/2025</SelectItem>
@@ -196,20 +198,22 @@ const ParentSchedulePage: React.FC = () => {
           <CardContent className="space-y-4">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
               <TabsList>
-                <TabsTrigger value="timetable">Timetable</TabsTrigger>
-                <TabsTrigger value="exams">Exams</TabsTrigger>
-                <TabsTrigger value="events">Events</TabsTrigger>
+                <TabsTrigger value="timetable">{t('schedule.tabs.timetable', 'Timetable')}</TabsTrigger>
+                <TabsTrigger value="exams">{t('schedule.tabs.exams', 'Exams')}</TabsTrigger>
+                <TabsTrigger value="events">{t('schedule.tabs.events', 'Events')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="timetable" className="space-y-3">
                 {timetableLoading ? (
-                  <div className="text-sm text-slate-600">Loading…</div>
+                  <div className="text-sm text-slate-600">{t('common.loading', 'Loading…')}</div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {days.map((d) => (
                       <Card key={d}>
                         <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2"><Calendar className="h-4 w-4" /> {d}</CardTitle>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> {t(`schedule.days.${d.toLowerCase()}`, d)}
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           {Array.isArray((timetable as any)?.[d]) && (timetable as any)[d].length ? (
@@ -221,7 +225,7 @@ const ParentSchedulePage: React.FC = () => {
                               </div>
                             ))
                           ) : (
-                            <div className="text-sm text-slate-600">No periods configured yet.</div>
+                            <div className="text-sm text-slate-600">{t('schedule.no_periods', 'No periods configured yet.')}</div>
                           )}
                         </CardContent>
                       </Card>
@@ -232,42 +236,42 @@ const ParentSchedulePage: React.FC = () => {
                 <div className="flex justify-end">
                   <Button variant="outline" onClick={exportTimetable} disabled={timetableLoading}>
                     <Download className="h-4 w-4" />
-                    Export
+                    {t('schedule.export', 'Export')}
                   </Button>
                 </div>
               </TabsContent>
 
               <TabsContent value="exams" className="space-y-3">
                 {examsLoading ? (
-                  <div className="text-sm text-slate-600">Loading…</div>
+                  <div className="text-sm text-slate-600">{t('common.loading', 'Loading…')}</div>
                 ) : exams.length ? (
                   <div className="space-y-2">
                     {exams.map((ex: any) => (
                       <div key={ex.id} className="rounded-lg border border-slate-200 p-3">
                         <div className="text-sm font-semibold text-slate-900">{ex.title}</div>
-                        <div className="text-xs text-slate-600">{ex.exam_date ? new Date(ex.exam_date).toLocaleString() : ''}</div>
+                        <div className="text-xs text-slate-600">{ex.exam_date ? new Date(ex.exam_date).toLocaleString(i18n.language) : ''}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-600">No exams found.</div>
+                  <div className="text-sm text-slate-600">{t('schedule.no_exams', 'No exams found.')}</div>
                 )}
               </TabsContent>
 
               <TabsContent value="events" className="space-y-3">
                 {eventsLoading ? (
-                  <div className="text-sm text-slate-600">Loading…</div>
+                  <div className="text-sm text-slate-600">{t('common.loading', 'Loading…')}</div>
                 ) : events.length ? (
                   <div className="space-y-2">
                     {events.slice(0, 20).map((e: any) => (
                       <div key={e.id} className="rounded-lg border border-slate-200 p-3">
                         <div className="text-sm font-semibold text-slate-900">{e.title}</div>
-                        <div className="text-xs text-slate-600">{e.date ? new Date(e.date).toLocaleString() : ''}</div>
+                        <div className="text-xs text-slate-600">{e.date ? new Date(e.date).toLocaleString(i18n.language) : ''}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-600">No events found.</div>
+                  <div className="text-sm text-slate-600">{t('schedule.no_events_found', 'No events found.')}</div>
                 )}
               </TabsContent>
             </Tabs>
