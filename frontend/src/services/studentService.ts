@@ -94,10 +94,66 @@ export interface StudentAssignment {
   feedback: string | null;
 }
 
+export interface StudentGrade {
+  id: number;
+  subject: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  ca_score: number;
+  exam_score: number;
+  total_score: number;
+  grade_letter: string;
+  remarks: string;
+}
+
+export interface StudentGradesResponse {
+  cumulative_average: number;
+  class_rank: number;
+  total_students: number;
+  grades: StudentGrade[];
+}
+
+export interface StudentAttendanceHistoryItem {
+  id: number;
+  date: string;
+  status: 'present' | 'absent' | 'late' | 'excused' | string;
+  remarks: string;
+}
+
+export interface StudentAttendanceSummary {
+  overall_percentage: number;
+  days_present: number;
+  days_absent: number;
+  days_late: number;
+  days_excused: number;
+  history: StudentAttendanceHistoryItem[];
+}
+
+export interface StudentTimetableResponse {
+  timetable: StudentTimetableItem[];
+}
+
 const studentService = {
   getDashboardSummary: async (): Promise<StudentDashboardSummary> => {
     const response = await api.get('/student/dashboard-summary');
     return (response.data?.data || response.data) as StudentDashboardSummary;
+  },
+
+  getGrades: async (termId?: string): Promise<StudentGradesResponse> => {
+    const response = await api.get('/student/grades', { params: { term_id: termId } });
+    return (response.data?.data || response.data) as StudentGradesResponse;
+  },
+
+  getAttendanceSummary: async (): Promise<StudentAttendanceSummary> => {
+    const response = await api.get('/student/attendance/summary');
+    return (response.data?.data || response.data) as StudentAttendanceSummary;
+  },
+
+  getTimetable: async (): Promise<StudentTimetableResponse> => {
+    const response = await api.get('/student/timetable');
+    return (response.data?.data || response.data) as StudentTimetableResponse;
   },
 
   getCourses: async (): Promise<StudentCourseList> => {

@@ -52,7 +52,10 @@
     "share": "Share",
     "switch_to_light_mode": "Switch to light mode",
     "switch_to_dark_mode": "Switch to dark mode",
-    "all_rights_reserved": "All rights reserved."
+    "all_rights_reserved": "All rights reserved.",
+    "status": {
+      "ongoing": "Ongoing"
+    }
   },
   "auth": {
     "email": "Email Address",
@@ -926,11 +929,21 @@
       "select_term": "Select term",
       "results": "Results",
       "read_only_for": "Read-only results for",
+      "cumulative_average": "Cumulative GPA / Average",
+      "rank_in_class": "Rank in Class",
+      "no_grades": "No grade records found for this term.",
       "columns": {
         "subject": "Subject",
-        "score": "Score",
-        "grade": "Grade",
+        "ca": "Continuous Assessment (CA)",
+        "exam": "Exam Score",
+        "total": "Total",
+        "grade_letter": "Grade Letter",
         "remarks": "Remarks"
+      },
+      "remarks_lookup": {
+        "Excellent": "Excellent",
+        "Pass": "Pass",
+        "Needs Improvement": "Needs Improvement"
       }
     },
     "attendance": {
@@ -941,7 +954,11 @@
       "absent": "Absent",
       "late": "Late",
       "history": "History",
-      "most_recent": "Most recent entries"
+      "most_recent": "Most recent entries",
+      "days_present": "Days Present",
+      "days_absent": "Days Absent",
+      "days_late": "Late Logs",
+      "days_excused": "Excused Days"
     },
     "enrolled": "enrolled"
   },
@@ -968,7 +985,11 @@
       "sessions_count": "{{count}} session(s)",
       "sessions_count_other": "{{count}} session(s)",
       "loading": "Loading timetable and courses...",
-      "error_loading": "Failed to load courses."
+      "error_loading": "Failed to load courses.",
+      "time_period": "Time Period",
+      "subject_code": "Subject / Code",
+      "instructor": "Instructor",
+      "room_hall": "Room / Hall"
     },
     "classes": {
       "title": "My Classes",
@@ -1006,7 +1027,9 @@
       "Tue": "Tuesday",
       "Wed": "Wednesday",
       "Thu": "Thursday",
-      "Fri": "Friday"
+      "Fri": "Friday",
+      "Sat": "Saturday",
+      "Sun": "Sunday"
     }
   },
   "parent_portal": {
@@ -1293,7 +1316,16 @@
   "calendar": {
     "title": "Calendar",
     "description": "Read-only school calendar",
-    "no_events_current_month": "No events this month."
+    "no_events_current_month": "No events this month.",
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    }
   },
   "parent_admissions": {
     "title": "Admission Applications",
@@ -1481,5 +1513,13 @@
     "billing": "Billing & Plans",
     "security": "Security Settings",
     "backup": "Backup & Restore"
+  },
+  "attendance": {
+    "status": {
+      "present": "Present",
+      "absent": "Absent",
+      "late": "Late",
+      "excused": "Excused"
+    }
   }
 }

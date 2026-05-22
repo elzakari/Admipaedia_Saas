@@ -255,3 +255,226 @@ def get_student_assignments():
         'success': True,
         'assignments': assignments_data
     }), 200
+
+@student_bp.route('/grades', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_grades():
+    from app.models.exam import Exam
+    
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    term_filter = request.args.get('term_id') or 'Term 1'
+    
+    # 1. Total students in class
+    total_students = Student.query.filter_by(class_id=student.class_id).count() if student.class_id else 1
+    
+    # 2. Class rank & cumulative average
+    class_students = Student.query.filter_by(class_id=student.class_id).all() if student.class_id else [student]
+    
+    student_averages = []
+    for s in class_students:
+        avg_percentage = db.session.query(func.avg(Grade.percentage))\
+            .filter(Grade.student_id == s.id)\
+            .scalar()
+        student_averages.append((s.id, float(avg_percentage or 0.0)))
+        
+    student_averages.sort(key=lambda x: x[1], reverse=True)
+    
+    class_rank = 1
+    for idx, (s_id, avg_val) in enumerate(student_averages):
+        if s_id == student.id:
+            class_rank = idx + 1
+            break
+            
+    student_avg = next((avg_val for s_id, avg_val in student_averages if s_id == student.id), 0.0)
+
+    # 3. Retrieve detailed grades
+    grade_query = Grade.query.filter(Grade.student_id == student.id)
+    if term_filter and term_filter != 'all':
+        # Optional term filtering: check both direct column and exam description/title
+        grade_query = grade_query.filter(Grade.term == term_filter)
+        
+    grades_list = grade_query.all()
+
+    # Group grades by subject to split CA vs Exam
+    grades_by_subject = {}
+    for g in grades_list:
+        sub_id = g.subject_id
+        if not sub_id:
+            continue
+        if sub_id not in grades_by_subject:
+            grades_by_subject[sub_id] = []
+        grades_by_subject[sub_id].append(g)
+
+    grades_data = []
+    for sub_id, g_list in grades_by_subject.items():
+        subject = Subject.query.get(sub_id)
+        if not subject:
+            continue
+            
+        ca_percentages = []
+        exam_percentages = []
+        
+        for g in g_list:
+            exam_title = ""
+            if g.exam_id:
+                exam = Exam.query.get(g.exam_id)
+                if exam:
+                    exam_title = exam.title.lower()
+            
+            if 'final' in exam_title or 'end' in exam_title:
+                exam_percentages.append(g.percentage)
+            else:
+                ca_percentages.append(g.percentage)
+
+        # Average calculations (40% continuous assessment, 60% exam score)
+        avg_ca = sum(ca_percentages) / len(ca_percentages) if ca_percentages else (g_list[0].percentage if g_list else 0.0)
+        avg_exam = sum(exam_percentages) / len(exam_percentages) if exam_percentages else (g_list[0].percentage if g_list else 0.0)
+        
+        ca_score = round(avg_ca * 0.4, 2)
+        exam_score = round(avg_exam * 0.6, 2)
+        total_score = round(ca_score + exam_score, 2)
+        
+        # Calculate grade letter
+        if total_score >= 90:
+            grade_letter = 'A+'
+        elif total_score >= 80:
+            grade_letter = 'A'
+        elif total_score >= 70:
+            grade_letter = 'B+'
+        elif total_score >= 60:
+            grade_letter = 'B'
+        elif total_score >= 50:
+            grade_letter = 'C'
+        elif total_score >= 40:
+            grade_letter = 'D'
+        else:
+            grade_letter = 'F'
+            
+        remarks = g_list[0].remarks if (g_list and g_list[0].remarks) else ""
+        if not remarks:
+            if grade_letter in ['A+', 'A']:
+                remarks = "Excellent"
+            elif grade_letter in ['B+', 'B']:
+                remarks = "Pass"
+            else:
+                remarks = "Needs Improvement"
+
+        grades_data.append({
+            'id': g_list[0].id,
+            'subject': {
+                'id': subject.id,
+                'name': subject.name,
+                'code': subject.code
+            },
+            'ca_score': ca_score,
+            'exam_score': exam_score,
+            'total_score': total_score,
+            'grade_letter': grade_letter,
+            'remarks': remarks
+        })
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'cumulative_average': round(student_avg, 2),
+            'class_rank': class_rank,
+            'total_students': total_students,
+            'grades': grades_data
+        }
+    }), 200
+
+@student_bp.route('/attendance/summary', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_attendance_summary():
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    # Consolidated counts
+    days_present = Attendance.query.filter_by(student_id=student.id, status='present').count()
+    days_absent = Attendance.query.filter_by(student_id=student.id, status='absent').count()
+    days_late = Attendance.query.filter_by(student_id=student.id, status='late').count()
+    days_excused = Attendance.query.filter_by(student_id=student.id, status='excused').count()
+
+    total_days = days_present + days_absent + days_late + days_excused
+    overall_percentage = round(((days_present + days_late + days_excused) / total_days * 100) if total_days else 100.0, 2)
+
+    # History logs sorted descending by date
+    history_records = Attendance.query.filter_by(student_id=student.id).order_by(Attendance.date.desc()).all()
+    
+    history_data = []
+    for att in history_records:
+        history_data.append({
+            'id': att.id,
+            'date': att.date.strftime('%Y-%m-%d'),
+            'status': att.status,
+            'remarks': att.remarks or '-'
+        })
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'overall_percentage': overall_percentage,
+            'days_present': days_present,
+            'days_absent': days_absent,
+            'days_late': days_late,
+            'days_excused': days_excused,
+            'history': history_data
+        }
+    }), 200
+
+@student_bp.route('/timetable', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_timetable():
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+        
+    class_id = student.class_id
+    if not class_id:
+        return jsonify({'success': True, 'timetable': []}), 200
+        
+    cls = Class.query.get(class_id)
+    if not cls:
+        return jsonify({'success': True, 'timetable': []}), 200
+
+    slots = TimetableSlot.query.filter_by(class_id=class_id).all()
+    timetable_data = []
+    
+    day_map = {
+        'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed', 'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat', 'Sunday': 'Sun',
+        'Mon': 'Mon', 'Tue': 'Tue', 'Wed': 'Wed', 'Thu': 'Thu', 'Fri': 'Fri', 'Sat': 'Sat', 'Sun': 'Sun'
+    }
+    
+    for slot in slots:
+        start_str = slot.period.start_time.strftime('%H:%M') if slot.period and slot.period.start_time else "08:00"
+        end_str = slot.period.end_time.strftime('%H:%M') if slot.period and slot.period.end_time else "09:30"
+        day_abbr = day_map.get(slot.day_of_week, slot.day_of_week[:3])
+        
+        timetable_data.append({
+            'id': slot.id,
+            'day': day_abbr,
+            'start': start_str,
+            'end': end_str,
+            'subject': slot.subject.name if slot.subject else 'Subject',
+            'teacher': slot.teacher.full_name if slot.teacher else 'Teacher',
+            'room': cls.room or f"Room {slot.room_id}" if slot.room_id else (cls.room or 'N/A')
+        })
+
+    return jsonify({
+        'success': True,
+        'timetable': timetable_data
+    }), 200
+

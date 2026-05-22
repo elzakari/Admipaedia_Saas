@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { CalendarClock, AlertTriangle, RefreshCw, Clock, MapPin, User, Flame } from 'lucide-react';
 import studentService from '../../services/studentService';
 
-const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const;
+const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 const StudentTimetablePage: React.FC = () => {
   const { t } = useTranslation();
@@ -20,8 +20,8 @@ const StudentTimetablePage: React.FC = () => {
   }, []);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['student-courses'],
-    queryFn: () => studentService.getCourses(),
+    queryKey: ['student-timetable'],
+    queryFn: () => studentService.getTimetable(),
     staleTime: 30_000
   });
 
@@ -33,7 +33,9 @@ const StudentTimetablePage: React.FC = () => {
       Tue: [],
       Wed: [],
       Thu: [],
-      Fri: []
+      Fri: [],
+      Sat: [],
+      Sun: []
     };
 
     timetable.forEach((item) => {
@@ -158,37 +160,55 @@ const StudentTimetablePage: React.FC = () => {
                         key={s.id} 
                         className={`relative p-4 rounded-2xl border transition-all duration-300 ${
                           isActive 
-                            ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-500/80 shadow-md ring-2 ring-emerald-500/10 scale-[1.01]' 
+                            ? 'bg-indigo-50/70 dark:bg-indigo-950/20 border-indigo-500/80 shadow-md ring-2 ring-indigo-500/20 scale-[1.01] animate-pulse-slow' 
                             : 'bg-white dark:bg-slate-900/40 border-slate-200/50 dark:border-slate-800/50 hover:border-indigo-500/30'
                         }`}
                       >
                         {isActive && (
-                          <span className="absolute top-3.5 right-4 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400 animate-pulse">
-                            <Flame className="h-3 w-3 fill-emerald-500" />
-                            {t('student.timetable.active_lesson')}
+                          <span className="absolute top-3.5 right-4 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-400 animate-pulse">
+                            <Flame className="h-3 w-3 fill-indigo-500 text-indigo-500" />
+                            {t('common.status.ongoing')}
                           </span>
                         )}
-                        <div className="text-base font-bold text-slate-900 dark:text-slate-100">
-                          {s.subject}
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 block">
+                            {t('student.timetable.subject_code')}
+                          </span>
+                          <span className="text-base font-bold text-slate-900 dark:text-slate-100">
+                            {s.subject}
+                          </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 text-xs text-slate-500 dark:text-slate-400">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-slate-400" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase tracking-wider font-medium text-slate-400 dark:text-slate-500 block flex items-center gap-1">
+                              <Clock className="h-3 w-3 text-slate-400" />
+                              {t('student.timetable.time_period')}
+                            </span>
                             <span className="font-semibold text-slate-700 dark:text-slate-300">
                               {s.start} – {s.end}
                             </span>
                           </div>
                           {s.teacher && (
-                            <div className="flex items-center gap-1.5">
-                              <User className="h-3.5 w-3.5 text-slate-400" />
-                              <span className="truncate">{s.teacher}</span>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase tracking-wider font-medium text-slate-400 dark:text-slate-500 block flex items-center gap-1">
+                                <User className="h-3 w-3 text-slate-400" />
+                                {t('student.timetable.instructor')}
+                              </span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300 truncate block">
+                                {s.teacher}
+                              </span>
                             </div>
                           )}
                           {s.room && (
-                            <div className="flex items-center gap-1.5">
-                              <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                              <span>{s.room}</span>
+                            <div className="space-y-1">
+                              <span className="text-[10px] uppercase tracking-wider font-medium text-slate-400 dark:text-slate-500 block flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-slate-400" />
+                                {t('student.timetable.room_hall')}
+                              </span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300 truncate block">
+                                {s.room}
+                              </span>
                             </div>
                           )}
                         </div>

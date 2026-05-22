@@ -52,7 +52,10 @@
     "share": "Partager",
     "switch_to_light_mode": "Passer en mode clair",
     "switch_to_dark_mode": "Passer en mode sombre",
-    "all_rights_reserved": "Tous droits réservés."
+    "all_rights_reserved": "Tous droits réservés.",
+    "status": {
+      "ongoing": "En cours"
+    }
   },
   "auth": {
     "email": "Adresse e-mail",
@@ -926,11 +929,21 @@
       "select_term": "Sélectionner le trimestre",
       "results": "Résultats",
       "read_only_for": "Résultats en lecture seule pour",
+      "cumulative_average": "Moyenne / GPA Cumulée",
+      "rank_in_class": "Rang de la classe",
+      "no_grades": "Aucune note trouvée pour ce trimestre.",
       "columns": {
         "subject": "Matière",
-        "score": "Note",
-        "grade": "Appréciation",
+        "ca": "Contrôle Continu (CC)",
+        "exam": "Note d'Examen",
+        "total": "Total",
+        "grade_letter": "Note Lettre",
         "remarks": "Remarques"
+      },
+      "remarks_lookup": {
+        "Excellent": "Excellent",
+        "Pass": "Reçu",
+        "Needs Improvement": "À améliorer"
       }
     },
     "attendance": {
@@ -941,7 +954,11 @@
       "absent": "Absent",
       "late": "En retard",
       "history": "Historique",
-      "most_recent": "Entrées les plus récentes"
+      "most_recent": "Entrées les plus récentes",
+      "days_present": "Jours Présents",
+      "days_absent": "Jours Absents",
+      "days_late": "Retards",
+      "days_excused": "Jours Excusés"
     },
     "enrolled": "inscrit"
   },
@@ -968,7 +985,11 @@
       "sessions_count": "{{count}} session(s)",
       "sessions_count_other": "{{count}} session(s)",
       "loading": "Chargement de l'emploi du temps et des cours...",
-      "error_loading": "Échec du chargement des cours."
+      "error_loading": "Échec du chargement des cours.",
+      "time_period": "Période",
+      "subject_code": "Matière / Code",
+      "instructor": "Enseignant",
+      "room_hall": "Salle / Hall"
     },
     "classes": {
       "title": "Mes classes",
@@ -1006,7 +1027,9 @@
       "Tue": "Mardi",
       "Wed": "Mercredi",
       "Thu": "Jeudi",
-      "Fri": "Vendredi"
+      "Fri": "Vendredi",
+      "Sat": "Samedi",
+      "Sun": "Dimanche"
     }
   },
   "parent_portal": {
@@ -1293,7 +1316,16 @@
   "calendar": {
     "title": "Calendrier",
     "description": "Calendrier scolaire en lecture seule",
-    "no_events_current_month": "Aucun événement ce mois-ci."
+    "no_events_current_month": "Aucun événement ce mois-ci.",
+    "days": {
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi",
+      "saturday": "Samedi",
+      "sunday": "Dimanche"
+    }
   },
   "parent_admissions": {
     "title": "Demandes d'admission",
@@ -1481,5 +1513,13 @@
     "billing": "Facturation & Plans",
     "security": "Paramètres de Sécurité",
     "backup": "Sauvegarde & Restauration"
+  },
+  "attendance": {
+    "status": {
+      "present": "Présent",
+      "absent": "Absent",
+      "late": "En retard",
+      "excused": "Excusé"
+    }
   }
 }
