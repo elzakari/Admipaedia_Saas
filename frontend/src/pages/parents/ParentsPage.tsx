@@ -255,10 +255,10 @@ function ParentsPage() {
       <div className="flex items-center text-sm text-indigo-700 mb-2">
         <Link to="/parent/dashboard" className="flex items-center hover:text-indigo-900">
           <Home className="h-4 w-4 mr-1" />
-          <span>{t('navigation.dashboard', 'Dashboard')}</span>
+          <span>{t('parent_portal.dashboard.title', 'Dashboard')}</span>
         </Link>
         <ChevronRight className="h-4 w-4 mx-2" />
-        <span className="font-medium text-indigo-900">{t('parent_portal.dashboard.cards.my_children', 'My Children')}</span>
+        <span className="font-medium text-indigo-900">{t('parent_portal.my_children.title', 'My Children')}</span>
       </div>
 
       {/* Offline mode indicator */}
@@ -266,7 +266,7 @@ function ParentsPage() {
         <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4 rounded-md">
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
-            <span>{t('parents_page.offline_mode_warning', 'You are currently in offline mode. Changes will be saved locally and synced when you\'re back online.')}</span>
+            <span>{t('parent_portal.my_children.offline_mode_warning', "You are currently in offline mode. Changes will be saved locally and synced when you're back online.")}</span>
           </div>
         </div>
       )}
@@ -274,15 +274,15 @@ function ParentsPage() {
       {/* Page header with child selector */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-white bg-opacity-30 p-4 rounded-lg shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-indigo-900">{t('parent_portal.dashboard.cards.my_children', 'My Children')}</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">{t('parent_portal.my_children.title', 'My Children')}</h1>
           <p className="mt-1 text-sm text-indigo-700">
-            {t('parents_page.subtitle', "Monitor your child's academic journey and school activities")}
+            {t('parent_portal.my_children.subtitle', "Monitor your child's academic journey and school activities")}
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <Select value={selectedChild} onValueChange={setSelectedChild}>
             <SelectTrigger className="w-full sm:w-[200px] glass-button-outline">
-              <SelectValue placeholder={t('parents_page.select_child', 'Select Child')} />
+              <SelectValue placeholder={t('parent_portal.my_children.select_child', 'Select Child')} />
             </SelectTrigger>
             <SelectContent>
               {childrenList.map((child: any) => {
@@ -308,7 +308,7 @@ function ParentsPage() {
             icon={<FileText className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
-            {t('parent_portal.dashboard.shortcuts.admissions', 'Reports')}
+            {t('parent_portal.my_children.actions.reports', 'Reports')}
           </TouchFriendlyButton>
           <TouchFriendlyButton 
             variant="outline" 
@@ -317,7 +317,7 @@ function ParentsPage() {
             icon={<MessageSquare className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
-            {t('parents_page.message_teacher', 'Message Teacher')}
+            {t('parent_portal.my_children.actions.message_teacher', 'Message Teacher')}
           </TouchFriendlyButton>
         </div>
       </div>
@@ -342,23 +342,23 @@ function ParentsPage() {
             <TabsList className="mb-6 w-full justify-start overflow-x-auto">
               <TabsTrigger value="dashboard" className="min-w-[120px]">
                 <BarChart3 className="h-4 w-4 mr-2" />
-                {t('navigation.dashboard', 'Dashboard')}
+                {t('parent_portal.my_children.tabs.dashboard', 'Dashboard')}
               </TabsTrigger>
               <TabsTrigger value="academics" className="min-w-[120px]">
                 <BookOpen className="h-4 w-4 mr-2" />
-                {t('navigation.academics', 'Academics')}
+                {t('parent_portal.my_children.tabs.academics', 'Academics')}
               </TabsTrigger>
               <TabsTrigger value="attendance" className="min-w-[120px]">
                 <Clipboard className="h-4 w-4 mr-2" />
-                {t('navigation.attendance', 'Attendance')}
+                {t('parent_portal.my_children.tabs.attendance', 'Attendance')}
               </TabsTrigger>
               <TabsTrigger value="fees" className="min-w-[120px]">
                 <CreditCard className="h-4 w-4 mr-2" />
-                {t('parent_portal.dashboard.cards.pending_fees', 'Fees')}
+                {t('parent_portal.my_children.tabs.fees', 'Pending Fees')}
               </TabsTrigger>
               <TabsTrigger value="messages" className="min-w-[120px]">
                 <MessageSquare className="h-4 w-4 mr-2" />
-                {t('parent_portal.dashboard.shortcuts.messages', 'Messages')}
+                {t('parent_portal.my_children.tabs.messages', 'Messages')}
               </TabsTrigger>
             </TabsList>
 

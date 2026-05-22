@@ -974,6 +974,52 @@
         "overall_attendance": "Présence globale (30j)",
         "overall_grade_average": "Moyenne générale"
       }
+    },
+    "my_children": {
+      "title": "Mes enfants",
+      "subtitle": "Suivez le parcours académique et les activités scolaires de votre enfant",
+      "select_child": "Sélectionner un enfant",
+      "grade_class": "Classe {{grade}}",
+      "grade_class_short": "Classe: {{grade}}",
+      "years": "{{age}} ans",
+      "status_active": "Actif",
+      "class_label": "Classe",
+      "attendance_label": "Présence",
+      "fees_balance": "Solde des frais",
+      "academic_progress": "Progrès académique",
+      "academic_average": "Moyenne académique",
+      "attendance_rate": "Taux de présence",
+      "this_month": "Ce mois-ci",
+      "fee_status_label": "Statut des frais",
+      "fee_status_paid": "Payé",
+      "fee_status_pending": "En attente",
+      "fee_status_overdue": "En retard",
+      "fee_status_unknown": "Inconnu",
+      "pending_label": "En attente",
+      "assignments_label": "Devoirs",
+      "rank_out_of": "Rang: {{rank}} sur {{total}}",
+      "offline_mode_warning": "Vous êtes actuellement en mode hors ligne. Les modifications seront enregistrées localement et synchronisées lorsque vous serez de nouveau en ligne.",
+      "loading_title": "Chargement du portail parent",
+      "loading_desc": "Veuillez patienter pendant que nous chargeons les informations de vos enfants...",
+      "no_students": "Aucun élève lié à ce compte.",
+      "no_students_desc": "Si vous pensez qu'il s'agit d'une erreur, veuillez contacter l'administration de l'école.",
+      "contact_admin": "Contacter le support",
+      "loading_error_title": "Erreur de chargement des données",
+      "loading_error_desc": "Impossible de charger les données parentales. Veuillez réessayer plus tard.",
+      "refresh_page": "Rafraîchir la page",
+      "actions": {
+        "reports": "Rapports",
+        "message_teacher": "Contacter l'enseignant",
+        "id_card": "Carte d'identité",
+        "full_profile": "Profil complet"
+      },
+      "tabs": {
+        "dashboard": "Tableau de bord",
+        "academics": "Études",
+        "attendance": "Présence",
+        "fees": "Frais en attente",
+        "messages": "Messages"
+      }
     }
   },
   "students_page": {

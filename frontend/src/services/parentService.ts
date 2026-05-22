@@ -499,6 +499,7 @@ export interface ParentDashboardData {
   overall_grade_average: number
   unread_notifications: number
   pending_fees_total?: number
+  currency?: string
   active_applications?: number
   next_event?: {
     id: string

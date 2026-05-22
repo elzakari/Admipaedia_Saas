@@ -974,6 +974,52 @@
         "overall_attendance": "Overall Attendance (30d)",
         "overall_grade_average": "Overall Grade Average"
       }
+    },
+    "my_children": {
+      "title": "My Children",
+      "subtitle": "Monitor your child's academic journey and school activities",
+      "select_child": "Select Child",
+      "grade_class": "Class {{grade}}",
+      "grade_class_short": "Class: {{grade}}",
+      "years": "{{age}} years",
+      "status_active": "Active",
+      "class_label": "Class",
+      "attendance_label": "Attendance",
+      "fees_balance": "Fees Balance",
+      "academic_progress": "Academic Progress",
+      "academic_average": "Academic Average",
+      "attendance_rate": "Attendance Rate",
+      "this_month": "This Month",
+      "fee_status_label": "Fee Status",
+      "fee_status_paid": "Paid",
+      "fee_status_pending": "Pending",
+      "fee_status_overdue": "Overdue",
+      "fee_status_unknown": "Unknown",
+      "pending_label": "Pending",
+      "assignments_label": "Assignments",
+      "rank_out_of": "Rank: {{rank}} out of {{total}}",
+      "offline_mode_warning": "You are currently in offline mode. Changes will be saved locally and synced when you're back online.",
+      "loading_title": "Loading Parent Portal",
+      "loading_desc": "Please wait while we load your children's information...",
+      "no_students": "No students linked to this account.",
+      "no_students_desc": "If you believe this is an error, please contact the school administration.",
+      "contact_admin": "Contact Support",
+      "loading_error_title": "Data Loading Error",
+      "loading_error_desc": "Unable to load parent data. Please try again later.",
+      "refresh_page": "Refresh Page",
+      "actions": {
+        "reports": "Reports",
+        "message_teacher": "Message Teacher",
+        "id_card": "ID Card",
+        "full_profile": "Full Profile"
+      },
+      "tabs": {
+        "dashboard": "Dashboard",
+        "academics": "Academics",
+        "attendance": "Attendance",
+        "fees": "Pending Fees",
+        "messages": "Messages"
+      }
     }
   },
   "students_page": {

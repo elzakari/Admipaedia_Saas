@@ -247,6 +247,15 @@ class ParentService:
             except Exception:
                 pending_fees_total = 0.0
 
+            currency = 'GHS'
+            try:
+                from app.models.tenant import Tenant
+                tenant = Tenant.query.get(parent.tenant_id)
+                if tenant and tenant.currency:
+                    currency = tenant.currency
+            except Exception as e:
+                logger.warning(f"Error fetching tenant currency: {str(e)}")
+
             active_applications = 0
             try:
                 from app.models.admission import AdmissionApplication
@@ -281,6 +290,7 @@ class ParentService:
                 'unread_notifications': unread_notifications,
                 'recent_notifications': notifications_data,
                 'pending_fees_total': round(pending_fees_total, 2),
+                'currency': currency,
                 'active_applications': active_applications,
                 'next_event': next_event,
                 'summary': {

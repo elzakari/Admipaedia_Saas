@@ -117,7 +117,7 @@ const ParentDashboard: React.FC = () => {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? '—' : `GHS ${(data?.pending_fees_total ?? 0).toLocaleString()}`}</div>
+            <div className="text-2xl font-bold">{isLoading ? '—' : `${data?.currency || 'GHS'} ${(data?.pending_fees_total ?? 0).toLocaleString()}`}</div>
             <p className="text-xs text-muted-foreground">{t('parent_portal.dashboard.cards.term_balance')}</p>
           </CardContent>
         </Card>

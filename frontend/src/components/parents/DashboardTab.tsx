@@ -14,6 +14,7 @@ import { useWebSocket } from '../../services/websocketService';
 import { useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 
 interface DashboardTabProps {
   currentChild: any;
@@ -37,6 +38,13 @@ function DashboardTab({
   const { toast } = useToast();
   const { user } = useAuth();
   const { t } = useTranslation();
+  
+  const { data: parentDashboardData } = useQuery({
+    queryKey: ['parent-dashboard'],
+    queryFn: () => parentService.getMyDashboard(),
+    staleTime: 30_000
+  });
+  const currency = parentDashboardData?.currency || 'GHS';
   
   // Enhanced API call for dashboard data
   const {
@@ -202,12 +210,12 @@ function DashboardTab({
                 <BookOpen className="h-5 w-5 text-blue-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                {t('parents_page.grade', 'Class')} {academicData?.overallGrade || 'N/A'}
+                {t('parent_portal.my_children.grade_class_short', 'Class: {{grade}}', { grade: academicData?.overallGrade || 'N/A' })}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{academicData?.overallPercentage || 0}%</h3>
-              <p className="text-sm text-indigo-700">{t('parents_page.academic_average', 'Academic Average')}</p>
+              <p className="text-sm text-indigo-700">{t('parent_portal.my_children.academic_average', 'Academic Average')}</p>
             </div>
           </CardContent>
         </Card>
@@ -219,12 +227,12 @@ function DashboardTab({
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                {t('parent_portal.dashboard.cards.this_month', 'This Month')}
+                {t('parent_portal.my_children.this_month', 'This Month')}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{attendanceData?.percentage || 0}%</h3>
-              <p className="text-sm text-indigo-700">{t('parents_page.attendance_rate', 'Attendance Rate')}</p>
+              <p className="text-sm text-indigo-700">{t('parent_portal.my_children.attendance_rate', 'Attendance Rate')}</p>
             </div>
           </CardContent>
         </Card>
@@ -236,12 +244,14 @@ function DashboardTab({
                 <CreditCard className="h-5 w-5 text-yellow-600" />
               </div>
               <Badge variant={feeData?.status === 'paid' ? 'default' : 'destructive'} className="text-xs">
-                {feeData?.status || 'Unknown'}
+                {feeData?.status 
+                  ? (t(`parent_portal.my_children.fee_status_${feeData.status}`, String(feeData.status)) as string)
+                  : (t('parent_portal.my_children.fee_status_unknown', 'Unknown') as string)}
               </Badge>
             </div>
             <div className="mt-3">
-              <h3 className="text-2xl font-bold text-indigo-900">${feeData?.amount || 0}</h3>
-              <p className="text-sm text-indigo-700">{t('parents_page.fee_status', 'Fee Status')}</p>
+              <h3 className="text-2xl font-bold text-indigo-900">{currency} {feeData?.amount || 0}</h3>
+              <p className="text-sm text-indigo-700">{t('parent_portal.my_children.fee_status_label', 'Fee Status')}</p>
             </div>
           </CardContent>
         </Card>
@@ -253,12 +263,12 @@ function DashboardTab({
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                {t('common.pending', 'Pending')}
+                {t('parent_portal.my_children.pending_label', 'Pending')}
               </Badge>
             </div>
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{homeworkData?.length || 0}</h3>
-              <p className="text-sm text-indigo-700">{t('parents_page.assignments', 'Assignments')}</p>
+              <p className="text-sm text-indigo-700">{t('parent_portal.my_children.assignments_label', 'Assignments')}</p>
             </div>
           </CardContent>
         </Card>
