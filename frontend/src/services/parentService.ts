@@ -137,6 +137,17 @@ const parentService = {
     return data?.children || []
   },
 
+  getChildDetailedSummary: async (childId: number): Promise<ChildDetailedSummary> => {
+    try {
+      const response = await api.get(`/parents/children/${childId}/summary`);
+      return (response.data?.data || response.data) as ChildDetailedSummary;
+    } catch (error) {
+      console.error(`Error fetching detailed summary for child ${childId}:`, error);
+      throw error;
+    }
+  },
+
+
   // Get children for a parent
   getParentChildren: async (parentId: number): Promise<{ children: ParentChild[] }> => {
     try {
@@ -517,3 +528,27 @@ export interface ParentDashboardData {
     time: string | null
   }>
 }
+
+export interface ChildDetailedSummary {
+  id: number;
+  first_name: string;
+  last_name: string;
+  age: number;
+  classroom: {
+    name: string;
+  };
+  admission_no: string;
+  rank: {
+    position: number;
+    total_students: number;
+  };
+  currency: string;
+  summary: {
+    academic_average: number | null;
+    attendance_rate: number;
+    pending_balance: number;
+    fee_status: string;
+    pending_assignments: number;
+  };
+}
+

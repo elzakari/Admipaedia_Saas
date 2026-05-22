@@ -387,3 +387,153 @@ class ParentService:
                 'recent_attendance': [],
                 'recent_grades': []
             }
+
+    @staticmethod
+    def get_child_detailed_summary(student_id, tenant_id=None):
+        """Get highly detailed academic/financial summary for a student."""
+        try:
+            from app.models.student import Student
+            from app.models.attendance import Attendance
+            from app.models.grade import Grade
+            from app.models.assignment import Assignment
+            from app.models.assignment_submission import AssignmentSubmission
+            from app.models.finance import StudentFee
+            from app.services.finance.service import FeeService
+            from app.models.tenant import Tenant
+            from datetime import date, datetime
+
+            student = Student.query.get(student_id)
+            if not student:
+                return None
+
+            # 1. Identity data
+            classroom_name = student.class_.name if student.class_ else 'N/A'
+            
+            age = 0
+            if student.date_of_birth:
+                today = date.today()
+                born = student.date_of_birth
+                age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+            admission_no = student.admission_number
+
+            # 2. Performance rank
+            rank_position = 0
+            total_students = 0
+            class_id = student.class_id
+            if class_id:
+                students_in_class = Student.query.filter_by(class_id=class_id, status='active').all()
+                total_students = len(students_in_class)
+                
+                student_averages = []
+                for s in students_in_class:
+                    grades = Grade.query.filter_by(student_id=s.id).all()
+                    if grades:
+                        total_marks = sum(g.marks_obtained for g in grades)
+                        total_possible = sum(g.exam.total_marks if g.exam else 100 for g in grades)
+                        avg = (total_marks / total_possible * 100) if total_possible > 0 else 0
+                    else:
+                        avg = 0.0
+                    student_averages.append((s.id, avg))
+                
+                # Sort descending by average
+                student_averages.sort(key=lambda x: x[1], reverse=True)
+                
+                # Find target student position
+                for index, (s_id, avg) in enumerate(student_averages):
+                    if s_id == student_id:
+                        rank_position = index + 1
+                        break
+
+            # 3. KPI metrics
+            # Academic Average
+            grades = Grade.query.filter_by(student_id=student_id).all()
+            if grades:
+                total_marks = sum(g.marks_obtained for g in grades)
+                total_possible = sum(g.exam.total_marks if g.exam else 100 for g in grades)
+                academic_average = round((total_marks / total_possible * 100), 2) if total_possible > 0 else None
+            else:
+                academic_average = None
+
+            # Attendance rate (this month)
+            today = date.today()
+            first_day_of_month = date(today.year, today.month, 1)
+            
+            total_days_this_month = Attendance.query.filter(
+                Attendance.student_id == student_id,
+                Attendance.date >= first_day_of_month
+            ).count()
+            
+            present_days_this_month = Attendance.query.filter(
+                Attendance.student_id == student_id,
+                Attendance.date >= first_day_of_month,
+                Attendance.status.in_(['present', 'late'])
+            ).count()
+            
+            attendance_rate = round((present_days_this_month / total_days_this_month * 100), 2) if total_days_this_month > 0 else 0.0
+
+            # Pending fees balance & status
+            pending_balance = float(FeeService.get_student_balance(student_id) or 0)
+            
+            student_fees = StudentFee.query.filter_by(student_id=student_id).all()
+            if not student_fees:
+                fee_status = 'paid'
+            else:
+                statuses = [fee.status.lower() for fee in student_fees]
+                if all(s == 'paid' for s in statuses):
+                    fee_status = 'paid'
+                elif any(s == 'overdue' for s in statuses):
+                    fee_status = 'overdue'
+                elif any(s == 'partial' for s in statuses):
+                    fee_status = 'partial'
+                else:
+                    fee_status = 'pending'
+
+            # Currency
+            currency = 'GHS'
+            tenant = Tenant.query.get(student.tenant_id)
+            if tenant and tenant.currency:
+                currency = tenant.currency
+
+            # Assignments (open, unsubmitted homework task records count)
+            pending_assignments = 0
+            if student.class_id:
+                homework_assignments = Assignment.query.filter(
+                    Assignment.class_id == student.class_id,
+                    Assignment.assignment_type == 'homework',
+                    Assignment.status == 'active'
+                ).all()
+                
+                submissions = AssignmentSubmission.query.filter_by(student_id=student_id).all()
+                submitted_assignment_ids = {s.assignment_id for s in submissions if s.status in ['submitted', 'graded']}
+                
+                for hw in homework_assignments:
+                    if hw.id not in submitted_assignment_ids:
+                        pending_assignments += 1
+
+            return {
+                'id': student.id,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'age': age,
+                'classroom': {
+                    'name': classroom_name
+                },
+                'admission_no': admission_no,
+                'rank': {
+                    'position': rank_position,
+                    'total_students': total_students
+                },
+                'currency': currency,
+                'summary': {
+                    'academic_average': academic_average,
+                    'attendance_rate': attendance_rate,
+                    'pending_balance': pending_balance,
+                    'fee_status': fee_status,
+                    'pending_assignments': pending_assignments
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error in get_child_detailed_summary: {str(e)}", exc_info=True)
+            return None
+

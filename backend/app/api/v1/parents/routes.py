@@ -592,6 +592,36 @@ def get_child_fees(child_id):
         logger.error(f"Error retrieving child fees: {str(e)}")
         return error_response(message="Failed to retrieve fee records", status_code=500)
 
+@parents_bp.route('/children/<int:child_id>/summary', methods=['GET'])
+@jwt_required()
+@parent_required
+def get_child_summary_detailed(child_id):
+    """Get highly detailed academic/financial summary for a specific child"""
+    try:
+        current_user_id = get_jwt_identity()
+        parent = ParentService.get_parent_by_user_id(current_user_id)
+        
+        if not parent:
+            return error_response(message="Parent profile not found", status_code=404)
+        
+        # Verify parent ownership of child
+        children, _ = ParentService.get_children(parent.id)
+        child_ids = [child.id for child in children]
+        if child_id not in child_ids:
+            return error_response(message="Child not found or access denied", status_code=403)
+            
+        summary_data = ParentService.get_child_detailed_summary(child_id)
+        if not summary_data:
+            return error_response(message="Child summary not found", status_code=404)
+            
+        return success_response(
+            data=summary_data,
+            message="Child detailed summary retrieved successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving child summary detailed: {str(e)}")
+        return error_response(message="Failed to retrieve child detailed summary", status_code=500)
+
 @parents_bp.route('/children/<int:child_id>/academic', methods=['GET'])
 @jwt_required()
 @parent_required

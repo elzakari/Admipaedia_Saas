@@ -192,12 +192,19 @@ function DashboardTab({
   }
   
   // Use data from enhanced API call or fallback to initial data
-  const {
-    academicData = initialAcademicData,
-    attendanceData = initialAttendanceData,
-    feeData = initialFeeData,
-    homeworkData = initialHomeworkData
-  } = dashboardData || {};
+  const academicData = {
+    ...initialAcademicData,
+    ...(dashboardData?.academicData ?? {})
+  };
+  const attendanceData = {
+    ...initialAttendanceData,
+    ...(dashboardData?.attendanceData ?? {})
+  };
+  const feeData = {
+    ...initialFeeData,
+    ...(dashboardData?.feeData ?? {})
+  };
+  const homeworkData = dashboardData?.homeworkData ?? initialHomeworkData;
   
   return (
     <>
@@ -243,7 +250,11 @@ function DashboardTab({
               <div className="bg-yellow-100 bg-opacity-20 p-2 rounded-full">
                 <CreditCard className="h-5 w-5 text-yellow-600" />
               </div>
-              <Badge variant={feeData?.status === 'paid' ? 'default' : 'destructive'} className="text-xs">
+              <Badge variant={
+                feeData?.status === 'paid' ? 'success' :
+                feeData?.status === 'partial' || feeData?.status === 'pending' ? 'warning' :
+                feeData?.status === 'overdue' ? 'destructive' : 'outline'
+              } className="text-xs">
                 {feeData?.status 
                   ? (t(`parent_portal.my_children.fee_status_${feeData.status}`, String(feeData.status)) as string)
                   : (t('parent_portal.my_children.fee_status_unknown', 'Unknown') as string)}
