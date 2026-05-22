@@ -9,7 +9,7 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: 'en',
-    supportedLngs: ['en', 'fr'],
+    supportedLngs: ['en', 'fr', 'ee'],
     debug: process.env.NODE_ENV === 'development',
     saveMissing: false,
     parseMissingKeyHandler: (key: string, defaultValue?: string): string => {

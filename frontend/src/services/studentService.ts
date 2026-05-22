@@ -465,6 +465,41 @@ const studentService = {
       console.error('Error promoting students:', error);
       throw error;
     }
+  },
+
+  getCalendarEvents: async (month?: number, year?: number): Promise<any> => {
+    const response = await api.get('/student/calendar/events', { params: { month, year } });
+    return response.data?.events || [];
+  },
+
+  getNotifications: async (): Promise<any> => {
+    const response = await api.get('/student/notifications');
+    return response.data?.notifications || [];
+  },
+
+  markNotificationAsRead: async (id: string): Promise<any> => {
+    const response = await api.put(`/student/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllNotificationsAsRead: async (): Promise<any> => {
+    const response = await api.put('/student/notifications/read-all');
+    return response.data;
+  },
+
+  clearNotificationHistory: async (): Promise<any> => {
+    const response = await api.delete('/student/notifications/clear');
+    return response.data;
+  },
+
+  getConversations: async (): Promise<any> => {
+    const response = await api.get('/student/messages/conversations');
+    return response.data?.threads || [];
+  },
+
+  sendMessage: async (recipientUserId: number, content: string): Promise<any> => {
+    const response = await api.post('/student/messages/send', { recipient_id: recipientUserId, content });
+    return response.data;
   }
 };
 

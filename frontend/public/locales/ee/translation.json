@@ -1,0 +1,20 @@
+{
+  "calendar": {
+    "student_title": "Suku Ŋkeke Ŋgɔ",
+    "student_subtitle": "Xlẽ xɔ ŋkeke kple suku gbe"
+  },
+  "notifications": {
+    "empty_state": "Míenɔ nyagbɔgblɔ yeyewo o!"
+  },
+  "messages": {
+    "input_placeholder": "Ŋlɔ wò gbedeasi...",
+    "send_action": "Dɔe ɖa"
+  },
+  "student_settings": {
+    "save": "Dzra tɔtrɔwo ɖo",
+    "update_password": "Ðɔli Nyadzɔdzɔ",
+    "profile_parameters": "Ame Ŋuti Nya",
+    "system_preferences": "Ðoɖo Tiatiawo",
+    "security_options": "Tiatia Ŋutifafa"
+  }
+}

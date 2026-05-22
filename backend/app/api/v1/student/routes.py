@@ -478,3 +478,221 @@ def get_student_timetable():
         'timetable': timetable_data
     }), 200
 
+@student_bp.route('/calendar/events', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_calendar_events():
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    from app.models.dashboard import CalendarEvent
+    month = request.args.get('month', type=int)  # Expected 0-indexed from frontend
+    year = request.args.get('year', type=int)
+
+    now = datetime.utcnow()
+    if month is None:
+        month = now.month - 1
+    if not year:
+        year = now.year
+
+    api_month = month + 1 if month < 12 else month
+
+    # Fetch events for the month
+    from sqlalchemy import extract
+    events = CalendarEvent.query.filter(
+        extract('year', CalendarEvent.date) == year,
+        extract('month', CalendarEvent.date) == api_month
+    ).all()
+
+    serialized = []
+    for e in events:
+        serialized.append({
+            'id': e.id,
+            'title': e.title,
+            'date': e.date.strftime('%Y-%m-%d'),
+            'type': e.type,
+            'description': e.description or '',
+            'location': e.location or '',
+            'start_time': e.start_time or '',
+            'end_time': e.end_time or ''
+        })
+    return jsonify({'success': True, 'events': serialized}), 200
+
+@student_bp.route('/notifications', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_notifications():
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    from app.models.dashboard import Notification
+    from sqlalchemy import or_
+    notifications = Notification.query.filter(
+        or_(
+            Notification.recipient_id == int(user_id),
+            Notification.scope.in_(['students', 'all'])
+        )
+    ).order_by(Notification.time.desc()).all()
+
+    serialized = []
+    for n in notifications:
+        serialized.append({
+            'id': str(n.id),
+            'title': n.title,
+            'body': n.message,
+            'message': n.message,
+            'createdAt': n.time.isoformat() if n.time else (n.created_at.isoformat() if hasattr(n, 'created_at') else ''),
+            'read': n.read,
+            'kind': n.type or 'info'
+        })
+    return jsonify({'success': True, 'notifications': serialized}), 200
+
+@student_bp.route('/notifications/<string:notification_id>/read', methods=['PUT'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def mark_student_notification_read(notification_id):
+    user_id = get_jwt_identity()
+    from app.models.dashboard import Notification
+    n = Notification.query.filter_by(id=notification_id).first()
+    if not n:
+        return jsonify({'success': False, 'message': 'Notification not found'}), 404
+        
+    if n.recipient_id and n.recipient_id != int(user_id):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    n.read = True
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Notification marked as read'}), 200
+
+@student_bp.route('/notifications/read-all', methods=['PUT'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def mark_all_student_notifications_read():
+    user_id = get_jwt_identity()
+    from app.models.dashboard import Notification
+    from sqlalchemy import or_
+    unread = Notification.query.filter(
+        or_(Notification.recipient_id == int(user_id), Notification.scope.in_(['students', 'all'])),
+        Notification.read == False
+    ).all()
+    for n in unread:
+        n.read = True
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'All notifications marked as read'}), 200
+
+@student_bp.route('/notifications/clear', methods=['DELETE'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def clear_student_notifications_history():
+    user_id = get_jwt_identity()
+    from app.models.dashboard import Notification
+    personal = Notification.query.filter_by(recipient_id=int(user_id)).all()
+    for n in personal:
+        db.session.delete(n)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Notifications history cleared'}), 200
+
+@student_bp.route('/messages/conversations', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_conversations():
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    from app.models.message import Message
+    from app.models.teacher import Teacher
+    from sqlalchemy import or_, and_
+
+    teacher_ids = set()
+    if student.class_id:
+        cls = Class.query.get(student.class_id)
+        if cls and getattr(cls, 'class_teacher_id', None):
+            teacher_ids.add(cls.class_teacher_id)
+            
+        slots = TimetableSlot.query.filter_by(class_id=student.class_id).all()
+        for s in slots:
+            if s.teacher_id:
+                teacher_ids.add(s.teacher_id)
+
+    teachers = Teacher.query.filter(Teacher.id.in_(teacher_ids)).all() if teacher_ids else []
+    threads = []
+    
+    for teacher in teachers:
+        t_user_id = teacher.user_id
+        
+        messages = Message.query.filter(
+            or_(
+                and_(Message.sender_id == int(user_id), Message.recipient_id == t_user_id),
+                and_(Message.sender_id == t_user_id, Message.recipient_id == int(user_id))
+            )
+        ).order_by(Message.created_at.desc()).all()
+        
+        unread_count = sum(1 for m in messages if m.recipient_id == int(user_id) and not m.is_read)
+        
+        messages_data = []
+        for m in reversed(messages):
+            messages_data.append({
+                'id': str(m.id),
+                'sender': 'You' if m.sender_id == int(user_id) else teacher.full_name,
+                'body': m.content,
+                'sentAt': m.created_at.isoformat() if hasattr(m, 'created_at') and m.created_at else ''
+            })
+            
+        last_msg = messages[0].content if messages else ''
+        subject_name = teacher.subjects[0].name if getattr(teacher, 'subjects', None) and teacher.subjects else 'Class Teacher'
+        
+        threads.append({
+            'id': f"thread_{teacher.id}",
+            'teacher_user_id': t_user_id,
+            'title': teacher.full_name,
+            'participants': f"Teacher • {subject_name}",
+            'unread': unread_count > 0,
+            'lastMessagePreview': last_msg[:50] + '...' if len(last_msg) > 50 else last_msg,
+            'messages': messages_data
+        })
+        
+    return jsonify({
+        'success': True,
+        'threads': threads
+    }), 200
+
+@student_bp.route('/messages/send', methods=['POST'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def send_student_message():
+    user_id = get_jwt_identity()
+    data = request.json or {}
+    recipient_id = data.get('recipient_id')
+    content = data.get('content')
+    
+    if not recipient_id or not content:
+        return jsonify({'success': False, 'message': 'Missing recipient or content'}), 400
+        
+    from app.models.message import Message
+    msg = Message(
+        sender_id=int(user_id),
+        sender_type='student',
+        recipient_id=recipient_id,
+        recipient_type='teacher',
+        subject='Direct Message',
+        content=content,
+        is_read=False
+    )
+    db.session.add(msg)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Sent successfully'}), 200
+

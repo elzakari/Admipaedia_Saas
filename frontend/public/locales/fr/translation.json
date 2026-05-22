@@ -1521,5 +1521,23 @@
       "late": "En retard",
       "excused": "Excusé"
     }
+  },
+  "calendar": {
+    "student_title": "Calendrier Académique",
+    "student_subtitle": "Suivi institutionnel en lecture seule"
+  },
+  "notifications": {
+    "empty_state": "Vous êtes à jour !"
+  },
+  "messages": {
+    "input_placeholder": "Tapez un message...",
+    "send_action": "Envoyer"
+  },
+  "student_settings": {
+    "save": "Enregistrer les modifications",
+    "update_password": "Mettre à jour le mot de passe",
+    "profile_parameters": "Paramètres du Profil",
+    "system_preferences": "Préférences du Système",
+    "security_options": "Options de Sécurité"
   }
 }

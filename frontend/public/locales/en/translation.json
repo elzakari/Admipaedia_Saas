@@ -1521,5 +1521,23 @@
       "late": "Late",
       "excused": "Excused"
     }
+  },
+  "calendar": {
+    "student_title": "Academic Calendar",
+    "student_subtitle": "Read-only institutional tracking"
+  },
+  "notifications": {
+    "empty_state": "You are all caught up!"
+  },
+  "messages": {
+    "input_placeholder": "Type a message...",
+    "send_action": "Send"
+  },
+  "student_settings": {
+    "save": "Save Changes",
+    "update_password": "Update Password",
+    "profile_parameters": "Profile Parameters",
+    "system_preferences": "System Preferences",
+    "security_options": "Security Options"
   }
 }

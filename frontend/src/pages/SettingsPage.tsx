@@ -18,10 +18,9 @@ import SettingsSidebar from '../components/settings/SettingsSidebar';
 import ParentGeneralSettings from '../components/settings/ParentGeneralSettings';
 import ParentNotificationPreferences from '../components/settings/ParentNotificationPreferences';
 import PrivacySettings from '../components/settings/PrivacySettings';
-import StudentGeneralSettings from '../components/settings/StudentGeneralSettings';
-import StudentNotificationPreferences from '../components/settings/StudentNotificationPreferences';
+import StudentProfileSettings from '../components/settings/StudentProfileSettings';
+import StudentPreferencesSettings from '../components/settings/StudentPreferencesSettings';
 import StudentSecuritySettings from '../components/settings/StudentSecuritySettings';
-import StudentPrivacySettings from '../components/settings/StudentPrivacySettings';
 import TeacherGeneralSettings from '../components/settings/TeacherGeneralSettings';
 import TeacherNotificationPreferences from '../components/settings/TeacherNotificationPreferences';
 import TeacherSecuritySettings from '../components/settings/TeacherSecuritySettings';
@@ -35,7 +34,7 @@ const SettingsPage = () => {
 
   const allowedTabs = useMemo(() => {
     if (user?.role === 'parent') return ['general', 'notifications', 'theme', 'privacy'] as const;
-    if (user?.role === 'student') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
+    if (user?.role === 'student') return ['profile', 'preferences', 'security'] as const;
     if (user?.role === 'teacher') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
     return ['general', 'users', 'academic', 'admissions', 'notifications', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
   }, [user?.role]);
@@ -70,11 +69,9 @@ const SettingsPage = () => {
 
     if (user?.role === 'student') {
       return [
-        { id: 'general', name: 'Profile & General', icon: 'user' },
-        { id: 'notifications', name: 'Notifications', icon: 'bell' },
-        { id: 'theme', name: 'Theme', icon: 'palette' },
-        { id: 'privacy', name: 'Privacy', icon: 'shield' },
-        { id: 'security', name: 'Security', icon: 'lock' }
+        { id: 'profile', name: t('student_settings.profile_parameters', 'Profile Parameters'), icon: 'user' },
+        { id: 'preferences', name: t('student_settings.system_preferences', 'System Preferences'), icon: 'settings' },
+        { id: 'security', name: t('student_settings.security_options', 'Security Options'), icon: 'lock' }
       ];
     }
 
@@ -117,8 +114,8 @@ const SettingsPage = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('parent_settings.title', 'Settings')}</h1>
-          <p className="text-gray-500 dark:text-gray-400">{t('parent_settings.subtitle', 'Configure and customize your ADMIPAEDIA experience')}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{user?.role === 'student' ? t('student_settings.title', 'Settings') : t('parent_settings.title', 'Settings')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{user?.role === 'student' ? t('student_settings.subtitle', 'Configure your preferences and profile') : t('parent_settings.subtitle', 'Configure and customize your ADMIPAEDIA experience')}</p>
         </div>
       </div>
 
@@ -136,12 +133,18 @@ const SettingsPage = () => {
                 <TabsContent value="general" className="p-6 m-0">
                   {user?.role === 'parent'
                     ? <ParentGeneralSettings />
-                    : user?.role === 'student'
-                      ? <StudentGeneralSettings />
-                      : user?.role === 'teacher'
-                        ? <TeacherGeneralSettings />
-                      : <GeneralSettings />}
+                    : user?.role === 'teacher'
+                      ? <TeacherGeneralSettings />
+                    : <GeneralSettings />}
                 </TabsContent>
+
+                <TabsContent value="profile" className="p-6 m-0">
+                  {user?.role === 'student' && <StudentProfileSettings />}
+                </TabsContent>
+                <TabsContent value="preferences" className="p-6 m-0">
+                  {user?.role === 'student' && <StudentPreferencesSettings />}
+                </TabsContent>
+
                 <TabsContent value="users" className="p-6 m-0">
                   <UserRoleManagement />
                 </TabsContent>
@@ -154,11 +157,9 @@ const SettingsPage = () => {
                 <TabsContent value="notifications" className="p-6 m-0">
                   {user?.role === 'parent'
                     ? <ParentNotificationPreferences />
-                    : user?.role === 'student'
-                      ? <StudentNotificationPreferences />
-                      : user?.role === 'teacher'
-                        ? <TeacherNotificationPreferences />
-                      : <NotificationSettings />}
+                    : user?.role === 'teacher'
+                      ? <TeacherNotificationPreferences />
+                    : <NotificationSettings />}
                 </TabsContent>
                 <TabsContent value="ai" className="p-6 m-0">
                   <AISettings />
@@ -180,9 +181,7 @@ const SettingsPage = () => {
                   <ThemeSettings />
                 </TabsContent>
                 <TabsContent value="privacy" className="p-6 m-0">
-                  {user?.role === 'student'
-                    ? <StudentPrivacySettings />
-                    : user?.role === 'teacher'
+                  {user?.role === 'teacher'
                       ? <TeacherPrivacySettings />
                       : <PrivacySettings />}
                 </TabsContent>
