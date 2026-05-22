@@ -76,15 +76,35 @@ def buy_admission_form():
     if not target_class:
       return jsonify({'success': False, 'message': 'Target class not found'}), 400
         
-    # Fetch dynamic price from settings
-    admission_price = float(SystemSetting.get_value('admission_form_price', '100.00'))
+    # Fetch dynamic price and currency from tenant settings / tenant
+    from flask import g
+    tenant_id = getattr(g, 'tenant_id', None) or (target_class.tenant_id if target_class else None)
+    currency = 'GHS'
+    admission_price = None
+
+    if tenant_id:
+        from app.models.tenant import Tenant
+        tenant = Tenant.query.get(tenant_id)
+        if tenant:
+            currency = getattr(tenant, 'currency', None) or 'GHS'
+            store = getattr(tenant, 'settings', None) or {}
+            if isinstance(store, dict):
+                v = store.get('admission_form_price')
+                try:
+                    if v is not None and str(v).strip() != '':
+                        admission_price = float(v)
+                except Exception:
+                    pass
+
+    if admission_price is None:
+        admission_price = float(SystemSetting.get_value('admission_form_price', '100.00'))
     
     # Simulate payment for now
     # In a real app, this would involve a payment gateway integration
     payment = Payment(
         transaction_id=f"ADM-FORM-{uuid.uuid4().hex[:8].upper()}",
         amount=admission_price,
-        currency='GHS',
+        currency=currency,
         payment_method='card',
         status='completed',
         paid_at=datetime.utcnow()

@@ -49,7 +49,11 @@ class ParentPortalService:
 
         # 3. Recent Grades (Last 5)
         recent_grades = FinalGrade.query.filter_by(student_id=student_id)\
-            .order_by(FinalGrade.created_at.desc()).limit(5).all()
+            .order_by(FinalGrade.computed_at.desc()).limit(5).all()
+
+        from app.models.tenant import Tenant
+        tenant = Tenant.query.get(student.tenant_id)
+        currency = tenant.currency if tenant and tenant.currency else 'GHS'
 
         return {
             'student': {
@@ -64,7 +68,7 @@ class ParentPortalService:
             },
             'finance': {
                 'outstanding': outstanding,
-                'currency': 'GHS' # Configurable
+                'currency': currency
             },
             'recent_grades': [{
                 'subject': g.subject.name,

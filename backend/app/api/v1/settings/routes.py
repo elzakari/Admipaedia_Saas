@@ -78,21 +78,23 @@ def get_admission_price():
     if err:
         return jsonify({'success': False, 'message': err}), 403
 
+    currency = 'GHS'
     if tenant_id is not None:
         tenant = Tenant.query.filter_by(id=tenant_id).first()
         if not tenant:
             return jsonify({'success': False, 'message': 'Tenant not found'}), 404
+        currency = getattr(tenant, 'currency', None) or 'GHS'
         store = getattr(tenant, 'settings', None) or {}
         if isinstance(store, dict):
             v = store.get('admission_form_price')
             try:
                 if v is not None and str(v).strip() != '':
-                    return jsonify({'success': True, 'price': float(v)}), 200
+                    return jsonify({'success': True, 'price': float(v), 'currency': currency}), 200
             except Exception:
                 pass
 
     price = SystemSetting.get_value('admission_form_price', '100.00')
-    return jsonify({'success': True, 'price': float(price)}), 200
+    return jsonify({'success': True, 'price': float(price), 'currency': currency}), 200
 
 
 def _get_setting(key: str, default=None, setting_type: str = 'string'):

@@ -23,6 +23,7 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { formatCurrency } from '../../lib/utils';
 
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -55,11 +56,12 @@ const AdmissionsPage: React.FC = () => {
     queryKey: ['admission-price'],
     queryFn: async () => {
       const response = await api.get('/settings/admission-price');
-      return response.data.price;
+      return response.data;
     }
   });
 
-  const admissionPrice = priceData || 100.00;
+  const admissionPrice = priceData?.price ?? 100.00;
+  const admissionCurrency = priceData?.currency ?? 'GHS';
 
   // Fetch classes for the dropdown
   const { data: classesData } = useQuery({
@@ -140,7 +142,7 @@ const AdmissionsPage: React.FC = () => {
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all duration-200 flex items-center gap-2"
           >
             <FilePlus2 size={18} />
-            {t('parent_admissions.buy_form', { price: admissionPrice.toFixed(2), defaultValue: 'Buy Admission Form (GHS {{price}})' })}
+            {t('parent_admissions.buy_form', { price: formatCurrency(admissionPrice, admissionCurrency), defaultValue: 'Buy Admission Form ({{price}})' })}
           </Button>
         )}
       </div>
@@ -153,7 +155,7 @@ const AdmissionsPage: React.FC = () => {
               {t('parent_admissions.new_form', 'New Admission Form')}
             </CardTitle>
             <CardDescription>
-              {t('parent_admissions.enter_details', { price: admissionPrice.toFixed(2), defaultValue: 'Enter the basic details to purchase an admission form (GHS {{price}})' })}
+              {t('parent_admissions.enter_details', { price: formatCurrency(admissionPrice, admissionCurrency), defaultValue: 'Enter the basic details to purchase an admission form ({{price}})' })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -208,7 +210,7 @@ const AdmissionsPage: React.FC = () => {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {t('parent_admissions.processing', 'Processing...')}
                 </>
-              ) : t('parent_admissions.confirm_pay', { price: admissionPrice.toFixed(2), defaultValue: 'Confirm & Pay GHS {{price}}' })}
+              ) : t('parent_admissions.confirm_pay', { price: formatCurrency(admissionPrice, admissionCurrency), defaultValue: 'Confirm & Pay {{price}}' })}
             </Button>
           </CardFooter>
         </Card>
