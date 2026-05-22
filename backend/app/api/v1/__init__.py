@@ -6,6 +6,7 @@ api_v1_bp = Blueprint('api_v1', __name__, url_prefix='/v1')
 from app.api.v1.auth import auth_bp
 from app.api.v1.profile import profile_bp
 from app.api.v1.students import students_bp
+from app.api.v1.student import student_bp
 from app.api.v1.enhanced_students import enhanced_students_bp
 from app.api.v1.teachers import teachers_bp
 from app.api.v1.classes import classes_bp
@@ -70,6 +71,7 @@ api_v1_bp.register_blueprint(academics_bp, url_prefix='/academics')
 api_v1_bp.register_blueprint(auth_bp, url_prefix='/auth')  # Enhanced auth is now included
 api_v1_bp.register_blueprint(profile_bp, url_prefix='/profile')
 api_v1_bp.register_blueprint(students_bp, url_prefix='/students')
+api_v1_bp.register_blueprint(student_bp, url_prefix='/student')
 api_v1_bp.register_blueprint(enhanced_students_bp)
 api_v1_bp.register_blueprint(teachers_bp, url_prefix='/teachers')
 api_v1_bp.register_blueprint(classes_bp, url_prefix='/classes')

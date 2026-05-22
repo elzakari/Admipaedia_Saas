@@ -945,6 +945,70 @@
     },
     "enrolled": "enrolled"
   },
+  "student": {
+    "dashboard": {
+      "attendance_rate": "Attendance Rate",
+      "assignments_due": "Assignments Due",
+      "pending_tasks": "pending tasks",
+      "term_average": "Current Term Average",
+      "today_schedule": "Today's Schedule",
+      "upcoming_deadlines": "Upcoming Deadlines",
+      "no_classes_today": "No classes scheduled for today.",
+      "no_deadlines": "No upcoming deadlines in the next 14 days.",
+      "loading_summary": "Loading dashboard summary...",
+      "error_loading": "Failed to load dashboard summary.",
+      "retry": "Retry"
+    },
+    "timetable": {
+      "title": "Classes & Timetable",
+      "subtitle": "Your weekly learning schedule",
+      "weekday_groups": "Weekday Groupings",
+      "active_lesson": "Active Now",
+      "no_sessions": "No classes scheduled for this day.",
+      "sessions_count": "{{count}} session(s)",
+      "sessions_count_other": "{{count}} session(s)",
+      "loading": "Loading timetable and courses...",
+      "error_loading": "Failed to load courses."
+    },
+    "classes": {
+      "title": "My Classes",
+      "subtitle": "Subjects you are enrolled in",
+      "next_session": "Next session: {{session}}",
+      "no_upcoming_session": "No upcoming session info",
+      "loading": "Loading enrolled subjects...",
+      "error_loading": "Failed to load subjects."
+    },
+    "assignments": {
+      "title": "My Assignments",
+      "subtitle": "Track deadlines and submission status",
+      "status": {
+        "open": "Open",
+        "pending": "Pending",
+        "submitted": "Submitted",
+        "graded": "Graded",
+        "overdue": "Overdue"
+      },
+      "feedback": "Feedback",
+      "no_assignments": "No assignments found.",
+      "loading": "Loading assignments...",
+      "error_loading": "Failed to load assignments.",
+      "score_display": "Score: {{score}} / {{max}}"
+    },
+    "weekdays": {
+      "Monday": "Monday",
+      "Tuesday": "Tuesday",
+      "Wednesday": "Wednesday",
+      "Thursday": "Thursday",
+      "Friday": "Friday",
+      "Saturday": "Saturday",
+      "Sunday": "Sunday",
+      "Mon": "Monday",
+      "Tue": "Tuesday",
+      "Wed": "Wednesday",
+      "Thu": "Thursday",
+      "Fri": "Friday"
+    }
+  },
   "parent_portal": {
     "dashboard": {
       "title": "Parent Dashboard",

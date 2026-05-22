@@ -32,7 +32,84 @@ export class StudentServiceError extends Error {
   }
 }
 
+export interface StudentDashboardSummary {
+  enrollment_scope: {
+    class_name: string;
+    student_id: number;
+    admission_number: string;
+  };
+  attendance_percentage: number;
+  pending_assignments_count: number;
+  term_average_grade: number | null;
+  todays_classes: Array<{
+    id: number;
+    subject: string;
+    teacher: string;
+    time: string;
+    room: string;
+  }>;
+  upcoming_deadlines: Array<{
+    id: number;
+    title: string;
+    subject_name: string;
+    due_date: string;
+  }>;
+}
+
+export interface StudentCourse {
+  id: number;
+  subject: string;
+  code: string;
+  teacher: string;
+  room: string;
+  nextSession: string;
+}
+
+export interface StudentTimetableItem {
+  id: number;
+  day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | string;
+  start: string;
+  end: string;
+  subject: string;
+  room: string;
+  teacher: string;
+}
+
+export interface StudentCourseList {
+  courses: StudentCourse[];
+  timetable: StudentTimetableItem[];
+}
+
+export interface StudentAssignment {
+  id: number;
+  classId: string;
+  title: string;
+  description: string;
+  subject_name: string;
+  due_date: string;
+  dueAt: string;
+  status: 'open' | 'submitted' | 'graded' | 'overdue' | 'pending' | string;
+  score: number | null;
+  max_points: number;
+  feedback: string | null;
+}
+
 const studentService = {
+  getDashboardSummary: async (): Promise<StudentDashboardSummary> => {
+    const response = await api.get('/student/dashboard-summary');
+    return (response.data?.data || response.data) as StudentDashboardSummary;
+  },
+
+  getCourses: async (): Promise<StudentCourseList> => {
+    const response = await api.get('/student/courses');
+    return (response.data?.data || response.data) as StudentCourseList;
+  },
+
+  getAssignments: async (status?: string): Promise<StudentAssignment[]> => {
+    const response = await api.get('/student/assignments', { params: { status } });
+    return (response.data?.assignments || response.data?.data?.assignments || response.data || []) as StudentAssignment[];
+  },
+
   getOwnProfile: async (): Promise<StudentProfile> => {
     const response = await api.get('/students/profile')
     const student = response.data?.student || response.data?.data?.student

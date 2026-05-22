@@ -945,6 +945,70 @@
     },
     "enrolled": "inscrit"
   },
+  "student": {
+    "dashboard": {
+      "attendance_rate": "Taux de présence",
+      "assignments_due": "Devoirs à rendre",
+      "pending_tasks": "tâches en attente",
+      "term_average": "Moyenne du trimestre",
+      "today_schedule": "Emploi du temps d'aujourd'hui",
+      "upcoming_deadlines": "Échéances à venir",
+      "no_classes_today": "Aucun cours prévu aujourd'hui.",
+      "no_deadlines": "Aucune échéance à venir dans les 14 prochains jours.",
+      "loading_summary": "Chargement du résumé du tableau de bord...",
+      "error_loading": "Échec du chargement du résumé du tableau de bord.",
+      "retry": "Réessayer"
+    },
+    "timetable": {
+      "title": "Cours & Emploi du temps",
+      "subtitle": "Votre programme d'apprentissage hebdomadaire",
+      "weekday_groups": "Groupements de jours",
+      "active_lesson": "Cours en cours",
+      "no_sessions": "Aucun cours prévu pour ce jour.",
+      "sessions_count": "{{count}} session(s)",
+      "sessions_count_other": "{{count}} session(s)",
+      "loading": "Chargement de l'emploi du temps et des cours...",
+      "error_loading": "Échec du chargement des cours."
+    },
+    "classes": {
+      "title": "Mes classes",
+      "subtitle": "Matières auxquelles vous êtes inscrit",
+      "next_session": "Prochaine session : {{session}}",
+      "no_upcoming_session": "Aucune information de session à venir",
+      "loading": "Chargement des matières inscrites...",
+      "error_loading": "Échec du chargement des matières."
+    },
+    "assignments": {
+      "title": "Mes devoirs",
+      "subtitle": "Suivre les échéances et le statut des soumissions",
+      "status": {
+        "open": "Ouvert",
+        "pending": "En attente",
+        "submitted": "Soumis",
+        "graded": "Noté",
+        "overdue": "En retard"
+      },
+      "feedback": "Commentaire",
+      "no_assignments": "Aucun devoir trouvé.",
+      "loading": "Chargement des devoirs...",
+      "error_loading": "Échec du chargement des devoirs.",
+      "score_display": "Note : {{score}} / {{max}}"
+    },
+    "weekdays": {
+      "Monday": "Lundi",
+      "Tuesday": "Mardi",
+      "Wednesday": "Mercredi",
+      "Thursday": "Jeudi",
+      "Friday": "Vendredi",
+      "Saturday": "Samedi",
+      "Sunday": "Dimanche",
+      "Mon": "Lundi",
+      "Tue": "Mardi",
+      "Wed": "Mercredi",
+      "Thu": "Jeudi",
+      "Fri": "Vendredi"
+    }
+  },
   "parent_portal": {
     "dashboard": {
       "title": "Portail Parent",
