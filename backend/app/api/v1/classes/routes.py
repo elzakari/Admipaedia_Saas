@@ -162,10 +162,17 @@ def assign_teacher(class_id):
 @require_role(['admin', 'teacher'])
 @tenant_required
 def get_classes_by_teacher(teacher_id):
-    """Get classes taught by a specific teacher."""
+    # Scope query dynamically by matching the active authenticated teacher's identifier if they are a teacher
+    from app.utils.rbac_decorators import get_current_user
+    user = get_current_user()
+    if user and getattr(user, 'role', '').lower() == 'teacher':
+        teacher_record = TeacherService.get_teacher_by_user_id(user.id)
+        if teacher_record:
+            teacher_id = teacher_record.id
+
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
-    
+
     from app.models.teacher import Teacher
     teacher = Teacher.query.get(teacher_id)
     if not teacher or getattr(teacher, 'tenant_id', None) != getattr(g, 'tenant_id', None):

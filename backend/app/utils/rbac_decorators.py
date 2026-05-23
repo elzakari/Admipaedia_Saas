@@ -138,7 +138,7 @@ def require_permission(permission_name: str, resource_type: Optional[ResourceTyp
             
             # Check general permission
             # Superuser bypass for legacy admin role
-            if getattr(user, 'role', '').lower() == 'admin':
+            if getattr(user, 'role', '').lower() in ('admin', 'superadmin', 'super_admin', 'super_manager'):
                 g.current_user = user
                 g.user_permissions = get_user_permissions(user)
                 return f(*args, **kwargs)
@@ -178,7 +178,7 @@ def require_role(role_names: Union[str, List[str]], require_all: bool = False):
             
             # Superuser and legacy role bypass
             user_legacy_role = getattr(user, 'role', '').lower()
-            if user_legacy_role == 'admin' or user_legacy_role in role_names:
+            if user_legacy_role in ('admin', 'superadmin', 'super_admin', 'super_manager') or user_legacy_role in role_names:
                 g.current_user = user
                 g.user_roles = {user_legacy_role}
                 return f(*args, **kwargs)

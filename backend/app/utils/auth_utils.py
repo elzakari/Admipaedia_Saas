@@ -38,7 +38,7 @@ def teacher_required(fn):
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
-        if not user or (user.role != 'teacher' and user.role != 'admin'):
+        if not user or user.role not in ('teacher', 'admin', 'super_admin', 'superadmin', 'super_manager'):
             return jsonify({
                 'success': False,
                 'message': 'Teacher privileges required'

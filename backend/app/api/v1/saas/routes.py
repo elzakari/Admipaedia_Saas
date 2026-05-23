@@ -895,20 +895,29 @@ def patch_admission_status(form_id):
             else:
                 gender = 'other'
 
+            # Resolve class_id, parent_id, and academic_year_id from nested application data
+            classroom_id = form_data.get('classroom_id') or form_data.get('class_id') or application.target_class_id
+            academic_year_id = form_data.get('academic_year_id')
+            parent_id = form_data.get('parent_id') or application.parent_id
+
             # Build student payload
             student_payload = {
                 'tenant_id': tenant_id,
                 'user_id': student_user.id,
                 'first_name': application.student_first_name or "",
                 'last_name': application.student_last_name or "",
-                'parent_id': application.parent_id,
-                'class_id': application.target_class_id,
+                'parent_id': parent_id,
+                'class_id': classroom_id,
                 'gender': gender,
                 'date_of_birth': date_of_birth,
                 'status': 'pending_activation',
                 'email': None,
                 'phone': form_data.get('emergency_contact')
             }
+            from app.models.student import Student
+            if academic_year_id and hasattr(Student, 'academic_year_id'):
+                student_payload['academic_year_id'] = academic_year_id
+
 
             from app.services.student_service import StudentService
             student_service = StudentService(db.session)

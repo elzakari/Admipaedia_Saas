@@ -277,17 +277,22 @@ def get_teacher_classes(teacher_id):
         if not user:
             return jsonify({"error": "Authentication required"}), 401
             
-        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin
-        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() == 'admin'
+        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin/superadmin
+        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() in ('admin', 'superadmin', 'super_admin', 'super_manager')
         
         # 2. Or, authorize if the user is a teacher and this is their own record
+        teacher_record = TeacherService.get_teacher_by_user_id(user.id)
         if not is_authorized:
-            teacher_record = TeacherService.get_teacher_by_user_id(user.id)
             if teacher_record and teacher_record.id == teacher_id:
                 is_authorized = True
                 
         if not is_authorized:
             return jsonify({"error": "Insufficient permissions to read teacher classes"}), 403
+
+        # Scope query dynamically by matching the active authenticated teacher's identifier if they are a teacher
+        if getattr(user, 'role', '').lower() == 'teacher':
+            if teacher_record:
+                teacher_id = teacher_record.id
 
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
@@ -592,17 +597,22 @@ def get_teacher_schedule_assets(teacher_id):
         if not user:
             return jsonify({"error": "Authentication required"}), 401
             
-        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin
-        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() == 'admin'
+        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin/superadmin
+        is_authorized = has_permission(user, 'teacher.read') or getattr(user, 'role', '').lower() in ('admin', 'superadmin', 'super_admin', 'super_manager')
         
         # 2. Or, authorize if the user is a teacher and this is their own record
+        teacher_record = TeacherService.get_teacher_by_user_id(user.id)
         if not is_authorized:
-            teacher_record = TeacherService.get_teacher_by_user_id(user.id)
             if teacher_record and teacher_record.id == teacher_id:
                 is_authorized = True
                 
         if not is_authorized:
             return jsonify({"error": "Insufficient permissions to read teacher schedule assets"}), 403
+            
+        # Scope query dynamically by matching the active authenticated teacher's identifier if they are a teacher
+        if getattr(user, 'role', '').lower() == 'teacher':
+            if teacher_record:
+                teacher_id = teacher_record.id
             
         from app.models.timetable import TimetableSlot
         from app.models.subject import Subject
