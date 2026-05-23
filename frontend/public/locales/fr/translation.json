@@ -152,6 +152,11 @@
     "help": "Centre d'Aide",
     "terms": "Conditions d'Utilisation",
     "privacy": "Politique de Confidentialité",
+    "branches": "Succursales",
+    "branches_ewe": "Alɔwo",
+    "select_campus": "Sélectionner le campus",
+    "hq": "Siège social",
+    "hq_ewe": "Dɔwɔƒegã",
     "legal": {
       "terms_title": "Conditions d'Utilisation",
       "terms_description": "Veuillez lire attentivement ces conditions avant d'utiliser ADMIPAEDIA.",
@@ -1539,5 +1544,25 @@
     "profile_parameters": "Paramètres du Profil",
     "system_preferences": "Préférences du Système",
     "security_options": "Options de Sécurité"
+  },
+  "branches": {
+    "manage_desc": "Gérer les campus physiques et les centres régionaux de l'école",
+    "add_new": "Ajouter un campus",
+    "edit_title": "Modifier le campus",
+    "add_title": "Configurer un nouveau campus",
+    "name": "Nom du campus",
+    "code": "Code unique",
+    "address": "Adresse physique",
+    "create_btn": "Déployer la succursale",
+    "empty_title": "Aucune succursale déployée",
+    "empty_desc": "Ce siège social n'a pas encore de campus régionaux actifs.",
+    "provision_first": "Provisionner la première succursale",
+    "no_address": "Aucune adresse définie",
+    "table": {
+      "name": "Campus",
+      "code": "Code",
+      "address": "Localisation",
+      "status": "Statut"
+    }
   }
 }

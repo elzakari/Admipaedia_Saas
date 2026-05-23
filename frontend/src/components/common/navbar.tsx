@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Bell, Search, Menu, X, User, Settings, LogOut, Moon, Sun } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Search, Menu, X, User, Settings, LogOut, Moon, Sun, GitBranch, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from './button';
 import { Input } from './input';
@@ -13,12 +13,39 @@ import {
   DropdownMenuTrigger 
 } from './dropdown-menu';
 import { Badge } from './badge';
+import { useTranslation } from 'react-i18next';
+import { useSaasTenant } from '@/hooks/useSaasTenant';
+import api from '@/lib/api';
 
 interface NavbarProps {
   // Add any props if needed
 }
 
 export const Navbar: React.FC<NavbarProps> = () => {
+  const { t } = useTranslation();
+  const { current } = useSaasTenant();
+  const [branches, setBranches] = useState<any[]>([]);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(() => {
+    return localStorage.getItem('saas_current_branch_id');
+  });
+
+  const tenantPlan = current?.tenant?.plan || 'trial';
+  const isEnterprise = tenantPlan.toLowerCase() === 'enterprise' || tenantPlan.toLowerCase() === 'ultimate';
+
+  useEffect(() => {
+    if (isEnterprise) {
+      api.get('/school/branches')
+        .then(res => {
+          if (res.data && res.data.success) {
+            setBranches(res.data.branches || []);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching branches in navbar:', err);
+        });
+    }
+  }, [isEnterprise, current?.tenant?.id]);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -62,6 +89,59 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
         {/* Right side - Notifications and Profile */}
         <div className="flex items-center">
+          {/* Branch/Campus Switcher (Enterprise only) */}
+          {isEnterprise && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="mr-3 flex items-center gap-2 rounded-xl border-indigo-100 hover:border-indigo-300 dark:border-slate-700 bg-indigo-50/50 hover:bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400">
+                  <GitBranch className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline font-bold text-xs tracking-tight">
+                    {activeBranchId 
+                      ? (branches.find(b => b.id === activeBranchId)?.name || t('navigation.branches', 'Branches')) 
+                      : t('navigation.hq', 'Headquarters')}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1.5 shadow-xl border border-slate-100 dark:border-slate-800">
+                <DropdownMenuLabel className="text-xs font-bold text-slate-500 px-3 py-2 uppercase tracking-widest flex items-center justify-between">
+                  <span>{t('navigation.select_campus', 'Select Campus')}</span>
+                  <span className="text-[10px] text-indigo-500 font-mono">({t('navigation.branches_ewe', 'Alɔwo')})</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="my-1" />
+                <DropdownMenuItem 
+                  onClick={() => {
+                    localStorage.removeItem('saas_current_branch_id');
+                    setActiveBranchId(null);
+                    window.location.reload();
+                  }}
+                  className={`cursor-pointer rounded-xl px-3 py-2 flex items-center gap-2 text-sm ${!activeBranchId ? 'bg-indigo-50 text-indigo-700 font-black dark:bg-indigo-950/40 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
+                >
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-bold">{t('navigation.hq', 'Headquarters')}</div>
+                    <div className="text-[10px] text-slate-400">{t('navigation.hq_ewe', 'Dɔwɔƒegã')}</div>
+                  </div>
+                </DropdownMenuItem>
+                {branches.map((branch) => (
+                  <DropdownMenuItem 
+                    key={branch.id}
+                    onClick={() => {
+                      localStorage.setItem('saas_current_branch_id', branch.id);
+                      setActiveBranchId(branch.id);
+                      window.location.reload();
+                    }}
+                    className={`cursor-pointer rounded-xl px-3 py-2 flex items-center gap-2 text-sm ${activeBranchId === branch.id ? 'bg-indigo-50 text-indigo-700 font-black dark:bg-indigo-950/40 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    <GitBranch className="h-4 w-4 shrink-0" />
+                    <div className="flex-1">
+                      <div className="font-bold">{branch.name}</div>
+                      {branch.code && <div className="text-[10px] text-slate-400 font-mono">{branch.code}</div>}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {/* Theme toggle */}
           <Button 
             variant="ghost" 

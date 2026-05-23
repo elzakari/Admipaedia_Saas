@@ -41,12 +41,34 @@ class Tenant(db.Model):
     timezone = db.Column(db.String(100), default='UTC')
     currency = db.Column(db.String(3), default='USD')
     is_setup_completed = db.Column(db.Boolean, default=False, server_default='false')
+    is_hq = db.Column(db.Boolean, default=False, server_default='false')
     
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     def __repr__(self):
         return f'<Tenant {self.name} ({self.slug})>'
+
+class Branch(db.Model):
+    """
+    Enterprise Tenant Branch Model.
+    """
+    __tablename__ = 'branches'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    code = db.Column(db.String(50), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, server_default='true')
+    
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    tenant = db.relationship('Tenant', backref=db.backref('branches', lazy=True, cascade='all, delete-orphan'))
+
+    def __repr__(self):
+        return f'<Branch {self.name} of Tenant {self.tenant_id}>'
 
 class Subscription(db.Model):
     __tablename__ = 'subscriptions'

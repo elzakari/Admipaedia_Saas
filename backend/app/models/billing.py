@@ -146,6 +146,7 @@ class BillingInvoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(64), nullable=False)
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=False, index=True)
     academic_term_id = db.Column(db.Integer, db.ForeignKey('academic_terms.id'), nullable=False, index=True)
 
@@ -173,6 +174,7 @@ class BillingInvoice(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     plan = db.relationship('Plan', backref=db.backref('invoices', lazy=True))
+    branch = db.relationship('Branch', backref=db.backref('billing_invoices', lazy=True))
 
 
 # NOTE: BillingInvoicePayment (billing_invoice_payments) has been consolidated

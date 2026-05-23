@@ -38,6 +38,11 @@ api.interceptors.request.use(
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId;
     }
+
+    const branchId = localStorage.getItem('saas_current_branch_id');
+    if (branchId) {
+      config.headers['X-Branch-ID'] = branchId;
+    }
     return config;
   },
   (error) => {

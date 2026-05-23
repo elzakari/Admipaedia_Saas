@@ -9,6 +9,7 @@ class Class(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)  # Changed to Integer
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
     grade_level = db.Column(db.String(20), nullable=False)  # Keep for backward compatibility
     educational_level_id = db.Column(db.Integer, db.ForeignKey('educational_levels.id'), nullable=True)  # New field
@@ -27,6 +28,7 @@ class Class(db.Model):
     
     # Relationships
     teacher = db.relationship('Teacher', backref=db.backref('classes', lazy='dynamic'))
+    branch = db.relationship('Branch', backref=db.backref('classes', lazy=True))
     # educational_level relationship is defined in EducationalLevel model
     
     def __repr__(self):

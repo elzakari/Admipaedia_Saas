@@ -17,6 +17,7 @@ class Student(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     admission_number = db.Column(db.String(20), nullable=False)
     
@@ -85,6 +86,7 @@ class Student(db.Model):
     user = db.relationship('User', backref=db.backref('student', uselist=False))
     class_ = db.relationship('Class', backref=db.backref('students', lazy='dynamic'))
     parent = db.relationship('Parent', backref=db.backref('children', lazy=True))
+    branch = db.relationship('Branch', backref=db.backref('students', lazy=True))
     character_assessments = db.relationship('CharacterAssessment', back_populates='student', lazy=True)
     # Restore these for joinedload support in services
     grades = db.relationship('Grade', back_populates='student', cascade='all, delete-orphan')

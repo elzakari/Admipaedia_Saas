@@ -7,6 +7,7 @@ import AppLayout from './AppLayout';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import LazyLoadingWrapper from '../components/performance/LazyLoadingWrapper';
 import AdministrationGate from '../components/onboarding/AdministrationGate';
+import EnterpriseGate from '../components/onboarding/EnterpriseGate';
 
 type UserRole = User['role'];
 
@@ -79,6 +80,7 @@ const FeesPage = lazy(() =>
   import('../pages/Fees/FeesPage').then((module: any) => ({ default: module.FeesPage as any }))
 );
 const AdministrationPage = lazyPage(() => import('../pages/administration/AdministrationPage'));
+const BranchesPage = lazyPage(() => import('../components/administration/BranchesConfiguration'));
 const AttendancePage = lazyPage(() => import('../pages/attendance/AttendancePage'));
 const ReportsPage = lazyPage(() => import('../pages/reports/ReportsPage'));
 const ExamsPage = lazyPage(() => import('../pages/exams/ExamsPage'));
@@ -914,6 +916,17 @@ export default function AppRoutes() {
             element={<AdministrationGate element={<AdministrationPage />} />} 
             allowedRoles={['admin', 'school_admin']}
             componentName="Administration"
+          />
+        } 
+      />
+
+      <Route 
+        path="/app/school/branches" 
+        element={
+          <ProtectedRoute 
+            element={<EnterpriseGate element={<BranchesPage />} />} 
+            allowedRoles={['admin', 'school_admin']}
+            componentName="Branches Management"
           />
         } 
       />

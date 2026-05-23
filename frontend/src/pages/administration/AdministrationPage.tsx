@@ -9,7 +9,8 @@ import {
   Users,
   GraduationCap,
   Brain,
-  Search as SearchIcon
+  Search as SearchIcon,
+  GitBranch
 } from 'lucide-react';
 
 import {
@@ -21,7 +22,8 @@ import {
   StaffManagement,
   GhanaEducationService,
   EducationSystemConfiguration,
-  CoreCompetencies
+  CoreCompetencies,
+  BranchesConfiguration
 } from '../../components/administration';
 
 import { useHeader } from '../../contexts/HeaderContext';
@@ -41,6 +43,7 @@ const AdministrationPage = () => {
     { value: 'education-system', label: 'Education System', icon: GraduationCap, component: EducationSystemConfiguration },
     ...(isGhanaTenant ? [{ value: 'ghana-education', label: 'GES Standards', icon: GraduationCap, component: GhanaEducationService }] : []),
     { value: 'competencies', label: 'Core Competencies', icon: Brain, component: CoreCompetencies },
+    { value: 'branches', label: 'Branches', icon: GitBranch, component: BranchesConfiguration },
     { value: 'financial', label: 'Financial Management', icon: DollarSign, component: FinancialManagement },
     { value: 'calendar', label: 'Academic Calendar', icon: Calendar, component: AcademicCalendar },
     { value: 'library', label: 'Library Management', icon: BookOpen, component: LibraryManagement },

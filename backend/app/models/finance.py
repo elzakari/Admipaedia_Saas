@@ -85,6 +85,7 @@ class StudentFee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     fee_structure_id = db.Column(db.Integer, db.ForeignKey('fee_structures.id'), nullable=False)
+    branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     
     # Calculated amounts
     original_amount = db.Column(db.Numeric(10, 2), nullable=False)
@@ -106,6 +107,7 @@ class StudentFee(db.Model):
     student = db.relationship('Student', backref='fees')
     structure = db.relationship('FeeStructure', backref='student_fees')
     discount = db.relationship('FeeDiscount')
+    branch = db.relationship('Branch', backref=db.backref('student_fees', lazy=True))
 
     def update_balance(self):
         self.balance = self.final_amount - self.paid_amount

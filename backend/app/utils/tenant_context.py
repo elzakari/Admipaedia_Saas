@@ -62,6 +62,17 @@ def tenant_required(fn):
             return jsonify({'success': False, 'message': err}), 400 if err == 'Tenant context required' else 403
         g.tenant_id = tenant_id
         g.current_user = user
+        
+        # Parse X-Branch-ID header contextually
+        branch_id_val = request.headers.get('X-Branch-ID') or request.headers.get('X-Branch-Id')
+        if branch_id_val:
+            try:
+                g.branch_id = uuid.UUID(branch_id_val.strip())
+            except Exception:
+                g.branch_id = None
+        else:
+            g.branch_id = None
+
         return fn(*args, **kwargs)
 
     return wrapper

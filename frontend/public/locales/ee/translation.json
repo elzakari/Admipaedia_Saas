@@ -16,5 +16,32 @@
     "profile_parameters": "Ame Ŋuti Nya",
     "system_preferences": "Ðoɖo Tiatiawo",
     "security_options": "Tiatia Ŋutifafa"
+  },
+  "navigation": {
+    "branches": "Alɔwo",
+    "branches_ewe": "Alɔwo",
+    "select_campus": "Tia Alɔ",
+    "hq": "Dɔwɔƒegã",
+    "hq_ewe": "Dɔwɔƒegã"
+  },
+  "branches": {
+    "manage_desc": "Kpɔ suku alɔwo kple nutome dɔwɔƒewo dzi",
+    "add_new": "Tsɔ Alɔ Yeye Kpe Ðe Eŋu",
+    "edit_title": "Ðɔ suku alɔ",
+    "add_title": "Tsɔ Suku Alɔ Yeye Kpe Ðe Eŋu",
+    "name": "Alɔ Ƒe Ŋkɔ",
+    "code": "Alɔ Ƒe Dzeside",
+    "address": "Aƒe Kpɔɖeƒe",
+    "create_btn": "Tia Alɔ Yeye",
+    "empty_title": "Suku Alɔwo Menɔ Kpɔ Dzi O",
+    "empty_desc": "Dɔwɔƒegã sia mekpɔ suku alɔ aɖeke dzi o.",
+    "provision_first": "Tsɔ Alɔ Gbãtɔ Kpe Ðe Eŋu",
+    "no_address": "Nɔƒe aɖeke meli o",
+    "table": {
+      "name": "Suku Alɔ",
+      "code": "Dzeside",
+      "address": "Nɔƒe",
+      "status": "Nɔnɔme"
+    }
   }
 }

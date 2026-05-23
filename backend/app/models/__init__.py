@@ -107,6 +107,7 @@ from app.models.staff_enhanced import LeaveType, StaffLeave, StaffAttendance, Le
 # SaaS / Multi-tenancy models
 from app.models.tenant import (
     Tenant,
+    Branch,
     Subscription,
     PlatformAuditLog,
     TenantMembership,

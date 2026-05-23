@@ -12,6 +12,7 @@ class Teacher(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
     employee_id = db.Column(db.String(20), nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
@@ -36,6 +37,7 @@ class Teacher(db.Model):
     
     # Relationships
     user = db.relationship('User', backref=db.backref('teacher_profile', uselist=False))
+    branch = db.relationship('Branch', backref=db.backref('teachers', lazy=True))
     # Update the relationship line in the Teacher model
     subjects = db.relationship('Subject', secondary='teacher_subjects', backref='teachers')
     # classes = db.relationship('Class', secondary='teacher_classes', backref='teachers')

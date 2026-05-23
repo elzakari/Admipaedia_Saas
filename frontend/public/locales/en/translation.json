@@ -152,6 +152,11 @@
     "help": "Help Center",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
+    "branches": "Branches",
+    "branches_ewe": "Alɔwo",
+    "select_campus": "Select Campus",
+    "hq": "Headquarters",
+    "hq_ewe": "Dɔwɔƒegã",
     "legal": {
       "terms_title": "Terms of Service",
       "terms_description": "Please read these terms carefully before using ADMIPAEDIA.",
@@ -1539,5 +1544,25 @@
     "profile_parameters": "Profile Parameters",
     "system_preferences": "System Preferences",
     "security_options": "Security Options"
+  },
+  "branches": {
+    "manage_desc": "Manage physical school campuses and regional hubs",
+    "add_new": "Add Campus",
+    "edit_title": "Edit Campus",
+    "add_title": "Configure New Campus",
+    "name": "Campus Name",
+    "code": "Unique Code",
+    "address": "Physical Address",
+    "create_btn": "Deploy Branch",
+    "empty_title": "No Branches Deployed",
+    "empty_desc": "This headquarters does not have active regional campuses yet.",
+    "provision_first": "Provision First Branch",
+    "no_address": "No location set",
+    "table": {
+      "name": "Campus",
+      "code": "Code",
+      "address": "Location",
+      "status": "Status"
+    }
   }
 }

@@ -7,3 +7,4 @@ export { default as CoreCompetencies } from './CoreCompetencies';
 export { default as AcademicCalendar } from './AcademicCalendar';
 export { default as LibraryManagement } from './LibraryManagement';
 export { default as Announcements } from './Announcements';
+export { default as BranchesConfiguration } from './BranchesConfiguration';
