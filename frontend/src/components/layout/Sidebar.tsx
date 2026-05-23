@@ -279,10 +279,12 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
   const baseNavItems: NavItem[] = navItemsByRole[userRole] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
-    // Ultimate Plan Check for Administration
+    // Plan Check for Administration
     if (item.path === '/admin/administration') {
-      const plan = current?.tenant?.plan || 'trial';
-      if (plan !== 'ultimate') {
+      const tenant = current?.tenant;
+      const currentUser = user;
+      const canAccessAdmin = tenant?.plan === 'pro' || tenant?.plan === 'enterprise' || tenant?.plan === 'ultimate' || currentUser?.role === 'superadmin' || currentUser?.role === 'super_admin';
+      if (!canAccessAdmin) {
         return false;
       }
     }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSaasTenant } from '@/hooks/useSaasTenant';
+import { useAuth } from '@/contexts/AuthContext';
 import UltimateUpgradeScreen from './UltimateUpgradeScreen';
 
 interface AdministrationGateProps {
@@ -8,6 +9,7 @@ interface AdministrationGateProps {
 
 export default function AdministrationGate({ element }: AdministrationGateProps) {
   const { current, isLoading } = useSaasTenant();
+  const { user } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,6 +20,12 @@ export default function AdministrationGate({ element }: AdministrationGateProps)
         </div>
       </div>
     );
+  }
+
+  // Gracefully handle null tenant states when the user holds administrative credentials
+  const isUserAdmin = user?.role === 'superadmin' || user?.role === 'super_admin' || user?.role === 'school_admin';
+  if (!current && isUserAdmin) {
+    return element;
   }
 
   const tenantPlan = current?.tenant?.plan || 'trial';
