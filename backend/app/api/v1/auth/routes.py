@@ -260,7 +260,7 @@ def test_auth():
 @auth_bp.route('/login', methods=['POST'])
 @auth_bp.route('/login/', methods=['POST'])
 @rate_limit(limit=10, window=900, burst_limit=5)  # 10 attempts per 15 minutes, max 5 rapid attempts
-@sanitize_request_data({'email': 'email', 'password': 'text'})
+@sanitize_request_data({'email': 'text', 'password': 'text'})
 @security_headers()
 def login():
     """Authenticate user with enhanced security measures (MFA support)."""
@@ -753,12 +753,12 @@ def reset_password():
             return jsonify({"success": False, "error": "Passwords do not match"}), 400
         
         # Validate password strength
-        password_validation = PasswordSecurity.validate_password_strength(new_password)
-        if not password_validation['is_valid']:
+        is_strong, password_errors = PasswordSecurity.validate_password_strength(new_password)
+        if not is_strong:
             return jsonify({
                 "success": False, 
                 "error": "Password does not meet security requirements",
-                "requirements": password_validation['requirements']
+                "requirements": password_errors
             }), 400
         
         # Validate reset token
@@ -788,6 +788,15 @@ def reset_password():
         # Update password
         user.set_password_hash(new_password)
         user.password_changed_at = datetime.utcnow()
+        
+        # Activate account if it was pending
+        if user.status in ('pending_activation', 'pending_verification', 'pending_email_verification'):
+            user.status = 'active'
+            user.email_verified = True
+            from app.models.student import Student
+            student = Student.query.filter_by(user_id=user.id).first()
+            if student:
+                student.status = 'active'
         
         # Store new password in history
         password_history = PasswordHistory(

@@ -39,9 +39,9 @@ const LoginForm: React.FC = () => {
         required
         fullWidth
         id="email"
-        label="Email Address"
+        label="Email or Username"
         name="email"
-        autoComplete="email"
+        autoComplete="username"
         autoFocus
         value={email}
         onChange={(e) => setEmail(e.target.value)}

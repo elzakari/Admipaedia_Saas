@@ -131,6 +131,9 @@ api_v1_bp.register_blueprint(service_tokens_bp, url_prefix='/service-tokens')
 
 api_v1_bp.register_blueprint(plan_context_bp)
 
+from app.api.v1.saas.routes import complete_setup
+api_v1_bp.add_url_rule('/tenant/complete-setup', 'complete_setup', complete_setup, methods=['POST'])
+
 def register_blueprints(app):
     """Register all API blueprints."""
     # Enhanced Dashboard

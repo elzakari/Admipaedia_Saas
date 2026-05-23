@@ -556,3 +556,31 @@ def send_school_registration_email(user_email: str, registration_url: str, schoo
 
     result = send_email(subject=subject, recipients=[user_email], text_body=text_body, html_body=html_body)
     return bool(result)
+
+
+def send_student_activation_email(parent_email: str, student_username: str, activation_token: str, frontend_url: Optional[str] = None) -> bool:
+    """Send a transactional email to the parent with student credentials and password reset link."""
+    base = _normalize_frontend_url(frontend_url)
+    activation_url = f"{base}/reset-password?token={activation_token}"
+    
+    subject = "ADMIPAEDIA - Student Account Activation"
+    text_body = (
+        f"Hello,\n\n"
+        f"Your child's student profile has been approved and activated!\n"
+        f"Here are the student credentials:\n\n"
+        f"Username: {student_username}\n"
+        f"Activation Link: {activation_url}\n\n"
+        f"Please click the link above to configure the student password."
+    )
+    html_body = f"""
+    <p>Hello,</p>
+    <p>Your child's student profile has been approved and activated!</p>
+    <p>Here are the student credentials:</p>
+    <ul>
+        <li><strong>Username:</strong> {student_username}</li>
+    </ul>
+    <p><a href="{activation_url}">Configure Student Password & Activate Account</a></p>
+    <p>Please use the link above to configure the student password.</p>
+    """
+    result = send_email(subject=subject, recipients=[parent_email], text_body=text_body, html_body=html_body)
+    return bool(result)

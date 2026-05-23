@@ -279,6 +279,14 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
   const baseNavItems: NavItem[] = navItemsByRole[userRole] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
+    // Ultimate Plan Check for Administration
+    if (item.path === '/admin/administration') {
+      const plan = current?.tenant?.plan || 'trial';
+      if (plan !== 'ultimate') {
+        return false;
+      }
+    }
+
     if (user?.role === 'super_admin' || user?.role === 'super_manager') return true;
 
     // Check direct enabled features first

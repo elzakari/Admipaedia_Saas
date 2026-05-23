@@ -35,7 +35,7 @@ enhanced_auth_bp.strict_slashes = False
 
 # Validation schemas
 class EnhancedLoginSchema(Schema):
-    email = fields.Email(required=True)
+    email = fields.Str(required=True, validate=validate.Length(min=3, max=120))
     password = fields.Str(required=True)
     remember_me = fields.Bool(load_default=False)
     device_info = fields.Dict(load_default={})

@@ -135,11 +135,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-1">
-          {t('auth.email', 'Email')}
+          {t('auth.email_or_username', 'Email or Username')}
         </label>
         <input
           id="email"
-          type="email"
+          type="text"
           name="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -149,7 +149,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           autoCapitalize="none"
           spellCheck={false}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          placeholder={t('auth.email_placeholder', 'Enter your email')}
+          placeholder={t('auth.email_or_username_placeholder', 'Enter email or username')}
         />
       </div>
       

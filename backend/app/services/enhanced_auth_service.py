@@ -130,9 +130,9 @@ class EnhancedAuthService:
                     'lockout_remaining': remaining_time
                 }
             
-            # Find user
+            # Find user by email or username
             print(f"--- DB: FIND USER ---")
-            user = User.query.filter_by(email=email).first()
+            user = User.query.filter((User.email == email) | (User.username == email)).first()
             
             if user and not user.password_hash:
                 print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")

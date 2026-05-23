@@ -8,7 +8,13 @@ import secrets
 from app.extensions import db
 
 
-def _as_utc_aware(dt: datetime) -> datetime:
+def _as_utc_aware(dt) -> datetime:
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except Exception:
+            from dateutil.parser import parse
+            dt = parse(dt)
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)

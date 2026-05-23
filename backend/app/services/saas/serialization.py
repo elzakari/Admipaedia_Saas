@@ -18,6 +18,7 @@ def serialize_tenant(t: Tenant):
         'trial_ends_at': t.trial_ends_at.isoformat() if getattr(t, 'trial_ends_at', None) else None,
         'status': t.status,
         'currency': t.currency,
+        'is_setup_completed': getattr(t, 'is_setup_completed', False),
         'custom_domain': getattr(t, 'custom_domain', None),
         'schema_name': getattr(t, 'schema_name', None),
         'logo_url': logo_url,

@@ -27,6 +27,8 @@ import { MobileBottomNavigation } from '../navigation/MobileBottomNavigation';
 import { useMobileNavigation } from '../../hooks/useMobileNavigation';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useHeader } from '../../contexts/HeaderContext';
+import { useSaasTenant } from '../../hooks/useSaasTenant';
+import OnboardingWizard from '../onboarding/OnboardingWizard';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -46,6 +48,14 @@ export function Layout({ children, hideHeader }: LayoutProps) {
   const isCasaos = theme === 'casaos';
   
   const effectiveHideHeader = hideHeader || hideGlobalHeader;
+  
+  const { current, refresh: refreshTenant } = useSaasTenant();
+  const isSchoolAdmin = user?.role === 'admin' || user?.role === 'school_admin';
+  const showOnboarding = isSchoolAdmin && current && current.tenant && !current.tenant.is_setup_completed;
+
+  if (showOnboarding) {
+    return <OnboardingWizard tenant={current.tenant} onComplete={refreshTenant} />;
+  }
   
   const dashboardHref =
     (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :

@@ -40,6 +40,7 @@ class Tenant(db.Model):
     default_language = db.Column(db.String(10), default='en')
     timezone = db.Column(db.String(100), default='UTC')
     currency = db.Column(db.String(3), default='USD')
+    is_setup_completed = db.Column(db.Boolean, default=False, server_default='false')
     
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

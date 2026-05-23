@@ -170,6 +170,9 @@ def submit_admission_form(id):
         
     if application.payment_status != 'paid':
         return jsonify({'success': False, 'message': 'Form not paid for'}), 400
+
+    if application.status not in ('draft', 'returned'):
+        return jsonify({'success': False, 'message': 'Application is already submitted or processed'}), 400
         
     try:
         data = submit_form_schema.load(request.json)
@@ -206,7 +209,7 @@ def save_admission_draft(id):
     if application.payment_status != 'paid':
         return jsonify({'success': False, 'message': 'Form not paid for'}), 400
 
-    if application.status != 'draft':
+    if application.status not in ('draft', 'returned'):
         return jsonify({'success': False, 'message': 'Cannot edit a submitted application'}), 400
 
     try:
@@ -228,10 +231,8 @@ def save_admission_draft(id):
 @admin_required
 def review_application(id):
     """Admin review actions: mark under_review/approved/rejected."""
-    application = AdmissionApplication.query.get_or_404(id)
-
-    if application.status == 'draft':
-        return jsonify({'success': False, 'message': 'Draft applications cannot be reviewed'}), 400
+    from app.api.v1.saas.routes import patch_admission_status
+    return patch_admission_status(id)
 
     try:
         data = review_application_schema.load(request.json)

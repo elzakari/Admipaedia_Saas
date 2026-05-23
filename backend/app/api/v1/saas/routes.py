@@ -1,8 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from app.extensions import db
+from app.models.tenant import Tenant
 from app.api.v1.saas import saas_bp
 from app.services.saas import SaaSService
 from app.utils.platform_access import require_platform_super_admin
@@ -604,3 +606,385 @@ def complete_registration_link():
         with open('crash_dump.txt', 'w') as f:
             f.write(tb)
         return jsonify({"error_debug": str(e), "traceback": tb}), 500
+
+
+@saas_bp.route('/tenant/complete-setup', methods=['POST'])
+@jwt_required()
+def complete_setup():
+    from app.utils.tenant_context import resolve_tenant_for_request
+    tenant_id, user, err = resolve_tenant_for_request(require_explicit=True)
+    if err:
+        return jsonify({'success': False, 'message': err}), 403
+
+    if getattr(user, 'role', None) not in ('school_admin', 'admin', 'super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    data = request.get_json() or {}
+    
+    school_name = data.get('school_name')
+    address = data.get('address')
+    contact = data.get('contact')
+    currency = data.get('currency')
+    education_system = data.get('education_system')
+    academic_year_name = data.get('academic_year_name')
+    term_name = data.get('term_name')
+    term_start_date = data.get('term_start_date')
+    term_end_date = data.get('term_end_date')
+
+    # Basic validations
+    if not school_name or not str(school_name).strip():
+        return jsonify({'success': False, 'message': 'School name is required'}), 400
+    if not currency or not str(currency).strip():
+        return jsonify({'success': False, 'message': 'Currency code is required'}), 400
+    if not education_system or not str(education_system).strip():
+        return jsonify({'success': False, 'message': 'Education system framework is required'}), 400
+    if not academic_year_name or not str(academic_year_name).strip():
+        return jsonify({'success': False, 'message': 'Academic year name is required'}), 400
+    if not term_name or not str(term_name).strip():
+        return jsonify({'success': False, 'message': 'Term name is required'}), 400
+    if not term_start_date or not term_end_date:
+        return jsonify({'success': False, 'message': 'Term start and end dates are required'}), 400
+
+    tenant = Tenant.query.filter_by(id=tenant_id).first()
+    if not tenant:
+        return jsonify({'success': False, 'message': 'Tenant not found'}), 404
+
+    # 1. Update Core Metadata
+    tenant.name = str(school_name).strip()
+    tenant.currency = str(currency).strip().upper()
+
+    store = getattr(tenant, 'settings', None) or {}
+    if not isinstance(store, dict):
+        store = {}
+    store['address'] = str(address).strip() if address else ''
+    store['contact'] = str(contact).strip() if contact else ''
+    tenant.settings = store
+
+    # 2. Apply Educational System template
+    from app.services.educational_system.service import EducationalSystemService
+    try:
+        EducationalSystemService.apply_template_to_tenant(education_system, tenant_id)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Failed to apply educational system: {str(e)}'}), 400
+
+    # 3. First Academic Term Bounds
+    from datetime import date, timedelta
+    from app.models.academic_calendar import AcademicYear, Term
+    
+    try:
+        t_start = date.fromisoformat(str(term_start_date).strip())
+        t_end = date.fromisoformat(str(term_end_date).strip())
+        y_start = t_start
+        y_end = t_start + timedelta(days=365)
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'Invalid term start or end date format'}), 400
+
+    # Clear pre-existing active year/term to avoid duplication
+    existing_years = AcademicYear.query.all()
+    for ey in existing_years:
+        db.session.delete(ey)
+
+    academic_year = AcademicYear(
+        name=str(academic_year_name).strip(),
+        start_date=y_start,
+        end_date=y_end,
+        is_current=True
+    )
+    db.session.add(academic_year)
+    db.session.flush()
+
+    term = Term(
+        name=str(term_name).strip(),
+        academic_year_id=academic_year.id,
+        start_date=t_start,
+        end_date=t_end,
+        is_current=True
+    )
+    db.session.add(term)
+
+    # 4. Toggle setup completion flag
+    tenant.is_setup_completed = True
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Database save failed: {str(e)}'}), 500
+
+    from app.services.saas.serialization import serialize_tenant
+    return jsonify({
+        'success': True,
+        'message': 'School first-time onboarding completed successfully',
+        'tenant': serialize_tenant(tenant)
+    }), 200
+
+
+@saas_bp.route('/admissions/<int:form_id>/status', methods=['PATCH'])
+@jwt_required()
+def patch_admission_status(form_id):
+    """
+    Unified route to update the status of an AdmissionApplication.
+    Handles 'submitted', 'returned', and 'approved' state transitions.
+    """
+    from app.models.user import User
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    from app.models.admission import AdmissionApplication
+    application = AdmissionApplication.query.get_or_404(form_id)
+
+    data = request.get_json() or {}
+    next_status = data.get('status')
+    notes = data.get('notes')
+
+    if not next_status:
+        return jsonify({'success': False, 'message': 'status parameter is required'}), 400
+
+    if next_status not in ('submitted', 'returned', 'approved', 'under_review', 'rejected'):
+        return jsonify({'success': False, 'message': f'Invalid status: {next_status}'}), 400
+
+    # 1. State Rule: 'submitted'
+    if next_status == 'submitted':
+        # Only parents can submit their own forms
+        if user.role != 'parent':
+            return jsonify({'success': False, 'message': 'Only parents can submit applications'}), 403
+        from app.models.parent import Parent
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if not parent or application.parent_id != parent.id:
+            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        if application.payment_status != 'paid':
+            return jsonify({'success': False, 'message': 'Form not paid for'}), 400
+        if application.status not in ('draft', 'returned'):
+            return jsonify({'success': False, 'message': 'Application is already submitted or processed'}), 400
+
+        # Form locks on submission
+        application.status = 'submitted'
+        application.submission_date = datetime.utcnow()
+        if 'form_data' in data:
+            application.form_data = data['form_data']
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+        return jsonify({
+            'success': True,
+            'message': 'Application submitted successfully',
+            'data': {'id': application.id, 'status': application.status}
+        }), 200
+
+    # 2. State Rules for Admins ('returned', 'approved', 'under_review', 'rejected')
+    if user.role not in ('admin', 'school_admin', 'super_admin', 'super_manager'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    # State Rule: 'returned'
+    if next_status == 'returned':
+        # Unlocks the form for editing and injects review notes into form metadata
+        form_data = dict(application.form_data or {})
+        if isinstance(form_data, str):
+            import json
+            try:
+                form_data = json.loads(form_data)
+            except Exception:
+                form_data = {}
+        if not isinstance(form_data, dict):
+            form_data = {}
+
+        review_block = form_data.get('_review', {})
+        review_block.update({
+            'status': 'returned',
+            'notes': notes,
+            'reviewed_at': datetime.utcnow().isoformat()
+        })
+        form_data['_review'] = review_block
+        application.form_data = form_data
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(application, 'form_data')
+        application.status = 'returned'
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+        return jsonify({
+            'success': True,
+            'message': 'Application returned to parent with feedback',
+            'data': {'id': application.id, 'status': application.status}
+        }), 200
+
+    # State Rule: 'approved'
+    if next_status == 'approved':
+        if application.status == 'draft':
+            return jsonify({'success': False, 'message': 'Draft applications cannot be approved'}), 400
+
+        tenant_id = (
+            (application.target_class.tenant_id if application.target_class else None) or
+            (application.parent.tenant_id if application.parent else None)
+        )
+        if not tenant_id:
+            return jsonify({'success': False, 'message': 'Could not resolve tenant context'}), 400
+
+        # Determine student username first.last[suffix]
+        clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
+        clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
+        if not clean_first and not clean_last:
+            clean_first = "student"
+        username = f"{clean_first}.{clean_last}" if clean_last else clean_first
+
+        from app.models.user import User
+        base_username = username
+        counter = 1
+        while User.query.filter_by(username=username).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        # Generate activation token
+        import secrets
+        import hashlib
+        from datetime import timedelta
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+
+        try:
+            # Create user account for student with NO email
+            student_user = User(
+                username=username,
+                email=None,  # Leave nullable/blank
+                role='student',
+                status='pending_activation',
+                password_reset_token=token_hash,
+                password_reset_expires=datetime.utcnow() + timedelta(days=7)
+            )
+            student_user.password_hash = None
+            db.session.add(student_user)
+            db.session.flush()
+
+            form_data = application.form_data or {}
+            if isinstance(form_data, str):
+                import json
+                try:
+                    form_data = json.loads(form_data)
+                except Exception:
+                    form_data = {}
+            if not isinstance(form_data, dict):
+                form_data = {}
+
+            # Resolve dob and gender
+            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth') or '2016-01-01'
+            if isinstance(dob_raw, str):
+                try:
+                    date_of_birth = datetime.strptime(dob_raw.split('T')[0], '%Y-%m-%d').date()
+                except Exception:
+                    date_of_birth = datetime.now().date()
+            else:
+                date_of_birth = dob_raw
+
+            gender = str(form_data.get('gender') or 'female').lower()
+            if gender in ('m', 'male'):
+                gender = 'male'
+            elif gender in ('f', 'female'):
+                gender = 'female'
+            else:
+                gender = 'other'
+
+            # Build student payload
+            student_payload = {
+                'tenant_id': tenant_id,
+                'user_id': student_user.id,
+                'first_name': application.student_first_name or "",
+                'last_name': application.student_last_name or "",
+                'parent_id': application.parent_id,
+                'class_id': application.target_class_id,
+                'gender': gender,
+                'date_of_birth': date_of_birth,
+                'status': 'pending_activation',
+                'email': None,
+                'phone': form_data.get('emergency_contact')
+            }
+
+            from app.services.student_service import StudentService
+            student_service = StudentService(db.session)
+            student, err = student_service.create_student(student_payload, tenant_id=tenant_id)
+            if err:
+                raise ValueError(err)
+
+            if application.parent and student:
+                student.parent = application.parent
+                student.parent_id = application.parent.id
+                if student not in application.parent.children:
+                    application.parent.children.append(student)
+                db.session.add(application.parent)
+                db.session.add(student)
+
+            # Store the token inside database using PasswordResetToken model
+            from app.models.security import PasswordResetToken
+            db.session.add(PasswordResetToken(
+                user_id=student_user.id,
+                token_hash=token_hash,
+                expires_at=datetime.utcnow() + timedelta(days=7),
+                is_used=False
+            ))
+
+            # Send activation email targeting Associated Parent's email
+            parent_email = application.parent.user.email if (application.parent and application.parent.user) else None
+            if not parent_email:
+                parent_email = form_data.get('father_email') or form_data.get('mother_email')
+
+            if parent_email:
+                from app.services.email_service import send_student_activation_email
+                send_student_activation_email(parent_email, username, raw_token)
+
+            # Update status
+            application.status = 'approved'
+            db.session.commit()
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'message': f'Student record generation failed: {str(e)}'}), 500
+
+        from app.schemas.admission import AdmissionApplicationSchema
+        return jsonify({
+            'success': True,
+            'message': 'Application approved and student account initialized',
+            'data': AdmissionApplicationSchema().dump(application)
+        }), 200
+
+    # 3. Handle simple statuses: under_review, rejected
+    application.status = next_status
+    form_data = dict(application.form_data or {})
+    if isinstance(form_data, str):
+        import json
+        try:
+            form_data = json.loads(form_data)
+        except Exception:
+            form_data = {}
+    review_block = form_data.get('_review', {})
+    review_block.update({
+        'status': next_status,
+        'notes': notes,
+        'reviewed_at': datetime.utcnow().isoformat()
+    })
+    form_data['_review'] = review_block
+    application.form_data = form_data
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(application, 'form_data')
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    return jsonify({
+        'success': True,
+        'message': f'Application status updated to {next_status}',
+        'data': {'id': application.id, 'status': application.status}
+    }), 200

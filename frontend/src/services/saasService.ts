@@ -15,6 +15,7 @@ export type SaaSTenant = {
   currency: string | null
   custom_domain?: string | null
   schema_name?: string | null
+  is_setup_completed?: boolean
   created_at: string | null
 }
 

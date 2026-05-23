@@ -6,6 +6,7 @@ import { getJwtExpirationMs } from '@/utils/jwt';
 import AppLayout from './AppLayout';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 import LazyLoadingWrapper from '../components/performance/LazyLoadingWrapper';
+import AdministrationGate from '../components/onboarding/AdministrationGate';
 
 type UserRole = User['role'];
 
@@ -899,7 +900,18 @@ export default function AppRoutes() {
         path="/admin/administration" 
         element={
           <ProtectedRoute 
-            element={<AdministrationPage />} 
+            element={<AdministrationGate element={<AdministrationPage />} />} 
+            allowedRoles={['admin', 'school_admin']}
+            componentName="Administration"
+          />
+        } 
+      />
+
+      <Route 
+        path="/app/school/administration" 
+        element={
+          <ProtectedRoute 
+            element={<AdministrationGate element={<AdministrationPage />} />} 
             allowedRoles={['admin', 'school_admin']}
             componentName="Administration"
           />
