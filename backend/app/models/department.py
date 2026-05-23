@@ -16,6 +16,7 @@ class Department(db.Model):
     description = db.Column(db.Text, nullable=True)
     head_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    allocated_budget = db.Column(db.Float, default=0.0, server_default='0.0')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

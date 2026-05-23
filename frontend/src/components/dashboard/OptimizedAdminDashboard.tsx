@@ -316,6 +316,8 @@ export default function OptimizedAdminDashboard() {
           <LazyAdvancedAnalyticsWidget
             key={`${componentType}-${index}`}
             {...baseProps}
+            liveMetrics={liveMetrics || undefined}
+            isLoading={isMetricsLoading}
           />
         );
       case 'performance':

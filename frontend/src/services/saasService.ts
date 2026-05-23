@@ -114,6 +114,14 @@ export interface AdminDashboardMetrics {
     assignments: number
   }>
   currency: string
+  active_sessions_total?: number
+  departments?: Array<{
+    department: string
+    performance: number
+    teachers: number
+    students: number
+    budget: number
+  }>
 }
 
 export type PlatformTenantDetail = {

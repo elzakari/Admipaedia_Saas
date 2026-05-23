@@ -112,7 +112,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     if (liveMetrics) {
       setData(prev => ({
         ...prev,
-        activeUsers: liveMetrics.active_parents_students,
+        activeUsers: liveMetrics.active_sessions_total || liveMetrics.active_parents_students,
         onlineTeachers: liveMetrics.online_staff_count,
         lastUpdated: new Date()
       }));
@@ -121,7 +121,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
 
   // Simulate real-time data updates
   const updateData = useCallback(() => {
-    const activeUsersVal = liveMetrics ? liveMetrics.active_parents_students : (Math.floor(Math.random() * 100) + 200);
+    const activeUsersVal = liveMetrics ? (liveMetrics.active_sessions_total || liveMetrics.active_parents_students) : (Math.floor(Math.random() * 100) + 200);
     const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (Math.floor(Math.random() * 20) + 30);
 
     const newData: RealTimeData = {

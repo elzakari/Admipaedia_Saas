@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSchoolAIInsights } from '../../hooks/useAIAnalytics';
+import { useSaasTenant } from '../../hooks/useSaasTenant';
+import { formatCurrency } from '../../lib/utils';
+import { AdminDashboardMetrics } from '../../services/saasService';
 
 interface AnalyticsData {
   studentPerformance: Array<{
@@ -22,7 +25,6 @@ interface AnalyticsData {
     improvement: number;
     students: number;
   }>;
-  // ... (omitting lines for brevity in replacementContent if allowed, but I'll provide full block to be safe)
   attendanceTrends: Array<{
     month: string;
     attendance: number;
@@ -53,12 +55,18 @@ interface AnalyticsData {
 interface AdvancedAnalyticsWidgetProps {
   data?: AnalyticsData;
   className?: string;
+  liveMetrics?: AdminDashboardMetrics;
+  isLoading?: boolean;
 }
 
 const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
   data,
-  className = ''
+  className = '',
+  liveMetrics,
+  isLoading = false
 }) => {
+  const { current } = useSaasTenant();
+  const activeTenant = current?.tenant;
   const { insights, loading, error, refetch } = useSchoolAIInsights();
   const [activeTab, setActiveTab] = useState('performance');
   const [timeRange, setTimeRange] = useState('6m');
@@ -68,6 +76,22 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
   // Map AI insights to the local AnalyticsData format
   const analyticsData: AnalyticsData = useMemo(() => {
     if (data) return data;
+
+    const liveDeptMetrics = liveMetrics?.departments?.map(d => ({
+      department: d.department,
+      performance: d.performance,
+      teachers: d.teachers,
+      students: d.students,
+      budget: d.budget
+    }));
+
+    const liveAttendanceTrends = liveMetrics?.monthly_trends?.map(t => ({
+      month: t.month,
+      attendance: t.attendance,
+      target: 90,
+      classes: 450
+    }));
+
     if (insights && insights.school_insights_available) {
       // Transforming backend insights to frontend widget format
       // This is a simplified transformation for demonstration
@@ -78,7 +102,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
           improvement: 5, // Placeholder
           students: cp.class_statistics.total_students
         })),
-        attendanceTrends: [
+        attendanceTrends: liveAttendanceTrends || [
           { month: 'Jan', attendance: 92, target: 90, classes: 450 },
           { month: 'Feb', attendance: 88, target: 90, classes: 420 },
           { month: 'Mar', attendance: 94, target: 90, classes: 480 },
@@ -92,7 +116,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
           { teacher: 'Ms. Johnson', rating: 4.6, students: 92, subjects: 3 },
           { teacher: 'Mr. Brown', rating: 4.4, students: 78, subjects: 2 }
         ],
-        departmentMetrics: [],
+        departmentMetrics: liveDeptMetrics || [],
         examResults: []
       };
     }
@@ -105,7 +129,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
         { subject: 'History', average: 76, improvement: 1, students: 110 },
         { subject: 'Geography', average: 80, improvement: 4, students: 105 }
       ],
-      attendanceTrends: [
+      attendanceTrends: liveAttendanceTrends || [
         { month: 'Jan', attendance: 92, target: 90, classes: 450 },
         { month: 'Feb', attendance: 88, target: 90, classes: 420 },
         { month: 'Mar', attendance: 94, target: 90, classes: 480 },
@@ -120,7 +144,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
         { teacher: 'Dr. Wilson', rating: 4.7, students: 88, subjects: 1 },
         { teacher: 'Ms. Davis', rating: 4.5, students: 95, subjects: 2 }
       ],
-      departmentMetrics: [
+      departmentMetrics: liveDeptMetrics || [
         { department: 'Science', performance: 85, teachers: 12, students: 340, budget: 45000 },
         { department: 'Mathematics', performance: 88, teachers: 10, students: 320, budget: 38000 },
         { department: 'Languages', performance: 82, teachers: 15, students: 380, budget: 42000 },
@@ -134,7 +158,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
         { exam: 'Unit Test', passRate: 89, averageScore: 79, participants: 460 }
       ]
     };
-  }, [data]);
+  }, [data, liveMetrics, insights]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -368,10 +392,15 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
                 <XAxis dataKey="department" />
                 <YAxis yAxisId="left" />
                 <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
+                <Tooltip formatter={(value: any, name: string) => {
+                  if (name.startsWith('Budget')) {
+                    return [formatCurrency(Number(value), activeTenant?.currency || 'USD'), name];
+                  }
+                  return [`${value}%`, name];
+                }} />
                 <Legend />
                 <Bar yAxisId="left" dataKey="performance" fill="#10b981" name="Performance %" />
-                <Line yAxisId="right" type="monotone" dataKey="budget" stroke="#f59e0b" name="Budget ($)" />
+                <Line yAxisId="right" type="monotone" dataKey="budget" stroke="#f59e0b" name={`Budget (${activeTenant?.currency || 'USD'})`} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -391,15 +420,17 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
               </div>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">{dept.teachers}</p>
+                  <p className="text-2xl font-bold text-blue-600">{dept.teachers || 0}</p>
                   <p className="text-xs text-gray-500">Teachers</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{dept.students}</p>
+                  <p className="text-2xl font-bold text-green-600">{dept.students || 0}</p>
                   <p className="text-xs text-gray-500">Students</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-orange-600">${(dept.budget / 1000).toFixed(0)}K</p>
+                  <p className="text-lg font-bold text-orange-600 truncate" title={formatCurrency(dept.budget || 0, activeTenant?.currency || 'USD')}>
+                    {formatCurrency(dept.budget || 0, activeTenant?.currency || 'USD')}
+                  </p>
                   <p className="text-xs text-gray-500">Budget</p>
                 </div>
               </div>
