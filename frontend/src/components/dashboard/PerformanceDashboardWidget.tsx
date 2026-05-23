@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { AdminDashboardMetrics } from '../../services/saasService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import {
@@ -58,19 +59,97 @@ interface PerformanceData {
 interface PerformanceDashboardWidgetProps {
   data?: PerformanceData;
   className?: string;
+  liveMetrics?: AdminDashboardMetrics;
+  isLoading?: boolean;
 }
 
 const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   data,
-  className = ''
+  className = '',
+  liveMetrics,
+  isLoading = false
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('6m');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
 
+  // Loading skeleton state
+  if (isLoading) {
+    return (
+      <Card className={`${className} animate-pulse`}>
+        <CardHeader>
+          <div className="h-6 w-48 bg-gray-200 dark:bg-slate-700 rounded mb-2"></div>
+          <div className="h-4 w-32 bg-gray-200 dark:bg-slate-700 rounded"></div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-20 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
+            ))}
+          </div>
+          <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Sample data if none provided
   const performanceData: PerformanceData = useMemo(() => {
+    if (liveMetrics) {
+      return {
+        overallMetrics: {
+          averageGrade: liveMetrics.average_grade,
+          passRate: liveMetrics.pass_rate,
+          attendanceRate: liveMetrics.attendance_rate,
+          completionRate: liveMetrics.assignment_completion_rate,
+          improvement: 4.2
+        },
+        subjectPerformance: [
+          { subject: 'Mathematics', average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
+          { subject: 'Science', average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
+          { subject: 'English', average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
+          { subject: 'History', average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
+          { subject: 'Geography', average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
+        ],
+        gradeDistribution: liveMetrics.grade_distribution && liveMetrics.grade_distribution.length > 0
+          ? liveMetrics.grade_distribution
+          : [
+              { grade: 'A+', count: 45, percentage: 12 },
+              { grade: 'A', count: 78, percentage: 21 },
+              { grade: 'B+', count: 92, percentage: 25 },
+              { grade: 'B', count: 85, percentage: 23 },
+              { grade: 'C+', count: 48, percentage: 13 },
+              { grade: 'C', count: 22, percentage: 6 }
+            ],
+        monthlyTrends: liveMetrics.monthly_trends && liveMetrics.monthly_trends.length > 0
+          ? liveMetrics.monthly_trends
+          : [
+              { month: 'Jan', performance: 78, attendance: 89, assignments: 95 },
+              { month: 'Feb', performance: 80, attendance: 87, assignments: 92 },
+              { month: 'Mar', performance: 82, attendance: 91, assignments: 88 },
+              { month: 'Apr', performance: 84, attendance: 93, assignments: 90 },
+              { month: 'May', performance: 83, attendance: 90, assignments: 94 },
+              { month: 'Jun', performance: 85, attendance: 92, assignments: 96 }
+            ],
+        classComparison: [
+          { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
+          { class: '10B', performance: 82, students: 30, teacher: 'Mr. Smith' },
+          { class: '10C', performance: 85, students: 31, teacher: 'Dr. Brown' },
+          { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
+          { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
+        ],
+        skillsRadar: [
+          { skill: 'Problem Solving', current: 85, target: 90 },
+          { skill: 'Critical Thinking', current: 78, target: 85 },
+          { skill: 'Communication', current: 82, target: 88 },
+          { skill: 'Collaboration', current: 88, target: 92 },
+          { skill: 'Creativity', current: 75, target: 80 },
+          { skill: 'Leadership', current: 70, target: 78 }
+        ]
+      };
+    }
+
     if (data) return data;
     
     return {

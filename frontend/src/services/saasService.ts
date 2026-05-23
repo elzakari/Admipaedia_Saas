@@ -95,6 +95,27 @@ export type PlatformKPIs = {
   invoices_paid_count: number
 }
 
+export interface AdminDashboardMetrics {
+  average_grade: number
+  pass_rate: number
+  attendance_rate: number
+  assignment_completion_rate: number
+  active_parents_students: number
+  online_staff_count: number
+  grade_distribution: Array<{
+    grade: string
+    count: number
+    percentage: number
+  }>
+  monthly_trends: Array<{
+    month: string
+    performance: number
+    attendance: number
+    assignments: number
+  }>
+  currency: string
+}
+
 export type PlatformTenantDetail = {
   tenant: SaaSTenant
   members_count: number
@@ -330,6 +351,11 @@ const saasService = {
   }) {
     const res = await api.get('/saas/platform/financial/payments', { params })
     return res.data as { success: boolean; items: PlatformPayment[]; pagination: Pagination }
+  },
+
+  async getAdminDashboardMetrics(tenantId?: string) {
+    const res = await api.get('/admin/dashboard-metrics', { params: { tenantId } })
+    return res.data as { success: boolean; data: AdminDashboardMetrics }
   }
 }
 

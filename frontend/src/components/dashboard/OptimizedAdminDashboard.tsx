@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../ui/card';
+import saasService, { AdminDashboardMetrics } from '../../services/saasService';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -97,6 +98,28 @@ export default function OptimizedAdminDashboard() {
   const { theme } = useTheme();
   const { executeAction, quickActions } = useEnhancedNavigation();
 
+  const [liveMetrics, setLiveMetrics] = useState<AdminDashboardMetrics | null>(null);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(true);
+
+  const fetchLiveMetrics = useCallback(async () => {
+    setIsMetricsLoading(true);
+    try {
+      const tenantId = localStorage.getItem('saas_current_tenant_id') || undefined;
+      const res = await saasService.getAdminDashboardMetrics(tenantId);
+      if (res && res.success) {
+        setLiveMetrics(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch live admin metrics:', err);
+    } finally {
+      setIsMetricsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveMetrics();
+  }, [fetchLiveMetrics]);
+
   const handleQuickActionClick = (actionId: string) => {
     const action = quickActions.find(a => a.id === actionId);
     if (action) {
@@ -180,14 +203,17 @@ export default function OptimizedAdminDashboard() {
     setRefreshing(true);
     announce('Refreshing dashboard data...');
     try {
-      await dashboardData.refreshAll();
+      await Promise.all([
+        dashboardData.refreshAll(),
+        fetchLiveMetrics()
+      ]);
       announce('Data update complete.');
     } catch (error) {
       announce('Failed to refresh data.');
     } finally {
       setRefreshing(false);
     }
-  }, [dashboardData, announce, refreshing]);
+  }, [dashboardData, announce, refreshing, fetchLiveMetrics]);
 
   // Live data invalidation via WebSocket
   // Live data invalidation via WebSocket
@@ -297,6 +323,8 @@ export default function OptimizedAdminDashboard() {
           <LazyPerformanceDashboardWidget
             key={`${componentType}-${index}`}
             {...baseProps}
+            liveMetrics={liveMetrics || undefined}
+            isLoading={isMetricsLoading}
           />
         );
       case 'realtime':
@@ -304,6 +332,8 @@ export default function OptimizedAdminDashboard() {
           <LazyEnhancedRealTimeWidget
             key={`${componentType}-${index}`}
             {...baseProps}
+            liveMetrics={liveMetrics || undefined}
+            isLoading={isMetricsLoading}
           />
         );
       default:

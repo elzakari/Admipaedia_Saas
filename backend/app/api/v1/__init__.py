@@ -134,6 +134,9 @@ api_v1_bp.register_blueprint(plan_context_bp)
 from app.api.v1.saas.routes import complete_setup
 api_v1_bp.add_url_rule('/tenant/complete-setup', 'complete_setup', complete_setup, methods=['POST'])
 
+from app.api.v1.dashboard.routes import get_admin_dashboard_metrics
+api_v1_bp.add_url_rule('/admin/dashboard-metrics', 'get_admin_dashboard_metrics', get_admin_dashboard_metrics, methods=['GET'])
+
 def register_blueprints(app):
     """Register all API blueprints."""
     # Enhanced Dashboard

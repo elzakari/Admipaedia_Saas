@@ -11,6 +11,7 @@ import {
 import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWebSocket } from '../../services/websocketService';
+import { AdminDashboardMetrics } from '../../services/saasService';
 
 interface SystemMetric {
   name: string;
@@ -44,11 +45,15 @@ interface Alert {
 interface EnhancedRealTimeWidgetProps {
   refreshInterval?: number;
   className?: string;
+  liveMetrics?: AdminDashboardMetrics;
+  isLoading?: boolean;
 }
 
 const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
   refreshInterval = 5000, // 5 seconds
-  className = ''
+  className = '',
+  liveMetrics,
+  isLoading = false
 }) => {
   const [data, setData] = useState<RealTimeData>({
     activeUsers: 0,
@@ -102,11 +107,26 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     }
   ]);
 
+  // Synchronize state with liveMetrics when they arrive or change
+  useEffect(() => {
+    if (liveMetrics) {
+      setData(prev => ({
+        ...prev,
+        activeUsers: liveMetrics.active_parents_students,
+        onlineTeachers: liveMetrics.online_staff_count,
+        lastUpdated: new Date()
+      }));
+    }
+  }, [liveMetrics]);
+
   // Simulate real-time data updates
   const updateData = useCallback(() => {
+    const activeUsersVal = liveMetrics ? liveMetrics.active_parents_students : (Math.floor(Math.random() * 100) + 200);
+    const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (Math.floor(Math.random() * 20) + 30);
+
     const newData: RealTimeData = {
-      activeUsers: Math.floor(Math.random() * 100) + 200,
-      onlineTeachers: Math.floor(Math.random() * 20) + 30,
+      activeUsers: activeUsersVal,
+      onlineTeachers: onlineTeachersVal,
       currentClasses: Math.floor(Math.random() * 15) + 10,
       systemLoad: Math.floor(Math.random() * 30) + 20,
       memoryUsage: Math.floor(Math.random() * 40) + 40,
@@ -183,16 +203,22 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     const quality = newData.networkLatency < 30 ? 'excellent' :
       newData.networkLatency < 60 ? 'good' : 'poor';
     setConnectionQuality(quality);
-  }, []);
+  }, [liveMetrics]);
 
   // Listen for real-time updates from WebSocket
   useEffect(() => {
     const unsubscribe = subscribe('system_update', (update: any) => {
-      setData(prev => ({
-        ...prev,
-        ...update,
-        lastUpdated: new Date()
-      }));
+      setData(prev => {
+        const activeUsersVal = liveMetrics ? liveMetrics.active_parents_students : (update.activeUsers ?? prev.activeUsers);
+        const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (update.onlineTeachers ?? prev.onlineTeachers);
+        return {
+          ...prev,
+          ...update,
+          activeUsers: activeUsersVal,
+          onlineTeachers: onlineTeachersVal,
+          lastUpdated: new Date()
+        };
+      });
 
       if (typeof update.networkLatency === 'number') {
         const quality = update.networkLatency < 30 ? 'excellent' : update.networkLatency < 60 ? 'good' : 'poor';
@@ -225,7 +251,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     });
 
     return () => unsubscribe();
-  }, [subscribe]);
+  }, [subscribe, liveMetrics]);
 
   useEffect(() => {
     // Only use local simulation if not connected
@@ -280,6 +306,61 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
       alert.id === alertId ? { ...alert, resolved: true } : alert
     ));
   };
+
+  if (isLoading) {
+    return (
+      <div className={`space-y-4 ${className} animate-pulse`}>
+        {/* System Monitor Card Skeleton */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="h-6 w-36 bg-gray-200 dark:bg-slate-700 rounded"></div>
+              <div className="h-5 w-20 bg-gray-200 dark:bg-slate-700 rounded-full"></div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-4 w-28 bg-gray-200 dark:bg-slate-700 rounded mb-4"></div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="h-20 bg-gray-200 dark:bg-slate-700 rounded-lg"></div>
+              <div className="h-20 bg-gray-200 dark:bg-slate-700 rounded-lg"></div>
+            </div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center space-x-3 w-full">
+                    <div className="h-8 w-8 bg-gray-200 dark:bg-slate-700 rounded-full"></div>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 w-1/4 bg-gray-200 dark:bg-slate-700 rounded"></div>
+                      <div className="h-3 w-12 bg-gray-200 dark:bg-slate-700 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="w-20 h-8 bg-gray-200 dark:bg-slate-700 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* System Alerts Card Skeleton */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="h-6 w-32 bg-gray-200 dark:bg-slate-700 rounded"></div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[1, 2].map(i => (
+              <div key={i} className="p-3 bg-gray-100 dark:bg-slate-800/50 rounded-lg border-l-4 border-gray-200 dark:border-slate-700 flex justify-between items-center">
+                <div className="flex items-center space-x-2 flex-1">
+                  <div className="h-4 w-4 bg-gray-200 dark:bg-slate-700 rounded-full"></div>
+                  <div className="h-4 w-2/3 bg-gray-200 dark:bg-slate-700 rounded"></div>
+                </div>
+                <div className="h-6 w-12 bg-gray-200 dark:bg-slate-700 rounded"></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>

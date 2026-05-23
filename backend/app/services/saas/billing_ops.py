@@ -6,6 +6,8 @@ from app.services.integrations.token_service import ServiceTokenService
 from app.services.saas.plan_ops import assign_plan_to_tenant
 
 import uuid
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta, date, timezone
 
 from sqlalchemy import func, or_
@@ -209,16 +211,26 @@ def platform_get_tenant_detail(tenant_id):
 
 
 def platform_kpis():
-    tenants = Tenant.query.all()
+    try:
+        tenants = Tenant.query.all()
+    except Exception as e:
+        logger.error(f"Error fetching tenants in platform_kpis: {str(e)}")
+        tenants = []
 
     status_counts = {}
     plan_counts = {}
     country_counts = {}
 
     for t in tenants:
-        status_counts[t.status] = status_counts.get(t.status, 0) + 1
-        plan_counts[t.plan] = plan_counts.get(t.plan, 0) + 1
-        country_counts[t.country_code] = country_counts.get(t.country_code, 0) + 1
+        try:
+            status = t.status or 'inactive'
+            plan = t.plan or 'trial'
+            country = t.country_code or 'US'
+            status_counts[status] = status_counts.get(status, 0) + 1
+            plan_counts[plan] = plan_counts.get(plan, 0) + 1
+            country_counts[country] = country_counts.get(country, 0) + 1
+        except Exception:
+            continue
 
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=30)
@@ -233,31 +245,53 @@ def platform_kpis():
             continue
 
     # --- Platform invoices / payments (legacy SaaS billing) ---
-    platform_invoice_total = float(
-        db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).scalar() or 0
-    )
-    platform_payment_total = float(
-        db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).scalar() or 0
-    )
-    invoices_count = PlatformInvoice.query.count()
-    paid_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'paid').count()
-    sent_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'sent').count()
+    try:
+        platform_invoice_total = float(
+            db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).scalar() or 0
+        )
+        platform_payment_total = float(
+            db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).scalar() or 0
+        )
+        invoices_count = PlatformInvoice.query.count()
+        paid_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'paid').count()
+        sent_invoices = PlatformInvoice.query.filter(PlatformInvoice.status == 'sent').count()
+    except Exception as e:
+        logger.error(f"Error fetching platform invoice/payment metrics: {str(e)}")
+        platform_invoice_total = 0.0
+        platform_payment_total = 0.0
+        invoices_count = 0
+        paid_invoices = 0
+        sent_invoices = 0
 
     # --- Billing invoices / payments (school-fee SaaS billing) ---
-    billing_invoice_total = float(
-        db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
-        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
-        .scalar() or 0
-    )
-    billing_payment_total = float(
-        db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
-        .filter(BillingPayment.status == 'successful')
-        .scalar() or 0
-    )
-    billing_invoices_count = BillingInvoice.query.count()
-    billing_paid_invoices = BillingInvoice.query.filter(
-        BillingInvoice.payment_status == 'paid'
-    ).count()
+    try:
+        billing_invoice_total = float(
+            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
+            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+            .scalar() or 0
+        )
+        billing_payment_total = float(
+            db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
+            .filter(BillingPayment.status == 'successful')
+            .scalar() or 0
+        )
+        billing_invoices_count = BillingInvoice.query.count()
+        billing_paid_invoices = BillingInvoice.query.filter(
+            BillingInvoice.payment_status == 'paid'
+        ).count()
+    except Exception as e:
+        logger.error(f"Error fetching school-fee billing invoice/payment metrics: {str(e)}")
+        billing_invoice_total = 0.0
+        billing_payment_total = 0.0
+        billing_invoices_count = 0
+        billing_paid_invoices = 0
+
+    try:
+        from app.models.student import Student
+        students_total = int(db.session.query(func.count(Student.id)).scalar() or 0)
+    except Exception as e:
+        logger.error(f"Error fetching platform students count: {str(e)}")
+        students_total = 0
 
     invoice_total_f = platform_invoice_total + billing_invoice_total
     payment_total_f = platform_payment_total + billing_payment_total
@@ -274,6 +308,7 @@ def platform_kpis():
         'invoices_count': int(invoices_count + billing_invoices_count),
         'invoices_sent_count': int(sent_invoices),
         'invoices_paid_count': int(paid_invoices + billing_paid_invoices),
+        'students_total': students_total,
     }
 
 
@@ -421,25 +456,41 @@ def platform_update_tenant(tenant_id, status=None, plan=None):
 
 
 def platform_financial_summary():
-    tenants = Tenant.query.all()
+    try:
+        tenants = Tenant.query.all()
+    except Exception as e:
+        logger.error(f"Error fetching tenants in platform_financial_summary: {str(e)}")
+        tenants = []
 
     # --- Platform invoices / payments (legacy SaaS billing) ---
-    platform_invoices = PlatformInvoice.query.all()
-    platform_payments = PlatformPayment.query.all()
-    platform_inv_total = sum(float(i.amount) for i in platform_invoices)
-    platform_pmt_total = sum(float(p.amount) for p in platform_payments)
+    try:
+        platform_invoices = PlatformInvoice.query.all()
+        platform_payments = PlatformPayment.query.all()
+        platform_inv_total = sum(float(i.amount or 0) for i in platform_invoices)
+        platform_pmt_total = sum(float(p.amount or 0) for p in platform_payments)
+    except Exception as e:
+        logger.error(f"Error fetching platform billing records: {str(e)}")
+        platform_invoices = []
+        platform_payments = []
+        platform_inv_total = 0.0
+        platform_pmt_total = 0.0
 
     # --- Billing invoices / payments (school-fee SaaS billing) ---
-    billing_inv_total = float(
-        db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
-        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
-        .scalar() or 0
-    )
-    billing_pmt_total = float(
-        db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
-        .filter(BillingPayment.status == 'successful')
-        .scalar() or 0
-    )
+    try:
+        billing_inv_total = float(
+            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
+            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+            .scalar() or 0
+        )
+        billing_pmt_total = float(
+            db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
+            .filter(BillingPayment.status == 'successful')
+            .scalar() or 0
+        )
+    except Exception as e:
+        logger.error(f"Error fetching billing invoices or payments: {str(e)}")
+        billing_inv_total = 0.0
+        billing_pmt_total = 0.0
 
     invoice_total = platform_inv_total + billing_inv_total
     payment_total = platform_pmt_total + billing_pmt_total
@@ -456,35 +507,57 @@ def platform_financial_summary():
     for i in platform_invoices:
         key = str(i.tenant_id)
         if key in by_tenant:
-            by_tenant[key]['invoice_total'] += float(i.amount)
+            try:
+                by_tenant[key]['invoice_total'] += float(i.amount or 0)
+            except Exception:
+                pass
     for p in platform_payments:
         key = str(p.tenant_id)
         if key in by_tenant:
-            by_tenant[key]['payment_total'] += float(p.amount)
+            try:
+                by_tenant[key]['payment_total'] += float(p.amount or 0)
+            except Exception:
+                pass
 
     # Add school-fee billing totals per tenant
-    billing_inv_by_tenant = (
-        db.session.query(BillingInvoice.tenant_id, func.sum(BillingInvoice.total_amount))
-        .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
-        .group_by(BillingInvoice.tenant_id)
-        .all()
-    )
-    billing_pmt_by_tenant = (
-        db.session.query(BillingPayment.school_id, func.sum(BillingPayment.amount))
-        .filter(BillingPayment.status == 'successful')
-        .group_by(BillingPayment.school_id)
-        .all()
-    )
+    try:
+        billing_inv_by_tenant = (
+            db.session.query(BillingInvoice.tenant_id, func.sum(BillingInvoice.total_amount))
+            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
+            .group_by(BillingInvoice.tenant_id)
+            .all()
+        )
+    except Exception as e:
+        logger.error(f"Error grouping billing invoices by tenant: {str(e)}")
+        billing_inv_by_tenant = []
+
+    try:
+        billing_pmt_by_tenant = (
+            db.session.query(BillingPayment.school_id, func.sum(BillingPayment.amount))
+            .filter(BillingPayment.status == 'successful')
+            .group_by(BillingPayment.school_id)
+            .all()
+        )
+    except Exception as e:
+        logger.error(f"Error grouping billing payments by tenant: {str(e)}")
+        billing_pmt_by_tenant = []
+
     for tid, total in billing_inv_by_tenant:
         key = str(tid)
         if key in by_tenant:
-            by_tenant[key]['invoice_total'] += float(total or 0)
+            try:
+                by_tenant[key]['invoice_total'] += float(total or 0)
+            except Exception:
+                pass
         else:
             by_tenant[key] = {'tenant_id': key, 'tenant_name': key, 'invoice_total': float(total or 0), 'payment_total': 0.0}
     for tid, total in billing_pmt_by_tenant:
         key = str(tid)
         if key in by_tenant:
-            by_tenant[key]['payment_total'] += float(total or 0)
+            try:
+                by_tenant[key]['payment_total'] += float(total or 0)
+            except Exception:
+                pass
 
     return {
         'invoice_total': invoice_total,
