@@ -78,26 +78,6 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedSubject, setSelectedSubject] = useState('all');
 
-  // Loading skeleton state
-  if (isLoading) {
-    return (
-      <Card className={`${className} animate-pulse`}>
-        <CardHeader>
-          <div className="h-6 w-48 bg-gray-200 dark:bg-slate-700 rounded mb-2"></div>
-          <div className="h-4 w-32 bg-gray-200 dark:bg-slate-700 rounded"></div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-20 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
-            ))}
-          </div>
-          <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Sample data if none provided
   const performanceData: PerformanceData = useMemo(() => {
     if (liveMetrics) {
@@ -220,6 +200,26 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   }, [data, liveMetrics, liveAnalytics, t]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+  // Loading skeleton state
+  if (isLoading) {
+    return (
+      <Card className={`${className} animate-pulse`}>
+        <CardHeader>
+          <div className="h-6 w-48 bg-gray-200 dark:bg-slate-700 rounded mb-2"></div>
+          <div className="h-4 w-32 bg-gray-200 dark:bg-slate-700 rounded"></div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-20 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
+            ))}
+          </div>
+          <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-xl"></div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const renderOverviewTab = () => (
     <div className="space-y-6">
