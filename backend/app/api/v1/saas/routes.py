@@ -49,6 +49,8 @@ def create_tenant():
 @jwt_required()
 def list_my_tenants():
     user_id = get_jwt_identity()
+    if Tenant.query.first() is None:
+        return jsonify({'success': True, 'items': []}), 200
     return jsonify({'success': True, 'items': SaaSService.get_user_tenants(int(user_id))}), 200
 
 

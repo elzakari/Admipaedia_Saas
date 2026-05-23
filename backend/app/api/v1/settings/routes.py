@@ -182,6 +182,9 @@ def _set_scoped_setting(tenant_id, key: str, value, setting_type: str = 'string'
 
 @jwt_required()
 def get_general_settings_v2():
+    if Tenant.query.first() is None:
+        return jsonify({"theme": "light", "language": "en", "school_name": "ADMIPAEDIA System"}), 200
+
     tenant_id, user, err = resolve_tenant_for_request(require_explicit=False)
     if err:
         return jsonify({'success': False, 'message': err}), 403

@@ -58,6 +58,7 @@ def _make_subscription(db, tenant_id, plan_id):
 
 def test_plan_context_requires_tenant_header(client, db):
     _make_user(db, 'super_admin', 'superpc1@example.com')
+    _make_tenant(db, 'pc1', 'free')
     token = _login(client, 'superpc1@example.com', 'password')
     headers = {'Authorization': f'Bearer {token}'}
     r = client.get('/api/v1/plan-context', headers=headers)

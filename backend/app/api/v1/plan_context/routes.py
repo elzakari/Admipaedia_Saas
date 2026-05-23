@@ -13,10 +13,85 @@ from app.utils.tenant_context import tenant_required
 @plan_context_bp.route('/plan-context', methods=['GET'])
 @tenant_required
 def get_plan_context():
+    if Tenant.query.first() is None:
+        return jsonify({
+            'success': True,
+            'data': {
+                'tenant_id': None,
+                'plan': {
+                    'id': 0,
+                    'slug': 'free',
+                    'name': 'Free Plan',
+                },
+                'subscription': {
+                    'id': 0,
+                    'status': 'active',
+                    'starts_at': None,
+                    'ends_at': None,
+                },
+                'features': {},
+                'limits': {},
+                'token_usage': {},
+                'errors': {
+                    'features': None,
+                    'limits': None,
+                },
+            },
+        }), 200
+
     tenant_id = str(getattr(g, 'tenant_id', None))
+    if not tenant_id or tenant_id == 'None':
+        return jsonify({
+            'success': True,
+            'data': {
+                'tenant_id': None,
+                'plan': {
+                    'id': 0,
+                    'slug': 'free',
+                    'name': 'Free Plan',
+                },
+                'subscription': {
+                    'id': 0,
+                    'status': 'active',
+                    'starts_at': None,
+                    'ends_at': None,
+                },
+                'features': {},
+                'limits': {},
+                'token_usage': {},
+                'errors': {
+                    'features': None,
+                    'limits': None,
+                },
+            },
+        }), 200
+
     active, err = EntitlementService.getSchoolActivePlan(tenant_id)
     if err or not active:
-        return jsonify({'success': False, 'message': err or 'School has no active plan'}), 404
+        return jsonify({
+            'success': True,
+            'data': {
+                'tenant_id': tenant_id,
+                'plan': {
+                    'id': 0,
+                    'slug': 'free',
+                    'name': 'Free Plan',
+                },
+                'subscription': {
+                    'id': 0,
+                    'status': 'active',
+                    'starts_at': None,
+                    'ends_at': None,
+                },
+                'features': {},
+                'limits': {},
+                'token_usage': {},
+                'errors': {
+                    'features': err or 'School has no active plan',
+                    'limits': None,
+                },
+            },
+        }), 200
 
     tenant = Tenant.query.get(active.subscription.school_id)
     if tenant and (tenant.plan or '').strip().lower() != (active.plan.slug or '').strip().lower():

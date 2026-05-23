@@ -57,6 +57,12 @@ def resolve_tenant_for_request(require_explicit: bool = True) -> Tuple[Optional[
 def tenant_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        if Tenant.query.first() is None:
+            g.tenant_id = None
+            g.current_user = None
+            g.branch_id = None
+            return fn(*args, **kwargs)
+
         tenant_id, user, err = resolve_tenant_for_request(require_explicit=True)
         if err:
             return jsonify({'success': False, 'message': err}), 400 if err == 'Tenant context required' else 403
