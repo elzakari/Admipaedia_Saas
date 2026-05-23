@@ -687,6 +687,7 @@ class OrphanCleanupService:
             'user_security_settings',
             'user_preferences',
             'user_profile',
+            'user_profiles',
             'login_history',
             'password_history',
             'notifications',

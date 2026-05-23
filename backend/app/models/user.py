@@ -60,6 +60,9 @@ class User(db.Model):
     roles = db.relationship('Role', secondary=user_roles, lazy='subquery',
                            backref=db.backref('users', lazy=True))
     
+    # Cascade profile relationship mapping
+    profile = db.relationship('UserProfile', backref=db.backref('user', lazy='joined'), cascade='all, delete-orphan', passive_deletes=True, uselist=False)
+    
     def __init__(self, **kwargs):
         username = kwargs.get('username')
         if not username:

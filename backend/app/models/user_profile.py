@@ -7,7 +7,7 @@ class UserProfile(db.Model):
     __tablename__ = 'user_profiles'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), unique=True, nullable=False, index=True)
 
     display_name = db.Column(db.String(120), nullable=False)
     legal_name = db.Column(db.String(200), nullable=True)
@@ -19,7 +19,7 @@ class UserProfile(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('profile', uselist=False, lazy='joined'))
+    # Note: Relationship is now defined on the parent User model with a cascade delete backref
 
     def to_dict(self):
         return {
