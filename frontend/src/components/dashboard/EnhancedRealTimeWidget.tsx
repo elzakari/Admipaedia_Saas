@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -47,14 +48,17 @@ interface EnhancedRealTimeWidgetProps {
   className?: string;
   liveMetrics?: AdminDashboardMetrics;
   isLoading?: boolean;
+  liveAnalytics?: any;
 }
 
 const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
   refreshInterval = 5000, // 5 seconds
   className = '',
   liveMetrics,
-  isLoading = false
+  isLoading = false,
+  liveAnalytics
 }) => {
+  const { t } = useTranslation();
   const [data, setData] = useState<RealTimeData>({
     activeUsers: 0,
     onlineTeachers: 0,
@@ -124,14 +128,19 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     const activeUsersVal = liveMetrics ? (liveMetrics.active_sessions_total || liveMetrics.active_parents_students) : (Math.floor(Math.random() * 100) + 200);
     const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (Math.floor(Math.random() * 20) + 30);
 
+    const cpu = liveAnalytics?.system_monitor?.cpu_usage ?? (Math.floor(Math.random() * 30) + 20);
+    const mem = liveAnalytics?.system_monitor?.memory_usage ?? (Math.floor(Math.random() * 40) + 40);
+    const disk = liveAnalytics?.system_monitor?.disk_usage ?? (Math.floor(Math.random() * 20) + 60);
+    const net = liveAnalytics?.system_monitor?.network_latency ?? (Math.floor(Math.random() * 50) + 10);
+
     const newData: RealTimeData = {
       activeUsers: activeUsersVal,
       onlineTeachers: onlineTeachersVal,
       currentClasses: Math.floor(Math.random() * 15) + 10,
-      systemLoad: Math.floor(Math.random() * 30) + 20,
-      memoryUsage: Math.floor(Math.random() * 40) + 40,
-      diskUsage: Math.floor(Math.random() * 20) + 60,
-      networkLatency: Math.floor(Math.random() * 50) + 10,
+      systemLoad: cpu,
+      memoryUsage: mem,
+      diskUsage: disk,
+      networkLatency: net,
       databaseConnections: Math.floor(Math.random() * 20) + 15,
       lastUpdated: new Date()
     };
@@ -143,20 +152,21 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
       let newValue: number;
       let status: 'healthy' | 'warning' | 'critical';
 
-      switch (metric.name) {
-        case 'CPU Usage':
-          newValue = newData.systemLoad;
-          status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
+      switch (metric.unit) {
+        case '%':
+          if (metric.name.toLowerCase().includes('cpu') || metric.name.toLowerCase().includes('load')) {
+            newValue = newData.systemLoad;
+            status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
+          } else {
+            newValue = newData.memoryUsage;
+            status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
+          }
           break;
-        case 'Memory':
-          newValue = newData.memoryUsage;
+        case 'MB/s':
+          newValue = newData.diskUsage;
           status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
           break;
-        case 'Disk I/O':
-          newValue = Math.floor(Math.random() * 100) + 50;
-          status = newValue > 200 ? 'critical' : newValue > 150 ? 'warning' : 'healthy';
-          break;
-        case 'Network':
+        case 'ms':
           newValue = newData.networkLatency;
           status = newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
           break;
@@ -370,7 +380,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center space-x-2">
               <Monitor className="h-5 w-5" />
-              <span>System Monitor</span>
+              <span>{t('System Monitor')}</span>
             </CardTitle>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
@@ -383,7 +393,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
         </CardHeader>
         <CardContent>
           <div className="text-xs text-gray-500 mb-4">
-            Last updated: {data.lastUpdated.toLocaleTimeString()}
+            {t('Last updated')}: {data.lastUpdated.toLocaleTimeString()}
           </div>
 
           {/* Real-time metrics */}
@@ -393,14 +403,14 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
                 <Users className="h-4 w-4 text-blue-500 mr-1" />
               </div>
               <p className="text-2xl font-bold text-blue-600">{data.activeUsers}</p>
-              <p className="text-xs text-gray-500">Active Users</p>
+              <p className="text-xs text-gray-500">{t('Active Users')}</p>
             </div>
             <div className="text-center p-3 bg-green-50 rounded-lg">
               <div className="flex items-center justify-center mb-1">
                 <Activity className="h-4 w-4 text-green-500 mr-1" />
               </div>
               <p className="text-2xl font-bold text-green-600">{data.onlineTeachers}</p>
-              <p className="text-xs text-gray-500">Online Teachers</p>
+              <p className="text-xs text-gray-500">{t('Online Teachers')}</p>
             </div>
           </div>
 
@@ -420,7 +430,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <p className="font-medium text-sm">{metric.name}</p>
+                      <p className="font-medium text-sm">{t(metric.name)}</p>
                       {getTrendIcon(metric.trend)}
                     </div>
                     <p className="text-xs text-gray-500">
@@ -454,7 +464,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center space-x-2">
             <Bell className="h-5 w-5" />
-            <span>System Alerts</span>
+            <span>{t('System Alerts')}</span>
             {alerts.filter(a => !a.resolved).length > 0 && (
               <Badge variant="destructive">
                 {alerts.filter(a => !a.resolved).length}
@@ -467,7 +477,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
             {alerts.length === 0 ? (
               <div className="text-center py-4 text-gray-500">
                 <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                <p className="text-sm">All systems operational</p>
+                <p className="text-sm">{t('All systems operational')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -489,7 +499,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
                           alert.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-yellow-500" /> :
                             <CheckCircle className="h-4 w-4 text-blue-500" />}
                         <p className={`text-sm ${alert.resolved ? 'line-through' : ''}`}>
-                          {alert.message}
+                          {t(alert.message)}
                         </p>
                       </div>
                       {!alert.resolved && (
@@ -499,7 +509,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
                           onClick={() => resolveAlert(alert.id)}
                           className="h-6 px-2 text-xs"
                         >
-                          Resolve
+                          {t('Resolve')}
                         </Button>
                       )}
                     </div>

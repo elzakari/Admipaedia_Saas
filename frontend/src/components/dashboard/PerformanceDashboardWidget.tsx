@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -61,14 +62,17 @@ interface PerformanceDashboardWidgetProps {
   className?: string;
   liveMetrics?: AdminDashboardMetrics;
   isLoading?: boolean;
+  liveAnalytics?: any;
 }
 
 const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   data,
   className = '',
   liveMetrics,
-  isLoading = false
+  isLoading = false,
+  liveAnalytics
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('6m');
   const [selectedClass, setSelectedClass] = useState('all');
@@ -105,13 +109,21 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
           completionRate: liveMetrics.assignment_completion_rate,
           improvement: 4.2
         },
-        subjectPerformance: [
-          { subject: 'Mathematics', average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
-          { subject: 'Science', average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
-          { subject: 'English', average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
-          { subject: 'History', average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
-          { subject: 'Geography', average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
-        ],
+        subjectPerformance: liveAnalytics?.subject_performance
+          ? liveAnalytics.subject_performance.map((s: any) => ({
+              subject: t(s.subject),
+              average: s.average_score,
+              students: s.student_count,
+              improvement: s.improvement,
+              difficulty: s.difficulty
+            }))
+          : [
+              { subject: t('Mathematics'), average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
+              { subject: t('Science'), average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
+              { subject: t('English'), average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
+              { subject: t('History'), average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
+              { subject: t('Geography'), average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
+            ],
         gradeDistribution: liveMetrics.grade_distribution && liveMetrics.grade_distribution.length > 0
           ? liveMetrics.grade_distribution
           : [
@@ -125,12 +137,12 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         monthlyTrends: liveMetrics.monthly_trends && liveMetrics.monthly_trends.length > 0
           ? liveMetrics.monthly_trends
           : [
-              { month: 'Jan', performance: 78, attendance: 89, assignments: 95 },
-              { month: 'Feb', performance: 80, attendance: 87, assignments: 92 },
-              { month: 'Mar', performance: 82, attendance: 91, assignments: 88 },
-              { month: 'Apr', performance: 84, attendance: 93, assignments: 90 },
-              { month: 'May', performance: 83, attendance: 90, assignments: 94 },
-              { month: 'Jun', performance: 85, attendance: 92, assignments: 96 }
+              { month: t('Jan'), performance: 78, attendance: 89, assignments: 95 },
+              { month: t('Feb'), performance: 80, attendance: 87, assignments: 92 },
+              { month: t('Mar'), performance: 82, attendance: 91, assignments: 88 },
+              { month: t('Apr'), performance: 84, attendance: 93, assignments: 90 },
+              { month: t('May'), performance: 83, attendance: 90, assignments: 94 },
+              { month: t('Jun'), performance: 85, attendance: 92, assignments: 96 }
             ],
         classComparison: [
           { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
@@ -139,14 +151,20 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
           { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
           { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
         ],
-        skillsRadar: [
-          { skill: 'Problem Solving', current: 85, target: 90 },
-          { skill: 'Critical Thinking', current: 78, target: 85 },
-          { skill: 'Communication', current: 82, target: 88 },
-          { skill: 'Collaboration', current: 88, target: 92 },
-          { skill: 'Creativity', current: 75, target: 80 },
-          { skill: 'Leadership', current: 70, target: 78 }
-        ]
+        skillsRadar: liveAnalytics?.skills_assessment
+          ? Object.entries(liveAnalytics.skills_assessment).map(([skill, val]: [string, any]) => ({
+              skill: t(skill),
+              current: val.current,
+              target: val.target
+            }))
+          : [
+              { skill: t('Problem Solving'), current: 85, target: 90 },
+              { skill: t('Critical Thinking'), current: 78, target: 85 },
+              { skill: t('Communication'), current: 82, target: 88 },
+              { skill: t('Collaboration'), current: 88, target: 92 },
+              { skill: t('Creativity'), current: 75, target: 80 },
+              { skill: t('Leadership'), current: 70, target: 78 }
+            ]
       };
     }
 
@@ -161,11 +179,11 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         improvement: 4.2
       },
       subjectPerformance: [
-        { subject: 'Mathematics', average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
-        { subject: 'Science', average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
-        { subject: 'English', average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
-        { subject: 'History', average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
-        { subject: 'Geography', average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
+        { subject: t('Mathematics'), average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
+        { subject: t('Science'), average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
+        { subject: t('English'), average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
+        { subject: t('History'), average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
+        { subject: t('Geography'), average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
       ],
       gradeDistribution: [
         { grade: 'A+', count: 45, percentage: 12 },
@@ -176,12 +194,12 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         { grade: 'C', count: 22, percentage: 6 }
       ],
       monthlyTrends: [
-        { month: 'Jan', performance: 78, attendance: 89, assignments: 95 },
-        { month: 'Feb', performance: 80, attendance: 87, assignments: 92 },
-        { month: 'Mar', performance: 82, attendance: 91, assignments: 88 },
-        { month: 'Apr', performance: 84, attendance: 93, assignments: 90 },
-        { month: 'May', performance: 83, attendance: 90, assignments: 94 },
-        { month: 'Jun', performance: 85, attendance: 92, assignments: 96 }
+        { month: t('Jan'), performance: 78, attendance: 89, assignments: 95 },
+        { month: t('Feb'), performance: 80, attendance: 87, assignments: 92 },
+        { month: t('Mar'), performance: 82, attendance: 91, assignments: 88 },
+        { month: t('Apr'), performance: 84, attendance: 93, assignments: 90 },
+        { month: t('May'), performance: 83, attendance: 90, assignments: 94 },
+        { month: t('Jun'), performance: 85, attendance: 92, assignments: 96 }
       ],
       classComparison: [
         { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
@@ -191,15 +209,15 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
       ],
       skillsRadar: [
-        { skill: 'Problem Solving', current: 85, target: 90 },
-        { skill: 'Critical Thinking', current: 78, target: 85 },
-        { skill: 'Communication', current: 82, target: 88 },
-        { skill: 'Collaboration', current: 88, target: 92 },
-        { skill: 'Creativity', current: 75, target: 80 },
-        { skill: 'Leadership', current: 70, target: 78 }
+        { skill: t('Problem Solving'), current: 85, target: 90 },
+        { skill: t('Critical Thinking'), current: 78, target: 85 },
+        { skill: t('Communication'), current: 82, target: 88 },
+        { skill: t('Collaboration'), current: 88, target: 92 },
+        { skill: t('Creativity'), current: 75, target: 80 },
+        { skill: t('Leadership'), current: 70, target: 78 }
       ]
     };
-  }, [data]);
+  }, [data, liveMetrics, liveAnalytics, t]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -212,7 +230,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Average Grade</p>
+                  <p className="text-sm font-medium text-gray-600">{t('Average Grade')}</p>
                   <p className="text-2xl font-bold text-blue-600">{performanceData.overallMetrics.averageGrade}%</p>
                   <div className="flex items-center mt-1">
                     <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
@@ -232,11 +250,11 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Pass Rate</p>
+                  <p className="text-sm font-medium text-gray-600">{t('Pass Rate')}</p>
                   <p className="text-2xl font-bold text-green-600">{performanceData.overallMetrics.passRate}%</p>
                   <div className="flex items-center mt-1">
                     <Target className="h-3 w-3 text-blue-500 mr-1" />
-                    <span className="text-xs text-gray-600">Target: 85%</span>
+                    <span className="text-xs text-gray-600">{t('Target')}: 85%</span>
                   </div>
                 </div>
                 <div className="p-3 bg-green-50 rounded-full">
@@ -252,11 +270,11 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Attendance</p>
+                  <p className="text-sm font-medium text-gray-600">{t('Attendance')}</p>
                   <p className="text-2xl font-bold text-purple-600">{performanceData.overallMetrics.attendanceRate}%</p>
                   <div className="flex items-center mt-1">
                     <Users className="h-3 w-3 text-purple-500 mr-1" />
-                    <span className="text-xs text-gray-600">Daily avg</span>
+                    <span className="text-xs text-gray-600">{t('Daily avg')}</span>
                   </div>
                 </div>
                 <div className="p-3 bg-purple-50 rounded-full">
@@ -272,11 +290,11 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Completion</p>
+                  <p className="text-sm font-medium text-gray-600">{t('Completion')}</p>
                   <p className="text-2xl font-bold text-orange-600">{performanceData.overallMetrics.completionRate}%</p>
                   <div className="flex items-center mt-1">
                     <BookOpen className="h-3 w-3 text-orange-500 mr-1" />
-                    <span className="text-xs text-gray-600">Assignments</span>
+                    <span className="text-xs text-gray-600">{t('Assignments')}</span>
                   </div>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-full">
@@ -292,7 +310,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Performance Trends</CardTitle>
+            <CardTitle>{t('Performance Trends')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -303,9 +321,9 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="performance" stroke="#3b82f6" strokeWidth={3} name="Performance" />
-                  <Line type="monotone" dataKey="attendance" stroke="#10b981" strokeWidth={2} name="Attendance" />
-                  <Line type="monotone" dataKey="assignments" stroke="#f59e0b" strokeWidth={2} name="Assignments" />
+                  <Line type="monotone" dataKey="performance" stroke="#3b82f6" strokeWidth={3} name={t('Performance')} />
+                  <Line type="monotone" dataKey="attendance" stroke="#10b981" strokeWidth={2} name={t('Attendance')} />
+                  <Line type="monotone" dataKey="assignments" stroke="#f59e0b" strokeWidth={2} name={t('Assignments')} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -314,7 +332,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
 
         <Card>
           <CardHeader>
-            <CardTitle>Grade Distribution</CardTitle>
+            <CardTitle>{t('Grade Distribution')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
@@ -349,7 +367,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
       {/* Subject Performance Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Subject Performance Analysis</CardTitle>
+          <CardTitle>{t('Subject Performance Analysis')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-80">
@@ -360,7 +378,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="average" fill="#3b82f6" name="Average Score" />
+                <Bar dataKey="average" fill="#3b82f6" name={t('Average Score')} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -381,7 +399,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold">{subject.subject}</h3>
                   <Badge variant={subject.difficulty === 'Hard' ? 'destructive' : subject.difficulty === 'Medium' ? 'secondary' : 'default'}>
-                    {subject.difficulty}
+                    {t(subject.difficulty)}
                   </Badge>
                 </div>
                 <div className="space-y-2">
@@ -400,7 +418,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">{subject.students} students enrolled</p>
+                  <p className="text-sm text-gray-600">{subject.students} {t('students enrolled')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -415,7 +433,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
       {/* Skills Radar Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Skills Assessment Radar</CardTitle>
+          <CardTitle>{t('Skills Assessment Radar')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-96">
@@ -424,8 +442,8 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                 <PolarGrid />
                 <PolarAngleAxis dataKey="skill" />
                 <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar name="Current" dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                <Radar name="Target" dataKey="target" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
+                <Radar name={t('Current')} dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                <Radar name={t('Target')} dataKey="target" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
                 <Legend />
                 <Tooltip />
               </RadarChart>
@@ -445,8 +463,8 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Current</span>
-                  <span>Target: {skill.target}%</span>
+                  <span>{t('Current')}</span>
+                  <span>{t('Target')}: {skill.target}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -460,7 +478,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Gap: {skill.target - skill.current} points to target
+                  {t('Gap')}: {skill.target - skill.current} {t('points to target')}
                 </p>
               </div>
             </CardContent>
@@ -476,7 +494,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center space-x-2">
             <BarChart3 className="h-5 w-5" />
-            <span>Performance Dashboard</span>
+            <span>{t('Performance Dashboard')}</span>
           </CardTitle>
           <div className="flex items-center space-x-2">
             <Select value={timeRange} onValueChange={setTimeRange}>
@@ -492,7 +510,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             </Select>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              {t('Export')}
             </Button>
           </div>
         </div>
@@ -500,9 +518,9 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="subjects">Subjects</TabsTrigger>
-            <TabsTrigger value="skills">Skills</TabsTrigger>
+            <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
+            <TabsTrigger value="subjects">{t('Subjects')}</TabsTrigger>
+            <TabsTrigger value="skills">{t('Skills')}</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="mt-6">

@@ -364,6 +364,30 @@ const saasService = {
   async getAdminDashboardMetrics(tenantId?: string) {
     const res = await api.get('/admin/dashboard-metrics', { params: { tenantId } })
     return res.data as { success: boolean; data: AdminDashboardMetrics }
+  },
+
+  async getAdminDashboardAnalytics(tenantId?: string) {
+    const res = await api.get('/admin/dashboard/analytics', { params: { tenantId } })
+    return res.data as {
+      success: boolean;
+      data: {
+        subject_performance: Array<{
+          subject: string;
+          average_score: number;
+          student_count: number;
+          teacher_count: number;
+          improvement: number;
+          difficulty: 'Easy' | 'Medium' | 'Hard';
+        }>;
+        skills_assessment: Record<string, { current: number; target: number }>;
+        system_monitor: {
+          cpu_usage: number;
+          memory_usage: number;
+          disk_usage: number;
+          network_latency: number;
+        };
+      }
+    }
   }
 }
 

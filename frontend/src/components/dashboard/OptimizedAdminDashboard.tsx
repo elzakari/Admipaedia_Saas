@@ -99,18 +99,32 @@ export default function OptimizedAdminDashboard() {
   const { executeAction, quickActions } = useEnhancedNavigation();
 
   const [liveMetrics, setLiveMetrics] = useState<AdminDashboardMetrics | null>(null);
+  const [liveAnalytics, setLiveAnalytics] = useState<any | null>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(true);
 
   const fetchLiveMetrics = useCallback(async () => {
     setIsMetricsLoading(true);
     try {
       const tenantId = localStorage.getItem('saas_current_tenant_id') || undefined;
-      const res = await saasService.getAdminDashboardMetrics(tenantId);
-      if (res && res.success) {
-        setLiveMetrics(res.data);
+      const [resMetrics, resAnalytics] = await Promise.all([
+        saasService.getAdminDashboardMetrics(tenantId).catch(err => {
+          console.error('Failed to fetch live admin metrics:', err);
+          return null;
+        }),
+        saasService.getAdminDashboardAnalytics(tenantId).catch(err => {
+          console.error('Failed to fetch live admin analytics:', err);
+          return null;
+        })
+      ]);
+
+      if (resMetrics && resMetrics.success) {
+        setLiveMetrics(resMetrics.data);
+      }
+      if (resAnalytics && resAnalytics.success) {
+        setLiveAnalytics(resAnalytics.data);
       }
     } catch (err) {
-      console.error('Failed to fetch live admin metrics:', err);
+      console.error('Failed in fetchLiveMetrics orchestration:', err);
     } finally {
       setIsMetricsLoading(false);
     }
@@ -326,6 +340,7 @@ export default function OptimizedAdminDashboard() {
             key={`${componentType}-${index}`}
             {...baseProps}
             liveMetrics={liveMetrics || undefined}
+            liveAnalytics={liveAnalytics || undefined}
             isLoading={isMetricsLoading}
           />
         );
@@ -335,6 +350,7 @@ export default function OptimizedAdminDashboard() {
             key={`${componentType}-${index}`}
             {...baseProps}
             liveMetrics={liveMetrics || undefined}
+            liveAnalytics={liveAnalytics || undefined}
             isLoading={isMetricsLoading}
           />
         );
