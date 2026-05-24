@@ -279,23 +279,29 @@ def test_email_service_fallback_to_resend(app):
 def test_email_integration_check_smtp_sync(app):
     """
     Test that calling the integrations check API automatically synchronizes
-    active SMTP environment variables down to the SystemSettings database record.
+    active SMTP environment variables down to the PlatformServiceProviderConfig database record.
     """
     import json
     from unittest.mock import patch, MagicMock
-    from app.models.system_setting import SystemSettings
+    from app.models.service_tokens import PlatformServiceProviderConfig
     
     with app.app_context():
-        # Clear database configs first and initialize dynamic SystemSettings with outdated placeholder host
-        db.session.query(SystemSettings).delete()
-        settings = SystemSettings(
-            id=1,
-            smtp_host='smtp.your-provider.com',
-            smtp_port=25,
-            smtp_username='stale-user',
-            smtp_password='stale-password'
+        # Clear database configs first and initialize dynamic PlatformServiceProviderConfig with outdated placeholder host
+        db.session.query(PlatformServiceProviderConfig).delete()
+        provider_cfg = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Primary SMTP',
+            is_active=True
         )
-        db.session.add(settings)
+        provider_cfg.set_config({
+            'smtpHost': 'smtp.your-provider.com',
+            'smtpPort': 25,
+            'smtpUsername': 'stale-user',
+            'smtpPassword': 'stale-password',
+            'smtpEncryption': 'tls'
+        })
+        db.session.add(provider_cfg)
         db.session.commit()
 
         test_env = {
@@ -325,12 +331,17 @@ def test_email_integration_check_smtp_sync(app):
                 assert response.status_code == 200
                 
                 # Retrieve from database directly to verify synchronization
-                updated_settings = db.session.query(SystemSettings).first()
-                assert updated_settings is not None
-                assert updated_settings.smtp_host == 'email-smtp.us-east-1.amazonaws.com'
-                assert updated_settings.smtp_port == 587
-                assert updated_settings.smtp_username == 'live-aws-user'
-                assert updated_settings.smtp_password == 'live-aws-password'
+                updated_record = PlatformServiceProviderConfig.query.filter_by(
+                    service_type='email',
+                    provider_key='smtp'
+                ).first()
+                assert updated_record is not None
+                updated_cfg = updated_record.get_config() or {}
+                assert updated_cfg.get('smtpHost') == 'email-smtp.us-east-1.amazonaws.com'
+                assert updated_cfg.get('smtpPort') == 587
+                assert updated_cfg.get('smtpUsername') == 'live-aws-user'
+                assert updated_cfg.get('smtpPassword') == 'live-aws-password'
+
 
 
 

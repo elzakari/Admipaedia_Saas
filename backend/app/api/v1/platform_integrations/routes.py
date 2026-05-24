@@ -462,29 +462,46 @@ def test_provider_config():
     
     # Force sync environmental truth down to database model before execution
     try:
-        from app.models.system_setting import SystemSettings
-        settings = db.session.query(SystemSettings).first()
-        if settings:
+        from app.models.service_tokens import PlatformServiceProviderConfig
+        # Standardize Configuration Lookup Target: query from platform_service_provider_configs where provider_key = 'ses_smtp'
+        provider_record = PlatformServiceProviderConfig.query.filter_by(
+            service_type='email',
+            provider_key='ses_smtp'
+        ).first()
+        
+        if not provider_record:
+            # Fallback to general 'smtp' key if 'ses_smtp' is absent
+            provider_record = PlatformServiceProviderConfig.query.filter_by(
+                service_type='email',
+                provider_key='smtp'
+            ).first()
+
+        if provider_record:
             env_host = os.getenv("SMTP_HOST")
-            if env_host and settings.smtp_host != env_host:
-                settings.smtp_host = env_host
-                settings.smtp_port = int(os.getenv("SMTP_PORT", 587))
-                settings.smtp_username = os.getenv("SMTP_USER")
-                if hasattr(settings, 'smtp_user'):
-                    settings.smtp_user = os.getenv("SMTP_USER")
-                settings.smtp_password = os.getenv("SMTP_PASSWORD")
-                db.session.commit()
-                
-                # Flush any active redis keys tracking configuration variables
-                try:
-                    from app.services.cache_service import get_cache_service
-                    cache = get_cache_service()
-                    cache.delete("system_settings_cache")
-                except Exception:
-                    pass
+            if env_host:
+                cfg_data = provider_record.get_config() or {}
+                current_host = cfg_data.get('smtpHost') or cfg_data.get('smtp_host')
+                if current_host != env_host:
+                    cfg_data['smtpHost'] = env_host
+                    cfg_data['smtpPort'] = int(os.getenv("SMTP_PORT", 587))
+                    cfg_data['smtpUsername'] = os.getenv("SMTP_USER")
+                    cfg_data['smtpPassword'] = os.getenv("SMTP_PASSWORD")
+                    
+                    provider_record.set_config(cfg_data)
+                    db.session.commit()
+                    
+                    # Flush any active redis keys tracking configuration variables
+                    try:
+                        from app.services.cache_service import get_cache_service
+                        cache = get_cache_service()
+                        cache.delete("system_settings_cache")
+                    except Exception:
+                        pass
     except Exception as sync_err:
+        db.session.rollback()  # Explicitly rollback poisoned transaction
         from flask import current_app
-        current_app.logger.warning(f"Failed to auto-sync SMTP environmental parameters: {str(sync_err)}")
+        current_app.logger.warning(f"Failed to auto-sync SMTP environmental parameters to PlatformServiceProviderConfig: {str(sync_err)}")
+
 
     if os.getenv("EMAIL_PROVIDER") == "resend":
         # If Resend is active via SDK/API, skip searching or checking the raw SMTP host string completely
