@@ -557,111 +557,39 @@ def test_provider_config():
         }), 200
 
     from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
-    
-    # Helper to check if SMTP config is incomplete
-    def is_smtp_config_incomplete(cfg_dict):
-        if not cfg_dict:
-            return True
-        host = cfg_dict.get('smtpHost') or cfg_dict.get('smtp_host')
-        username = cfg_dict.get('smtpUsername') or cfg_dict.get('smtp_username')
-        password = cfg_dict.get('smtpPassword') or cfg_dict.get('smtp_password')
-        return not (host and username and password)
+    from cryptography.fernet import InvalidToken
 
     provider_record = None
     decryption_failed = False
 
-    # Try loading exact requested provider first if provided
+    # 1. Load exact platform or override provider configuration using SQLAlchemy models directly
     if provider_key:
-        try:
-            if scope == 'tenant' and tenant_id:
-                record = TenantServiceProviderOverride.query.filter_by(
-                    tenant_id=tenant_id,
-                    service_type=service_type,
-                    provider_key=provider_key
-                ).first()
-            else:
-                record = PlatformServiceProviderConfig.query.filter_by(
-                    service_type=service_type,
-                    provider_key=provider_key
-                ).first()
-                
-            if record:
-                try:
-                    cfg_test = record.get_config() or {}
-                    if provider_key == 'smtp' and is_smtp_config_incomplete(cfg_test):
-                        # Incomplete SMTP, trigger fallback search
-                        provider_record = None
-                    else:
-                        provider_record = record
-                except Exception:
-                    decryption_failed = True
-                    provider_record = record
-        except Exception:
-            pass
+        if scope == 'tenant' and tenant_id:
+            provider_record = TenantServiceProviderOverride.query.filter_by(
+                tenant_id=tenant_id,
+                service_type=service_type,
+                provider_key=provider_key
+            ).first()
+        else:
+            provider_record = PlatformServiceProviderConfig.query.filter_by(
+                service_type=service_type,
+                provider_key=provider_key
+            ).first()
 
-    # Fallback to the active provider with highest priority
-    if not provider_record and not decryption_failed:
-        try:
-            if scope == 'tenant' and tenant_id:
-                provider_record = TenantServiceProviderOverride.query.filter_by(
-                    tenant_id=tenant_id,
-                    service_type=service_type,
-                    is_active=True
-                ).order_by(TenantServiceProviderOverride.priority.asc()).first()
-            else:
-                provider_record = PlatformServiceProviderConfig.query.filter_by(
-                    service_type=service_type,
-                    is_active=True
-                ).order_by(PlatformServiceProviderConfig.priority.asc()).first()
-        except Exception:
-            pass
+    # 2. Extract saved configuration using provider_record.get_config() only
+    saved_config = {}
+    actual_provider_key = provider_key or 'smtp'
 
-        # Fallback to ses_smtp if still not resolved
-        if not provider_record:
-            try:
-                if scope == 'tenant' and tenant_id:
-                    provider_record = TenantServiceProviderOverride.query.filter_by(
-                        tenant_id=tenant_id,
-                        service_type=service_type,
-                        provider_key='ses_smtp'
-                    ).first()
-                else:
-                    provider_record = PlatformServiceProviderConfig.query.filter_by(
-                        service_type=service_type,
-                        provider_key='ses_smtp'
-                    ).first()
-            except Exception:
-                pass
-
-        # Fallback to smtp if still not resolved
-        if not provider_record:
-            try:
-                if scope == 'tenant' and tenant_id:
-                    provider_record = TenantServiceProviderOverride.query.filter_by(
-                        tenant_id=tenant_id,
-                        service_type=service_type,
-                        provider_key='smtp'
-                    ).first()
-                else:
-                    provider_record = PlatformServiceProviderConfig.query.filter_by(
-                        service_type=service_type,
-                        provider_key='smtp'
-                    ).first()
-            except Exception:
-                pass
-
-    # Extract actual provider key and configuration
-    cfg = {}
     if provider_record:
         actual_provider_key = provider_record.provider_key
         try:
-            cfg = provider_record.get_config() or {}
+            saved_config = provider_record.get_config() or {}
+        except InvalidToken:
+            decryption_failed = True
         except Exception:
             decryption_failed = True
-    else:
-        actual_provider_key = provider_key or 'smtp'
 
-    # If decryption failed, return HTTP 200 with result.ok=false
+    # 3. If decryption failed, return HTTP 200 with result.ok=false and clean warning
     if decryption_failed:
         from flask import current_app
         current_app.logger.error(f"Decryption failed for email provider integration configuration test. Key: {actual_provider_key}")
@@ -676,13 +604,22 @@ def test_provider_config():
             }
         }), 200
 
-    # Merge dynamic secrets only if the request explicitly asks to test unsaved config
+    # 4. Merge incoming frontend config only if test_unsaved_config is explicitly true
+    cfg = dict(saved_config)
     test_unsaved_config = str(data.get('test_unsaved_config') or data.get('testUnsavedConfig') or '').lower() in ('1', 'true', 'yes')
+    
     if test_unsaved_config and incoming_cfg is not None:
-        cfg = _merge_secrets(cfg, incoming_cfg)
-    cfg = cfg or {}
+        for k, v in incoming_cfg.items():
+            if v is None:
+                continue
+            if isinstance(v, str):
+                v_stripped = v.strip()
+                # Ignore empty strings, default placeholder asterisks, or masked values
+                if v_stripped == "" or v_stripped == "********" or "***" in v_stripped:
+                    continue
+            cfg[k] = v
 
-    # Key Normalization: Ensure both camelCase and snake_case versions exist and are identical
+    # 5. Key Normalization: Ensure both camelCase and snake_case versions exist and are identical
     def normalize_keys(c):
         mappings = [
             ('smtpHost', 'smtp_host'),
@@ -702,13 +639,14 @@ def test_provider_config():
 
     cfg = normalize_keys(cfg)
 
-    # Normalize SMTP host before testing in the local test cfg only
+    # 6. Normalize SMTP host before testing in the local test cfg only
     smtp_host_val = cfg.get('smtpHost') or cfg.get('smtp_host') or ''
     sanitized_host = _sanitize_smtp_host(smtp_host_val)
     cfg['smtpHost'] = sanitized_host
     cfg['smtp_host'] = sanitized_host
 
-    # Safe logging before SMTP test execution
+    # 7. Safe logging: log provider_key, smtpHost, smtpPort, smtpEncryption, fromEmail
+    # NEVER log smtpPassword, api keys, tokens, or credentials
     from app.extensions import logger
     logger.info(
         "Executing integrations SMTP provider config test details",
@@ -725,7 +663,7 @@ def test_provider_config():
     message = ''
     message_id = ''
 
-    # Handle polymorphic email testing routes
+    # 8. Handle polymorphic email testing routes
     if service_type == 'email':
         if actual_provider_key in ('smtp', 'ses_smtp'):
             ok, message = _test_smtp_email(cfg, params)
