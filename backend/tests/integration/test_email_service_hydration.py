@@ -174,3 +174,42 @@ def test_email_service_raw_tuple_hydration(app):
                 assert kwargs['password'] == 'tuple-raw-password'
                 assert kwargs['encryption'] == 'ssl'
 
+
+def test_email_integration_check_resend_guard(app):
+    """
+    Test that when EMAIL_PROVIDER environment variable is set to 'resend',
+    the test_provider_config endpoint bypasses other checks and immediately returns
+    success with the resend_api provider_key.
+    """
+    import json
+    
+    with app.app_context():
+        with patch('flask_jwt_extended.view_decorators.verify_jwt_in_request') as mock_jwt, \
+             patch('app.utils.platform_access.get_current_user') as mock_user, \
+             patch.dict(os.environ, {'EMAIL_PROVIDER': 'resend'}):
+            
+            mock_user.return_value = MagicMock(role='super_admin')
+            
+            with app.test_client() as client:
+                response = client.post(
+                    '/api/v1/platform/integrations/providers/test',
+                    json={
+                        'service_type': 'email',
+                        'provider_key': 'smtp'
+                    }
+                )
+                assert response.status_code == 200
+                res_data = json.loads(response.data)
+                
+                # Check direct guard dictionary values
+                assert res_data['ok'] is True
+                assert res_data['provider_key'] == 'resend_api'
+                assert res_data['message'] == 'Resend API connection ready.'
+                
+                # Check standard UI-compatible nested format too
+                assert res_data['success'] is True
+                assert res_data['result']['ok'] is True
+                assert res_data['result']['provider_key'] == 'resend_api'
+                assert res_data['result']['message'] == 'Resend API connection ready.'
+
+
