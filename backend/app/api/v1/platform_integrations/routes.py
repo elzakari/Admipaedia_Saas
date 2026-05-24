@@ -459,6 +459,33 @@ def update_plan_token_limits(plan_id: int):
 @require_platform_super_admin()
 def test_provider_config():
     import os
+    
+    # Force sync environmental truth down to database model before execution
+    try:
+        from app.models.system_setting import SystemSettings
+        settings = db.session.query(SystemSettings).first()
+        if settings:
+            env_host = os.getenv("SMTP_HOST")
+            if env_host and settings.smtp_host != env_host:
+                settings.smtp_host = env_host
+                settings.smtp_port = int(os.getenv("SMTP_PORT", 587))
+                settings.smtp_username = os.getenv("SMTP_USER")
+                if hasattr(settings, 'smtp_user'):
+                    settings.smtp_user = os.getenv("SMTP_USER")
+                settings.smtp_password = os.getenv("SMTP_PASSWORD")
+                db.session.commit()
+                
+                # Flush any active redis keys tracking configuration variables
+                try:
+                    from app.services.cache_service import get_cache_service
+                    cache = get_cache_service()
+                    cache.delete("system_settings_cache")
+                except Exception:
+                    pass
+    except Exception as sync_err:
+        from flask import current_app
+        current_app.logger.warning(f"Failed to auto-sync SMTP environmental parameters: {str(sync_err)}")
+
     if os.getenv("EMAIL_PROVIDER") == "resend":
         # If Resend is active via SDK/API, skip searching or checking the raw SMTP host string completely
         return {
