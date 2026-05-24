@@ -32,19 +32,29 @@ def _redact_config(config: dict) -> dict:
         lower = key.lower()
         if any(p in lower for p in SECRET_LIKE_KEYS):
             out[key] = None if v is None else '********'
+        elif lower in ('smtpusername', 'smtp_username'):
+            out[key] = None if v is None else _mask_username(str(v))
         else:
             out[key] = v
     return out
 
 
 def _merge_secrets(existing: dict | None, incoming: dict | None) -> dict | None:
-    if incoming is None:
-        return None
     existing = existing or {}
+    if incoming is None:
+        return existing
     merged = dict(existing)
     for k, v in incoming.items():
-        if v == '********':
+        if v is None:
             continue
+        if isinstance(v, str):
+            v_stripped = v.strip()
+            if v_stripped == "" or v_stripped == "********":
+                continue
+        # Check if we are trying to overwrite a saved password with a masked value
+        if k in ('smtpPassword', 'smtp_password') and isinstance(merged.get(k), str) and isinstance(v, str):
+            if '***' in v or v.strip() == '':
+                continue
         merged[k] = v
     return merged
 
@@ -146,7 +156,8 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     except (socket.timeout, TimeoutError):
         return False, 'SMTP connection timed out. Please verify host, port, and security settings.'
     except socket.gaierror:
-        return False, 'DNS resolution failed. Please verify the SMTP host.'
+        used_host = cfg.get('smtpHost') or cfg.get('smtp_host') or ''
+        return False, f'DNS resolution failed for host {used_host}. Please verify the SMTP host.'
     except ConnectionRefusedError:
         return False, 'SMTP connection refused. Please verify the host and port.'
     except Exception as e:
@@ -162,6 +173,23 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
                 server.quit()
         except Exception:
             pass
+
+
+def _sanitize_smtp_host(host: str) -> str:
+    if not host:
+        return ""
+    host = host.strip()
+    # Remove zero-width characters
+    for char in ('\u200b', '\u200c', '\u200d', '\ufeff', '\u200E', '\u200F'):
+        host = host.replace(char, '')
+    # Remove protocol prefix
+    for prefix in ('https://', 'http://', 'smtp://'):
+        if host.lower().startswith(prefix):
+            host = host[len(prefix):]
+    # Remove trailing slash or path suffix
+    if '/' in host:
+        host = host.split('/', 1)[0]
+    return host.strip()
 
 
 def _test_ses_api_email(cfg: dict, params: dict) -> tuple[bool, str, str]:
@@ -648,8 +676,10 @@ def test_provider_config():
             }
         }), 200
 
-    # Merge dynamic secrets
-    cfg = _merge_secrets(cfg, incoming_cfg) if incoming_cfg is not None else cfg
+    # Merge dynamic secrets only if the request explicitly asks to test unsaved config
+    test_unsaved_config = str(data.get('test_unsaved_config') or data.get('testUnsavedConfig') or '').lower() in ('1', 'true', 'yes')
+    if test_unsaved_config and incoming_cfg is not None:
+        cfg = _merge_secrets(cfg, incoming_cfg)
     cfg = cfg or {}
 
     # Key Normalization: Ensure both camelCase and snake_case versions exist and are identical
@@ -672,14 +702,21 @@ def test_provider_config():
 
     cfg = normalize_keys(cfg)
 
-    # Structured logging of non-sensitive parameters
+    # Normalize SMTP host before testing in the local test cfg only
+    smtp_host_val = cfg.get('smtpHost') or cfg.get('smtp_host') or ''
+    sanitized_host = _sanitize_smtp_host(smtp_host_val)
+    cfg['smtpHost'] = sanitized_host
+    cfg['smtp_host'] = sanitized_host
+
+    # Safe logging before SMTP test execution
     from app.extensions import logger
     logger.info(
-        "Executing integrations provider config test",
+        "Executing integrations SMTP provider config test details",
         provider_key=actual_provider_key,
-        service_type=service_type,
-        smtpHost=cfg.get('smtpHost') or cfg.get('smtp_host'),
+        smtpHost_repr=repr(sanitized_host),
+        smtpHost_len=len(sanitized_host),
         smtpPort=cfg.get('smtpPort') or cfg.get('smtp_port'),
+        smtpEncryption=cfg.get('smtpEncryption') or cfg.get('smtp_encryption'),
         fromEmail=cfg.get('fromEmail') or cfg.get('from_email')
     )
 

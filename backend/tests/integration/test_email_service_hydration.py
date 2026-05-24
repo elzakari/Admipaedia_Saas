@@ -343,6 +343,148 @@ def test_email_integration_check_smtp_sync(app):
                 assert updated_cfg.get('smtpPassword') == 'stale-password'
 
 
+def test_email_integration_check_test_unsaved_config_defaults(app):
+    """
+    Test that test_provider_config defaults to using saved database config,
+    ignoring incoming config unless test_unsaved_config=true is specified.
+    """
+    from unittest.mock import patch, MagicMock
+    from app.models.service_tokens import PlatformServiceProviderConfig
+    
+    with app.app_context():
+        db.session.query(PlatformServiceProviderConfig).delete()
+        provider_cfg = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Primary SMTP',
+            is_active=True
+        )
+        provider_cfg.set_config({
+            'smtpHost': 'smtp.saved-db-host.com',
+            'smtpPort': 587,
+            'smtpUsername': 'saved-user',
+            'smtpPassword': 'saved-password',
+            'smtpEncryption': 'tls',
+            'fromEmail': 'no-reply@saved.com'
+        })
+        db.session.add(provider_cfg)
+        db.session.commit()
+
+        with patch('flask_jwt_extended.view_decorators.verify_jwt_in_request') as mock_jwt, \
+             patch('app.utils.platform_access.get_current_user') as mock_user, \
+             patch('smtplib.SMTP') as mock_smtp:
+            
+            mock_user.return_value = MagicMock(role='super_admin')
+            mock_server = MagicMock()
+            mock_smtp.return_value = mock_server
+            
+            # Scenario A: test_unsaved_config is missing/false. Incoming config should be ignored!
+            with app.test_client() as client:
+                response = client.post(
+                    '/api/v1/platform/integrations/providers/test',
+                    json={
+                        'service_type': 'email',
+                        'provider_key': 'smtp',
+                        'config': {
+                            'smtpHost': 'smtp.frontend-unsaved.com',
+                            'smtpPort': 587,
+                            'smtpUsername': 'frontend-user',
+                            'smtpPassword': 'frontend-password'
+                        }
+                    }
+                )
+                assert response.status_code == 200
+                res_data = response.json
+                assert res_data['success'] is True
+                assert res_data['result']['ok'] is True
+                
+                # Check that mock_smtp was called with the SAVED config host, NOT the frontend unsaved config host
+                mock_smtp.assert_called_with(host='smtp.saved-db-host.com', port=587, timeout=12)
+                mock_server.login.assert_called_with('saved-user', 'saved-password')
+
+            # Reset mocks
+            mock_smtp.reset_mock()
+            mock_server.reset_mock()
+
+            # Scenario B: test_unsaved_config is True. Incoming config should be merged!
+            with app.test_client() as client:
+                response = client.post(
+                    '/api/v1/platform/integrations/providers/test',
+                    json={
+                        'service_type': 'email',
+                        'provider_key': 'smtp',
+                        'test_unsaved_config': True,
+                        'config': {
+                            'smtpHost': 'smtp.frontend-unsaved.com',
+                            'smtpPort': 587,
+                            'smtpUsername': 'frontend-user',
+                            'smtpPassword': 'frontend-password'
+                        }
+                    }
+                )
+                assert response.status_code == 200
+                res_data = response.json
+                assert res_data['success'] is True
+                assert res_data['result']['ok'] is True
+                
+                # Check that mock_smtp was called with the MERGED incoming config
+                mock_smtp.assert_called_with(host='smtp.frontend-unsaved.com', port=587, timeout=12)
+                mock_server.login.assert_called_with('frontend-user', 'frontend-password')
+
+
+def test_email_integration_check_dns_sanitization(app):
+    """
+    Test that SMTP host is sanitized before execution and that DNS failures
+    return the requested message format showing the sanitized host.
+    """
+    import socket
+    from unittest.mock import patch, MagicMock
+    from app.models.service_tokens import PlatformServiceProviderConfig
+    
+    with app.app_context():
+        db.session.query(PlatformServiceProviderConfig).delete()
+        provider_cfg = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Primary SMTP',
+            is_active=True
+        )
+        provider_cfg.set_config({
+            'smtpHost': '  https://email-smtp.us-east-1.amazonaws.com/v1\u200b ',
+            'smtpPort': 587,
+            'smtpUsername': 'saved-user',
+            'smtpPassword': 'saved-password',
+            'smtpEncryption': 'tls',
+            'fromEmail': 'no-reply@example.com'
+        })
+        db.session.add(provider_cfg)
+        db.session.commit()
+
+        with patch('flask_jwt_extended.view_decorators.verify_jwt_in_request') as mock_jwt, \
+             patch('app.utils.platform_access.get_current_user') as mock_user, \
+             patch('socket.getaddrinfo') as mock_dns:
+            
+            mock_user.return_value = MagicMock(role='super_admin')
+            # Force gaierror to simulate DNS failure
+            mock_dns.side_effect = socket.gaierror("DNS failed")
+            
+            with app.test_client() as client:
+                response = client.post(
+                    '/api/v1/platform/integrations/providers/test',
+                    json={
+                        'service_type': 'email',
+                        'provider_key': 'smtp'
+                    }
+                )
+                assert response.status_code == 200
+                res_data = response.json
+                
+                # Assert DNS resolution failure message includes sanitized host
+                assert res_data['success'] is True
+                assert res_data['result']['ok'] is False
+                assert "DNS resolution failed for host email-smtp.us-east-1.amazonaws.com" in res_data['result']['message']
+
+
 
 
 
