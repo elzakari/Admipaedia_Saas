@@ -278,8 +278,8 @@ def test_email_service_fallback_to_resend(app):
 
 def test_email_integration_check_smtp_sync(app):
     """
-    Test that calling the integrations check API automatically synchronizes
-    active SMTP environment variables down to the PlatformServiceProviderConfig database record.
+    Test that calling the integrations check API does NOT automatically synchronize
+    or mutate active SMTP environment variables down to the PlatformServiceProviderConfig database record.
     """
     import json
     from unittest.mock import patch, MagicMock
@@ -330,17 +330,17 @@ def test_email_integration_check_smtp_sync(app):
                 )
                 assert response.status_code == 200
                 
-                # Retrieve from database directly to verify synchronization
+                # Retrieve from database directly to verify NO synchronization/mutation took place
                 updated_record = PlatformServiceProviderConfig.query.filter_by(
                     service_type='email',
                     provider_key='smtp'
                 ).first()
                 assert updated_record is not None
                 updated_cfg = updated_record.get_config() or {}
-                assert updated_cfg.get('smtpHost') == 'email-smtp.us-east-1.amazonaws.com'
-                assert updated_cfg.get('smtpPort') == 587
-                assert updated_cfg.get('smtpUsername') == 'live-aws-user'
-                assert updated_cfg.get('smtpPassword') == 'live-aws-password'
+                assert updated_cfg.get('smtpHost') == 'smtp.your-provider.com'
+                assert updated_cfg.get('smtpPort') == 25
+                assert updated_cfg.get('smtpUsername') == 'stale-user'
+                assert updated_cfg.get('smtpPassword') == 'stale-password'
 
 
 

@@ -1,6 +1,12 @@
 import os
+import sys
 import unittest
 from unittest.mock import patch, MagicMock
+
+# Dynamically mock the 'resend' module to avoid ModuleNotFoundError in environments where it is not installed
+mock_resend = MagicMock()
+sys.modules['resend'] = mock_resend
+
 from app.services.mail.dispatcher import send_transactional_email
 
 class TestDispatcherFailover(unittest.TestCase):
