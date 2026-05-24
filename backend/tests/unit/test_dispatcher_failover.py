@@ -41,7 +41,7 @@ class TestDispatcherFailover(unittest.TestCase):
             'SMTP_USER': 'ses-user',
             'SMTP_PASSWORD': 'ses-password',
             'FALLBACK_EMAIL_PROVIDER': 'resend',
-            'RESEND_API_KEY': 're_123456789'
+            'RESEND_API_KEY': 'resend_test_placeholder_token'  # gitleaks:allow
         }
         with patch.dict(os.environ, test_env):
             with patch('smtplib.SMTP') as mock_smtp, \

@@ -238,7 +238,7 @@ def test_email_service_fallback_to_resend(app):
             'smtpUsername': 'db-ses-user',
             'smtpPassword': 'db-ses-password',
             'smtpEncryption': 'tls',
-            'apiKey': 're_mock_api_key_fallback',
+            'apiKey': 'resend_test_placeholder_token',  # gitleaks:allow
             'fromEmail': 'no-reply@easymsdigit.com'
         })
         db.session.add(provider_cfg)
@@ -246,7 +246,7 @@ def test_email_service_fallback_to_resend(app):
 
         test_env = {
             'FALLBACK_EMAIL_PROVIDER': 'resend',
-            'RESEND_API_KEY': 're_mock_api_key_fallback'
+            'RESEND_API_KEY': 'resend_test_placeholder_token'  # gitleaks:allow
         }
 
         with patch.dict(os.environ, test_env):

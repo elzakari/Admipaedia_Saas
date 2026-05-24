@@ -10,6 +10,7 @@ paths = [
   "backend/create_grading_schemes.py",
   "backend/docs/enhanced_authentication.md",
   "frontend/src/pages/student/StudentAssignmentDetailPage.tsx",
-  "docs/SECURITY_SECRETS.md"
+  "docs/SECURITY_SECRETS.md",
+  "backend/tests/"
 ]
 regexes = ["KEY_PHASE_[0-9]+"]
