@@ -113,3 +113,69 @@ def test_school_settings_updates_blocked_for_non_super(client, db):
 
     resp = client.put('/api/v1/settings/notifications', json={'smtpHost': 'example.com'}, headers=headers)
     assert resp.status_code == 403
+
+
+def test_list_providers_decryption_failure(client, db):
+    from app.models.service_tokens import PlatformServiceProviderConfig
+    from unittest.mock import patch
+
+    _make_user(db, 'super_admin', 'super_list@example.com')
+    token = _login(client, 'super_list@example.com', 'password')
+    headers = {'Authorization': f'Bearer {token}'}
+
+    # Clear any existing platform provider configs
+    db.session.query(PlatformServiceProviderConfig).delete()
+    db.session.commit()
+
+    # Create one valid platform provider
+    p_valid = PlatformServiceProviderConfig(
+        service_type='email',
+        provider_key='smtp',
+        display_name='Working SMTP',
+        is_active=True
+    )
+    p_valid.set_config({'smtpHost': 'smtp.example.com', 'smtpPort': 587})
+    db.session.add(p_valid)
+
+    # Create one broken platform provider
+    p_broken = PlatformServiceProviderConfig(
+        service_type='sms',
+        provider_key='twilio',
+        display_name='Broken Twilio',
+        is_active=True
+    )
+    # Give it some config
+    p_broken.set_config({'apiKey': 'some-key'})
+    db.session.add(p_broken)
+    db.session.commit()
+
+    # We mock get_config on PlatformServiceProviderConfig to fail for 'twilio'
+    original_get_config = PlatformServiceProviderConfig.get_config
+
+    def mock_get_config(self):
+        if self.provider_key == 'twilio':
+            raise Exception("InvalidToken decryption error")
+        return original_get_config(self)
+
+    with patch.object(PlatformServiceProviderConfig, 'get_config', mock_get_config):
+        resp = client.get('/api/v1/platform/integrations/providers', headers=headers)
+        assert resp.status_code == 200
+        
+        data = resp.json
+        assert data['success'] is True
+        
+        providers = data['providers']
+        assert len(providers) == 2
+        
+        # Verify valid provider details
+        valid_prov = next(p for p in providers if p['provider_key'] == 'smtp')
+        assert valid_prov['config_status'] == 'active'
+        assert valid_prov['warning'] is None
+        assert valid_prov['config']['smtpHost'] == 'smtp.example.com'
+        
+        # Verify broken provider details
+        broken_prov = next(p for p in providers if p['provider_key'] == 'twilio')
+        assert broken_prov['config_status'] == 'decrypt_failed'
+        assert broken_prov['warning'] == "Provider settings cannot be decrypted. Please re-save this provider."
+        assert broken_prov['config'] == {}
+

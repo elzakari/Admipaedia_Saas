@@ -267,13 +267,32 @@ def list_provider_configs():
     providers_list = []
     for p in providers:
         p_key = p.provider_key
-        p_cfg = p.get_config() or {}
         p_display = p.display_name
         
-        # Legacy SMTP treating
-        if p_key == 'smtp' and p_cfg.get('smtpHost') and 'amazonaws.com' in str(p_cfg.get('smtpHost')).lower():
-            p_key = 'ses_smtp'
-            p_display = 'Amazon SES SMTP'
+        try:
+            p_cfg = p.get_config() or {}
+            config_status = "active"
+            warning = None
+            
+            # Legacy SMTP treating
+            if p_key == 'smtp' and p_cfg.get('smtpHost') and 'amazonaws.com' in str(p_cfg.get('smtpHost')).lower():
+                p_key = 'ses_smtp'
+                p_display = 'Amazon SES SMTP'
+                
+            redacted_config = _redact_config(p_cfg)
+        except Exception as e:
+            from app.extensions import logger
+            logger.error(
+                "Failed to decrypt platform provider config",
+                provider_id=p.id,
+                service_type=p.service_type,
+                provider_key=p_key,
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
+            config_status = "decrypt_failed"
+            warning = "Provider settings cannot be decrypted. Please re-save this provider."
+            redacted_config = {}
             
         providers_list.append({
             'id': p.id,
@@ -283,19 +302,40 @@ def list_provider_configs():
             'display_name': p_display,
             'priority': p.priority,
             'is_active': bool(p.is_active),
-            'config': _redact_config(p_cfg),
+            'config': redacted_config,
+            'config_status': config_status,
+            'warning': warning
         })
 
     overrides_list = []
     for o in overrides:
         o_key = o.provider_key
-        o_cfg = o.get_config() or {}
         o_display = o.display_name
         
-        # Legacy SMTP treating
-        if o_key == 'smtp' and o_cfg.get('smtpHost') and 'amazonaws.com' in str(o_cfg.get('smtpHost')).lower():
-            o_key = 'ses_smtp'
-            o_display = 'Amazon SES SMTP'
+        try:
+            o_cfg = o.get_config() or {}
+            config_status = "active"
+            warning = None
+            
+            # Legacy SMTP treating
+            if o_key == 'smtp' and o_cfg.get('smtpHost') and 'amazonaws.com' in str(o_cfg.get('smtpHost')).lower():
+                o_key = 'ses_smtp'
+                o_display = 'Amazon SES SMTP'
+                
+            redacted_config = _redact_config(o_cfg)
+        except Exception as e:
+            from app.extensions import logger
+            logger.error(
+                "Failed to decrypt tenant override config",
+                provider_id=o.id,
+                service_type=o.service_type,
+                provider_key=o_key,
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
+            config_status = "decrypt_failed"
+            warning = "Provider settings cannot be decrypted. Please re-save this provider."
+            redacted_config = {}
             
         overrides_list.append({
             'id': o.id,
@@ -307,7 +347,9 @@ def list_provider_configs():
             'priority': o.priority,
             'is_active': bool(o.is_active),
             'source': o.source,
-            'config': _redact_config(o_cfg),
+            'config': redacted_config,
+            'config_status': config_status,
+            'warning': warning
         })
 
     return jsonify({
