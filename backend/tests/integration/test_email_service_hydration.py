@@ -213,3 +213,67 @@ def test_email_integration_check_resend_guard(app):
                 assert res_data['result']['message'] == 'Resend API connection ready.'
 
 
+def test_email_service_fallback_to_resend(app):
+    """
+    Test that when the dynamic database SMTP provider fails,
+    and FALLBACK_EMAIL_PROVIDER env var is set to 'resend',
+    the email service automatically fails over to the Resend API.
+    """
+    with app.app_context():
+        # Clear database configs first
+        db.session.query(SystemSettings).delete()
+        db.session.query(PlatformServiceProviderConfig).delete()
+        db.session.commit()
+
+        # Insert active PlatformServiceProviderConfig SMTP record
+        provider_cfg = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Primary AWS SES SMTP',
+            is_active=True
+        )
+        provider_cfg.set_config({
+            'smtpHost': 'smtp.fail-primary.com',
+            'smtpPort': 587,
+            'smtpUsername': 'db-ses-user',
+            'smtpPassword': 'db-ses-password',
+            'smtpEncryption': 'tls',
+            'apiKey': 're_mock_api_key_fallback',
+            'fromEmail': 'no-reply@easymsdigit.com'
+        })
+        db.session.add(provider_cfg)
+        db.session.commit()
+
+        test_env = {
+            'FALLBACK_EMAIL_PROVIDER': 'resend',
+            'RESEND_API_KEY': 're_mock_api_key_fallback'
+        }
+
+        with patch.dict(os.environ, test_env):
+            # SMTP isolated throws failure
+            with patch('app.services.email_service._send_via_smtp_isolated') as mock_smtp, \
+                 patch('app.services.email_service._send_via_resend_api') as mock_resend:
+                
+                mock_smtp.return_value = (False, "SMTP Timeout or Refusal", "")
+                mock_resend.return_value = (True, "Sent successfully via Resend API", "resend-msg-12345")
+                
+                result = send_email(
+                    subject="Failover Test",
+                    recipients=["recipient@example.com"],
+                    text_body="Checking failover paths.",
+                    provider="smtp"
+                )
+                
+                # Assert that dynamic fallback succeeded and changed provider to 'resend'
+                assert result['ok'] is True
+                assert result['provider'] == 'resend'
+                assert "Resend API fallback succeeded" in result['message']
+                assert result['message_id'] == "resend-msg-12345"
+                
+                # Check that SMTP was attempted first
+                mock_smtp.assert_called_once()
+                # Check that Resend was invoked next
+                mock_resend.assert_called_once()
+
+
+

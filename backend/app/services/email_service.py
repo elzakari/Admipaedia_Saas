@@ -244,6 +244,29 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
             encryption=str(smtp_enc)
         )
 
+        if not ok:
+            fallback_provider = str(os.environ.get("FALLBACK_EMAIL_PROVIDER") or cfg.get('fallbackProvider') or cfg.get('fallback_provider') or '').strip().lower()
+            if fallback_provider == 'resend':
+                logger.warning(f"⚠️ Primary SMTP failed: {message}. Activating Resend fallback...")
+                resend_key = cfg.get('apiKey') or cfg.get('api_key') or os.environ.get('RESEND_API_KEY')
+                ok_fb, msg_fb, msg_id_fb = _send_via_resend_api(
+                    subject=subject,
+                    recipients=recipients,
+                    text_body=text_body,
+                    html_body=html_body,
+                    sender=sender_formatted,
+                    attachments=attachments,
+                    api_key=resend_key
+                )
+                if ok_fb:
+                    ok = True
+                    message = f"Resend API fallback succeeded. (Primary failure: {message})"
+                    message_id = msg_id_fb
+                    selected_provider = 'resend'
+                else:
+                    message = f"Primary SMTP failed ({message}) and Resend fallback failed ({msg_fb})"
+
+
     duration = int((time.time() - start_time) * 1000)
     
     # 6. Log results defensively
