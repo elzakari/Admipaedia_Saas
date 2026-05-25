@@ -63,6 +63,14 @@ class User(db.Model):
     # Cascade profile relationship mapping
     profile = db.relationship('UserProfile', backref=db.backref('user', lazy='joined'), cascade='all, delete-orphan', passive_deletes=True, uselist=False)
     
+    # Multi-tenant membership relationship
+    # memberships = db.relationship(
+    #     'TenantMembership',
+    #     foreign_keys='TenantMembership.user_id',
+    #     backref=db.backref('member_user', overlaps="user"),
+    #     overlaps="user"
+    # )
+    
     def __init__(self, **kwargs):
         username = kwargs.get('username')
         if not username:

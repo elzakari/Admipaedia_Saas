@@ -131,11 +131,15 @@ def test_super_admin_cannot_delete_user_with_membership(client):
     u = _create_user('member_user@example.com', role='admin', password='Password123!')
     db.session.add(TenantMembership(tenant_id=tenant.id, user_id=u.id, role='school_admin', status='active'))
     db.session.commit()
+    print(f"!!! PYTEST AFTER COMMIT - TenantMembership count: {TenantMembership.query.count()}")
 
     status = client.get(
         f"/api/v1/super-admin/orphans/users/{u.id}",
         headers={'Authorization': f'Bearer {token}'}
     )
+    print("!!! TEST RESPONSE !!!")
+    import json
+    print(json.dumps(status.json, indent=2))
     assert status.status_code == 200
     assert status.json['status']['can_delete'] is False
 
