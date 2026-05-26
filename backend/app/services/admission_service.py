@@ -86,9 +86,10 @@ class AdmissionService:
                     username=safe_username,
                     email=student_email,
                     role='student',
-                    status='active'
+                    status='pending_activation'
                 )
-                user.set_password('Password123!') # Set a default password
+                temp_password = secrets.token_urlsafe(32)
+                user.set_password(temp_password)
                 db.session.add(user)
                 db.session.flush() # Flush to populate user.id
                 
