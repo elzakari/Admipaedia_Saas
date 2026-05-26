@@ -919,22 +919,24 @@ def patch_admission_status(form_id):
 
         # Generate activation token
         import secrets
+        from werkzeug.security import generate_password_hash
         import hashlib
         from datetime import timedelta
         raw_token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+        stub_hash = generate_password_hash(secrets.token_urlsafe(32))
 
         try:
             # Now safely construct the user model record
             student_user = User(
                 username=username,
                 email=applicant_email,  # Enforces a non-null string value
+                password_hash=stub_hash,
                 role='student',
                 status='pending_activation',
                 password_reset_token=token_hash,
                 password_reset_expires=datetime.utcnow() + timedelta(days=7)
             )
-            student_user.password_hash = None
             db.session.add(student_user)
             db.session.flush()
 
@@ -949,7 +951,7 @@ def patch_admission_status(form_id):
                 form_data = {}
 
             # Resolve dob and gender
-            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth') or '2016-01-01'
+            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
             if isinstance(dob_raw, str):
                 try:
                     date_of_birth = datetime.strptime(dob_raw.split('T')[0], '%Y-%m-%d').date()
@@ -971,6 +973,11 @@ def patch_admission_status(form_id):
             academic_year_id = form_data.get('academic_year_id')
             parent_id = form_data.get('parent_id') or application.parent_id
 
+            # Resolve mapping attributes
+            address_val = form_data.get('home_address') or form_data.get('address') or form_data.get('residential_address')
+            blood_group_val = form_data.get('blood_group') or form_data.get('bloodGroup')
+            phone_val = form_data.get('emergency_contact') or form_data.get('phone_number') or form_data.get('phone') or form_data.get('telephone') or form_data.get('student_phone')
+
             # Build student payload
             student_payload = {
                 'tenant_id': tenant_id,
@@ -983,7 +990,21 @@ def patch_admission_status(form_id):
                 'date_of_birth': date_of_birth,
                 'status': 'pending_activation',
                 'email': applicant_email,
-                'phone': form_data.get('emergency_contact')
+                
+                # Unpack form_data mapping
+                'address': address_val,
+                'residential_address': address_val,
+                'blood_group': blood_group_val,
+                'phone': phone_val,
+                
+                # Optional fields from form_data
+                'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
+                'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
+                'nationality': form_data.get('nationality'),
+                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination'),
+                'telephone': form_data.get('telephone') or form_data.get('student_phone') or phone_val,
+                'whatsapp': form_data.get('whatsapp'),
+                'postal_address': form_data.get('postal_address') or address_val,
             }
             from app.models.student import Student
             if academic_year_id and hasattr(Student, 'academic_year_id'):
@@ -1021,6 +1042,14 @@ def patch_admission_status(form_id):
             if parent_email:
                 from app.services.email_service import send_student_activation_email
                 send_student_activation_email(parent_email, username, raw_token)
+
+            # Send activation email to student if student_email provided
+            if applicant_email and not applicant_email.endswith('@admipaedia.local'):
+                try:
+                    from app.services.email_service import send_password_reset_email
+                    send_password_reset_email(applicant_email, raw_token)
+                except Exception:
+                    pass
 
             # Update status
             application.status = 'approved'

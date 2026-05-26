@@ -302,21 +302,23 @@ def review_application(id):
                     counter += 1
                 
                 import secrets
+                from werkzeug.security import generate_password_hash
                 import hashlib
                 from datetime import timedelta
                 
                 raw_token = secrets.token_urlsafe(32)
                 token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
+                stub_hash = generate_password_hash(secrets.token_urlsafe(32))
                 
                 student_user = User(
                     username=username,
                     email=student_email,
+                    password_hash=stub_hash,
                     role='student',
                     status='pending_activation',
                     password_reset_token=token_hash,
                     password_reset_expires=datetime.utcnow() + timedelta(days=7)
                 )
-                student_user.password_hash = None # permits newly provisioned student profiles to remain password-empty
                 db.session.add(student_user)
                 db.session.flush() # Flush to get student_user.id
                 

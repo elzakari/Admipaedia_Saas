@@ -1,4 +1,5 @@
 import secrets
+from werkzeug.security import generate_password_hash
 import hashlib
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional
@@ -82,14 +83,14 @@ class AdmissionService:
                 # Safe unique username
                 safe_username = f"student_{application.id}_{secrets.token_hex(4)}"
                 
+                stub_hash = generate_password_hash(secrets.token_urlsafe(32))
                 user = User(
                     username=safe_username,
                     email=student_email,
+                    password_hash=stub_hash,
                     role='student',
                     status='pending_activation'
                 )
-                temp_password = secrets.token_urlsafe(32)
-                user.set_password(temp_password)
                 db.session.add(user)
                 db.session.flush() # Flush to populate user.id
                 

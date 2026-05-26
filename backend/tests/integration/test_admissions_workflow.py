@@ -122,8 +122,8 @@ def test_admission_approval_success(auth_client, app):
         student_user = User.query.get(student.user_id)
         assert student_user is not None
         assert student_user.role == 'student'
-        assert student_user.email is None
-        assert student_user.password_hash is None
+        assert student_user.email == "bobby.appleseed@admipaedia.local"
+        assert student_user.password_hash is not None
         assert student_user.status == 'pending_activation'
         assert student.status == 'pending_activation'
 
@@ -191,7 +191,7 @@ def test_admission_approval_failure_rollback(auth_client, app):
     }
     
     from unittest.mock import patch
-    with patch.object(db.session, 'rollback') as mock_rollback:
+    with patch.object(db.session, 'rollback', wraps=db.session.rollback) as mock_rollback:
         response = auth_client.post(
             f'/api/v1/admissions/application/{app_id}/review',
             json={
@@ -316,7 +316,7 @@ def test_admission_approval_with_email_and_token(mock_send_email, auth_client, a
         assert student_user is not None
         assert student_user.role == 'student'
         assert student_user.email == "bobby_student@example.com"
-        assert student_user.password_hash is None
+        assert student_user.password_hash is not None
         assert student_user.status == 'pending_activation'
         
         # Verify password token and expiration are generated straight into the database row!
