@@ -530,6 +530,7 @@ const AdmissionFormPage: React.FC = () => {
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
               disabled={reviewMutation.isPending}
               onClick={() => {
+                if (reviewMutation.isPending) return;
                 reviewMutation.mutate({ 
                   status: 'approved', 
                   notes: approvalNotes || null 

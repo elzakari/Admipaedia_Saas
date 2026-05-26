@@ -116,7 +116,7 @@ def test_admissions_approval_pending_activation(app, db_session, client, auth_cl
     assert user is not None
     assert user.password_hash is None
     assert user.status == "pending_activation"
-    assert user.email is None  # Dropped generated spoofed email!
+    assert user.email == "bobby.appleseed@admipaedia.local"  # Generates local routing alias!
 
 
 @pytest.mark.usefixtures('app_context', 'db_isolation')

@@ -769,7 +769,9 @@ def patch_admission_status(form_id):
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
     from app.models.admission import AdmissionApplication
-    application = AdmissionApplication.query.get_or_404(form_id)
+    application = AdmissionApplication.query.filter_by(id=form_id).with_for_update().first()
+    if not application:
+        return jsonify({'success': False, 'message': 'Admission application not found'}), 404
 
     data = request.get_json() or {}
     next_status = data.get('status')
@@ -856,6 +858,23 @@ def patch_admission_status(form_id):
 
     # State Rule: 'approved'
     if next_status == 'approved':
+        if application.status == 'approved':
+            from app.models.student import Student
+            existing_student = Student.query.filter_by(
+                parent_id=application.parent_id,
+                first_name=application.student_first_name,
+                last_name=application.student_last_name
+            ).first()
+            return jsonify({
+                'success': True,
+                'message': 'Application already approved successfully.',
+                'data': {
+                    'id': application.id,
+                    'status': application.status,
+                    'student_id': existing_student.id if existing_student else None
+                }
+            }), 200
+
         if application.status == 'draft':
             return jsonify({'success': False, 'message': 'Draft applications cannot be approved'}), 400
 
@@ -963,7 +982,7 @@ def patch_admission_status(form_id):
                 'gender': gender,
                 'date_of_birth': date_of_birth,
                 'status': 'pending_activation',
-                'email': None,
+                'email': applicant_email,
                 'phone': form_data.get('emergency_contact')
             }
             from app.models.student import Student

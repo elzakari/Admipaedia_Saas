@@ -78,6 +78,7 @@ export const AdmissionPipeline: React.FC = () => {
   }, []);
 
   const handleStatusChange = async (applicationId: number, status: string) => {
+    if (updatingId !== null) return;
     setUpdatingId(applicationId);
     setError(null);
     try {

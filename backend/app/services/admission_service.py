@@ -24,8 +24,8 @@ class AdmissionService:
         All-or-nothing transactional guarantees are ensured using nested savepoints.
         """
         try:
-            # 1. Retrieve application
-            application = AdmissionApplication.query.get(application_id)
+            # 1. Retrieve application with row-level locking
+            application = AdmissionApplication.query.filter_by(id=application_id).with_for_update().first()
             if not application:
                 return None, None, None, "Admission application not found."
                 
@@ -46,7 +46,13 @@ class AdmissionService:
             if norm_status == 'accepted':
                 if application.status == 'accepted':
                     db.session.rollback()
-                    return application, None, None, "Application is already accepted."
+                    # Safely retrieve the already provisioned student record
+                    existing_student = Student.query.filter_by(
+                        parent_id=application.parent_id,
+                        first_name=application.student_first_name,
+                        last_name=application.student_last_name
+                    ).first()
+                    return application, existing_student, None, None
                     
                 # Validate parent
                 parent = Parent.query.get(application.parent_id)
