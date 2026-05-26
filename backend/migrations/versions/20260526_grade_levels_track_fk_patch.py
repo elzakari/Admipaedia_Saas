@@ -69,9 +69,9 @@ def upgrade():
                 REFERENCES grade_tracks(id)
                 ON DELETE CASCADE;
         """))
-        print("  ✓ FK constraint fk_grade_levels_track_id added.")
+        print("  [OK] FK constraint fk_grade_levels_track_id added.")
     else:
-        print("  ✓ FK constraint fk_grade_levels_track_id already present — skipped.")
+        print("  [OK] FK constraint fk_grade_levels_track_id already present — skipped.")
 
     # ------------------------------------------------------------------ #
     # 4. Smoke-test: verify the column is queryable                      #
@@ -79,7 +79,7 @@ def upgrade():
     row = bind.execute(text(
         "SELECT COUNT(*) FROM grade_levels WHERE track_id IS NOT NULL"
     )).fetchone()
-    print(f"  ✓ Smoke test passed — grade_levels.track_id is queryable "
+    print(f"  [OK] Smoke test passed — grade_levels.track_id is queryable "
           f"({row[0]} rows with non-null track_id).")
 
 
