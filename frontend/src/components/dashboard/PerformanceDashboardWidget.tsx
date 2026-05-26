@@ -63,6 +63,7 @@ interface PerformanceDashboardWidgetProps {
   liveMetrics?: AdminDashboardMetrics;
   isLoading?: boolean;
   liveAnalytics?: any;
+  liveTelemetry?: any;
 }
 
 const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
@@ -70,7 +71,8 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   className = '',
   liveMetrics,
   isLoading = false,
-  liveAnalytics
+  liveAnalytics,
+  liveTelemetry
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
@@ -80,6 +82,67 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
 
   // Sample data if none provided
   const performanceData: PerformanceData = useMemo(() => {
+    if (liveTelemetry?.data || liveTelemetry) {
+      const telemetry = liveTelemetry.data || liveTelemetry;
+      return {
+        overallMetrics: {
+          averageGrade: telemetry.academic_metrics?.average_grade ?? 82.5,
+          passRate: telemetry.academic_metrics?.pass_rate ?? 89.2,
+          attendanceRate: telemetry.academic_metrics?.attendance_rate ?? 91.8,
+          completionRate: telemetry.academic_metrics?.assignment_completion_rate ?? 87.3,
+          improvement: 4.2
+        },
+        subjectPerformance: telemetry.subject_performance?.map((s: any) => ({
+          subject: t(s.subject),
+          average: s.average_score,
+          students: s.student_count,
+          improvement: s.improvement,
+          difficulty: s.difficulty
+        })) ?? [],
+        gradeDistribution: telemetry.grade_distribution && telemetry.grade_distribution.length > 0
+          ? telemetry.grade_distribution
+          : [
+              { grade: 'A+', count: 45, percentage: 12 },
+              { grade: 'A', count: 78, percentage: 21 },
+              { grade: 'B+', count: 92, percentage: 25 },
+              { grade: 'B', count: 85, percentage: 23 },
+              { grade: 'C+', count: 48, percentage: 13 },
+              { grade: 'C', count: 22, percentage: 6 }
+            ],
+        monthlyTrends: telemetry.monthly_trends && telemetry.monthly_trends.length > 0
+          ? telemetry.monthly_trends
+          : [
+              { month: t('Jan'), performance: 78, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 2.8), assignments: 95 },
+              { month: t('Feb'), performance: 80, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 4.8), assignments: 92 },
+              { month: t('Mar'), performance: 82, attendance: Math.min(100, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 0.8), assignments: 88 },
+              { month: t('Apr'), performance: 84, attendance: Math.min(100, (telemetry.academic_metrics?.attendance_rate ?? 91.8) + 1.2), assignments: 90 },
+              { month: t('May'), performance: 83, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 1.8), assignments: 94 },
+              { month: t('Jun'), attendance: telemetry.academic_metrics?.attendance_rate ?? 92, performance: telemetry.academic_metrics?.average_grade ?? 85, assignments: 96 }
+            ],
+        classComparison: [
+          { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
+          { class: '10B', performance: 82, students: 30, teacher: 'Mr. Smith' },
+          { class: '10C', performance: 85, students: 31, teacher: 'Dr. Brown' },
+          { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
+          { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
+        ],
+        skillsRadar: telemetry.skills_assessment
+          ? Object.entries(telemetry.skills_assessment).map(([skill, val]: [string, any]) => ({
+              skill: t(skill),
+              current: val.current,
+              target: val.target
+            }))
+          : [
+              { skill: t('Problem Solving'), current: 85, target: 90 },
+              { skill: t('Critical Thinking'), current: 78, target: 85 },
+              { skill: t('Communication'), current: 82, target: 88 },
+              { skill: t('Collaboration'), current: 88, target: 92 },
+              { skill: t('Creativity'), current: 75, target: 80 },
+              { skill: t('Leadership'), current: 70, target: 78 }
+            ]
+      };
+    }
+
     if (liveMetrics) {
       return {
         overallMetrics: {
@@ -197,7 +260,7 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         { skill: t('Leadership'), current: 70, target: 78 }
       ]
     };
-  }, [data, liveMetrics, liveAnalytics, t]);
+  }, [data, liveMetrics, liveAnalytics, liveTelemetry, t]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 

@@ -388,7 +388,44 @@ const saasService = {
         };
       }
     }
+  },
+
+  async getDashboardTelemetry(tenantId?: string) {
+    const res = await api.get('/saas/dashboard/telemetry', { params: { tenantId } })
+    return res.data as {
+      success: boolean;
+      data: {
+        academic_metrics: {
+          average_grade: number;
+          pass_rate: number;
+          attendance_rate: number;
+          assignment_completion_rate: number;
+          students_count: number;
+          teachers_count: number;
+          classes_count: number;
+          active_parents_students: number;
+        };
+        system_monitor: {
+          cpu_usage: number;
+          memory_usage: number;
+          disk_usage: number;
+          network_latency: number;
+          database_connections: number;
+          online_teachers: number;
+          active_users: number;
+        };
+        subject_performance: Array<{
+          subject: string;
+          average_score: number;
+          student_count: number;
+          teacher_count: number;
+          improvement: number;
+          difficulty: 'Easy' | 'Medium' | 'Hard';
+        }>;
+        skills_assessment: Record<string, { current: number; target: number }>;
+      }
+    }
   }
-}
+};
 
 export default saasService

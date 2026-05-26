@@ -100,19 +100,24 @@ export default function OptimizedAdminDashboard() {
 
   const [liveMetrics, setLiveMetrics] = useState<AdminDashboardMetrics | null>(null);
   const [liveAnalytics, setLiveAnalytics] = useState<any | null>(null);
+  const [liveTelemetry, setLiveTelemetry] = useState<any | null>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(true);
 
   const fetchLiveMetrics = useCallback(async () => {
     setIsMetricsLoading(true);
     try {
       const tenantId = localStorage.getItem('saas_current_tenant_id') || undefined;
-      const [resMetrics, resAnalytics] = await Promise.all([
+      const [resMetrics, resAnalytics, resTelemetry] = await Promise.all([
         saasService.getAdminDashboardMetrics(tenantId).catch(err => {
           console.error('Failed to fetch live admin metrics:', err);
           return null;
         }),
         saasService.getAdminDashboardAnalytics(tenantId).catch(err => {
           console.error('Failed to fetch live admin analytics:', err);
+          return null;
+        }),
+        saasService.getDashboardTelemetry(tenantId).catch(err => {
+          console.error('Failed to fetch live dashboard telemetry:', err);
           return null;
         })
       ]);
@@ -122,6 +127,9 @@ export default function OptimizedAdminDashboard() {
       }
       if (resAnalytics && resAnalytics.success) {
         setLiveAnalytics(resAnalytics.data);
+      }
+      if (resTelemetry && resTelemetry.success) {
+        setLiveTelemetry(resTelemetry.data);
       }
     } catch (err) {
       console.error('Failed in fetchLiveMetrics orchestration:', err);
@@ -331,6 +339,7 @@ export default function OptimizedAdminDashboard() {
             key={`${componentType}-${index}`}
             {...baseProps}
             liveMetrics={liveMetrics || undefined}
+            liveTelemetry={liveTelemetry || undefined}
             isLoading={isMetricsLoading}
           />
         );
@@ -341,6 +350,7 @@ export default function OptimizedAdminDashboard() {
             {...baseProps}
             liveMetrics={liveMetrics || undefined}
             liveAnalytics={liveAnalytics || undefined}
+            liveTelemetry={liveTelemetry || undefined}
             isLoading={isMetricsLoading}
           />
         );
@@ -351,6 +361,7 @@ export default function OptimizedAdminDashboard() {
             {...baseProps}
             liveMetrics={liveMetrics || undefined}
             liveAnalytics={liveAnalytics || undefined}
+            liveTelemetry={liveTelemetry || undefined}
             isLoading={isMetricsLoading}
           />
         );

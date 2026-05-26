@@ -759,6 +759,38 @@ def get_notification_logs():
     }), 200
 
 
+@saas_report_bp.route('/saas/dashboard/telemetry', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_dashboard_telemetry():
+    """
+    Retrieve branch-scoped live system telemetry and academic aggregates.
+    """
+    from app.services.dashboard_telemetry import DashboardTelemetryService
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    branch_id = getattr(g, 'branch_id', None)
+    if not branch_id:
+        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
+        
+    try:
+        data = DashboardTelemetryService.get_live_telemetry(tenant_id, branch_id)
+        return jsonify({
+            "success": True,
+            "data": data
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False, 
+            "message": "Failed to compile live dashboard telemetry.", 
+            "error": str(e)
+        }), 500
+
+
+
 
 
 

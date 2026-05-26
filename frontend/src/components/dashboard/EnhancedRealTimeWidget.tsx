@@ -49,6 +49,7 @@ interface EnhancedRealTimeWidgetProps {
   liveMetrics?: AdminDashboardMetrics;
   isLoading?: boolean;
   liveAnalytics?: any;
+  liveTelemetry?: any;
 }
 
 const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
@@ -56,7 +57,8 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
   className = '',
   liveMetrics,
   isLoading = false,
-  liveAnalytics
+  liveAnalytics,
+  liveTelemetry
 }) => {
   const { t } = useTranslation();
   const [data, setData] = useState<RealTimeData>({
@@ -111,9 +113,71 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     }
   ]);
 
+  // Synchronize state with liveTelemetry when it arrives or changes
+  useEffect(() => {
+    if (liveTelemetry?.data || liveTelemetry) {
+      const telemetry = liveTelemetry.data || liveTelemetry;
+      const sys = telemetry.system_monitor;
+      if (sys) {
+        const newData: RealTimeData = {
+          activeUsers: sys.active_users ?? (telemetry.academic_metrics?.students_count || 0),
+          onlineTeachers: sys.online_teachers ?? 0,
+          currentClasses: telemetry.academic_metrics?.classes_count ?? 0,
+          systemLoad: sys.cpu_usage ?? 0,
+          memoryUsage: sys.memory_usage ?? 0,
+          diskUsage: sys.disk_usage ?? 0,
+          networkLatency: sys.network_latency ?? 0,
+          databaseConnections: sys.database_connections ?? 0,
+          lastUpdated: new Date()
+        };
+
+        setData(newData);
+
+        // Update system metrics with history
+        setSystemMetrics(prev => prev.map(metric => {
+          let newValue: number;
+          let status: 'healthy' | 'warning' | 'critical';
+
+          switch (metric.name) {
+            case 'CPU Usage':
+              newValue = newData.systemLoad;
+              status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
+              break;
+            case 'Memory':
+              newValue = newData.memoryUsage;
+              status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
+              break;
+            case 'Disk I/O':
+              newValue = newData.diskUsage;
+              status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
+              break;
+            case 'Network':
+              newValue = newData.networkLatency;
+              status = newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
+              break;
+            default:
+              newValue = metric.value;
+              status = metric.status;
+          }
+
+          const trend = newValue > metric.value ? 'up' : newValue < metric.value ? 'down' : 'stable';
+          const currentTime = new Date().toLocaleTimeString();
+
+          return {
+            ...metric,
+            value: newValue,
+            status,
+            trend,
+            history: [...metric.history.slice(-9), { time: currentTime, value: newValue }]
+          };
+        }));
+      }
+    }
+  }, [liveTelemetry]);
+
   // Synchronize state with liveMetrics when they arrive or change
   useEffect(() => {
-    if (liveMetrics) {
+    if (liveMetrics && !liveTelemetry) {
       setData(prev => ({
         ...prev,
         activeUsers: liveMetrics.active_sessions_total || liveMetrics.active_parents_students,
@@ -121,7 +185,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
         lastUpdated: new Date()
       }));
     }
-  }, [liveMetrics]);
+  }, [liveMetrics, liveTelemetry]);
 
   // Simulate real-time data updates
   const updateData = useCallback(() => {
@@ -264,8 +328,8 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
   }, [subscribe, liveMetrics]);
 
   useEffect(() => {
-    // Only use local simulation if not connected
-    if (!isConnected) {
+    // Only use local simulation if not connected and no live telemetry is provided
+    if (!isConnected && !liveTelemetry) {
       if (import.meta.env.DEV) {
         setConnectionQuality('poor');
         return undefined;
@@ -276,7 +340,7 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
       return () => clearInterval(interval);
     }
     return undefined;
-  }, [updateData, refreshInterval, isConnected]);
+  }, [updateData, refreshInterval, isConnected, liveTelemetry]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
