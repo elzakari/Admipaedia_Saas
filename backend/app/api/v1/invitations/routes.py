@@ -242,7 +242,7 @@ def public_validate_invitation(invite_id: str):
 
 
 @invitations_bp.route('/invitations/<invite_id>/register', methods=['POST'])
-@rate_limit(limit=10, window=3600, burst_limit=3)
+@rate_limit(limit=60, window=60, burst_limit=60)
 @sanitize_request_data({'email': 'email', 'username': 'text', 'password': 'text'})
 def public_register_with_invitation(invite_id: str):
     iid = _parse_uuid(invite_id)
