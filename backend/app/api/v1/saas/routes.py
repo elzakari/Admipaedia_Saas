@@ -867,12 +867,30 @@ def patch_admission_status(form_id):
             return jsonify({'success': False, 'message': 'Could not resolve tenant context'}), 400
 
         # Determine student username first.last[suffix]
-        clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
-        clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
-        if not clean_first and not clean_last:
-            clean_first = "student"
-        username = f"{clean_first}.{clean_last}" if clean_last else clean_first
+        applicant_email = getattr(application, 'email', None)
+        if not applicant_email and application.form_data:
+            form_dict = application.form_data
+            if isinstance(form_dict, str):
+                import json
+                try:
+                    form_dict = json.loads(form_dict)
+                except Exception:
+                    form_dict = {}
+            if isinstance(form_dict, dict):
+                applicant_email = form_dict.get('student_email') or form_dict.get('email')
 
+        first_name_str = getattr(application, 'first_name', None) or application.student_first_name or "student"
+        last_name_str = getattr(application, 'last_name', None) or application.student_last_name or "user"
+        generated_username = f"{first_name_str.lower().strip()}.{last_name_str.lower().strip()}"
+        # Replace any spaces or illegal characters
+        generated_username = "".join(c for c in generated_username if c.isalnum() or c in ['.', '_', '-'])
+
+        if not applicant_email or not applicant_email.strip():
+            # If the email field is blank or null, auto-generate a valid unique routing alias
+            applicant_email = f"{generated_username}@admipaedia.local"
+
+        username_base = getattr(application, 'username', None) or generated_username
+        username = username_base
         from app.models.user import User
         base_username = username
         counter = 1
@@ -888,10 +906,10 @@ def patch_admission_status(form_id):
         token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
 
         try:
-            # Create user account for student with NO email
+            # Now safely construct the user model record
             student_user = User(
                 username=username,
-                email=None,  # Leave nullable/blank
+                email=applicant_email,  # Enforces a non-null string value
                 role='student',
                 status='pending_activation',
                 password_reset_token=token_hash,
