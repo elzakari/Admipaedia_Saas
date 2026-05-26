@@ -1,6 +1,10 @@
 name: Enhanced CI/CD Pipeline for ADMIPAEDIA
 
 on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
 env:
