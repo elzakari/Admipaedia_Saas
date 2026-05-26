@@ -21,6 +21,14 @@ class Student(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     admission_number = db.Column(db.String(20), nullable=False)
     
+    @classmethod
+    def query_scoped(cls):
+        from flask import g, has_app_context
+        query = cls.query
+        if has_app_context() and getattr(g, 'branch_id', None):
+            query = query.filter_by(branch_id=g.branch_id)
+        return query
+    
     # Personal Details - Updated name structure
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)

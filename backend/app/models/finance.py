@@ -103,6 +103,14 @@ class StudentFee(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    @classmethod
+    def query_scoped(cls):
+        from flask import g, has_app_context
+        query = cls.query
+        if has_app_context() and getattr(g, 'branch_id', None):
+            query = query.filter_by(branch_id=g.branch_id)
+        return query
+    
     # Relationships
     student = db.relationship('Student', backref='fees')
     structure = db.relationship('FeeStructure', backref='student_fees')

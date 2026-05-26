@@ -10,6 +10,11 @@ def register_middleware(app):
     """Register application middleware"""
     
     @app.before_request
+    def run_campus_isolation():
+        from app.saas.middleware import campus_isolation_middleware
+        campus_isolation_middleware()
+        
+    @app.before_request
     def security_before_request():
         """Security checks before each request"""
         

@@ -26,7 +26,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
   const { current } = useSaasTenant();
   const [branches, setBranches] = useState<any[]>([]);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(() => {
-    return localStorage.getItem('saas_current_branch_id');
+    return localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
   });
 
   const tenantPlan = current?.tenant?.plan || 'trial';
@@ -34,14 +34,22 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
   useEffect(() => {
     if (isEnterprise) {
-      api.get('/school/branches')
+      api.get('/tenant/branches')
         .then(res => {
           if (res.data && res.data.success) {
             setBranches(res.data.branches || []);
           }
         })
-        .catch(err => {
-          console.error('Error fetching branches in navbar:', err);
+        .catch(() => {
+          api.get('/school/branches')
+            .then(res => {
+              if (res.data && res.data.success) {
+                setBranches(res.data.branches || []);
+              }
+            })
+            .catch(err => {
+              console.error('Error fetching branches in navbar:', err);
+            });
         });
     }
   }, [isEnterprise, current?.tenant?.id]);
@@ -110,6 +118,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
                 <DropdownMenuSeparator className="my-1" />
                 <DropdownMenuItem 
                   onClick={() => {
+                    localStorage.removeItem('active_branch_id');
                     localStorage.removeItem('saas_current_branch_id');
                     setActiveBranchId(null);
                     window.location.reload();
@@ -126,6 +135,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
                   <DropdownMenuItem 
                     key={branch.id}
                     onClick={() => {
+                      localStorage.setItem('active_branch_id', branch.id);
                       localStorage.setItem('saas_current_branch_id', branch.id);
                       setActiveBranchId(branch.id);
                       window.location.reload();

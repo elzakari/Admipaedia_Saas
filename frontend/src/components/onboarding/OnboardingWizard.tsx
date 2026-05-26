@@ -108,6 +108,8 @@ const translations: Record<string, any> = {
 const frameworks = [
   { key: 'gh_ges_standard', name: 'Ghana Education Service (GES)' },
   { key: 'tg_standard', name: 'Togo National Curriculum' },
+  { key: 'uk_cambridge', name: 'British Cambridge (IGCSE / A-Levels)' },
+  { key: 'us_common_core', name: 'US Common Core Curriculum' },
   { key: 'bj_standard', name: 'Benin National Curriculum' },
   { key: 'ng_nerdc_standard', name: 'Nigeria NERDC (9-3-4)' },
   { key: 'ke_cbc_standard', name: 'Kenya Competency Based Curriculum (CBC)' },
@@ -119,6 +121,7 @@ export default function OnboardingWizard({ tenant, onComplete }: { tenant: any; 
   const [lang, setLang] = useState<'en' | 'fr' | 'ewe'>('en');
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const t = translations[lang];
 
@@ -173,6 +176,7 @@ export default function OnboardingWizard({ tenant, onComplete }: { tenant: any; 
   }
 
   async function handleComplete() {
+    if (isSubmitting) return;
     if (!validateStep(3)) {
       toast({
         variant: 'destructive',
@@ -183,20 +187,27 @@ export default function OnboardingWizard({ tenant, onComplete }: { tenant: any; 
     }
 
     setIsSubmitting(true);
+    setErrorMessage(null);
     try {
       const payload = {
+        tenant_id: tenant?.id,
         school_name: schoolName,
         address,
         contact,
         currency,
         education_system: educationSystem,
+        educational_system: educationSystem,
+        main_branch_name: "Main Campus",
+        academic_year: new Date().getFullYear().toString(),
         academic_year_name: academicYearName,
         term_name: termName,
         term_start_date: termStartDate,
         term_end_date: termEndDate
       };
 
-      const res = await api.post('/tenant/complete-setup', payload);
+      const res = await api.post('/tenant/complete-setup', payload, {
+        timeout: 30000 // 30-second fault-tolerance threshold
+      });
       
       if (res.data.success) {
         toast({
@@ -209,10 +220,12 @@ export default function OnboardingWizard({ tenant, onComplete }: { tenant: any; 
       }
     } catch (err: any) {
       console.error(err);
+      const msg = err.response?.data?.message || "Setup failed due to temporary network loss.";
+      setErrorMessage(msg);
       toast({
         variant: 'destructive',
         title: 'Setup failed',
-        description: err.response?.data?.message || 'Please check your inputs and try again.'
+        description: msg
       });
     } finally {
       setIsSubmitting(false);

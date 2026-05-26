@@ -627,7 +627,7 @@ def complete_setup():
     address = data.get('address')
     contact = data.get('contact')
     currency = data.get('currency')
-    education_system = data.get('education_system')
+    education_system = data.get('education_system') or data.get('educational_system')
     academic_year_name = data.get('academic_year_name')
     term_name = data.get('term_name')
     term_start_date = data.get('term_start_date')
@@ -662,10 +662,19 @@ def complete_setup():
     store['contact'] = str(contact).strip() if contact else ''
     tenant.settings = store
 
-    # 2. Apply Educational System template
+    # 2. Apply Educational System template & Seeding
     from app.services.educational_system.service import EducationalSystemService
+    from app.services.education_initializer import TenantEducationInitializer
+    import structlog
+    logger = structlog.get_logger()
     try:
-        EducationalSystemService.apply_template_to_tenant(education_system, tenant_id)
+        try:
+            EducationalSystemService.apply_template_to_tenant(education_system, tenant_id)
+        except ValueError as legacy_err:
+            logger.warn("legacy_system_setup_skipped", error=str(legacy_err), system=education_system)
+        
+        # Polymorphic Education Engine Setup
+        TenantEducationInitializer.run_setup(tenant_id, education_system)
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Failed to apply educational system: {str(e)}'}), 400

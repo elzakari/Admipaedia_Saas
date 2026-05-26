@@ -129,6 +129,9 @@ from app.models.billing import (
     PendingInvoiceAdjustment
 )
 from app.models.educational_system import EducationalSystemTemplate, EducationalSystemConfig, GradeLevel
+from app.models.academic_cycle import AcademicCycle
+from app.models.grade_track import GradeTrack
+from app.models.polymorphic_grading_scale import PolymorphicGradingScale
 from app.models.tenant_academic_settings import TenantAcademicSettings
 
 # Finance & Fee Management models

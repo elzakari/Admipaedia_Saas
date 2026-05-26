@@ -62,11 +62,12 @@ class GradeLevel(db.Model):
     __tablename__ = 'grade_levels'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
-    educational_system_id = db.Column(UUID(as_uuid=True), db.ForeignKey('educational_system_config.id'), nullable=False)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=True, index=True)
+    educational_system_id = db.Column(UUID(as_uuid=True), db.ForeignKey('educational_system_config.id'), nullable=True)
     
-    name = db.Column(db.String(100), nullable=False)
-    order_index = db.Column(db.Integer, nullable=False) # For sorting (1, 2, 3...)
+    track_id = db.Column(UUID(as_uuid=True), db.ForeignKey('grade_tracks.id', ondelete='CASCADE'), nullable=True)
+    name = db.Column(db.String(255), nullable=False)
+    order_index = db.Column(db.Integer, nullable=True, default=1) # For sorting (1, 2, 3...)
     is_terminal = db.Column(db.Boolean, default=False) # Is this a final year?
     
     next_level_id = db.Column(UUID(as_uuid=True), db.ForeignKey('grade_levels.id'), nullable=True)
@@ -86,7 +87,7 @@ class GradeLevel(db.Model):
 
     @hybrid_property
     def numeric_value(self):
-        return self.order_index
+        return self.order_index if self.order_index is not None else 1
 
     @numeric_value.expression
     def numeric_value(cls):
