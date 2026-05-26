@@ -9,6 +9,10 @@ def register_blueprints(app):
     from app.api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     
+    # SaaS Report Blueprint
+    from app.saas.routes import saas_report_bp
+    app.register_blueprint(saas_report_bp, url_prefix='/api/v1')
+    
     # WebSocket Namespaces
     from app.websockets import teachers_namespace, notifications_namespace
     from app.extensions import socketio

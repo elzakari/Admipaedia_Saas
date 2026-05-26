@@ -40,9 +40,11 @@ def ensure_unique_subject_code(mapper, connection, target):
     if tid is None:
         existing = connection.execute(text('SELECT 1 FROM subjects WHERE code = :code'), {'code': target.code}).fetchone()
     else:
+        # Convert UUID to string representation if it's a uuid.UUID object for SQLite compatibility
+        tid_val = str(tid) if isinstance(tid, uuid.UUID) else tid
         existing = connection.execute(
             text('SELECT 1 FROM subjects WHERE tenant_id = :tenant_id AND code = :code'),
-            {'tenant_id': tid, 'code': target.code}
+            {'tenant_id': tid_val, 'code': target.code}
         ).fetchone()
     if existing:
         target.code = f"{target.code}-{secrets.token_hex(2)}"
