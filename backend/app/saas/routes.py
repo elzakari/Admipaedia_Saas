@@ -441,5 +441,127 @@ def get_payment_config():
     return jsonify({"success": False, "message": "Paystack payment gateway not configured"}), 404
 
 
+@saas_report_bp.route('/saas/admissions', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_admission_applications():
+    """
+    List all admission applications scoped to the active tenant.
+    Optionally filters by branch_id if active branch is selected.
+    """
+    from app.models.admission import AdmissionApplication
+    from app.models.parent import Parent
+    from app.models.class_ import Class
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    query = AdmissionApplication.query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(Parent.tenant_id == tenant_id)
+    
+    branch_id = getattr(g, 'branch_id', None)
+    if branch_id:
+        query = query.join(Class, AdmissionApplication.target_class_id == Class.id).filter(Class.branch_id == branch_id)
+        
+    applications = query.order_by(AdmissionApplication.created_at.desc()).all()
+    
+    result = []
+    for app in applications:
+        result.append({
+            "id": app.id,
+            "parent_id": app.parent_id,
+            "student_first_name": app.student_first_name,
+            "student_last_name": app.student_last_name,
+            "target_class_id": app.target_class_id,
+            "target_class_name": app.target_class.name if app.target_class else None,
+            "payment_status": app.payment_status,
+            "status": app.status,
+            "submission_date": app.submission_date.isoformat() if app.submission_date else None,
+            "form_data": app.form_data,
+            "created_at": app.created_at.isoformat() if app.created_at else None
+        })
+        
+    return jsonify({"success": True, "applications": result}), 200
+
+
+@saas_report_bp.route('/saas/admissions/<int:application_id>/status', methods=['POST'])
+@jwt_required()
+@tenant_required
+def update_admission_status(application_id):
+    """
+    Transition admission application status and provision Student on acceptance.
+    """
+    from app.services.admission_service import AdmissionService
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    payload = request.json or {}
+    new_status = payload.get('status')
+    if not new_status:
+        return jsonify({"success": False, "message": "Status parameter is required."}), 400
+        
+    app_record, student, raw_token, error = AdmissionService.change_application_status(
+        application_id=application_id,
+        new_status=new_status,
+        tenant_id=tenant_id
+    )
+    
+    if error:
+        return jsonify({"success": False, "message": error}), 400
+        
+    response = {
+        "success": True,
+        "message": f"Application status transitioned to {new_status} successfully.",
+        "application_id": app_record.id,
+        "status": app_record.status
+    }
+    
+    if student:
+        response["student_id"] = student.id
+        
+    if raw_token:
+        # Construct secure registration claim URL
+        response["activation_url"] = f"https://admipaedia.easymsdigit.com/auth/claim-account?token={raw_token}"
+        
+    return jsonify(response), 200
+
+
+@saas_report_bp.route('/saas/attendance/analytics', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_attendance_analytics():
+    """
+    Retrieve precise class/branch attendance analytics using Decimal precision.
+    """
+    from app.services.attendance_analytics import AttendanceAnalytics
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    branch_id = getattr(g, 'branch_id', None)
+    if not branch_id:
+        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
+        
+    year = request.args.get('year', datetime.now().year, type=int)
+    month = request.args.get('month', datetime.now().month, type=int)
+    class_id = request.args.get('class_id', type=int)
+    
+    stats = AttendanceAnalytics.get_monthly_branch_stats(
+        branch_id=str(branch_id),
+        year=year,
+        month=month,
+        class_id=class_id
+    )
+    
+    # Serialize Decimals safely
+    serialized_stats = serialize_decimals(stats)
+    
+    return jsonify({"success": True, "analytics": serialized_stats}), 200
+
+
+
 
 
