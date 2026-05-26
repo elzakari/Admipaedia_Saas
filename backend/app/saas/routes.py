@@ -2,9 +2,15 @@ from flask import Blueprint, request, jsonify, send_file, after_this_request, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.report_card_generator import ReportCardGenerator
 from app.services.financial_ledger_service import FinancialLedgerService
+from app.services.timetable_engine import TimetableEngine
 from app.models.user import User
+from app.models.timetable import TimetableSlot, Period
+from app.models.class_ import Class
+from app.models.subject import Subject
+from app.models.teacher import Teacher
 from app.utils.tenant_context import tenant_required
 from decimal import Decimal
+from app.extensions import db
 import gc
 import uuid
 
@@ -145,4 +151,163 @@ def get_global_ledger():
         })
     except Exception as e:
         return jsonify({"success": False, "message": "Failed to load global ledger metrics.", "error": str(e)}), 500
+
+
+@saas_report_bp.route('/saas/timetable/periods', methods=['GET'])
+@jwt_required()
+def get_timetable_periods():
+    """Returns timetable periods ordered by order_index."""
+    periods = Period.query.order_by(Period.order_index).all()
+    return jsonify({
+        "success": True,
+        "data": [{
+            "id": p.id,
+            "name": p.name,
+            "start_time": str(p.start_time),
+            "end_time": str(p.end_time),
+            "is_break": p.is_break,
+            "order_index": p.order_index
+        } for p in periods]
+    }), 200
+
+
+@saas_report_bp.route('/saas/timetable/slots', methods=['GET'])
+@tenant_required
+def get_timetable_slots():
+    """Gets timetable slots for a class or teacher under active tenant and branch contexts."""
+    tenant_id = getattr(g, 'tenant_id', None)
+    branch_id = getattr(g, 'branch_id', None)
+    
+    if not tenant_id or not branch_id:
+        return jsonify({"success": False, "message": "Tenant and Branch context required."}), 400
+
+    query = db.session.query(TimetableSlot)\
+        .join(Class, Class.id == TimetableSlot.class_id)\
+        .filter(Class.tenant_id == tenant_id, Class.branch_id == branch_id)
+
+    class_id = request.args.get('class_id')
+    teacher_id = request.args.get('teacher_id')
+
+    if class_id:
+        query = query.filter(TimetableSlot.class_id == class_id)
+    if teacher_id:
+        query = query.filter(TimetableSlot.teacher_id == teacher_id)
+
+    slots = query.all()
+    return jsonify({
+        "success": True,
+        "data": [{
+            "id": s.id,
+            "class_id": s.class_id,
+            "class_name": s.class_.name,
+            "subject_id": s.subject_id,
+            "subject_name": s.subject.name,
+            "teacher_id": s.teacher_id,
+            "teacher_name": s.teacher.full_name,
+            "period_id": s.period_id,
+            "period_name": s.period.name,
+            "start_time": str(s.period.start_time),
+            "end_time": str(s.period.end_time),
+            "day_of_week": s.day_of_week,
+            "term": s.term,
+            "academic_year": s.academic_year,
+            "room_number": str(s.room_id or '')
+        } for s in slots]
+    }), 200
+
+
+@saas_report_bp.route('/saas/timetable/slots', methods=['POST'])
+@tenant_required
+def create_timetable_slot():
+    """Creates a proposed timetable slot placement after running 3-way clash validation checks."""
+    tenant_id = getattr(g, 'tenant_id', None)
+    branch_id = getattr(g, 'branch_id', None)
+
+    if not tenant_id or not branch_id:
+        return jsonify({"success": False, "message": "Tenant and Branch context required."}), 400
+
+    data = request.json
+    conflicts = TimetableEngine.check_conflicts(tenant_id, branch_id, data)
+    if conflicts:
+        return jsonify({
+            "success": False, 
+            "message": "Scheduling Conflict Detected", 
+            "conflicts": conflicts
+        }), 400
+
+    try:
+        slot = TimetableSlot(
+            class_id=data.get('class_id'),
+            subject_id=data.get('subject_id'),
+            teacher_id=data.get('teacher_id'),
+            period_id=data.get('period_id'),
+            day_of_week=data.get('day_of_week'),
+            term=data.get('term'),
+            academic_year=data.get('academic_year'),
+            room_id=data.get('room_id')
+        )
+        db.session.add(slot)
+        db.session.commit()
+        return jsonify({"success": True, "id": slot.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Failed to create slot.", "error": str(e)}), 500
+
+
+@saas_report_bp.route('/saas/timetable/slots/<int:slot_id>', methods=['PUT'])
+@tenant_required
+def update_timetable_slot(slot_id):
+    """Updates a proposed timetable slot placement after running 3-way clash validation checks."""
+    tenant_id = getattr(g, 'tenant_id', None)
+    branch_id = getattr(g, 'branch_id', None)
+
+    if not tenant_id or not branch_id:
+        return jsonify({"success": False, "message": "Tenant and Branch context required."}), 400
+
+    slot = TimetableSlot.query.get(slot_id)
+    if not slot:
+        return jsonify({"success": False, "message": "Timetable slot not found."}), 404
+
+    data = request.json
+    conflicts = TimetableEngine.check_conflicts(tenant_id, branch_id, data, current_slot_id=slot_id)
+    if conflicts:
+        return jsonify({
+            "success": False, 
+            "message": "Scheduling Conflict Detected", 
+            "conflicts": conflicts
+        }), 400
+
+    try:
+        slot.class_id = data.get('class_id', slot.class_id)
+        slot.subject_id = data.get('subject_id', slot.subject_id)
+        slot.teacher_id = data.get('teacher_id', slot.teacher_id)
+        slot.period_id = data.get('period_id', slot.period_id)
+        slot.day_of_week = data.get('day_of_week', slot.day_of_week)
+        slot.term = data.get('term', slot.term)
+        slot.academic_year = data.get('academic_year', slot.academic_year)
+        slot.room_id = data.get('room_id', slot.room_id)
+        
+        db.session.commit()
+        return jsonify({"success": True, "id": slot.id}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Failed to update slot.", "error": str(e)}), 500
+
+
+@saas_report_bp.route('/saas/timetable/slots/<int:slot_id>', methods=['DELETE'])
+@tenant_required
+def delete_timetable_slot(slot_id):
+    """Deletes a timetable slot."""
+    slot = TimetableSlot.query.get(slot_id)
+    if not slot:
+        return jsonify({"success": False, "message": "Timetable slot not found."}), 404
+
+    try:
+        db.session.delete(slot)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Slot deleted successfully."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Failed to delete slot.", "error": str(e)}), 500
+
 
