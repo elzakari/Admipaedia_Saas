@@ -164,3 +164,7 @@ from app.models.service_tokens import (
     TenantServiceTokenUsage,
     TenantServiceTokenEvent
 )
+
+# Messaging Notifications
+from app.models.notification_log import NotificationLog
+

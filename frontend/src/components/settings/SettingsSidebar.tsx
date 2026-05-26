@@ -11,7 +11,8 @@ import {
   Database, 
   Palette, 
   FileText,
-  Cpu
+  Cpu,
+  MessageSquare
 } from 'lucide-react';
 
 interface SettingsSidebarProps {
@@ -45,6 +46,8 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ categories, activeTab
         return <Palette className="h-5 w-5" />;
       case 'file':
         return <FileText className="h-5 w-5" />;
+      case 'notification-logs':
+        return <MessageSquare className="h-5 w-5" />;
       case 'settings':
       default:
         return <Settings className="h-5 w-5" />;

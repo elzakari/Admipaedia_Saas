@@ -1,197 +1,133 @@
-import structlog
+import requests
+import smtplib
+import socket
+import uuid
+import logging
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from flask_socketio import emit
-from app.extensions import db, socketio
-from app.models.dashboard import Notification
-from app.services.email_service import send_notification_email
-from app.models.user import User
-from app.services.cache_service import get_cache_service
+from flask import current_app
+from app.extensions import db
+from app.models.notification_log import NotificationLog
 
-logger = structlog.get_logger()
-cache_service = get_cache_service()
+logger = logging.getLogger(__name__)
 
 class NotificationService:
-    """Service for notification-related operations."""
+    """Unified service for Parent Notifications (SMS & Email)."""
     
     @staticmethod
-    def create_notification(title, message, notification_type, user_id=None, send_email=False, send_websocket=True):
-        """Create a new notification.
-        
-        Args:
-            title (str): Notification title
-            message (str): Notification message
-            notification_type (str): Type of notification (info, warning, success, error)
-            user_id (int, optional): User ID to associate with the notification. If None, it's a global notification.
-            send_email (bool, optional): Whether to send an email notification. Defaults to False.
-            send_websocket (bool, optional): Whether to send a real-time websocket notification. Defaults to True.
-            
-        Returns:
-            Notification: The created notification object
+    def send_sms(tenant_id, branch_id, phone_number: str, message: str) -> NotificationLog:
         """
+        Send an SMS notification.
+        Enforces a strict 10-second request timeout on REST execution.
+        Bypasses network operations completely if Flask TESTING config is true.
+        """
+        tenant_uuid = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
+        branch_uuid = uuid.UUID(str(branch_id)) if branch_id else None
+        
+        is_testing = False
         try:
-            # Create notification in database
-            notification = Notification(
-                title=title,
-                message=message,
-                type=notification_type,
-                user_id=user_id,
-                read=False,
-                time=datetime.utcnow()
-            )
+            is_testing = current_app.config.get('TESTING', False)
+        except RuntimeError:
+            pass
             
-            db.session.add(notification)
-            db.session.commit()
-            
-            # Format notification for frontend
-            notification_data = {
-                'id': notification.id,
-                'title': notification.title,
-                'message': notification.message,
-                'time': 'Just now',
-                'read': notification.read,
-                'type': notification.type
-            }
-            
-            # Send real-time notification via WebSocket if requested
-            if send_websocket:
-                if user_id:
-                    # Send to specific user
-                    socketio.emit('new_notification', notification_data, room=f"user_{user_id}", namespace='/notifications')
-                else:
-                    # Broadcast to all users
-                    socketio.emit('new_notification', notification_data, namespace='/notifications')
-            
-            # Send email notification if requested
-            if send_email and user_id:
-                user = User.query.get(user_id)
-                if user and user.email:
-                    email_subject = f"ADMIPAEDIA Notification: {title}"
-                    send_notification_email(user.email, email_subject, message)
-            
-            logger.info("Notification created", 
-                       notification_id=notification.id, 
-                       user_id=user_id, 
-                       type=notification_type)
-            
-            return notification
-            
-        except Exception as e:
-            logger.error("Failed to create notification", error=str(e))
-            db.session.rollback()
-            raise
-    
-    @staticmethod
-    def create_bulk_notifications(title, message, notification_type, user_ids, send_email=False, send_websocket=True):
-        """Create notifications for multiple users.
+        status = 'sent'
+        error_msg = None
         
-        Args:
-            title (str): Notification title
-            message (str): Notification message
-            notification_type (str): Type of notification (info, warning, success, error)
-            user_ids (list): List of user IDs to create notifications for
-            send_email (bool, optional): Whether to send email notifications. Defaults to False.
-            send_websocket (bool, optional): Whether to send real-time websocket notifications. Defaults to True.
-            
-        Returns:
-            list: List of created notification objects
-        """
-        notifications = []
-        
-        for user_id in user_ids:
-            notification = NotificationService.create_notification(
-                title=title,
-                message=message,
-                notification_type=notification_type,
-                user_id=user_id,
-                send_email=send_email,
-                send_websocket=send_websocket
-            )
-            notifications.append(notification)
-        
-        return notifications
-    
-    @staticmethod
-    def send_security_alert(user_id, alert_type, data):
-        """Send a security alert notification to a user.
-        
-        Args:
-            user_id (int): User ID
-            alert_type (str): Type of security alert (e.g., 'new_login_ip')
-            data (dict): Additional data for the alert
-        """
-        titles = {
-            'new_login_ip': 'New Login Detected',
-            'account_locked': 'Account Locked',
-            'mfa_enabled': 'MFA Enabled',
-            'mfa_disabled': 'MFA Disabled',
-            'password_changed': 'Password Changed'
-        }
-        
-        messages = {
-            'new_login_ip': f"A new login was detected from IP address {data.get('ip_address', 'Unknown')} using {data.get('device', 'Unknown Device')}.",
-            'account_locked': "Your account has been temporarily locked due to too many failed login attempts.",
-            'mfa_enabled': "Multi-Factor Authentication has been successfully enabled for your account.",
-            'mfa_disabled': "Multi-Factor Authentication has been disabled for your account.",
-            'password_changed': "Your account password was recently changed."
-        }
-        
-        title = titles.get(alert_type, 'Security Alert')
-        message = messages.get(alert_type, 'A security event was detected on your account.')
-        
-        return NotificationService.create_notification(
-            title=title,
-            message=message,
-            notification_type='warning',
-            user_id=user_id,
-            send_email=True,
-            send_websocket=True
+        if is_testing:
+            logger.info(f"[TEST MOCK SMS] Sending to {phone_number}: {message}")
+        else:
+            try:
+                # We enforce a strict 10-second request timeout boundary on external links.
+                url = current_app.config.get('SMS_PROVIDER_URL', 'https://api.sms-provider.com/v1/send')
+                headers = {"Authorization": f"Bearer {current_app.config.get('SMS_PROVIDER_KEY', 'mock-key')}"}
+                payload = {
+                    "to": phone_number,
+                    "message": message,
+                    "tenant_id": str(tenant_uuid)
+                }
+                
+                resp = requests.post(url, json=payload, headers=headers, timeout=10)
+                if resp.status_code not in (200, 201):
+                    status = 'failed'
+                    error_msg = f"HTTP Error {resp.status_code}: {resp.text}"
+            except requests.Timeout:
+                status = 'failed'
+                error_msg = "Network Request Timeout (10s limit exceeded)"
+            except Exception as e:
+                status = 'failed'
+                error_msg = f"SMS Delivery failed: {str(e)}"
+                
+        log = NotificationLog(
+            tenant_id=tenant_uuid,
+            branch_id=branch_uuid,
+            channel='sms',
+            recipient=phone_number,
+            content=message,
+            status=status,
+            error_message=error_msg
         )
+        db.session.add(log)
+        db.session.commit()
+        return log
 
     @staticmethod
-    def get_user_notifications(user_id, limit=10, include_read=True):
-        """Get notifications for a specific user.
-        
-        Args:
-            user_id (int): User ID
-            limit (int, optional): Maximum number of notifications to return. Defaults to 10.
-            include_read (bool, optional): Whether to include read notifications. Defaults to True.
-            
-        Returns:
-            list: List of notification objects
+    def send_email(tenant_id, branch_id, email_address: str, subject: str, content: str) -> NotificationLog:
         """
-        from sqlalchemy.orm import joinedload
-        from sqlalchemy import or_
+        Send an Email notification.
+        Enforces a strict 10-second SMTP connection timeout.
+        Bypasses network operations completely if Flask TESTING config is true.
+        """
+        tenant_uuid = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
+        branch_uuid = uuid.UUID(str(branch_id)) if branch_id else None
         
-        # Try to get from cache first
-        cache_key = f"user_notifications:{user_id}:limit_{limit}:read_{include_read}"
-        cached_notifications = cache_service.get(cache_key)
-        if cached_notifications:
-            return cached_notifications
-        
-        user = User.query.get(user_id)
-        role = user.role if user else None
-        
-        filters = [
-            Notification.user_id == user_id,
-            Notification.recipient_id == user_id,
-            Notification.scope == 'all'
-        ]
-        if role:
-            filters.append(Notification.scope == f"{role}s")
-            filters.append(Notification.scope == role)
+        is_testing = False
+        try:
+            is_testing = current_app.config.get('TESTING', False)
+        except RuntimeError:
+            pass
             
-        query = Notification.query.options(
-            joinedload(Notification.user)
-        ).filter(
-            or_(*filters)
+        status = 'sent'
+        error_msg = None
+        
+        if is_testing:
+            logger.info(f"[TEST MOCK EMAIL] Sending to {email_address} with subject '{subject}': {content}")
+        else:
+            try:
+                smtp_server = current_app.config.get('SMTP_SERVER', 'smtp.mailtrap.io')
+                smtp_port = current_app.config.get('SMTP_PORT', 2525)
+                smtp_user = current_app.config.get('SMTP_USERNAME', 'mock')
+                smtp_password = current_app.config.get('SMTP_PASSWORD', 'mock')
+                
+                msg = MIMEMultipart()
+                msg['From'] = current_app.config.get('SMTP_FROM', 'no-reply@admipaedia.com')
+                msg['To'] = email_address
+                msg['Subject'] = subject
+                msg.attach(MIMEText(content, 'plain'))
+                
+                # Establish SMTP connection with a strict 10-second timeout boundary
+                with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+                    if smtp_user and smtp_password and smtp_user != 'mock':
+                        server.starttls()
+                        server.login(smtp_user, smtp_password)
+                    server.sendmail(msg['From'], email_address, msg.as_string())
+            except (socket.timeout, TimeoutError):
+                status = 'failed'
+                error_msg = "SMTP Connection Timeout (10s limit exceeded)"
+            except Exception as e:
+                status = 'failed'
+                error_msg = f"Email Delivery failed: {str(e)}"
+                
+        log = NotificationLog(
+            tenant_id=tenant_uuid,
+            branch_id=branch_uuid,
+            channel='email',
+            recipient=email_address,
+            subject=subject,
+            content=content,
+            status=status,
+            error_message=error_msg
         )
-        
-        if not include_read:
-            query = query.filter(Notification.read == False)
-        
-        notifications = query.order_by(Notification.time.desc()).limit(limit).all()
-        
-        # Cache the result for 2 minutes (notifications change frequently)
-        cache_service.set(cache_key, notifications, ttl=120)
-        
-        return notifications
+        db.session.add(log)
+        db.session.commit()
+        return log

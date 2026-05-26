@@ -427,6 +427,59 @@ export const settingsService = {
       throw error;
     }
   },
+
+  // Notification Logs (Branch-scoped SMS & Email dispatches)
+  getNotificationLogs: async (filters: {
+    channel?: string;
+    status?: string;
+    page?: number;
+    per_page?: number;
+  } = {}): Promise<{
+    success: boolean;
+    logs: Array<{
+      id: number;
+      channel: 'sms' | 'email';
+      recipient: string;
+      subject: string | null;
+      content: string;
+      status: 'sent' | 'failed';
+      error_message: string | null;
+      created_at: string;
+    }>;
+    summary: {
+      total_count: number;
+      total_sms: number;
+      total_email: number;
+      total_success: number;
+      total_failed: number;
+    };
+    pagination: {
+      total: number;
+      pages: number;
+      page: number;
+      per_page: number;
+    };
+  }> => {
+    try {
+      const params: Record<string, string | number> = {
+        page: filters.page || 1,
+        per_page: filters.per_page || 20,
+      };
+
+      if (filters.channel && filters.channel !== 'all') {
+        params.channel = filters.channel;
+      }
+      if (filters.status && filters.status !== 'all') {
+        params.status = filters.status;
+      }
+
+      const response = await api.get('/saas/settings/notification-logs', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching notification logs:', error);
+      throw error;
+    }
+  },
 };
 
 export default settingsService;

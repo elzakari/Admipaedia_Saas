@@ -562,6 +562,204 @@ def get_attendance_analytics():
     return jsonify({"success": True, "analytics": serialized_stats}), 200
 
 
+@saas_report_bp.route('/saas/attendance/log', methods=['POST'])
+@jwt_required()
+@tenant_required
+def log_student_attendance():
+    """
+    Log student attendance and dynamically trigger parent alerts for absences.
+    """
+    from app.models.student import Student
+    from app.models.attendance import Attendance
+    from app.services.notification_service import NotificationService
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    branch_id = getattr(g, 'branch_id', None)
+    if not branch_id:
+        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
+        
+    payload = request.json or {}
+    student_id = payload.get('student_id')
+    class_id = payload.get('class_id')
+    subject_id = payload.get('subject_id')
+    date_str = payload.get('date')
+    status = payload.get('status')
+    remarks = payload.get('remarks')
+    
+    if not all([student_id, class_id, subject_id, date_str, status]):
+        return jsonify({"success": False, "message": "Missing required attendance fields."}), 400
+        
+    try:
+        from datetime import datetime
+        parsed_date = datetime.strptime(str(date_str).split('T')[0].strip(), "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid date format. Use YYYY-MM-DD."}), 400
+        
+    student = Student.query.get(student_id)
+    if not student or student.tenant_id != tenant_id:
+        return jsonify({"success": False, "message": "Student not found in this tenant."}), 404
+        
+    # Idempotent write
+    record = Attendance.query.filter_by(
+        student_id=student_id,
+        class_id=class_id,
+        subject_id=subject_id,
+        date=parsed_date
+    ).first()
+    
+    try:
+        current_user_id = get_jwt_identity()
+    except Exception:
+        current_user_id = None
+        
+    if record:
+        record.status = status
+        if remarks is not None:
+            record.remarks = remarks
+        if current_user_id:
+            record.recorded_by = int(current_user_id)
+    else:
+        record = Attendance(
+            student_id=student_id,
+            class_id=class_id,
+            subject_id=subject_id,
+            branch_id=branch_id,
+            date=parsed_date,
+            status=status,
+            remarks=remarks,
+            recorded_by=int(current_user_id) if current_user_id else None
+        )
+        db.session.add(record)
+        
+    db.session.flush()
+    
+    notification_sent = False
+    if status == 'absent':
+        # Retrieve parent details
+        parent = student.parent
+        parent_phone = None
+        parent_email = None
+        
+        if parent:
+            parent_phone = parent.emergency_contact
+            if parent.user:
+                parent_email = parent.user.email
+                
+        # Fallbacks to student model directly
+        if not parent_phone:
+            parent_phone = student.father_contact or student.mother_contact or student.phone
+        if not parent_email:
+            parent_email = student.father_email or student.mother_email or student.email
+            
+        student_name = f"{student.first_name} {student.last_name}"
+        formatted_date = parsed_date.strftime("%B %d, %Y")
+        
+        # Dispatch SMS if phone is present
+        if parent_phone:
+            sms_msg = f"Dear Parent, your ward {student_name} was marked ABSENT today, {formatted_date}. Please contact school administration for details."
+            NotificationService.send_sms(tenant_id, branch_id, parent_phone, sms_msg)
+            notification_sent = True
+            
+        # Dispatch Email if email is present
+        if parent_email:
+            email_subject = f"Absence Notification: {student_name}"
+            email_content = (
+                f"Dear Parent,\n\n"
+                f"We would like to inform you that your ward, {student_name}, was marked ABSENT from class today ({formatted_date}).\n\n"
+                f"Please contact the school administration if you believe this is an error or to provide an explanation.\n\n"
+                f"Best regards,\n"
+                f"School Administration"
+            )
+            NotificationService.send_email(tenant_id, branch_id, parent_email, email_subject, email_content)
+            notification_sent = True
+            
+    db.session.commit()
+    
+    return jsonify({
+        "success": True, 
+        "message": "Attendance processed successfully.", 
+        "attendance_id": record.id,
+        "notification_sent": notification_sent
+    }), 200
+
+
+@saas_report_bp.route('/saas/settings/notification-logs', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_notification_logs():
+    """
+    Retrieve logged message dispatches scoped strictly to branch context.
+    """
+    from app.models.notification_log import NotificationLog
+    
+    tenant_id = getattr(g, 'tenant_id', None)
+    if not tenant_id:
+        return jsonify({"success": False, "message": "Tenant context not found."}), 400
+        
+    branch_id = getattr(g, 'branch_id', None)
+    if not branch_id:
+        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
+        
+    channel = request.args.get('channel')
+    status = request.args.get('status')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    query = NotificationLog.query_scoped()
+    
+    if channel and channel != 'all':
+        query = query.filter_by(channel=channel.lower())
+    if status and status != 'all':
+        query = query.filter_by(status=status.lower())
+        
+    paginated = query.order_by(NotificationLog.created_at.desc()).paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    result = []
+    for log in paginated.items:
+        result.append({
+            "id": log.id,
+            "channel": log.channel,
+            "recipient": log.recipient,
+            "subject": log.subject,
+            "content": log.content,
+            "status": log.status,
+            "error_message": log.error_message,
+            "created_at": log.created_at.isoformat() if log.created_at else None
+        })
+        
+    # Aggregate summaries for charts
+    total_sms = NotificationLog.query_scoped().filter_by(channel='sms').count()
+    total_email = NotificationLog.query_scoped().filter_by(channel='email').count()
+    total_success = NotificationLog.query_scoped().filter_by(status='sent').count()
+    total_failed = NotificationLog.query_scoped().filter_by(status='failed').count()
+    
+    return jsonify({
+        "success": True,
+        "logs": result,
+        "summary": {
+            "total_count": paginated.total,
+            "total_sms": total_sms,
+            "total_email": total_email,
+            "total_success": total_success,
+            "total_failed": total_failed
+        },
+        "pagination": {
+            "total": paginated.total,
+            "pages": paginated.pages,
+            "page": paginated.page,
+            "per_page": paginated.per_page
+        }
+    }), 200
+
+
+
 
 
 

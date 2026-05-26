@@ -14,6 +14,7 @@ import BackupSettings from '../components/settings/BackupSettings';
 import ThemeSettings from '../components/settings/ThemeSettings';
 import AuditLogs from '../components/settings/AuditLogs';
 import AdmissionSettings from '../components/settings/AdmissionSettings';
+import NotificationLogs from '../components/settings/NotificationLogs';
 import SettingsSidebar from '../components/settings/SettingsSidebar';
 import ParentGeneralSettings from '../components/settings/ParentGeneralSettings';
 import ParentNotificationPreferences from '../components/settings/ParentNotificationPreferences';
@@ -36,7 +37,7 @@ const SettingsPage = () => {
     if (user?.role === 'parent') return ['general', 'notifications', 'theme', 'privacy'] as const;
     if (user?.role === 'student') return ['profile', 'preferences', 'security'] as const;
     if (user?.role === 'teacher') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
-    return ['general', 'users', 'academic', 'admissions', 'notifications', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
+    return ['general', 'users', 'academic', 'admissions', 'notifications', 'notification-logs', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
   }, [user?.role]);
 
   const paramTab = searchParams.get('tab');
@@ -91,6 +92,7 @@ const SettingsPage = () => {
       { id: 'academic', name: 'Academic', icon: 'graduation' },
       { id: 'admissions', name: 'Admissions', icon: 'file' },
       { id: 'notifications', name: 'Notifications', icon: 'bell' },
+      { id: 'notification-logs', name: 'Notification Logs', icon: 'notification-logs' },
       { id: 'ai', name: 'AI Assistant', icon: 'cpu' },
       { id: 'integrations', name: 'Integrations', icon: 'integrations' },
       { id: 'security', name: 'Security', icon: 'lock' },
@@ -187,6 +189,9 @@ const SettingsPage = () => {
                 </TabsContent>
                 <TabsContent value="audit" className="p-6 m-0">
                   <AuditLogs />
+                </TabsContent>
+                <TabsContent value="notification-logs" className="p-6 m-0">
+                  <NotificationLogs />
                 </TabsContent>
               </Tabs>
             </CardContent>
