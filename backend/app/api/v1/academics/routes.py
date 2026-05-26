@@ -50,8 +50,22 @@ def get_standard_grade_levels():
     try:
         from app.models.educational_system import GradeLevel
         from app.extensions import db
-        levels = db.session.query(GradeLevel).filter(GradeLevel.is_active == True).order_by(GradeLevel.numeric_value.asc()).all()
-        
+        import sqlalchemy.exc
+
+        # Audit and handle missing parameter context gracefully
+        tenant_id = getattr(g, 'tenant_id', None)
+        levels = []
+        if not tenant_id:
+            logger.warning("get_standard_grade_levels: tenant_id context is missing. Falling back to defaults.")
+        else:
+            try:
+                # Query scoped grade levels safely
+                levels = GradeLevel.query_scoped().filter(GradeLevel.is_active == True).order_by(GradeLevel.numeric_value.asc()).all()
+            except sqlalchemy.exc.SQLAlchemyError as db_err:
+                logger.error(f"Database exception querying GradeLevel: {str(db_err)}")
+                # Handled database exceptions gracefully with fallback list to avoid modal crashes
+                levels = []
+
         if not levels:
             # Fallback sequence to match the attendance module
             levels_data = [{

@@ -77,6 +77,35 @@ class GradeLevel(db.Model):
     # Relationships
     next_level = db.relationship('GradeLevel', remote_side=[id], backref='previous_level')
 
+    @classmethod
+    def query_scoped(cls):
+        """Return a query filtered to the current request's tenant.
+
+        UUID(as_uuid=True) handles dialect-specific serialisation automatically
+        (hex strings for SQLite, native UUID type for PostgreSQL), so we must
+        always pass a uuid.UUID object — never a pre-converted hex string.
+        """
+        from flask import g, has_app_context
+        import uuid
+        query = cls.query
+        if has_app_context():
+            tenant_id = getattr(g, 'tenant_id', None)
+            if tenant_id:
+                if isinstance(tenant_id, uuid.UUID):
+                    tenant_uuid = tenant_id
+                else:
+                    try:
+                        tenant_uuid = uuid.UUID(str(tenant_id).strip())
+                    except (ValueError, AttributeError):
+                        tenant_uuid = None
+
+                if tenant_uuid:
+                    # Always pass the uuid.UUID object; SQLAlchemy's
+                    # UUID(as_uuid=True) type processor converts it correctly
+                    # for both SQLite (stores as hex string) and PostgreSQL.
+                    query = query.filter(cls.tenant_id == tenant_uuid)
+        return query
+
     @hybrid_property
     def is_active(self):
         return True

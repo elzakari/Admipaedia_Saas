@@ -787,7 +787,13 @@ const academicService = {
 
   getStandardGradeLevels: async (): Promise<any[]> => {
     try {
-      const response = await api.get('/academics/standard-grade-levels');
+      const activeBranchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+      const headers: Record<string, string> = {};
+      if (activeBranchId) {
+        headers['X-Active-Branch-ID'] = activeBranchId;
+        headers['X-Branch-ID'] = activeBranchId;
+      }
+      const response = await api.get('/academics/standard-grade-levels', { headers });
       return response.data.success ? response.data.levels : [];
     } catch (error) {
       console.error('Error fetching standard grade levels:', error);
