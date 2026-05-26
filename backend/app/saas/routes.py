@@ -311,3 +311,135 @@ def delete_timetable_slot(slot_id):
         return jsonify({"success": False, "message": "Failed to delete slot.", "error": str(e)}), 500
 
 
+@saas_report_bp.route('/payments/webhook', methods=['POST'])
+def paystack_webhook():
+    """
+    Open webhook endpoint from Paystack to settle student invoices.
+    Verifies SHA512 signature, parses tenant/branch metadata,
+    records payments, and updates student fee invoice balances.
+    """
+    from app.services.paystack_service import PaystackService
+    from app.models.finance import StudentFee, Payment as StudentPayment, PaymentAllocation
+    import uuid
+
+    # 1. Cryptographic Validation
+    signature = request.headers.get('x-paystack-signature')
+    if not signature:
+        return jsonify({"success": False, "message": "Missing x-paystack-signature header"}), 401
+
+    raw_payload = request.data
+    if not PaystackService.verify_webhook_signature(signature, raw_payload):
+        return jsonify({"success": False, "message": "Invalid cryptographic signature"}), 401
+
+    # 2. JSON Decoding
+    payload = request.get_json(silent=True)
+    if not payload:
+        return jsonify({"success": False, "message": "Malformed JSON payload"}), 400
+
+    # 3. Filter for charge.success event
+    event = payload.get('event')
+    if event != 'charge.success':
+        return jsonify({"success": True, "message": f"Event {event} received and acknowledged"}), 200
+
+    data = payload.get('data', {})
+    reference = data.get('reference')
+    if not reference:
+        return jsonify({"success": False, "message": "Missing reference in transaction payload"}), 400
+
+    # 4. Check for double processing (Idempotency)
+    existing_payment = StudentPayment.query.filter_by(external_reference=reference).first()
+    if existing_payment:
+        return jsonify({"success": True, "message": "Payment already processed"}), 200
+
+    # 5. Extract metadata context and bind to request g variables for RLS/scoping
+    metadata = data.get('metadata') or {}
+    tenant_id_str = metadata.get('tenant_id')
+    branch_id_str = metadata.get('branch_id')
+    student_id_val = metadata.get('student_id')
+    student_fee_id_val = metadata.get('student_fee_id')
+
+    if not tenant_id_str or not branch_id_str or not student_id_val or not student_fee_id_val:
+        return jsonify({"success": False, "message": "Missing tenant_id, branch_id, student_id, or student_fee_id in metadata"}), 400
+
+    try:
+        g.tenant_id = uuid.UUID(str(tenant_id_str))
+        g.branch_id = uuid.UUID(str(branch_id_str))
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid tenant_id or branch_id UUID format"}), 400
+
+    try:
+        student_id = int(student_id_val)
+        student_fee_id = int(student_fee_id_val)
+    except ValueError:
+        return jsonify({"success": False, "message": "Invalid student_id or student_fee_id integer format"}), 400
+
+    # 6. Fetch Student Fee and verify student ownership
+    student_fee = StudentFee.query.get(student_fee_id)
+    if not student_fee:
+        return jsonify({"success": False, "message": f"Student fee record {student_fee_id} not found"}), 404
+
+    if student_fee.student_id != student_id:
+        return jsonify({"success": False, "message": "Student ID mismatch for target fee"}), 400
+
+    # 7. Settle payment & allocate amount using precise Decimal mathematics
+    try:
+        amount_paid = PaystackService.from_minor_units(data.get('amount', 0))
+        currency = data.get('currency', 'GHS')
+
+        # Create StudentPayment record
+        payment = StudentPayment(
+            transaction_id=f"PMT-PAYSTACK-{reference}",
+            student_id=student_id,
+            amount=amount_paid,
+            currency=currency,
+            payment_method=data.get('channel', 'card'),
+            payment_provider='paystack',
+            external_reference=reference,
+            status='completed',
+            meta_data=payload
+        )
+        db.session.add(payment)
+        db.session.flush()
+
+        # Create PaymentAllocation record
+        allocation = PaymentAllocation(
+            payment_id=payment.id,
+            student_fee_id=student_fee.id,
+            amount_allocated=amount_paid
+        )
+        db.session.add(allocation)
+
+        # Update fee paid amount and update balance/status
+        student_fee.paid_amount = Decimal(str(student_fee.paid_amount or '0.00')) + amount_paid
+        student_fee.update_balance()
+
+        db.session.commit()
+        return jsonify({"success": True, "message": "Payment recorded and invoice settled successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": "Database transaction failed", "error": str(e)}), 500
+
+
+@saas_report_bp.route('/payments/config', methods=['GET'])
+def get_payment_config():
+    """
+    Retrieves the public key of the active Paystack payment gateway.
+    This public configuration endpoint is accessible to the frontend.
+    """
+    from app.models.payments import PaymentGateway
+    from flask import current_app
+    
+    gw = PaymentGateway.query.filter_by(name='paystack', is_active=True).first()
+    if gw and gw.public_key:
+        return jsonify({"success": True, "publicKey": gw.public_key}), 200
+    
+    pk = current_app.config.get('PAYSTACK_PUBLIC_KEY')
+    if pk:
+        return jsonify({"success": True, "publicKey": pk}), 200
+        
+    return jsonify({"success": False, "message": "Paystack payment gateway not configured"}), 404
+
+
+
+
