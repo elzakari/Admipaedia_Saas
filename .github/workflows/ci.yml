@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }} # Standardized concurrency group
   cancel-in-progress: true
 
 jobs:
