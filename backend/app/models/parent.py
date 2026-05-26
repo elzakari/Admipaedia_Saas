@@ -28,3 +28,23 @@ class Parent(db.Model):
         if 'phone_number' in kwargs and 'emergency_contact' not in kwargs:
             kwargs['emergency_contact'] = kwargs.pop('phone_number')
         super().__init__(**kwargs)
+
+class ParentChildSetupTask(db.Model):
+    """Model to track setup tasks for parents regarding their children/students."""
+    __tablename__ = 'parent_child_setup_tasks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    status = db.Column(db.String(20), default='pending') # pending, completed
+    task_type = db.Column(db.String(50), default='general')
+    title = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    parent = db.relationship('Parent', backref=db.backref('setup_tasks', lazy='dynamic', cascade='all, delete-orphan'))
+    student = db.relationship('Student', backref=db.backref('setup_tasks', lazy='dynamic', cascade='all, delete-orphan'))

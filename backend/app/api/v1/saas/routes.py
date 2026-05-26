@@ -1025,6 +1025,19 @@ def patch_admission_status(form_id):
                 db.session.add(application.parent)
                 db.session.add(student)
 
+                # Push a fresh setup task record right as student provisioning fires
+                from app.models.parent import ParentChildSetupTask
+                setup_task = ParentChildSetupTask(
+                    tenant_id=tenant_id,
+                    parent_id=application.parent.id,
+                    student_id=student.id,
+                    status='pending',
+                    task_type='child_setup',
+                    title=f"Set up account for {student.first_name} {student.last_name}",
+                    description=f"Complete the initial portal setup tasks for your child, {student.first_name}."
+                )
+                db.session.add(setup_task)
+
             # Store the token inside database using PasswordResetToken model
             from app.models.security import PasswordResetToken
             db.session.add(PasswordResetToken(

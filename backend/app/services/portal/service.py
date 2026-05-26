@@ -1,4 +1,5 @@
-from app.models.parent import Parent
+from datetime import datetime
+from app.models.parent import Parent, ParentChildSetupTask
 from app.models.student import Student
 from app.models.attendance import Attendance
 from app.models.grading_system import FinalGrade
@@ -76,3 +77,33 @@ class ParentPortalService:
                 'grade': g.final_grade_symbol
             } for g in recent_grades]
         }, None
+
+    @staticmethod
+    def get_parent_setup_tasks(user_id):
+        """Get setup tasks for a parent user."""
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if not parent:
+            return None, "Parent profile not found"
+            
+        tasks = ParentChildSetupTask.query.filter_by(parent_id=parent.id).all()
+        return tasks, None
+
+    @staticmethod
+    def complete_child_setup_task(user_id, task_id):
+        """Mark a child setup task as completed for a parent user."""
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if not parent:
+            return None, "Parent profile not found"
+            
+        task = ParentChildSetupTask.query.filter_by(id=task_id, parent_id=parent.id).first()
+        if not task:
+            return None, "Setup task not found or unauthorized"
+            
+        task.status = 'completed'
+        task.completed_at = datetime.utcnow()
+        try:
+            db.session.commit()
+            return task, None
+        except Exception as e:
+            db.session.rollback()
+            return None, f"Failed to complete setup task: {str(e)}"

@@ -5,7 +5,7 @@ from app.models.grade import Grade
 from app.models.exam import Exam
 from app.models.student import Student
 from app.models.teacher import Teacher
-from app.models.parent import Parent
+from app.models.parent import Parent, ParentChildSetupTask
 from app.models.class_ import Class
 from app.models.subject import Subject
 from app.models.attendance import Attendance

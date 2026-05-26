@@ -137,6 +137,19 @@ class AdmissionService:
                 )
                 db.session.add(student)
                 db.session.flush() # Flush to populate student.id
+
+                # Push setup task record
+                from app.models.parent import ParentChildSetupTask
+                setup_task = ParentChildSetupTask(
+                    tenant_id=app_tenant_id,
+                    parent_id=application.parent_id,
+                    student_id=student.id,
+                    status='pending',
+                    task_type='child_setup',
+                    title=f"Set up account for {student.first_name} {student.last_name}",
+                    description=f"Complete the initial portal setup tasks for your child, {student.first_name}."
+                )
+                db.session.add(setup_task)
                 
                 # Cryptographically secure SHA-256 account-claim token
                 raw_token = secrets.token_urlsafe(48)
