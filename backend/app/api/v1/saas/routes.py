@@ -679,41 +679,64 @@ def complete_setup():
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Failed to apply educational system: {str(e)}'}), 400
 
-    # 3. First Academic Term Bounds
+    # 3. First Academic Term Bounds — idempotent upsert (never wipe existing data)
     from datetime import date, timedelta
     from app.models.academic_calendar import AcademicYear, Term
-    
+
     try:
         t_start = date.fromisoformat(str(term_start_date).strip())
-        t_end = date.fromisoformat(str(term_end_date).strip())
+        t_end   = date.fromisoformat(str(term_end_date).strip())
         y_start = t_start
-        y_end = t_start + timedelta(days=365)
+        y_end   = t_start + timedelta(days=365)
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Invalid term start or end date format'}), 400
 
-    # Clear pre-existing active year/term to avoid duplication
-    existing_years = AcademicYear.query.all()
-    for ey in existing_years:
-        db.session.delete(ey)
+    # ── Academic Year: look up by name, insert only when absent ──────────
+    year_name = str(academic_year_name).strip()
+    existing_academic_year = AcademicYear.query.filter_by(name=year_name).first()
 
-    academic_year = AcademicYear(
-        name=str(academic_year_name).strip(),
-        start_date=y_start,
-        end_date=y_end,
-        is_current=True
-    )
-    db.session.add(academic_year)
-    db.session.flush()
+    if not existing_academic_year:
+        # No matching record — safe to insert a brand-new academic year
+        academic_year = AcademicYear(
+            name=year_name,
+            start_date=y_start,
+            end_date=y_end,
+            is_current=True
+        )
+        db.session.add(academic_year)
+        db.session.flush()
+        active_year_id = academic_year.id
+    else:
+        # Record already exists — reuse it and ensure the active marker is set
+        existing_academic_year.is_current = True
+        existing_academic_year.start_date = y_start
+        existing_academic_year.end_date   = y_end
+        active_year_id = existing_academic_year.id
+        academic_year  = existing_academic_year
 
-    term = Term(
-        name=str(term_name).strip(),
-        academic_year_id=academic_year.id,
-        start_date=t_start,
-        end_date=t_end,
-        is_current=True
-    )
-    db.session.add(term)
+    # ── Term: same idempotent pattern, scoped to the active year ─────────
+    term_name_clean = str(term_name).strip()
+    existing_term = Term.query.filter_by(
+        academic_year_id=active_year_id,
+        name=term_name_clean
+    ).first()
+
+    if not existing_term:
+        term = Term(
+            name=term_name_clean,
+            academic_year_id=active_year_id,
+            start_date=t_start,
+            end_date=t_end,
+            is_current=True
+        )
+        db.session.add(term)
+    else:
+        # Refresh dates and active marker without creating a duplicate
+        existing_term.start_date = t_start
+        existing_term.end_date   = t_end
+        existing_term.is_current = True
+
 
     # 4. Toggle setup completion flag
     tenant.is_setup_completed = True
