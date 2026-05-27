@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ErrorHandler, AppError } from '../utils/errorHandling';
 import { useLoadingState } from './useLoadingState';
 import { toast } from 'sonner';
@@ -42,17 +42,18 @@ export const useEnhancedApiCall = <T>(
   const [data, setData] = useState<T | null>(optimisticUpdate || fallbackData || null);
   const [error, setError] = useState<AppError | null>(null);
   const [lastFetch, setLastFetch] = useState<number | null>(null);
-  
-  const loadingState = useLoadingState({
-    maxRetries,
-    retryDelay,
-    onError: (errorMsg) => {
-      const appError = ErrorHandler.createError('CLIENT' as any, errorMsg);
-      handleError(appError);
-    },
-    onRetry: () => executeCall()
-  });
 
+  // Store mutable handlers in refs to protect against component dependency invalidation loops
+  const apiFunctionRef = useRef(apiFunction);
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    apiFunctionRef.current = apiFunction;
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [apiFunction, onSuccess, onError]);
+  
   const handleError = useCallback((appError: AppError) => {
     setError(appError);
     ErrorHandler.logError(appError, 'API Call');
@@ -61,10 +62,10 @@ export const useEnhancedApiCall = <T>(
       toast.error(appError.message);
     }
     
-    if (onError) {
-      onError(appError);
+    if (onErrorRef.current) {
+      onErrorRef.current(appError);
     }
-  }, [showErrorToast, onError]);
+  }, [showErrorToast]);
 
   const executeCall = useCallback(async () => {
     // Check cache first
@@ -87,7 +88,7 @@ export const useEnhancedApiCall = <T>(
     setError(null);
 
     try {
-      const result = await apiFunction();
+      const result = await apiFunctionRef.current();
       setData(result);
       setLastFetch(Date.now());
       
@@ -107,8 +108,8 @@ export const useEnhancedApiCall = <T>(
         toast.success(successMessage);
       }
       
-      if (onSuccess) {
-        onSuccess(result);
+      if (onSuccessRef.current) {
+        onSuccessRef.current(result);
       }
       
       return result;
@@ -122,7 +123,17 @@ export const useEnhancedApiCall = <T>(
     } finally {
       loadingState.setLoading(false);
     }
-  }, [apiFunction, cacheKey, cacheDuration, loadingState, handleError, showSuccessToast, successMessage, onSuccess, retryOnError]);
+  }, [cacheKey, cacheDuration, loadingState, handleError, showSuccessToast, successMessage, retryOnError]);
+
+  const loadingState = useLoadingState({
+    maxRetries,
+    retryDelay,
+    onError: (errorMsg) => {
+      const appError = ErrorHandler.createError('CLIENT' as any, errorMsg);
+      handleError(appError);
+    },
+    onRetry: () => executeCall()
+  });
 
   const refetch = useCallback(() => {
     loadingState.reset();

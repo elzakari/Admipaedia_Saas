@@ -61,13 +61,14 @@ function ParentsPage() {
   });
 
   const childrenList = useMemo(() => childrenData || [], [childrenData]);
+  const childrenIdsKey = useMemo(() => childrenList.map((c: any) => String(c.id)).join(","), [childrenList]);
 
   // Set the default selected child once the list loads
   useEffect(() => {
     if (!selectedChild && childrenList.length > 0) {
       setSelectedChild(String(childrenList[0].id));
     }
-  }, [childrenList, selectedChild]);
+  }, [childrenIdsKey, selectedChild]);
 
   // Detailed summary API query
   const { data: childSummary, isLoading: summaryLoading, isError: isSummaryError } = useQuery({
@@ -246,7 +247,7 @@ function ParentsPage() {
         return next;
       }, { replace: true });
     }
-  }, [setSearchParams, tabParam]);
+  }, [tabParam]);
 
   const handleTabChange = (nextTab: string) => {
     setSearchParams((prev) => {
