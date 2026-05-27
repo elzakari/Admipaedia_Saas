@@ -28,6 +28,7 @@ import AcademicsTab from "../../components/parents/AcademicsTab";
 import AttendanceTab from "../../components/parents/AttendanceTab";
 import ConnectedFeesTab from "../../components/parents/ConnectedFeesTab";
 import MessagesTab from "../../components/parents/MessagesTab";
+import StudentTelemetryTabs from "../../components/parents/StudentTelemetryTabs";
 
 // Import modal components
 import StudentIdCard from "../../components/parents/StudentIdCard";
@@ -464,29 +465,8 @@ function ParentsPage() {
 
           {/* Main content area */}
           <div className="lg:w-3/4">
-            <Tabs value={activeTab} onValueChange={handleTabChange}>
-              <TabsList className="mb-6 w-full justify-start overflow-x-auto">
-                <TabsTrigger value="dashboard" className="min-w-[120px]">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  {t('parent_portal.my_children.tabs.dashboard', 'Dashboard')}
-                </TabsTrigger>
-                <TabsTrigger value="academics" className="min-w-[120px]">
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  {t('parent_portal.my_children.tabs.academics', 'Academics')}
-                </TabsTrigger>
-                <TabsTrigger value="attendance" className="min-w-[120px]">
-                  <Clipboard className="h-4 w-4 mr-2" />
-                  {t('parent_portal.my_children.tabs.attendance', 'Attendance')}
-                </TabsTrigger>
-                <TabsTrigger value="fees" className="min-w-[120px]">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  {t('parent_portal.my_children.tabs.fees', 'Pending Fees')}
-                </TabsTrigger>
-                <TabsTrigger value="messages" className="min-w-[120px]">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  {t('parent_portal.my_children.tabs.messages', 'Messages')}
-                </TabsTrigger>
-              </TabsList>
+            <StudentTelemetryTabs currentStudentId={currentChild?.id || ""} />
+            <Tabs value={activeTab}>
 
               <TabsContent value="dashboard">
                 <DashboardTab 
