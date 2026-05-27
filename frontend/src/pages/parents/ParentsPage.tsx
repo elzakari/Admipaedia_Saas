@@ -59,7 +59,10 @@ export default function ParentsPage() {
   });
 
   const childrenList = useMemo(() => childrenData || [], [childrenData]);
-  const childrenIdsKey = useMemo(() => childrenList.map((c: any) => String(c.id)).join(","), [childrenList]);
+  const childrenIdsKey = useMemo(() => {
+    if (!childrenData) return "";
+    return childrenData.map((c: any) => String(c.id)).join(",");
+  }, [childrenData]);
 
   // Set the default selected child once the list loads
   useEffect(() => {
@@ -78,9 +81,10 @@ export default function ParentsPage() {
 
   // Get current child's data with proper type handling and transformation
   const currentChildRaw = useMemo(() => {
-    if (!selectedChild) return childrenList[0] || null;
-    return childrenList.find((child: any) => String(child.id) === selectedChild) || childrenList[0] || null;
-  }, [childrenList, selectedChild]);
+    const list = childrenData || [];
+    if (!selectedChild) return list[0] || null;
+    return list.find((child: any) => String(child.id) === selectedChild) || list[0] || null;
+  }, [childrenData, selectedChild]);
 
   // Safe mapping variables from the live summary response
   const currentChild = useMemo(() => {
