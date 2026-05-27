@@ -278,7 +278,7 @@ const parentService = {
   }): Promise<SchoolEvent[]> => {
     try {
       const response = await api.get('/parents/events', { params });
-      return response.data.events;
+      return response.data?.data?.events || response.data?.events || [];
     } catch (error) {
       console.error('Error fetching school events:', error);
       throw error;
@@ -332,9 +332,9 @@ const parentService = {
   },
 
   // Complete child setup task
-  completeChildSetup: async (taskId: number): Promise<any> => {
+  completeChildSetup: async (taskId: number, payload?: any): Promise<any> => {
     try {
-      const response = await api.post('/portal/complete-child-setup', { task_id: taskId });
+      const response = await api.post('/portal/complete-child-setup', { task_id: taskId, ...(payload || {}) });
       return response.data;
     } catch (error) {
       console.error(`Error completing child setup task ${taskId}:`, error);

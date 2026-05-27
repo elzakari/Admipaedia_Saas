@@ -325,12 +325,28 @@ def get_child_attendance(child_id):
 
         if child_id not in child_ids:
             return error_response(message="Child not found or access denied", status_code=403)
+
+        # Early structural existence check
+        from app.models.attendance import Attendance
+        has_records = Attendance.query.filter_by(student_id=child_id).first() is not None
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        if not has_records:
+            return success_response(
+                data={
+                    'attendance': [],
+                    'pagination': {
+                        'page': page,
+                        'per_page': per_page,
+                        'total': 0,
+                        'pages': 0
+                    }
+                },
+                message="Attendance records retrieved successfully"
+            )
         
         from app.services.attendance_service import AttendanceService
         from datetime import datetime
-
-        page = request.args.get('page', 1, type=int)
-        per_page = min(request.args.get('per_page', 20, type=int), 100)
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
 
@@ -391,12 +407,29 @@ def get_child_grades(child_id):
         
         if child_id not in child_ids:
             return error_response(message="Child not found or access denied", status_code=403)
-        
-        # Get grade records
-        from app.services.grade_service import GradeService
+
+        # Early structural existence check
+        from app.models.grade import Grade
+        has_records = Grade.query.filter_by(student_id=child_id).first() is not None
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         subject_id = request.args.get('subject_id', type=int)
+        if not has_records:
+            return success_response(
+                data={
+                    'grades': [],
+                    'pagination': {
+                        'page': page,
+                        'per_page': per_page,
+                        'total': 0,
+                        'pages': 0
+                    }
+                },
+                message="Grade records retrieved successfully"
+            )
+        
+        # Get grade records
+        from app.services.grade_service import GradeService
         
         grades, total = GradeService.get_student_grades(
             child_id, page=page, per_page=per_page, subject_id=subject_id
@@ -483,12 +516,10 @@ def get_parent_events():
         if not parent:
             return error_response(message="Parent profile not found", status_code=404)
         
-        # Get events for parent's children
-        from app.services.event_service import EventService
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         
-        # For now, return empty events list - can be implemented later
+        # For now, return empty events list
         events = []
         total = 0
         
@@ -567,12 +598,27 @@ def get_child_fees(child_id):
 
         if child_id not in child_ids:
             return error_response(message="Child not found or access denied", status_code=403)
-        
-        # Get fee records
+
+        # Early structural existence check
+        from app.models.finance import StudentFee
+        has_records = StudentFee.query.filter_by(student_id=child_id).first() is not None
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
+        if not has_records:
+            return success_response(
+                data={
+                    'fees': [],
+                    'pagination': {
+                        'page': page,
+                        'per_page': per_page,
+                        'total': 0,
+                        'pages': 0
+                    }
+                },
+                message="Fee records retrieved successfully"
+            )
         
-        # For now, return empty fees list - can be implemented later
+        # Get fee records
         fees = []
         total = 0
         

@@ -425,25 +425,32 @@ class ParentService:
                 students_in_class = Student.query.filter_by(class_id=class_id, status='active').all()
                 total_students = len(students_in_class)
                 
-                student_averages = []
-                for s in students_in_class:
-                    grades = Grade.query.filter_by(student_id=s.id).all()
-                    if grades:
-                        total_marks = sum(g.marks_obtained for g in grades)
-                        total_possible = sum(g.exam.total_marks if g.exam else 100 for g in grades)
-                        avg = (total_marks / total_possible * 100) if total_possible > 0 else 0
-                    else:
-                        avg = 0.0
-                    student_averages.append((s.id, avg))
-                
-                # Sort descending by average
-                student_averages.sort(key=lambda x: x[1], reverse=True)
-                
-                # Find target student position
-                for index, (s_id, avg) in enumerate(student_averages):
-                    if s_id == student_id:
-                        rank_position = index + 1
-                        break
+                from app.models.grade import Grade
+                student_ids = [s.id for s in students_in_class]
+                has_grades = Grade.query.filter(Grade.student_id.in_(student_ids)).first() is not None if student_ids else False
+
+                if not has_grades:
+                    rank_position = 1
+                else:
+                    student_averages = []
+                    for s in students_in_class:
+                        grades = Grade.query.filter_by(student_id=s.id).all()
+                        if grades:
+                            total_marks = sum(g.marks_obtained for g in grades)
+                            total_possible = sum(g.exam.total_marks if g.exam else 100 for g in grades)
+                            avg = (total_marks / total_possible * 100) if total_possible > 0 else 0
+                        else:
+                            avg = 0.0
+                        student_averages.append((s.id, avg))
+                    
+                    # Sort descending by average
+                    student_averages.sort(key=lambda x: x[1], reverse=True)
+                    
+                    # Find target student position
+                    for index, (s_id, avg) in enumerate(student_averages):
+                        if s_id == student_id:
+                            rank_position = index + 1
+                            break
 
             # 3. KPI metrics
             # Academic Average

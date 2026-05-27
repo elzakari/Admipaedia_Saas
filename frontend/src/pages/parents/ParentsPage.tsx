@@ -350,8 +350,8 @@ function ParentsPage() {
     );
   }
 
-  // If there's an error with the data, show a fallback
-  if (!isLoading && (isSummaryError || !childSummary)) {
+  // If there's an error with the data and we don't have children list, show a fallback
+  if (!isLoading && childrenList.length === 0 && (isSummaryError || !childSummary)) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6 text-center animate-pulse">
         <AlertCircle className="h-16 w-16 text-red-500 mb-4 animate-pulse" />

@@ -71,25 +71,37 @@ function DashboardTab({
         });
       }
 
-      const results = await Promise.allSettled([
-        parentService.getChildAcademicData(childId),
-        parentService.getChildAttendanceData(childId),
-        parentService.getChildFeeData(childId),
-        parentService.getChildHomeworkData(childId),
-        parentService.getSchoolEvents(),
-        parentService.getParentMessages((currentChild?.parent_id as number) || (user?.id as number) || 0)
-      ]);
+      try {
+        const results = await Promise.allSettled([
+          parentService.getChildAcademicData(childId),
+          parentService.getChildAttendanceData(childId),
+          parentService.getChildFeeData(childId),
+          parentService.getChildHomeworkData(childId),
+          parentService.getSchoolEvents(),
+          parentService.getParentMessages((currentChild?.parent_id as number) || (user?.id as number) || 0)
+        ]);
 
-      const [academicRes, attendanceRes, feeRes, homeworkRes, eventsRes, messagesRes] = results;
+        const [academicRes, attendanceRes, feeRes, homeworkRes, eventsRes, messagesRes] = results;
 
-      return {
-        academicData: academicRes.status === 'fulfilled' ? academicRes.value : initialAcademicData,
-        attendanceData: attendanceRes.status === 'fulfilled' ? attendanceRes.value : initialAttendanceData,
-        feeData: feeRes.status === 'fulfilled' ? feeRes.value : initialFeeData,
-        homeworkData: homeworkRes.status === 'fulfilled' ? homeworkRes.value : initialHomeworkData,
-        events: eventsRes.status === 'fulfilled' ? eventsRes.value : initialSchoolEvents,
-        messages: messagesRes.status === 'fulfilled' ? messagesRes.value : initialMessagesData
-      };
+        return {
+          academicData: academicRes.status === 'fulfilled' ? academicRes.value : initialAcademicData,
+          attendanceData: attendanceRes.status === 'fulfilled' ? attendanceRes.value : initialAttendanceData,
+          feeData: feeRes.status === 'fulfilled' ? feeRes.value : initialFeeData,
+          homeworkData: homeworkRes.status === 'fulfilled' ? homeworkRes.value : initialHomeworkData,
+          events: eventsRes.status === 'fulfilled' ? eventsRes.value : initialSchoolEvents,
+          messages: messagesRes.status === 'fulfilled' ? messagesRes.value : initialMessagesData
+        };
+      } catch (err) {
+        console.warn("⚠️ Background metrics fetch partially failed:", err);
+        return {
+          academicData: initialAcademicData,
+          attendanceData: initialAttendanceData,
+          feeData: initialFeeData,
+          homeworkData: initialHomeworkData,
+          events: initialSchoolEvents,
+          messages: initialMessagesData
+        };
+      }
     },
     {
       immediate: false,

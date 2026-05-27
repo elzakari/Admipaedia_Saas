@@ -27,6 +27,9 @@ const ParentDashboard: React.FC = () => {
 
   const [setupTasks, setSetupTasks] = React.useState<any[]>([]);
   const [isCompleting, setIsCompleting] = React.useState<number | null>(null);
+  const [activeSetupTask, setActiveSetupTask] = React.useState<any | null>(null);
+  const [studentPassword, setStudentPassword] = React.useState('');
+  const [passwordError, setPasswordError] = React.useState('');
 
   const fetchSetupTasks = async () => {
     try {
@@ -41,11 +44,22 @@ const ParentDashboard: React.FC = () => {
     fetchSetupTasks();
   }, []);
 
-  const handleCompleteSetup = async (taskId: number) => {
+  const handleOpenSetupModal = (task: any) => {
+    setActiveSetupTask(task);
+    setStudentPassword('');
+    setPasswordError('');
+  };
+
+  const handleCloseSetupModal = () => {
+    setActiveSetupTask(null);
+  };
+
+  const handleCompleteSetup = async (taskId: number, passwordVal?: string) => {
     setIsCompleting(taskId);
     try {
-      await parentService.completeChildSetup(taskId);
+      await parentService.completeChildSetup(taskId, passwordVal ? { password: passwordVal } : undefined);
       setSetupTasks((prev) => prev.filter((t) => t.id !== taskId));
+      handleCloseSetupModal();
     } catch (err) {
       console.error('Failed to complete child setup task:', err);
     } finally {
@@ -96,7 +110,7 @@ const ParentDashboard: React.FC = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400">{task.description}</p>
                 </div>
                 <Button
-                  onClick={() => handleCompleteSetup(task.id)}
+                  onClick={() => handleOpenSetupModal(task)}
                   disabled={isCompleting === task.id}
                   className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition-all duration-200 shadow-sm"
                 >
@@ -258,6 +272,68 @@ const ParentDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {activeSetupTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-6 shadow-2xl w-full max-w-md space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                Configure Child Account
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Setup new portal credentials for: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{activeSetupTask.title}</span>
+              </p>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (studentPassword.length < 6) {
+                setPasswordError('Password must be at least 6 characters long');
+                return;
+              }
+              await handleCompleteSetup(activeSetupTask.id, studentPassword);
+            }} className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider block">
+                  Assign Student Portal Password
+                </label>
+                <input
+                  type="password"
+                  value={studentPassword}
+                  onChange={(e) => {
+                    setStudentPassword(e.target.value);
+                    setPasswordError('');
+                  }}
+                  placeholder="Enter secure password"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:text-gray-100 text-sm transition-all"
+                  required
+                />
+                {passwordError && (
+                  <p className="text-xs text-red-500 font-medium">{passwordError}</p>
+                )}
+              </div>
+              
+              <div className="flex gap-3 pt-2 justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleCloseSetupModal}
+                  className="rounded-xl px-4 text-xs font-medium"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isCompleting === activeSetupTask.id}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs px-5 py-2.5 rounded-xl transition-all duration-200 shadow-sm"
+                >
+                  {isCompleting === activeSetupTask.id ? 'Activating...' : 'Confirm Account Activation'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
