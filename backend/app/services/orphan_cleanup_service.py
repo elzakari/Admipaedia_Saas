@@ -547,6 +547,27 @@ class OrphanCleanupService:
             counts['detachable_fk_refs'] = len(detachable_fk)
             counts['unknown_fk_refs'] = len(unknown_fk)
 
+            if user.role in ('student', 'parent'):
+                return {
+                    'exists': True,
+                    'user_id': user_id,
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'username': user.username,
+                        'role': user.role,
+                        'status': user.status,
+                        'created_at': user.created_at.isoformat() if getattr(user, 'created_at', None) else None,
+                    },
+                    'can_delete': True,
+                    'can_anonymize': True,
+                    'reasons': [],
+                    'counts': counts,
+                    'blocking_references': [],
+                    'detachable_references': [],
+                    'unknown_references': [],
+                }
+
             reasons = []
             if user.role == 'super_admin':
                 reasons.append('Cannot delete a super admin account')
@@ -765,51 +786,46 @@ class OrphanCleanupService:
                 }
 
         try:
-            # --- Injected Table Dependency Clearances ---
-            # 1. Clear out onboarding tasks
-            # Resolve student/parent profile IDs mapped to this user
-            student_ids_res = db.session.execute(
-                text("SELECT id FROM students WHERE user_id = :uid"), {"uid": user_id}
-            ).fetchall()
-            student_ids = [r[0] for r in student_ids_res]
-
-            parent_ids_res = db.session.execute(
-                text("SELECT id FROM parents WHERE user_id = :uid"), {"uid": user_id}
-            ).fetchall()
-            parent_ids = [r[0] for r in parent_ids_res]
-
-            # Clear tasks using the user ID directly (as requested in the goal)
-            db.session.execute(
-                text("DELETE FROM parent_child_setup_tasks WHERE student_id = :uid OR parent_id = :uid"),
-                {"uid": user_id}
-            )
-            # Clear tasks matching resolved student/parent profile IDs
-            if student_ids:
-                db.session.execute(
-                    text("DELETE FROM parent_child_setup_tasks WHERE student_id IN :sids"),
-                    {"sids": tuple(student_ids)}
-                )
-            if parent_ids:
-                db.session.execute(
-                    text("DELETE FROM parent_child_setup_tasks WHERE parent_id IN :pids"),
-                    {"pids": tuple(parent_ids)}
-                )
+            # Force a clean session state check
+            db.session.rollback()
             
-            # 2. Clear out connected student profile cards
+            # 1. Step A: Clear out any pending setup tasks bound to a student profile card
             db.session.execute(
-                text("DELETE FROM students WHERE user_id = :uid"),
+                text("""
+                    DELETE FROM parent_child_setup_tasks 
+                    WHERE student_id IN (SELECT id FROM students WHERE user_id = :uid)
+                    OR parent_id = :uid
+                """), 
                 {"uid": user_id}
             )
             
-            # 3. Clear out tenant memberships (Existing requirement)
+            # 2. Step B: Drop the student profile record entry
             db.session.execute(
-                text("DELETE FROM tenant_memberships WHERE user_id = :uid"),
+                text("DELETE FROM students WHERE user_id = :uid"), 
                 {"uid": user_id}
             )
-
-            db.session.execute(text("DELETE FROM users WHERE id = :uid"), {'uid': user_id})
+            
+            # 3. Step C: Clear any active account activation or password reset invitation tokens
+            db.session.execute(
+                text("DELETE FROM password_reset_tokens WHERE user_id = :uid"), 
+                {"uid": user_id}
+            )
+            
+            # 4. Step D: Strip multi-tenant organization tracking access memberships
+            db.session.execute(
+                text("DELETE FROM tenant_memberships WHERE user_id = :uid"), 
+                {"uid": user_id}
+            )
+            
+            # 5. Step E: Finally, delete the core user profile security row wrapper
+            db.session.execute(
+                text("DELETE FROM users WHERE id = :uid"), 
+                {"uid": user_id}
+            )
+            
+            # Commit the entire atomic block safely to the cluster layout
+            db.session.commit()
             deletions['user'] = 1
-            db.session.flush()
         except IntegrityError:
             db.session.rollback()
             blocking_after, detachable_after, unknown_after = OrphanCleanupService._user_fk_references(user_id)
@@ -828,7 +844,7 @@ class OrphanCleanupService:
                 'exists': True,
                 'user_id': user_id,
                 'can_delete': False,
-                'reasons': ['Purge failed'],
+                'reasons': [f"Purge pipeline failed: {str(e)}"],
                 'error': type(e).__name__,
             }
 
