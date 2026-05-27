@@ -179,7 +179,15 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
 
             settings = db.session.query(SystemSettings).first()
             if not settings:
-                settings = SystemSettings(id=1)
+                from flask import g
+                import uuid
+                active_tenant_id = getattr(g, 'tenant_id', None)
+                if active_tenant_id and isinstance(active_tenant_id, str):
+                    try:
+                        active_tenant_id = uuid.UUID(active_tenant_id)
+                    except ValueError:
+                        pass
+                settings = SystemSettings(id=1, tenant_id=active_tenant_id)
                 db.session.add(settings)
                 db.session.flush()
 

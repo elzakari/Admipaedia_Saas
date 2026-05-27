@@ -1,5 +1,6 @@
 from app.extensions import db
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID
 
 class SystemSetting(db.Model):
     """
@@ -59,6 +60,7 @@ class SystemSettings(db.Model):
     __tablename__ = 'system_settings_config'
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=True, index=True)
     smtp_host = db.Column(db.String(255), nullable=True)
     smtp_password = db.Column(db.String(255), nullable=True)
     smtp_username = db.Column(db.String(255), nullable=True)

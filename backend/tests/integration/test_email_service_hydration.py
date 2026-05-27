@@ -484,6 +484,65 @@ def test_email_integration_check_dns_sanitization(app):
                 assert res_data['result']['ok'] is False
                 assert "DNS resolution failed for host email-smtp.us-east-1.amazonaws.com" in res_data['result']['message']
 
+def test_email_service_tenant_context_hydration(app):
+    """
+    Test that when send_email is called within a tenant context (g.tenant_id set),
+    SystemSettings is provisioned and instantiated with the correct tenant_id.
+    """
+    from flask import g
+    import uuid
+    
+    with app.app_context():
+        app.config['MAIL_SUPPRESS_SEND'] = False
+
+        # Clear configs first
+        db.session.query(SystemSettings).delete()
+        db.session.query(PlatformServiceProviderConfig).delete()
+        db.session.commit()
+
+        # Insert active PlatformServiceProviderConfig SMTP record
+        provider_cfg = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Tenant Specific SMTP',
+            is_active=True
+        )
+        provider_cfg.set_config({
+            'smtpHost': 'smtp.tenant-database.com',
+            'smtpPort': 587,
+            'smtpUsername': 'tenant-user',
+            'smtpPassword': 'tenant-password',
+            'smtpEncryption': 'tls'
+        })
+        db.session.add(provider_cfg)
+        db.session.commit()
+
+        # Mock tenant_id on g context
+        mock_tenant_id = str(uuid.uuid4())
+        g.tenant_id = mock_tenant_id
+
+        try:
+            with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
+                mock_send.return_value = (True, "Sent", "msg-tenant-456")
+                
+                send_email(
+                    subject="Tenant Context Hydration Test",
+                    recipients=["test@example.com"],
+                    text_body="Testing dynamic settings hydration with active tenant context.",
+                    provider="smtp"
+                )
+                
+                # Check that dynamic db values are hydrated
+                settings = db.session.query(SystemSettings).first()
+                assert settings is not None
+                assert settings.smtp_host == 'smtp.tenant-database.com'
+                assert str(settings.tenant_id) == mock_tenant_id
+        finally:
+            # Clean up g context
+            if hasattr(g, 'tenant_id'):
+                delattr(g, 'tenant_id')
+
+
 
 
 
