@@ -37,9 +37,7 @@ import MessageTeacher from "../../components/parents/MessageTeacher";
 import ReportForm from "../../components/parents/ReportForm";
 import ComposeMessage from "../../components/parents/ComposeMessage";
 
-export default ParentsPage;
-
-function ParentsPage() {
+export default function ParentsPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offlineMode, setOfflineMode] = useState(false);
