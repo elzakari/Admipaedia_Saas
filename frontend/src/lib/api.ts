@@ -81,9 +81,9 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Fix the response interceptor (around line 40-50)
-    // Skip token refresh for login requests
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
+    const status = error.response ? error.response.status : null;
+
+    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       originalRequest._retry = true;
 
       try {
@@ -107,15 +107,27 @@ api.interceptors.response.use(
           // Update the original request with new token
           originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
           return api(originalRequest);
+        } else {
+          // Only drop session if there's no refresh token and the token signature itself is explicitly rejected
+          console.warn("🔒 Explicit session expiration encountered.");
+          localStorage.removeItem('token');
+          localStorage.removeItem('access_token');
+          if (!isLoginPage) {
+            window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+          }
         }
-      } catch (refreshError) {
-        // Clear tokens and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('refresh_token');
-        if (!isLoginPage) {
-          window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+      } catch (refreshError: any) {
+        // Only clear tokens if the refresh endpoint explicitly returns 401 or 403
+        const refreshStatus = refreshError.response ? refreshError.response.status : null;
+        if (refreshStatus === 401 || refreshStatus === 403) {
+          console.warn("🔒 Refresh token explicitly rejected/expired.");
+          localStorage.removeItem('token');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('refresh_token');
+          if (!isLoginPage) {
+            window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+          }
         }
         return Promise.reject(refreshError);
       }

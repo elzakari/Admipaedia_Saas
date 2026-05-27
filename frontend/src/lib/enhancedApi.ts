@@ -88,8 +88,10 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
+    const status = error.response ? error.response.status : null;
+    
     // Handle 401 errors with token refresh
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
+    if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       if (isRefreshing) {
         // Queue the request while refresh is in progress
         return new Promise((resolve, reject) => {
@@ -129,25 +131,29 @@ api.interceptors.response.use(
         originalRequest.headers!['Authorization'] = `Bearer ${access_token}`;
         return api(originalRequest);
         
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         // Process queued requests with error
         failedRequestsQueue.forEach(({ reject }) => reject(refreshError));
         failedRequestsQueue = [];
         
-        // Clear tokens and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        
-        if (!isLoginPage) {
-          toast.error('Session Expired', {
-            description: 'Please log in again to continue.',
-            duration: 5000
-          });
+        // Only clear tokens if the refresh endpoint explicitly returns 401 or 403
+        const refreshStatus = refreshError.response ? refreshError.response.status : null;
+        if (refreshStatus === 401 || refreshStatus === 403) {
+          console.warn("🔒 Refresh token explicitly rejected/expired.");
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
           
-          // Redirect to login after a short delay
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 1000);
+          if (!isLoginPage) {
+            toast.error('Session Expired', {
+              description: 'Please log in again to continue.',
+              duration: 5000
+            });
+            
+            // Redirect to login after a short delay
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 1000);
+          }
         }
         
         return Promise.reject(refreshError);
