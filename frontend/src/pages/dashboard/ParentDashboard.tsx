@@ -25,6 +25,34 @@ const ParentDashboard: React.FC = () => {
     staleTime: 30_000
   })
 
+  const [setupTasks, setSetupTasks] = React.useState<any[]>([]);
+  const [isCompleting, setIsCompleting] = React.useState<number | null>(null);
+
+  const fetchSetupTasks = async () => {
+    try {
+      const tasks = await parentService.getSetupTasks();
+      setSetupTasks(tasks.filter((t: any) => t.status === 'pending'));
+    } catch (err) {
+      console.error('Failed to fetch setup tasks:', err);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchSetupTasks();
+  }, []);
+
+  const handleCompleteSetup = async (taskId: number) => {
+    setIsCompleting(taskId);
+    try {
+      await parentService.completeChildSetup(taskId);
+      setSetupTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch (err) {
+      console.error('Failed to complete child setup task:', err);
+    } finally {
+      setIsCompleting(null);
+    }
+  };
+
   const navigateTo = (to: string) => {
     navigate(to);
   };
@@ -46,6 +74,39 @@ const ParentDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6">
+      {setupTasks.length > 0 && (
+        <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-100 dark:from-amber-950 dark:to-orange-900 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all duration-300 hover:shadow-md animate-fade-in">
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              Pending Child Setup Required
+            </h2>
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              You have {setupTasks.length} pending setup task{setupTasks.length > 1 ? 's' : ''} to complete configuration for approved child admission{setupTasks.length > 1 ? 's' : ''}.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            {setupTasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between gap-4 bg-white/60 dark:bg-black/20 backdrop-blur-sm px-4 py-3 rounded-xl border border-amber-100 dark:border-amber-900 w-full min-w-[280px]">
+                <div className="text-left">
+                  <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{task.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{task.description}</p>
+                </div>
+                <Button
+                  onClick={() => handleCompleteSetup(task.id)}
+                  disabled={isCompleting === task.id}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition-all duration-200 shadow-sm"
+                >
+                  {isCompleting === task.id ? 'Completing...' : 'Complete Setup'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{t('parent_portal.dashboard.title')}</h1>
         <div className="flex gap-2">

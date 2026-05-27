@@ -320,6 +320,28 @@ const parentService = {
     }
   },
 
+  // Get active setup tasks for parents
+  getSetupTasks: async (): Promise<any[]> => {
+    try {
+      const response = await api.get('/portal/setup-tasks');
+      return response.data?.tasks || [];
+    } catch (error) {
+      console.error('Error fetching setup tasks:', error);
+      throw error;
+    }
+  },
+
+  // Complete child setup task
+  completeChildSetup: async (taskId: number): Promise<any> => {
+    try {
+      const response = await api.post('/portal/complete-child-setup', { task_id: taskId });
+      return response.data;
+    } catch (error) {
+      console.error(`Error completing child setup task ${taskId}:`, error);
+      throw error;
+    }
+  },
+
   // Transform a backend parent into frontend Parent
   transformBackendParent: (backendParent: any): Parent => {
     const firstName =
