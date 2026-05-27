@@ -765,6 +765,48 @@ class OrphanCleanupService:
                 }
 
         try:
+            # --- Injected Table Dependency Clearances ---
+            # 1. Clear out onboarding tasks
+            # Resolve student/parent profile IDs mapped to this user
+            student_ids_res = db.session.execute(
+                text("SELECT id FROM students WHERE user_id = :uid"), {"uid": user_id}
+            ).fetchall()
+            student_ids = [r[0] for r in student_ids_res]
+
+            parent_ids_res = db.session.execute(
+                text("SELECT id FROM parents WHERE user_id = :uid"), {"uid": user_id}
+            ).fetchall()
+            parent_ids = [r[0] for r in parent_ids_res]
+
+            # Clear tasks using the user ID directly (as requested in the goal)
+            db.session.execute(
+                text("DELETE FROM parent_child_setup_tasks WHERE student_id = :uid OR parent_id = :uid"),
+                {"uid": user_id}
+            )
+            # Clear tasks matching resolved student/parent profile IDs
+            if student_ids:
+                db.session.execute(
+                    text("DELETE FROM parent_child_setup_tasks WHERE student_id IN :sids"),
+                    {"sids": tuple(student_ids)}
+                )
+            if parent_ids:
+                db.session.execute(
+                    text("DELETE FROM parent_child_setup_tasks WHERE parent_id IN :pids"),
+                    {"pids": tuple(parent_ids)}
+                )
+            
+            # 2. Clear out connected student profile cards
+            db.session.execute(
+                text("DELETE FROM students WHERE user_id = :uid"),
+                {"uid": user_id}
+            )
+            
+            # 3. Clear out tenant memberships (Existing requirement)
+            db.session.execute(
+                text("DELETE FROM tenant_memberships WHERE user_id = :uid"),
+                {"uid": user_id}
+            )
+
             db.session.execute(text("DELETE FROM users WHERE id = :uid"), {'uid': user_id})
             deletions['user'] = 1
             db.session.flush()
