@@ -147,3 +147,52 @@ def test_super_admin_cannot_delete_user_with_membership(client):
     assert deleted.status_code == 400
 
 
+def test_super_admin_can_force_purge_user(client):
+    _create_user('platformsuper_force_purge@example.com', role='super_admin', password='Password123!')
+    token = _login(client, 'platformsuper_force_purge@example.com', 'Password123!')
+
+    # 1. Test standard hyphenated /api/v1/super-admin/users/<id>/force-purge path
+    tenant1 = _create_orphan_tenant()
+    u1 = _create_user('member_force1@example.com', role='admin', password='Password123!')
+    db.session.add(TenantMembership(tenant_id=tenant1.id, user_id=u1.id, role='school_admin', status='active'))
+    db.session.commit()
+    u1_id = u1.id
+
+    # Normal delete should block
+    status1 = client.get(
+        f"/api/v1/super-admin/orphans/users/{u1_id}",
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    assert status1.json['status']['can_delete'] is False
+
+    # Force purge should bypass constraints and succeed
+    purge1 = client.post(
+        f"/api/v1/super-admin/users/{u1_id}/force-purge",
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    assert purge1.status_code == 200
+    assert purge1.json['success'] is True
+
+    # User 1 should be completely gone
+    assert User.query.get(u1_id) is None
+
+    # 2. Test non-hyphenated /api/v1/superadmin/users/<id>/force-purge path
+    tenant2 = _create_orphan_tenant()
+    u2 = _create_user('member_force2@example.com', role='admin', password='Password123!')
+    db.session.add(TenantMembership(tenant_id=tenant2.id, user_id=u2.id, role='school_admin', status='active'))
+    db.session.commit()
+    u2_id = u2.id
+
+    purge2 = client.post(
+        f"/api/v1/superadmin/users/{u2_id}/force-purge",
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    assert purge2.status_code == 200
+    assert purge2.json['success'] is True
+
+    # User 2 should be completely gone
+    assert User.query.get(u2_id) is None
+
+
+
+

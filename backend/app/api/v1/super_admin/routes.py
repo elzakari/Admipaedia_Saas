@@ -9,6 +9,7 @@ from app.models.user import User, Role
 from app.models.tenant import Tenant
 from app.utils.platform_access import require_platform_super_admin
 from app.services.orphan_cleanup_service import OrphanCleanupService
+from app.services.user_service import SecurePurgeService
 
 
 def _serialize_user(u: User):
@@ -723,3 +724,22 @@ def super_admin_delete_orphan_user(user_id: int):
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to delete orphan user'}), 500
+
+
+@super_admin_bp.route('/users/<int:user_id>/force-purge', methods=['POST', 'DELETE'])
+@require_platform_super_admin()
+def super_admin_force_purge_user(user_id: int):
+    actor = g.current_user
+    if not actor or actor.role not in ('super_admin', 'super_manager'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    ok, result = SecurePurgeService.force_purge_user(user_id, actor_user_id=actor.id)
+    if not ok:
+        return jsonify({'success': False, 'error': result.get('error', 'Force purge failed'), 'detail': result}), 400
+
+    _audit('super_admin.user_force_purged', actor.id, {
+        'user_id': user_id,
+        'purged': True
+    }, severity='critical')
+    return jsonify({'success': True, 'result': result}), 200
+

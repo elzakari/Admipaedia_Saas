@@ -140,6 +140,10 @@ from app.api.v1.dashboard.routes import get_admin_dashboard_metrics, get_admin_d
 api_v1_bp.add_url_rule('/admin/dashboard-metrics', 'get_admin_dashboard_metrics', get_admin_dashboard_metrics, methods=['GET'])
 api_v1_bp.add_url_rule('/admin/dashboard/analytics', 'get_admin_dashboard_analytics', get_admin_dashboard_analytics, methods=['GET'])
 
+from app.api.v1.super_admin.routes import super_admin_force_purge_user
+api_v1_bp.add_url_rule('/superadmin/users/<int:user_id>/force-purge', 'super_admin_force_purge_user_non_hyphen', super_admin_force_purge_user, methods=['POST', 'DELETE'])
+
+
 def register_blueprints(app):
     """Register all API blueprints."""
     # Enhanced Dashboard
