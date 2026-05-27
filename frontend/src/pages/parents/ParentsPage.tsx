@@ -86,6 +86,21 @@ export default function ParentsPage() {
     return list.find((child: any) => String(child.id) === selectedChild) || list[0] || null;
   }, [childrenData, selectedChild]);
 
+  // 🌟 Defensive Injection Blueprint
+  const matchedGrade = useMemo(() => {
+      if (!currentChildRaw || currentChildRaw.grade_level?.id === 'unassigned') {
+          return { name: currentChildRaw?.grade_level?.name || 'Grade Unassigned', id: 'unassigned' };
+      }
+      
+      // Ensure the array configuration object exists and is initialized before running selectors
+      const N: any = null;
+      if (typeof N !== 'undefined' && N) { 
+          return N.find((g: any) => g.id === currentChildRaw.grade_level.id);
+      }
+      
+      return null;
+  }, [currentChildRaw, childrenData]);
+
   // Safe mapping variables from the live summary response
   const currentChild = useMemo(() => {
     if (!currentChildRaw) return null;
@@ -97,6 +112,7 @@ export default function ParentsPage() {
     
     const classVal =
       summaryChild?.classroom?.name ||
+      (currentChildRaw.grade_level?.id === 'unassigned' ? matchedGrade?.name : null) ||
       currentChildRaw.class ||
       currentChildRaw.class_name ||
       (currentChildRaw.class_id ? `Class ${currentChildRaw.class_id}` : "Unknown");
@@ -122,7 +138,7 @@ export default function ParentsPage() {
         ? [currentChildRaw.medical_conditions]
         : []
     };
-  }, [currentChildRaw, childSummary]);
+  }, [currentChildRaw, childSummary, matchedGrade]);
 
   const currentAcademicData = useMemo(() => {
     const avg = childSummary?.summary?.academic_average ?? null;
