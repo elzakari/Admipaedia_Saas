@@ -61,6 +61,7 @@ class SystemSettings(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=True, index=True)
+    setting_key = db.Column(db.String(100), nullable=False, default='smtp')
     smtp_host = db.Column(db.String(255), nullable=True)
     smtp_password = db.Column(db.String(255), nullable=True)
     smtp_username = db.Column(db.String(255), nullable=True)

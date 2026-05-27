@@ -192,7 +192,7 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                     first_tenant = Tenant.query.first()
                     if first_tenant:
                         active_tenant_id = first_tenant.id
-                settings = SystemSettings(id=1, tenant_id=active_tenant_id)
+                settings = SystemSettings(id=1, tenant_id=active_tenant_id, setting_key='smtp')
                 db.session.add(settings)
                 db.session.flush()
 
