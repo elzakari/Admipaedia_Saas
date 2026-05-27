@@ -886,6 +886,9 @@ def patch_admission_status(form_id):
         if not tenant_id:
             return jsonify({'success': False, 'message': 'Could not resolve tenant context'}), 400
 
+        from flask import g
+        g.tenant_id = tenant_id
+
         # Determine student username first.last[suffix]
         applicant_email = getattr(application, 'email', None)
         if not applicant_email and application.form_data:

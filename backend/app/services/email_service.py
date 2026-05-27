@@ -187,6 +187,11 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
                         active_tenant_id = uuid.UUID(active_tenant_id)
                     except ValueError:
                         pass
+                if not active_tenant_id:
+                    from app.models.tenant import Tenant
+                    first_tenant = Tenant.query.first()
+                    if first_tenant:
+                        active_tenant_id = first_tenant.id
                 settings = SystemSettings(id=1, tenant_id=active_tenant_id)
                 db.session.add(settings)
                 db.session.flush()
