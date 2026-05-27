@@ -4,6 +4,7 @@ from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.extensions import db
+from sqlalchemy.exc import IntegrityError
 from app.models.tenant import Tenant
 from app.api.v1.saas import saas_bp
 from app.services.saas import SaaSService
@@ -905,8 +906,18 @@ def patch_admission_status(form_id):
         generated_username = "".join(c for c in generated_username if c.isalnum() or c in ['.', '_', '-'])
 
         if not applicant_email or not applicant_email.strip():
-            # If the email field is blank or null, auto-generate a valid unique routing alias
-            applicant_email = f"{generated_username}@admipaedia.local"
+            # Use admission ID as anchor — guaranteed globally unique (PK), collision-proof
+            applicant_email = f"admission-{application.id}@admipaedia.local"
+        else:
+            # Normalize real email and guard against duplicate registrations
+            applicant_email = applicant_email.strip().lower()
+            existing_email_user = User.query.filter_by(email=applicant_email).first()
+            if existing_email_user:
+                return jsonify({
+                    'success': False,
+                    'message': f'A user account with email {applicant_email} already exists. '
+                               'Please verify the applicant details or link to the existing account.'
+                }), 409
 
         username_base = getattr(application, 'username', None) or generated_username
         username = username_base
@@ -1068,6 +1079,14 @@ def patch_admission_status(form_id):
             application.status = 'approved'
             db.session.commit()
 
+        except IntegrityError as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': 'Student record conflict: a user with the same email or username already exists. '
+                           'This may indicate a duplicate approval attempt.',
+                'detail': str(e.orig) if hasattr(e, 'orig') else str(e)
+            }), 409
         except Exception as e:
             db.session.rollback()
             return jsonify({'success': False, 'message': f'Student record generation failed: {str(e)}'}), 500
