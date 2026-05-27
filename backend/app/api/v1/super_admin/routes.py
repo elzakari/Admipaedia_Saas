@@ -511,11 +511,6 @@ def super_admin_purge_user(user_id: int):
         if mode == 'anonymize':
             ok, result = OrphanCleanupService.anonymize_user(user_id, actor_user_id=actor.id)
         else:
-            # Manual pre-purge execution fallback
-            from app.models.user_profile import UserProfile
-            db.session.query(UserProfile).filter(UserProfile.user_id == user_id).delete(synchronize_session=False)
-            db.session.commit()
-
             ok, result = OrphanCleanupService.purge_user(user_id, actor_user_id=actor.id)
         if not ok:
             status_payload = dict(result or {})

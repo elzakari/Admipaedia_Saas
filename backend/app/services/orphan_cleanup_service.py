@@ -161,7 +161,7 @@ class OrphanCleanupService:
         unknown = []
 
         try:
-            inspector = inspect(db.engine)
+            inspector = inspect(db.session.connection())
             table_names = inspector.get_table_names()
         except Exception:
             return blocking, detachable, unknown
