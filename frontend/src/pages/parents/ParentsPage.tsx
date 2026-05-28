@@ -21,6 +21,8 @@ type ParentChild = any;
 type AcademicRecord = any;
 type AcademicSubject = any;
 
+const ALLOWED_TABS = ['dashboard', 'academics', 'attendance', 'fees', 'messages'];
+
 // Import tab components
 import ParentChildProfile from "../../components/parents/ParentChildProfile";
 import DashboardTab from "../../components/parents/DashboardTab";
@@ -253,9 +255,8 @@ export default function ParentsPage() {
     return items;
   }, [childSummary, t]);
 
-  const allowedTabs = useMemo(() => ['dashboard', 'academics', 'attendance', 'fees', 'messages'], []);
   const tabParam = searchParams.get('tab');
-  const activeTab = tabParam && allowedTabs.includes(tabParam) ? tabParam : 'dashboard';
+  const activeTab = tabParam && ALLOWED_TABS.includes(tabParam) ? tabParam : 'dashboard';
 
   useEffect(() => {
     if (!tabParam) {
