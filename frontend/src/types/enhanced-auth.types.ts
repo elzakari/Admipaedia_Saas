@@ -126,7 +126,8 @@ export interface PasswordResetToken {
 
 // Enhanced Login Request Interface
 export interface EnhancedLoginRequest {
-  email: string;
+  email?: string;
+  username?: string;
   password: string;
   remember_me?: boolean;
   device_info?: {

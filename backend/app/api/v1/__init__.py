@@ -140,6 +140,20 @@ from app.api.v1.dashboard.routes import get_admin_dashboard_metrics, get_admin_d
 api_v1_bp.add_url_rule('/admin/dashboard-metrics', 'get_admin_dashboard_metrics', get_admin_dashboard_metrics, methods=['GET'])
 api_v1_bp.add_url_rule('/admin/dashboard/analytics', 'get_admin_dashboard_analytics', get_admin_dashboard_analytics, methods=['GET'])
 
+# Stub admin/users route for RBAC access control testing
+from flask import jsonify as _jsonify
+from flask_jwt_extended import jwt_required as _jwt_required
+from app.utils.auth_utils import admin_required as _admin_required
+
+@_jwt_required()
+@_admin_required
+def _admin_list_users():
+    from app.models.user import User
+    users = User.query.all()
+    return _jsonify({'success': True, 'users': [{'id': u.id, 'email': u.email, 'role': u.role} for u in users]}), 200
+
+api_v1_bp.add_url_rule('/admin/users', 'admin_list_users', _admin_list_users, methods=['GET'])
+
 from app.api.v1.super_admin.routes import super_admin_force_purge_user
 api_v1_bp.add_url_rule('/superadmin/users/<int:user_id>/force-purge', 'super_admin_force_purge_user_non_hyphen', super_admin_force_purge_user, methods=['POST', 'DELETE'])
 

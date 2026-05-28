@@ -106,7 +106,8 @@ class UserSchema(Schema):
 
 class LoginSchema(Schema):
     """Schema for login requests"""
-    email = fields.Email(required=True)
+    email = fields.String(required=False)
+    username = fields.String(required=False)
     password = fields.String(required=True)
 
 

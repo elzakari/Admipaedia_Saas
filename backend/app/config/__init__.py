@@ -148,6 +148,7 @@ class TestingConfig(BaseConfig):
     
     TESTING = True
     DEBUG = True
+    ALLOW_PUBLIC_REGISTRATION = True
     
     # Database (separate test database)
     url = os.environ.get('TEST_DB_URL') or os.environ.get('DATABASE_URL') or 'sqlite:///:memory:'

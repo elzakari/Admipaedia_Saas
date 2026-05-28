@@ -35,7 +35,8 @@ enhanced_auth_bp.strict_slashes = False
 
 # Validation schemas
 class EnhancedLoginSchema(Schema):
-    email = fields.Str(required=True, validate=validate.Length(min=3, max=120))
+    email = fields.Str(required=False, validate=validate.Length(min=3, max=120))
+    username = fields.Str(required=False, validate=validate.Length(min=3, max=120))
     password = fields.Str(required=True)
     remember_me = fields.Bool(load_default=False)
     device_info = fields.Dict(load_default={})
@@ -55,7 +56,7 @@ class MFAVerifySchema(Schema):
 @enhanced_auth_bp.route('/login-enhanced', methods=['POST'])
 @enhanced_auth_bp.route('/login-enhanced/', methods=['POST'])
 @rate_limit(limit=5, window=300)  # 5 attempts per 5 minutes
-@sanitize_request_data()
+@sanitize_request_data({'email': 'text', 'username': 'text', 'password': 'text'})
 @security_headers()
 def enhanced_login():
     """Enhanced login with MFA and device tracking"""
@@ -63,6 +64,10 @@ def enhanced_login():
         schema = EnhancedLoginSchema()
         data = schema.load(request.json)
         
+        identifier = data.get('email') or data.get('username')
+        if not identifier:
+            return jsonify({'success': False, 'error': 'Email or username is required'}), 400
+
         # Get device information
         device_info = {
             'ip_address': request.remote_addr,
@@ -73,7 +78,7 @@ def enhanced_login():
         
         # Perform enhanced authentication
         result = EnhancedAuthService.authenticate_with_security(
-            email=data['email'],
+            email=identifier,
             password=data['password'],
             remember_me=data['remember_me'],
             device_info=device_info

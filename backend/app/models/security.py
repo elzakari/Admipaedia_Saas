@@ -78,7 +78,7 @@ class PasswordHistory(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     
     # Relationships
-    user = db.relationship('User', backref='password_history')
+    user = db.relationship('User', backref=db.backref('password_history', cascade='all, delete-orphan'))
     
     def __repr__(self):
         return f'<PasswordHistory for user {self.user_id} at {self.created_at}>'

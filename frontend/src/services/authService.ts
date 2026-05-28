@@ -17,7 +17,8 @@ export interface User {
 }
 
 export interface LoginCredentials {
-  email: string;
+  email?: string;
+  username?: string;
   password: string;
 }
 
@@ -49,8 +50,13 @@ export interface AuthResponse {
 }
 
 const authService = {
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    const credentials: LoginCredentials = { email, password };
+  login: async (identifier: string, password: string): Promise<AuthResponse> => {
+    const isEmail = identifier.includes('@');
+    const credentials: LoginCredentials = {
+      email: isEmail ? identifier : undefined,
+      username: isEmail ? undefined : identifier,
+      password
+    };
     const response = await api.post('/auth/login', credentials);
 
     if (response.data.access_token) {

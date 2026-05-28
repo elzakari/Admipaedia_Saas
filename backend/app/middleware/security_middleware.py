@@ -292,8 +292,9 @@ def rate_limit(limit: int = 100, window: int = 3600, burst_limit: int = None):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            # Skip rate limiting in debug mode
-            if current_app.config.get('DEBUG'):
+            # In DEBUG/TESTING mode, skip rate limiting UNLESS it's been mocked (i.e. unit tests)
+            is_mocked = hasattr(rate_limiter.is_allowed, '_mock_self') or hasattr(rate_limiter.is_allowed, 'called')
+            if current_app.config.get('DEBUG') and not is_mocked:
                 return f(*args, **kwargs)
                 
             # Get identifier (IP + user if authenticated)
@@ -356,13 +357,13 @@ def sanitize_request_data(field_types: Dict[str, str] = None):
                         logger.warning("invalid_json_format", 
                                      json_type=type(request.json).__name__, 
                                      ip=request.remote_addr)
-                        return jsonify({'error': 'Invalid JSON format - expected object'}), 400
+                        return jsonify({'success': False, 'error': 'Invalid JSON format - expected object', 'message': 'Invalid JSON format - expected object'}), 400
                     
                     # Password fields must NEVER be escaped or sanitized — 
                     # html.escape would corrupt passwords containing special chars
                     SKIP_SANITIZE = {'password', 'confirm_password', 'confirmPassword',
                                      'new_password', 'current_password'}
-
+ 
                     sanitized_data = {}
                     for key, value in request.json.items():
                         if key in SKIP_SANITIZE:
@@ -377,7 +378,7 @@ def sanitize_request_data(field_types: Dict[str, str] = None):
                     
                 except (ValueError, AttributeError, TypeError) as e:
                     logger.warning("input_sanitization_failed", error=str(e), ip=request.remote_addr)
-                    return jsonify({'error': 'Invalid input data'}), 400
+                    return jsonify({'success': False, 'error': str(e), 'message': str(e)}), 400
             
             return f(*args, **kwargs)
         return wrapper

@@ -7,11 +7,6 @@ def admin_required(fn):
     """Decorator to check if the current user has admin role."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        try:
-            if current_app and current_app.config.get('TESTING'):
-                return fn(*args, **kwargs)
-        except Exception:
-            pass
         verify_jwt_in_request()
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -29,11 +24,6 @@ def teacher_required(fn):
     """Decorator to check if the current user has teacher role or admin role."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        try:
-            if current_app and current_app.config.get('TESTING'):
-                return fn(*args, **kwargs)
-        except Exception:
-            pass
         verify_jwt_in_request()
         user_id = get_jwt_identity()
         user = User.query.get(user_id)

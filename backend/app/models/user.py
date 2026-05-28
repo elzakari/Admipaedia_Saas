@@ -142,7 +142,7 @@ class LoginHistory(db.Model):
     success = db.Column(db.Boolean, default=True, nullable=False)
     
     # Relationship
-    user = db.relationship('User', backref=db.backref('login_history', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('login_history', lazy='dynamic', cascade='all, delete-orphan'))
     
     def __repr__(self):
         return f'<LoginHistory {self.user_id} {self.login_timestamp}>'
