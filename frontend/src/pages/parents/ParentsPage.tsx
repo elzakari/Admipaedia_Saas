@@ -21,7 +21,7 @@ type ParentChild = any;
 type AcademicRecord = any;
 type AcademicSubject = any;
 
-const ALLOWED_TABS = ['dashboard', 'academics', 'attendance', 'fees', 'messages'];
+import { ALLOWED_TABS, STUDENT_TAB_CONFIG, DEFAULT_FALLBACK_METRICS } from "./parentConstants";
 
 // Import tab components
 import ParentChildProfile from "../../components/parents/ParentChildProfile";
