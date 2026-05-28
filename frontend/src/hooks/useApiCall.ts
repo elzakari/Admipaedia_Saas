@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLoadingState } from './useLoadingState';
 
 export interface UseApiCallOptions<T> {
@@ -30,14 +30,18 @@ export const useApiCall = <T>(
   const [data, setData] = useState<T | null>(null);
   const [lastFetch, setLastFetch] = useState<number | null>(null);
   
+  // Declare executeRef before useLoadingState to break circular TDZ
+  const executeRef = useRef<(() => Promise<T | null | undefined>) | null>(null);
+
   const loadingState = useLoadingState({
     maxRetries,
     retryDelay,
     onError,
-    onRetry: () => {
-      executeCall();
-    }
+    onRetry: () => executeRef.current?.()
   });
+
+  // Destructure stable methods from loadingState so they are safe to put in the useCallback dependency array
+  const { setLoading, clearError, setError: setLoadingError, reset: resetLoading, isRetrying } = loadingState;
 
   // Cache management
   const getCachedData = useCallback((): T | null => {
@@ -74,13 +78,13 @@ export const useApiCall = <T>(
   const executeCall = useCallback(async () => {
     // Check cache first
     const cachedData = getCachedData();
-    if (cachedData && !loadingState.isRetrying) {
+    if (cachedData && !isRetrying) {
       setData(cachedData);
       return cachedData;
     }
 
-    loadingState.setLoading(true);
-    loadingState.clearError();
+    setLoading(true);
+    clearError();
 
     try {
       const result = await apiFunction();
@@ -97,27 +101,32 @@ export const useApiCall = <T>(
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      loadingState.setError(errorMessage);
+      setLoadingError(errorMessage);
       
       if (!retryOnError) {
         throw error;
       }
     } finally {
-      loadingState.setLoading(false);
+      setLoading(false);
     }
-  }, [apiFunction, getCachedData, setCachedData, onSuccess, retryOnError, loadingState]);
+  }, [apiFunction, getCachedData, setCachedData, onSuccess, retryOnError, setLoading, clearError, setLoadingError, isRetrying]);
+
+  // Keep executeRef updated with the latest executeCall reference
+  useEffect(() => {
+    executeRef.current = executeCall;
+  }, [executeCall]);
 
   // Auto-execute on mount if immediate is true
   useEffect(() => {
     if (immediate) {
-      executeCall();
+      executeCall().catch(() => {});
     }
-  }, [immediate]);
+  }, [immediate, executeCall]);
 
   const refetch = useCallback(() => {
-    loadingState.reset();
+    resetLoading();
     return executeCall();
-  }, [executeCall, loadingState]);
+  }, [executeCall, resetLoading]);
 
   return {
     data,

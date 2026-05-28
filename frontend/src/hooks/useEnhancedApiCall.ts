@@ -67,6 +67,24 @@ export const useEnhancedApiCall = <T>(
     }
   }, [showErrorToast]);
 
+  // Declare executeRef before useLoadingState to break circular TDZ
+  const executeRef = useRef<(() => Promise<T | null | undefined>) | null>(null);
+
+  // Declare loadingState before executeCall callback
+  const loadingState = useLoadingState({
+    maxRetries,
+    retryDelay,
+    onError: (errorMsg) => {
+      const appError = ErrorHandler.createError('CLIENT' as any, errorMsg);
+      handleError(appError);
+    },
+    onRetry: () => executeRef.current?.()
+  });
+
+  // Destructure stable methods from loadingState for useCallback dependencies
+  const { setLoading, reset: resetLoading } = loadingState;
+
+  // Declare executeCall after loadingState
   const executeCall = useCallback(async () => {
     // Check cache first
     if (cacheKey) {
@@ -84,7 +102,7 @@ export const useEnhancedApiCall = <T>(
       }
     }
 
-    loadingState.setLoading(true);
+    setLoading(true);
     setError(null);
 
     try {
@@ -121,25 +139,20 @@ export const useEnhancedApiCall = <T>(
         throw appError;
       }
     } finally {
-      loadingState.setLoading(false);
+      setLoading(false);
     }
-  }, [cacheKey, cacheDuration, loadingState, handleError, showSuccessToast, successMessage, retryOnError]);
+  }, [cacheKey, cacheDuration, setLoading, handleError, showSuccessToast, successMessage, retryOnError]);
 
-  const loadingState = useLoadingState({
-    maxRetries,
-    retryDelay,
-    onError: (errorMsg) => {
-      const appError = ErrorHandler.createError('CLIENT' as any, errorMsg);
-      handleError(appError);
-    },
-    onRetry: () => executeCall()
-  });
+  // Keep executeRef updated with the latest executeCall reference
+  useEffect(() => {
+    executeRef.current = executeCall;
+  }, [executeCall]);
 
   const refetch = useCallback(() => {
-    loadingState.reset();
+    resetLoading();
     setError(null);
     return executeCall();
-  }, [executeCall, loadingState]);
+  }, [executeCall, resetLoading]);
 
   return {
     data,
