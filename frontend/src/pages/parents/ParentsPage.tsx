@@ -21,7 +21,20 @@ type ParentChild = any;
 type AcademicRecord = any;
 type AcademicSubject = any;
 
-import { ALLOWED_TABS, TELEMETRY_TABS, EMPTY_TELEMETRY_FALLBACK } from "./parentUtils";
+// Static constants inlined at module top-level to prevent Vite minifier TDZ circular reference errors
+const ALLOWED_TABS = ["dashboard", "academics", "attendance", "fees", "messages"];
+const TELEMETRY_TABS = [
+  { id: "dashboard", label: "Tableau de bord" },
+  { id: "academics", label: "Études" },
+  { id: "attendance", label: "Présence" },
+  { id: "fees", label: "Frais en attente" }
+];
+const EMPTY_TELEMETRY_FALLBACK = {
+  grade_average: 0,
+  attendance_rate: 0,
+  recent_grades: [] as any[],
+  recent_attendance: [] as any[]
+};
 
 // Import tab components
 import ParentChildProfile from "../../components/parents/ParentChildProfile";
