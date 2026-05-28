@@ -122,6 +122,31 @@ class TestEnhancedAuthService:
             
             assert result['success'] is False
             assert result['error'] == 'Invalid credentials'
+
+    def test_authenticate_case_insensitive_and_polymorphic(self, app, test_user):
+        """Test case-insensitive and polymorphic authentication"""
+        with app.app_context():
+            # 1. Test case-insensitive email login
+            result = EnhancedAuthService.authenticate_with_security(
+                email='TEST@EXAMPLE.COM',
+                password='TestPassword123!'
+            )
+            assert result['success'] is True
+
+            # 2. Test case-insensitive username login (polymorphic matching)
+            result_username = EnhancedAuthService.authenticate_with_security(
+                email='TESTUSER',
+                password='TestPassword123!'
+            )
+            assert result_username['success'] is True
+
+            # 3. Test dictionary input payload
+            payload = {'email': 'TeSt@ExAmPlE.cOm', 'password': 'TestPassword123!'}
+            result_dict = EnhancedAuthService.authenticate_with_security(
+                email=payload,
+                password='TestPassword123!'
+            )
+            assert result_dict['success'] is True
     
     @patch('pyotp.TOTP.verify')
     def test_verify_mfa_success(self, mock_verify, app, test_user):

@@ -118,10 +118,17 @@ class EnhancedAuthService:
         """
         Enhanced authentication with security checks and device tracking
         """
-        print(f"--- AUTH START: {email} ---")
+        # Extract the identity string from the input payload dictionary/string
+        data = email
+        if isinstance(data, dict):
+            identifier = (data.get('email') or data.get('username') or '').strip().lower()
+        else:
+            identifier = str(data or '').strip().lower()
+
+        print(f"--- AUTH START: {identifier} ---")
         try:
             # Check account lockout
-            is_locked, remaining_time = AccountSecurity.is_account_locked(email)
+            is_locked, remaining_time = AccountSecurity.is_account_locked(identifier)
             if is_locked:
                 print(f"--- AUTH FAILED: ACCOUNT LOCKED ---")
                 return {
@@ -130,9 +137,9 @@ class EnhancedAuthService:
                     'lockout_remaining': remaining_time
                 }
             
-            # Find user by email or username
+            # Find user by email or username (case-insensitive polymorphic match)
             print(f"--- DB: FIND USER ---")
-            user = User.query.filter((User.email == email) | (User.username == email)).first()
+            user = User.query.filter((db.func.lower(User.email) == identifier) | (db.func.lower(User.username) == identifier)).first()
             
             if user and not user.password_hash:
                 print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")
@@ -150,10 +157,10 @@ class EnhancedAuthService:
             print(f"--- AUTH: CHECK PASSWORD ---")
             if not user or not user.check_password_hash(password):
                 # Record failed attempt
-                AccountSecurity.record_failed_login(email, ip_address, user_agent)
+                AccountSecurity.record_failed_login(identifier, ip_address, user_agent)
                 print(f"--- AUTH FAILED: INVALID CREDENTIALS ---")
                 cls._log_security_event('failed_login_attempt', {
-                    'email': email,
+                    'email': identifier,
                     'ip_address': ip_address,
                     'reason': 'invalid_credentials'
                 })
@@ -163,7 +170,7 @@ class EnhancedAuthService:
             print(f"--- AUTH: CREDENTIALS OK ---")
             # Create successful login attempt record
             login_attempt = LoginAttempt(
-                identifier=email,
+                identifier=identifier,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 success=True,
@@ -200,7 +207,7 @@ class EnhancedAuthService:
                     }
             
             # Threat detection
-            threat_data = ThreatDetection.analyze_login_pattern(email, ip_address)
+            threat_data = ThreatDetection.analyze_login_pattern(identifier, ip_address)
             threat_score = 0.0
             if threat_data.get('risk_level') == 'high':
                 threat_score = 1.0
@@ -253,7 +260,7 @@ class EnhancedAuthService:
             tokens = cls._create_session_tokens(user, session_duration, device_info)
             
             # Clear failed attempts
-            AccountSecurity.clear_failed_attempts(email)
+            AccountSecurity.clear_failed_attempts(identifier)
             
             # Update user login info
             user.last_login = datetime.utcnow()
@@ -285,7 +292,7 @@ class EnhancedAuthService:
             
             print(f"--- AUTH: DB COMMIT ---")
             db.session.commit()
-            print(f"--- AUTH SUCCESS: {email} ---")
+            print(f"--- AUTH SUCCESS: {identifier} ---")
             
             cls._log_security_event('successful_login', {
                 'user_id': user.id,
