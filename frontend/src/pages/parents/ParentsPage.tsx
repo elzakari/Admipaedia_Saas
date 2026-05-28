@@ -21,7 +21,7 @@ type ParentChild = any;
 type AcademicRecord = any;
 type AcademicSubject = any;
 
-import { ALLOWED_TABS, STUDENT_TAB_CONFIG, DEFAULT_FALLBACK_METRICS } from "./parentConstants";
+import { ALLOWED_TABS, TELEMETRY_TABS, EMPTY_TELEMETRY_FALLBACK } from "./parentUtils";
 
 // Import tab components
 import ParentChildProfile from "../../components/parents/ParentChildProfile";
