@@ -27,19 +27,46 @@ class AdmissionApplicationSchema(Schema):
         return None
 
     def get_expected_username(self, obj):
-        clean_first = "".join(c for c in (obj.student_first_name or "") if c.isalnum()).lower()
-        clean_last = "".join(c for c in (obj.student_last_name or "") if c.isalnum()).lower()
-        if not clean_first and not clean_last:
-            clean_first = "student"
-        username = f"{clean_first}.{clean_last}" if clean_last else clean_first
+        if not obj.student_first_name:
+            return None
         
-        from app.models.user import User
-        base_username = username
-        counter = 1
-        while User.query.filter_by(username=username).first():
-            username = f"{base_username}{counter}"
-            counter += 1
-        return username
+        # 1. Normalize name inputs
+        import unicodedata
+        def sanitize(s):
+            if not s:
+                return ""
+            nfkd = unicodedata.normalize('NFKD', s)
+            only_ascii = nfkd.encode('ASCII', 'ignore').decode('ASCII')
+            return "".join(c for c in only_ascii if c.isalnum()).lower()
+            
+        clean_first = sanitize(obj.student_first_name)
+        clean_last = sanitize(obj.student_last_name)
+        last_initial = clean_last[0] if clean_last else "x"
+        
+        # 2. Get entry year
+        current_year = datetime.utcnow().year
+        yy = str(current_year)[-2:]
+        
+        # 3. Resolve tenant_id from target_class
+        tenant_id = None
+        if obj.target_class:
+            tenant_id = obj.target_class.tenant_id
+            
+        # 4. Resolve next serial sequence (read-only, do not increment)
+        if tenant_id:
+            from app.models.security import TenantCredentialCounter
+            counter = TenantCredentialCounter.query.filter_by(
+                tenant_id=tenant_id,
+                year=current_year
+            ).first()
+            current_serial = counter.current_serial if counter else 0
+            next_serial = current_serial + 1
+        else:
+            next_serial = obj.id or 1
+            
+        serial_padded = f"{next_serial:06d}"
+        
+        return f"{clean_first}{last_initial}{yy}{serial_padded}"
 
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)

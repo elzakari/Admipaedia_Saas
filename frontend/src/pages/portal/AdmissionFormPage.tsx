@@ -31,6 +31,17 @@ import {
   DialogDescription
 } from '../../components/ui/dialog';
 
+// 🌟 Refined Frontend Preview Generator
+const formatPreviewUsername = (firstName: string, lastName: string, serialNum: number) => {
+  const fnClean = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const lnInitial = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').charAt(0) || 'x';
+  
+  const yy = new Date().getFullYear().toString().slice(-2); // '26'
+  const serialPadded = String(serialNum).padStart(6, '0'); // '000010'
+  
+  return `${fnClean}${lnInitial}${yy}${serialPadded}`;
+};
+
 const AdmissionFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -487,7 +498,9 @@ const AdmissionFormPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Generated Username:</span>
                   <span className="font-mono font-semibold text-gray-900 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                    {application?.expected_username}
+                    {application?.student_first_name 
+                      ? formatPreviewUsername(application.student_first_name, application.student_last_name || '', application.id || 1)
+                      : (application?.expected_username || '---')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
