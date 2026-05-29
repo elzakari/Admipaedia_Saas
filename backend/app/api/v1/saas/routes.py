@@ -947,7 +947,9 @@ def patch_admission_status(form_id):
                 email=applicant_email,  # Enforces a non-null string value
                 password_hash=stub_hash,
                 role='student',
-                status='pending_activation',
+                status='active',
+                email_verified=True,
+                email_verified_at=datetime.utcnow(),
                 password_reset_token=token_hash,
                 password_reset_expires=datetime.utcnow() + timedelta(days=7)
             )
@@ -1002,7 +1004,7 @@ def patch_admission_status(form_id):
                 'class_id': classroom_id,
                 'gender': gender,
                 'date_of_birth': date_of_birth,
-                'status': 'pending_activation',
+                'status': 'active',
                 'email': applicant_email,
                 
                 # Unpack form_data mapping

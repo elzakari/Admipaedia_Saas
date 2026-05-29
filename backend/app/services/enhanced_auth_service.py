@@ -187,6 +187,17 @@ class EnhancedAuthService:
                 pass
 
             if not is_testing:
+                # Structured guard: account awaiting school-side activation
+                if user.status == 'pending_activation':
+                    print(f"--- AUTH FAILED: PENDING ACTIVATION ---")
+                    login_attempt.success = False
+                    db.session.commit()
+                    return {
+                        'success': False,
+                        'code': 'ACCOUNT_PENDING_ACTIVATION',
+                        'message': 'Please activate your account using the link sent by your school.'
+                    }
+
                 if user.status in ('pending_email_verification', 'pending_verification') or (not getattr(user, 'email_verified', False) and user.status != 'active'):
                     print(f"--- AUTH FAILED: EMAIL NOT VERIFIED ---")
                     login_attempt.success = False
@@ -198,10 +209,10 @@ class EnhancedAuthService:
 
                 if user.status != 'active':
                     print(f"--- AUTH FAILED: STATUS {user.status} ---")
-                    login_attempt.success = False # Mark as failed because of status
+                    login_attempt.success = False
                     db.session.commit()
                     return {
-                        'success': False, 
+                        'success': False,
                         'error': f'Account is {user.status}',
                         'requires_verification': user.status == 'pending_verification'
                     }
