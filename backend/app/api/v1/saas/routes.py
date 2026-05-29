@@ -902,11 +902,11 @@ def patch_admission_status(form_id):
             if isinstance(form_dict, dict):
                 applicant_email = form_dict.get('student_email') or form_dict.get('email')
 
-        first_name_str = getattr(application, 'first_name', None) or application.student_first_name or "student"
-        last_name_str = getattr(application, 'last_name', None) or application.student_last_name or "user"
-        generated_username = f"{first_name_str.lower().strip()}.{last_name_str.lower().strip()}"
-        # Replace any spaces or illegal characters
-        generated_username = "".join(c for c in generated_username if c.isalnum() or c in ['.', '_', '-'])
+        # Generate unique admission number first to synchronize YY and serial_padded
+        from app.models.student import Student
+        adm_no = Student.generate_admission_number(tenant_id=tenant_id)
+        yy = adm_no[-8:-6]
+        serial_padded = adm_no[-6:]
 
         if not applicant_email or not applicant_email.strip():
             # Use admission ID as anchor — guaranteed globally unique (PK), collision-proof
@@ -922,14 +922,23 @@ def patch_admission_status(form_id):
                                'Please verify the applicant details or link to the existing account.'
                 }), 409
 
-        username_base = getattr(application, 'username', None) or generated_username
-        username = username_base
-        from app.models.user import User
-        base_username = username
-        counter = 1
-        while User.query.filter_by(username=username).first():
-            username = f"{base_username}{counter}"
-            counter += 1
+        # Sanitize student names for username using new alphanumeric pattern
+        import unicodedata
+        def sanitize_and_clean_accents(s: str) -> str:
+            if not s:
+                return ""
+            nfkd_form = unicodedata.normalize('NFKD', s)
+            only_ascii = nfkd_form.encode('ASCII', 'ignore').decode('ASCII')
+            return only_ascii
+
+        clean_first = sanitize_and_clean_accents(application.student_first_name or "student")
+        clean_first = "".join(c for c in clean_first if c.isalnum()).lower()
+        
+        clean_last = sanitize_and_clean_accents(application.student_last_name or "user")
+        clean_last = "".join(c for c in clean_last if c.isalnum()).lower()
+        last_initial = clean_last[0] if clean_last else "x"
+        
+        username = f"{clean_first}{last_initial}{yy}{serial_padded}"
 
         # Generate activation token
         import secrets
@@ -998,6 +1007,7 @@ def patch_admission_status(form_id):
             student_payload = {
                 'tenant_id': tenant_id,
                 'user_id': student_user.id,
+                'admission_number': adm_no,
                 'first_name': application.student_first_name or "",
                 'last_name': application.student_last_name or "",
                 'parent_id': parent_id,

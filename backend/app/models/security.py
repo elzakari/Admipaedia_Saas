@@ -315,3 +315,33 @@ class SchoolRegistrationToken(db.Model):
     def mark_as_used(self):
         self.is_used = True
         self.used_at = datetime.utcnow()
+
+
+class TenantCredentialCounter(db.Model):
+    """Atomic counter to prevent race conditions during parallel credential generation"""
+    __tablename__ = 'tenant_credential_counters'
+    
+    tenant_id = db.Column(db.String(36), primary_key=True)
+    year = db.Column(db.Integer, primary_key=True)
+    last_value = db.Column(db.Integer, default=0, nullable=False)
+    
+    @classmethod
+    def get_next_serial(cls, tenant_id, year: int) -> int:
+        tenant_str = str(tenant_id)
+        # 1. Lock row using SELECT FOR UPDATE
+        counter = cls.query.filter_by(tenant_id=tenant_str, year=year).with_for_update().first()
+        if not counter:
+            # Row doesn't exist, create it.
+            # To handle concurrency, try-except integrity errors during initial insert
+            counter = cls(tenant_id=tenant_str, year=year, last_value=0)
+            db.session.add(counter)
+            try:
+                db.session.flush()
+            except Exception:
+                db.session.rollback()
+                counter = cls.query.filter_by(tenant_id=tenant_str, year=year).with_for_update().first()
+                
+        counter.last_value += 1
+        db.session.add(counter)
+        db.session.flush()
+        return counter.last_value

@@ -68,6 +68,31 @@ class AdmissionService:
                 app_tenant_id = parent.tenant_id
                 app_branch_id = target_class.branch_id if target_class else None
                 
+                # Generate unique admission number first
+                adm_no = Student.generate_admission_number(tenant_id=app_tenant_id)
+                
+                # Extrapolate YY and serial_padded from the generated admission number
+                yy = adm_no[-8:-6]
+                serial_padded = adm_no[-6:]
+                
+                # Sanitize student names for username using new alphanumeric pattern
+                import unicodedata
+                def sanitize_and_clean_accents(s: str) -> str:
+                    if not s:
+                        return ""
+                    nfkd_form = unicodedata.normalize('NFKD', s)
+                    only_ascii = nfkd_form.encode('ASCII', 'ignore').decode('ASCII')
+                    return only_ascii
+
+                clean_first = sanitize_and_clean_accents(application.student_first_name or "student")
+                clean_first = "".join(c for c in clean_first if c.isalnum()).lower()
+                
+                clean_last = sanitize_and_clean_accents(application.student_last_name or "user")
+                clean_last = "".join(c for c in clean_last if c.isalnum()).lower()
+                last_initial = clean_last[0] if clean_last else "x"
+                
+                safe_username = f"{clean_first}{last_initial}{yy}{serial_padded}"
+
                 # Provision User account for the student
                 # Extract email or generate a fallback
                 form_data = application.form_data or {}
@@ -79,9 +104,6 @@ class AdmissionService:
                 existing_user = User.query.filter_by(email=student_email).first()
                 if existing_user:
                     student_email = f"student_{application.id}_{secrets.token_hex(6)}@example.com"
-                    
-                # Safe unique username
-                safe_username = f"student_{application.id}_{secrets.token_hex(4)}"
                 
                 stub_hash = generate_password_hash(secrets.token_urlsafe(32))
                 user = User(
@@ -119,9 +141,6 @@ class AdmissionService:
                 if not dob:
                     dob = date(2015, 1, 1) # Default fallback DOB
                     
-                # Generate unique admission number
-                adm_no = Student.generate_admission_number(tenant_id=app_tenant_id)
-                
                 student = Student(
                     tenant_id=app_tenant_id,
                     branch_id=app_branch_id,

@@ -101,29 +101,42 @@ class Student(db.Model):
     attendances = db.relationship('Attendance', back_populates='student', cascade='all, delete-orphan', passive_deletes=True)
     
     @staticmethod
-    def generate_admission_number(tenant_id: uuid.UUID = None):
-        """Generate unique admission number in format ADM-YYYY-XXXXX"""
+    def generate_admission_number(tenant_id=None):
+        """Generate unique admission number in format ADM + [3-initials] + [YY] + [6-digit padded serial]"""
         current_year = datetime.now().year
-        
-        # Find the highest serial number for current year
-        prefix = f"ADM-{current_year}-"
-        query = Student.query.filter(Student.admission_number.like(f"{prefix}%"))
-        if tenant_id is not None:
-            query = query.filter(Student.tenant_id == tenant_id)
-        latest_student = query.order_by(Student.admission_number.desc()).first()
-        
-        if latest_student:
-            # Extract serial number from latest admission number
-            try:
-                serial_part = latest_student.admission_number.split('-')[-1]
-                next_serial = int(serial_part) + 1
-            except (ValueError, IndexError):
-                next_serial = 1
+        yy = str(current_year)[-2:]
+
+        if not tenant_id:
+            tenant_initials = "GHS"
+            return f"ADM{tenant_initials}{yy}000001"
+
+        from app.models.tenant import Tenant
+        tenant_rec = Tenant.query.get(tenant_id)
+        tenant_name = tenant_rec.name if tenant_rec else "Sync School"
+
+        # Decompose accents and spaces
+        import unicodedata
+        nfkd_form = unicodedata.normalize('NFKD', tenant_name)
+        only_ascii = nfkd_form.encode('ASCII', 'ignore').decode('ASCII')
+        letters_only = "".join(c for c in only_ascii if c.isalpha() or c.isspace())
+        words = [w for w in letters_only.split() if w]
+        if len(words) >= 3:
+            tenant_initials = "".join(w[0] for w in words[:3])
+        elif len(words) == 2:
+            tenant_initials = words[0][0] + words[1][:2]
+        elif len(words) == 1:
+            tenant_initials = words[0][:3]
         else:
-            next_serial = 1
-        
-        # Format with 5 digits
-        return f"ADM-{current_year}-{next_serial:05d}"
+            tenant_initials = "XXX"
+        tenant_initials = tenant_initials.upper()
+        if len(tenant_initials) < 3:
+            tenant_initials = (tenant_initials + "XXX")[:3]
+
+        from app.models.security import TenantCredentialCounter
+        next_serial = TenantCredentialCounter.get_next_serial(tenant_id, current_year)
+        serial_padded = f"{next_serial:06d}"
+
+        return f"ADM{tenant_initials}{yy}{serial_padded}"
     
     def __repr__(self):
         return f'<Student {self.admission_number}: {self.display_name}>'
