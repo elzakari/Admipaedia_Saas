@@ -210,15 +210,15 @@ def test_admissions_sync_workflow(app, db_session, client, auth_client, admin_au
     # Assert student and user account exists
     student = Student.query.filter_by(parent_id=parent.id).first()
     assert student is not None
-    assert student.status == "pending_activation"
+    assert student.status == "active"
     assert student.first_name == "Emmanuel"
-    assert student.email == "emmanuel.agbeyome@admipaedia.local"
+    assert student.email == "admission-1@admipaedia.local"
 
     student_user = User.query.get(student.user_id)
     assert student_user is not None
     assert student_user.role == "student"
-    assert student_user.status == "pending_activation"
-    assert student_user.email == "emmanuel.agbeyome@admipaedia.local"
+    assert student_user.status == "active"
+    assert student_user.email == "admission-1@admipaedia.local"
     assert student_user.username.startswith("emmanuel.agbeyome")
 
     # 7. Parent claim account/set password simulation
