@@ -906,7 +906,14 @@ def patch_admission_status(form_id):
         from app.models.student import Student
         adm_no = Student.generate_admission_number(tenant_id=tenant_id)
         yy = adm_no[-8:-6]
-        serial_padded = adm_no[-6:]
+        
+        # Defensive counter initialization for username generation
+        from app.models.security import TenantCredentialCounter
+        current_year = datetime.utcnow().year
+        tenant_str = str(tenant_id)
+        counter = TenantCredentialCounter.query.filter_by(tenant_id=tenant_str, year=current_year).first()
+        current_serial = counter.last_value if counter else 0
+        serial_padded = f"{current_serial:06d}"
 
         if not applicant_email or not applicant_email.strip():
             # Use admission ID as anchor — guaranteed globally unique (PK), collision-proof
