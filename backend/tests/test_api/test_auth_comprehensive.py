@@ -531,3 +531,41 @@ class TestAuthenticationIntegration:
         final_response = client.get('/api/v1/auth/me',
                                   headers={'Authorization': f'Bearer {access_token}'})
         assert final_response.status_code == 401
+
+    def test_immediate_login_post_approval(self, client, db):
+        """
+        Verify that student accounts promoted directly to active immediately after approval
+        can authenticate without waiting for any activation workflow.
+        """
+        # 1. Setup a student user mimicking direct activation on approval
+        import uuid
+        from werkzeug.security import generate_password_hash
+        
+        username = f"directstudent_{uuid.uuid4().hex[:6]}"
+        email = f"{username}@admipaedia.local"
+        password = "SecureStudentPass123!"
+        
+        student_user = User(
+            username=username,
+            email=email,
+            role='student',
+            status='active',
+            email_verified=True
+        )
+        student_user.set_password(password)
+        db.session.add(student_user)
+        db.session.commit()
+
+        # 2. Log in directly
+        login_resp = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": username,
+                "password": password
+            }
+        )
+        assert login_resp.status_code == 200
+        data = login_resp.get_json()
+        assert data["success"] is True
+        assert "access_token" in data
+        assert data["user"]["username"] == username
