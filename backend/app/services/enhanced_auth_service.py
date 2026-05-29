@@ -118,12 +118,9 @@ class EnhancedAuthService:
         """
         Enhanced authentication with security checks and device tracking
         """
-        # Extract the identity string from the input payload dictionary/string
-        data = email
-        if isinstance(data, dict):
-            identifier = (data.get('email') or data.get('username') or '').strip().lower()
-        else:
-            identifier = str(data or '').strip().lower()
+        if isinstance(email, dict):
+            email = email.get('email') or email.get('username')
+        identifier = str(email or '').strip().lower()
 
         print(f"--- AUTH START: {identifier} ---")
         try:

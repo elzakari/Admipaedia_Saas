@@ -1,3 +1,4 @@
+from datetime import datetime
 from marshmallow import Schema, fields, validate
 
 class AdmissionApplicationSchema(Schema):
@@ -56,10 +57,10 @@ class AdmissionApplicationSchema(Schema):
         if tenant_id:
             from app.models.security import TenantCredentialCounter
             counter = TenantCredentialCounter.query.filter_by(
-                tenant_id=tenant_id,
+                tenant_id=str(tenant_id),
                 year=current_year
             ).first()
-            current_serial = counter.current_serial if counter else 0
+            current_serial = counter.last_value if counter else 0
             next_serial = current_serial + 1
         else:
             next_serial = obj.id or 1

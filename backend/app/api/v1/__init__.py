@@ -157,6 +157,50 @@ api_v1_bp.add_url_rule('/admin/users', 'admin_list_users', _admin_list_users, me
 from app.api.v1.super_admin.routes import super_admin_force_purge_user
 api_v1_bp.add_url_rule('/superadmin/users/<int:user_id>/force-purge', 'super_admin_force_purge_user_non_hyphen', super_admin_force_purge_user, methods=['POST', 'DELETE'])
 
+# Issue 8: Register error logging route /errors
+from flask import request as _request
+import logging as _logging
+
+_logger = _logging.getLogger('frontend_errors')
+
+def _sanitize_telemetry_payload(data):
+    if not isinstance(data, dict):
+        return data
+    
+    sensitive_keys = {
+        'token', 'password', 'auth', 'authorization', 'jwt', 'credential',
+        'secret', 'key', 'email', 'username', 'phone', 'session', 'cookie',
+        'headers', 'access_token', 'refresh_token', 'bearer', 'signature'
+    }
+    
+    sanitized = {}
+    for k, v in data.items():
+        if str(k).lower() in sensitive_keys:
+            continue
+        if isinstance(v, dict):
+            sanitized[k] = _sanitize_telemetry_payload(v)
+        elif isinstance(v, list):
+            sanitized[k] = [_sanitize_telemetry_payload(item) if isinstance(item, dict) else item for item in v]
+        else:
+            sanitized[k] = v
+    return sanitized
+
+def _ingest_errors():
+    try:
+        payload = _request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            payload = {"raw_data": str(payload)}
+    except Exception:
+        payload = {}
+    
+    sanitized_payload = _sanitize_telemetry_payload(payload)
+    error_msg = sanitized_payload.get('message') or sanitized_payload.get('error') or "Telemetry error captured"
+    _logger.error(f"Frontend diagnostic log captured: {error_msg} | Payload: {sanitized_payload}")
+    return _jsonify({'success': True}), 202
+
+api_v1_bp.add_url_rule('/errors', 'ingest_errors', _ingest_errors, methods=['POST'])
+
+
 
 def register_blueprints(app):
     """Register all API blueprints."""
