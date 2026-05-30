@@ -89,6 +89,14 @@ class User(db.Model):
             except Exception:
                 pass
 
+    @property
+    def password(self):
+        raise AttributeError('password is not a readable attribute')
+
+    @password.setter
+    def password(self, password):
+        self.set_password_hash(password)
+
     def set_password_hash(self, password):
         """Set the password hash for the user."""
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')

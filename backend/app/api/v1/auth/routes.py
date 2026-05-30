@@ -887,7 +887,7 @@ def claim_account():
             return jsonify({"success": False, "error": "Invalid or expired activation link"}), 400
             
         # Overwrite default null password credentials
-        user.set_password(new_password)
+        user.password = new_password
         user.password_changed_at = datetime.utcnow()
         
         # Transition profiles active status flags

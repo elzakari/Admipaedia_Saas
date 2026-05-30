@@ -326,7 +326,7 @@ def public_register_with_invitation(invite_id: str):
                 return jsonify({'success': False, 'message': 'First name and last name are required for teacher accounts'}), 400
 
         user = User(username=username, email=email, role=role)
-        user.set_password_hash(password)
+        user.password = password
         db.session.add(user)
         db.session.flush()
 
