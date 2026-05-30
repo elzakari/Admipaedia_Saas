@@ -302,13 +302,13 @@ def review_application(id):
                     counter += 1
                 
                 import secrets
-                from werkzeug.security import generate_password_hash
+                from app.extensions import bcrypt
                 import hashlib
                 from datetime import timedelta
                 
                 raw_token = secrets.token_urlsafe(32)
                 token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
-                stub_hash = generate_password_hash(secrets.token_urlsafe(32))
+                stub_hash = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode('utf-8')
                 
                 student_user = User(
                     username=username,
