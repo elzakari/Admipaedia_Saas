@@ -957,6 +957,9 @@ def patch_admission_status(form_id):
         stub_hash = generate_password_hash(secrets.token_urlsafe(32))
 
         try:
+            # Extract profile picture path
+            app_picture = getattr(application, 'profile_picture', None)
+
             # Now safely construct the user model record
             student_user = User(
                 username=username,
@@ -967,8 +970,10 @@ def patch_admission_status(form_id):
                 email_verified=True,
                 email_verified_at=datetime.utcnow(),
                 password_reset_token=token_hash,
-                password_reset_expires=datetime.utcnow() + timedelta(days=7)
+                password_reset_expires=datetime.utcnow() + timedelta(days=7),
+                profile_picture=app_picture
             )
+            student_user.profile_picture = app_picture
             db.session.add(student_user)
             db.session.flush()
 
@@ -1028,6 +1033,7 @@ def patch_admission_status(form_id):
                 'date_of_birth': date_of_birth,
                 'status': 'active',
                 'email': applicant_email,
+                'profile_picture': app_picture,
                 
                 # Unpack form_data mapping
                 'address': address_val,
