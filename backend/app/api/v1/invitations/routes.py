@@ -325,8 +325,9 @@ def public_register_with_invitation(invite_id: str):
             if not first_name or not last_name:
                 return jsonify({'success': False, 'message': 'First name and last name are required for teacher accounts'}), 400
 
+        from app import bcrypt
         user = User(username=username, email=email, role=role)
-        user.password = password
+        user.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
         db.session.add(user)
         db.session.flush()
 
