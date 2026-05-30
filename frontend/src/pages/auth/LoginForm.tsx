@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnhancedApiError } from '../../hooks/useEnhancedApiError';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import api from '@/lib/api';
 
 interface LoginFormProps {
@@ -18,18 +18,21 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
   
   const { login } = useAuth();
   const navigate = useNavigate();
   const { handleApiError } = useEnhancedApiError();
   const { t } = useTranslation();
 
-  const cooldownSecondsLeft = useMemo(() => {
-    if (!cooldownUntil) return 0;
-    const diffMs = cooldownUntil - Date.now();
-    return diffMs > 0 ? Math.ceil(diffMs / 1000) : 0;
-  }, [cooldownUntil]);
+  // countdown timer mechanics
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const useSeedAdmin = () => {
     setEmail('admin@admipaedia.com');
@@ -61,7 +64,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (cooldownSecondsLeft > 0) {
+    if (cooldownSeconds > 0) {
       toast.warning(t('auth.too_many_attempts', 'Too many login attempts. Please wait before trying again.'), {
         duration: 4000
       });
@@ -96,15 +99,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         redirectOnAuth: false
       });
 
-      const nextAttempts = failedAttempts + 1;
-      setFailedAttempts(nextAttempts);
-
-      if (nextAttempts >= 3) {
-        setCooldownUntil(Date.now() + 30_000);
-        toast.warning(t('auth.multiple_failed_attempts', 'Multiple Failed Attempts'), {
-          description: t('auth.security_wait', 'For security, please wait before trying again.'),
-          duration: 10000
+      const status = err?.response?.status;
+      if (status === 429) {
+        const retryAfter = err?.response?.data?.retry_after || 60;
+        setCooldownSeconds(retryAfter);
+        toast.error(t('auth.too_many_attempts', 'Too many login attempts.'), {
+          description: t('auth.security_wait_seconds', 'For security, please wait {{seconds}}s.', { seconds: retryAfter }),
+          duration: 6000
         });
+      } else {
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
+
+        if (nextAttempts >= 3) {
+          setCooldownSeconds(30);
+          toast.warning(t('auth.multiple_failed_attempts', 'Multiple Failed Attempts'), {
+            description: t('auth.security_wait', 'For security, please wait before trying again.'),
+            duration: 10000
+          });
+        }
       }
     } finally {
       setIsLoading(false);
@@ -121,7 +134,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     if (status === 429) {
       return t('auth.too_many_attempts', 'Too many login attempts. Please wait before trying again.');
     }
-    if (status >= 500) {
+    if (status === 500 || status > 500) {
       return t('auth.server_unavailable', 'Server is temporarily unavailable. Please try again later.');
     }
     if (error.code === 'NETWORK_ERROR') {
@@ -144,7 +157,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          disabled={isLoading}
+          disabled={isLoading || cooldownSeconds > 0}
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
@@ -160,8 +173,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           </label>
           <button
             type="button"
-            className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
+            className="text-sm font-semibold text-indigo-700 hover:text-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => navigate('/forgot-password')}
+            disabled={isLoading || cooldownSeconds > 0}
           >
             {t('auth.forgot_password', 'Forgot password?')}
           </button>
@@ -174,7 +188,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            disabled={isLoading}
+            disabled={isLoading || cooldownSeconds > 0}
             autoComplete="current-password"
             className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder={t('auth.password_placeholder', 'Enter your password')}
@@ -183,7 +197,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             type="button"
             className="absolute inset-y-0 right-0 pr-3 flex items-center"
             onClick={() => setShowPassword(!showPassword)}
-            disabled={isLoading}
+            disabled={isLoading || cooldownSeconds > 0}
             aria-label={showPassword ? t('auth.hide_password', 'Hide password') : t('auth.show_password', 'Show password')}
           >
             {showPassword ? (
@@ -198,7 +212,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       <div>
         <button
           type="submit"
-          disabled={isLoading || !email || !password || cooldownSecondsLeft > 0}
+          disabled={isLoading || !email || !password || cooldownSeconds > 0}
           className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {isLoading ? (
@@ -212,29 +226,35 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         </button>
       </div>
 
-      {cooldownSecondsLeft > 0 ? (
-        <div className="text-center text-xs text-slate-600">
-          {t('auth.cooldown', 'Please wait {{seconds}}s before trying again.', { seconds: cooldownSecondsLeft })}
+      {cooldownSeconds > 0 ? (
+        <div className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm animate-pulse">
+          <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <span className="font-semibold">{t('auth.rate_limited_title', 'Rate Limit Active')}</span>
+            <p className="text-xs text-amber-700/90 mt-0.5">
+              {t('auth.cooldown', 'Please wait {{seconds}}s before trying again.', { seconds: cooldownSeconds })}
+            </p>
+          </div>
         </div>
       ) : null}
 
       {allowDevSeedHelpers ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={useSeedAdmin} className="underline hover:text-indigo-700" disabled={isLoading}>
+            <button type="button" onClick={useSeedAdmin} className="underline hover:text-indigo-700" disabled={isLoading || cooldownSeconds > 0}>
               {t('auth.use_admin_seed', 'Use Admin seed')}
             </button>
-            <button type="button" onClick={useSeedSuperAdmin} className="underline hover:text-indigo-700" disabled={isLoading}>
+            <button type="button" onClick={useSeedSuperAdmin} className="underline hover:text-indigo-700" disabled={isLoading || cooldownSeconds > 0}>
               {t('auth.use_super_admin_seed', 'Use Super Admin seed')}
             </button>
           </div>
-          <button type="button" onClick={bootstrapDevAccounts} className="underline hover:text-indigo-700" disabled={isLoading}>
+          <button type="button" onClick={bootstrapDevAccounts} className="underline hover:text-indigo-700" disabled={isLoading || cooldownSeconds > 0}>
             {t('auth.init_demo_accounts', 'Initialize demo accounts')}
           </button>
         </div>
       ) : null}
       
-      {failedAttempts > 0 && (
+      {failedAttempts > 0 && cooldownSeconds <= 0 && (
         <div className="text-center text-sm text-gray-600">
           {t('auth.attempt_of', 'Attempt {{current}} of {{total}}', { current: Math.min(failedAttempts + 1, 3), total: 3 })}
         </div>
