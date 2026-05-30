@@ -929,6 +929,11 @@ def patch_admission_status(form_id):
                                'Please verify the applicant details or link to the existing account.'
                 }), 409
 
+        # 🌟 Standardize data extractions from the application record object
+        first_name_val = getattr(application, 'student_first_name', None) or getattr(application, 'first_name', '')
+        last_name_val = getattr(application, 'student_last_name', None) or getattr(application, 'last_name', '')
+        dob_val = getattr(application, 'student_date_of_birth', None) or getattr(application, 'date_of_birth', None)
+
         # Sanitize student names for username using new alphanumeric pattern
         import unicodedata
         def sanitize_and_clean_accents(s: str) -> str:
@@ -938,10 +943,10 @@ def patch_admission_status(form_id):
             only_ascii = nfkd_form.encode('ASCII', 'ignore').decode('ASCII')
             return only_ascii
 
-        clean_first = sanitize_and_clean_accents(application.student_first_name or "student")
+        clean_first = sanitize_and_clean_accents(first_name_val or "student")
         clean_first = "".join(c for c in clean_first if c.isalnum()).lower()
         
-        clean_last = sanitize_and_clean_accents(application.student_last_name or "user")
+        clean_last = sanitize_and_clean_accents(last_name_val or "user")
         clean_last = "".join(c for c in clean_last if c.isalnum()).lower()
         last_initial = clean_last[0] if clean_last else "x"
         
@@ -988,7 +993,7 @@ def patch_admission_status(form_id):
                 form_data = {}
 
             # Resolve dob and gender
-            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
+            dob_raw = dob_val or form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
             if isinstance(dob_raw, str):
                 try:
                     date_of_birth = datetime.strptime(dob_raw.split('T')[0], '%Y-%m-%d').date()
@@ -1025,8 +1030,8 @@ def patch_admission_status(form_id):
                 'tenant_id': tenant_id,
                 'user_id': student_user.id,
                 'admission_number': adm_no,
-                'first_name': application.student_first_name or "",
-                'last_name': application.student_last_name or "",
+                'first_name': first_name_val or "",
+                'last_name': last_name_val or "",
                 'parent_id': parent_id,
                 'class_id': classroom_id,
                 'gender': gender,
