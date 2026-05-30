@@ -52,7 +52,9 @@ class StudentService:
         query = Student.query.options(
             joinedload(Student.user),
             joinedload(Student.attendances),
-            joinedload(Student.grades)
+            joinedload(Student.grades),
+            joinedload(Student.parent),
+            joinedload(Student.class_)
         )
 
         if tenant_id is not None and hasattr(Student, 'tenant_id'):
