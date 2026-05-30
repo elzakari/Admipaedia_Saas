@@ -992,6 +992,11 @@ def patch_admission_status(form_id):
             else:
                 date_of_birth = dob_raw
 
+            # 🌟 Defensive Validation Fallback Patch
+            from datetime import date
+            if not date_of_birth:
+                date_of_birth = date(datetime.utcnow().year, 1, 1)
+
             gender = str(form_data.get('gender') or 'female').lower()
             if gender in ('m', 'male'):
                 gender = 'male'
