@@ -54,26 +54,9 @@ def before_compile_query(query):
 migrate = Migrate()
 jwt = JWTManager()
 
-try:
-    from flask_bcrypt import Bcrypt as _Bcrypt
-    bcrypt = _Bcrypt()
-except Exception:
-    from werkzeug.security import generate_password_hash as _generate_password_hash
-    from werkzeug.security import check_password_hash as _check_password_hash
+from flask_bcrypt import Bcrypt
 
-    class _WerkzeugBcrypt:
-        def init_app(self, app):
-            return None
-
-        def generate_password_hash(self, password, rounds=None):
-            return _generate_password_hash(password).encode('utf-8')
-
-        def check_password_hash(self, pw_hash, password):
-            if isinstance(pw_hash, (bytes, bytearray)):
-                pw_hash = pw_hash.decode('utf-8')
-            return bool(_check_password_hash(pw_hash, password))
-
-    bcrypt = _WerkzeugBcrypt()
+bcrypt = Bcrypt()
 cors = CORS()
 mail = Mail()
 babel = Babel()
