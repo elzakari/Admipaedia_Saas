@@ -1,9 +1,8 @@
 import secrets
-from werkzeug.security import generate_password_hash
 import hashlib
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional
-from app.extensions import db
+from app.extensions import db, bcrypt
 from app.models.admission import AdmissionApplication
 from app.models.student import Student
 from app.models.user import User
@@ -105,7 +104,7 @@ class AdmissionService:
                 if existing_user:
                     student_email = f"student_{application.id}_{secrets.token_hex(6)}@example.com"
                 
-                stub_hash = generate_password_hash(secrets.token_urlsafe(32))
+                stub_hash = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode('utf-8')
                 user = User(
                     username=safe_username,
                     email=student_email,
