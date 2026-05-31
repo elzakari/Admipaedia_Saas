@@ -16,6 +16,7 @@ webargs==8.3.0
 
 # Security
 bcrypt>=4.1.0  # Upgraded for 3.11 support
+Flask-Bcrypt==1.0.1
 PyJWT==2.8.0
 bleach==6.1.0  # HTML sanitization
 flask-limiter==3.5.0  # Rate limiting
@@ -29,7 +30,7 @@ structlog==23.2.0
 python-dateutil==2.8.2
 pytz==2024.1
 email-validator==2.1.0
-requests==2.31.0  # For breach checking API
+requests==2.31.0  # For breach checking API
 urllib3==2.0.7
 charset-normalizer==3.3.2
 chardet==5.2.0
