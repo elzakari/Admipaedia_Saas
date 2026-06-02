@@ -17,12 +17,39 @@ def _parse_uuid(value: str) -> Optional[uuid.UUID]:
 
 
 def _get_requested_tenant_id() -> Optional[uuid.UUID]:
+    # 1. Primary check: Extract from custom proxy headers
     header_value = request.headers.get('X-Tenant-ID') or request.headers.get('X-Tenant-Id')
     if header_value:
         return _parse_uuid(header_value.strip())
+
+    # 2. Secondary check: Extract from raw URL query parameters
     qp_value = request.args.get('tenant_id') or request.args.get('tenantId')
     if qp_value:
         return _parse_uuid(str(qp_value).strip())
+
+    # 3. Root Level Fallback: Contextual lookup via token identity data tables
+    try:
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+        if user_id is not None:
+            user = User.query.get(user_id)
+            if user:
+                # Direct lookup if user is a teacher
+                if user.role == 'teacher':
+                    from app.models import Teacher
+                    profile = Teacher.query.filter_by(user_id=user.id).first()
+                    if profile and profile.tenant_id:
+                        return _parse_uuid(profile.tenant_id)
+                
+                # Direct lookup if user is a student
+                elif user.role == 'student':
+                    from app.models import Student
+                    profile = Student.query.filter_by(user_id=user.id).first()
+                    if profile and profile.tenant_id:
+                        return _parse_uuid(profile.tenant_id)
+    except Exception:
+        pass
+
     return None
 
 
@@ -68,7 +95,7 @@ def tenant_required(fn):
             return jsonify({'success': False, 'message': err}), 400 if err == 'Tenant context required' else 403
         g.tenant_id = tenant_id
         g.current_user = user
-        
+
         # Parse X-Branch-ID header contextually
         branch_id_val = request.headers.get('X-Branch-ID') or request.headers.get('X-Branch-Id')
         if branch_id_val:
@@ -82,4 +109,3 @@ def tenant_required(fn):
         return fn(*args, **kwargs)
 
     return wrapper
-
