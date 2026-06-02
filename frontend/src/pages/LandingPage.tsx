@@ -350,22 +350,20 @@ const LandingPage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 1 }}
-                className="inline-block group relative bg-gradient-to-b from-white/30 to-white/10 
+                className="inline-block group relative bg-gradient-to-b from-indigo-500/20 to-indigo-600/20 
                           p-px rounded-xl backdrop-blur-lg overflow-hidden shadow-lg hover:shadow-xl 
                           transition-shadow duration-300"
               >
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full px-6 py-3 bg-white text-indigo-600 font-medium rounded-xl shadow-md 
-                           hover:bg-gray-50 focus:outline-none group-hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl shadow-md 
+                           hover:bg-indigo-700 focus:outline-none group-hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
                   onClick={() => setShowRegisterModal(true)}
                 >
                   <UserPlus size={18} />
                   <span className="opacity-90 group-hover:opacity-100 transition-opacity">{t('landing.actions.register', 'Register')}</span>
-                  <span className="ml-2 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
-                    →
-                  </span>
+                  <ChevronDown size={16} className="ml-1 opacity-70 group-hover:opacity-100 transition-opacity" />
                 </motion.button>
               </motion.div>
             </div>
