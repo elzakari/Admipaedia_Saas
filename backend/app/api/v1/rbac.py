@@ -12,7 +12,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.rbac import (
     RBACRole, RBACPermission, UserRoleAssignment, PermissionGrant,
-    AccessControlList, ResourceType, PermissionType, SubjectType
+    AccessControlList, ResourceType, PermissionType
 )
 from app.services.rbac_service import RBACService
 from app.utils.rbac_decorators import require_permission, require_role, audit_access
