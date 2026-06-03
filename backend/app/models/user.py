@@ -118,6 +118,14 @@ class User(db.Model):
     def check_password(self, password):
         return self.check_password_hash(password)
     
+    @property
+    def school_id(self):
+        from app.models.tenant import TenantMembership
+        membership = TenantMembership.query.filter_by(user_id=self.id, status='active').first()
+        if membership:
+            return membership.tenant_id
+        return None
+
     def __repr__(self):
         return f'<User {self.username}>'
 

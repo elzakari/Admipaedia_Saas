@@ -35,8 +35,36 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [assessmentCategories, setAssessmentCategories] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [isApc, setIsApc] = useState<boolean>(false);
 
   const activeRoster = cls.roster.filter((r) => r.status === 'active');
+
+  // Fetch grading scheme to determine APC context
+  useEffect(() => {
+    const fetchGradingScheme = async () => {
+      try {
+        const response = await api.get('/academics/grading-scheme');
+        const fullScheme = response.data?.full_scheme || response.data;
+        const name = String(fullScheme?.name || '').toLowerCase();
+        const description = String(fullScheme?.description || '').toLowerCase();
+        
+        const boundaries = response.data?.gradingScheme || fullScheme?.grade_boundaries || [];
+        const hasApcDescriptors = boundaries.some((b: any) => {
+          const sym = String(b.grade || b.grade_symbol || '').toUpperCase();
+          return ['NA', 'EA', 'M'].includes(sym);
+        });
+
+        if (name.includes('apc') || description.includes('apc') || hasApcDescriptors) {
+          setIsApc(true);
+        } else {
+          setIsApc(false);
+        }
+      } catch (err) {
+        console.error("Failed to load grading scheme:", err);
+      }
+    };
+    fetchGradingScheme();
+  }, [cls.id, selectedSubjectId]);
 
   // Fetch assessment categories on mount
   useEffect(() => {
@@ -107,6 +135,16 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
   // Standardized Education Scale Evaluator
   const calculateGradeAndRemark = (scoreNum: number, maxScore: number = 100) => {
+    if (isApc) {
+      let normalized = scoreNum;
+      if (maxScore !== 20) {
+        normalized = (scoreNum / maxScore) * 20;
+      }
+      if (normalized >= 16) return { grade: 'M', remark: 'Maîtrisé' };
+      if (normalized >= 14) return { grade: 'A', remark: 'Acquis' };
+      if (normalized >= 10) return { grade: 'EA', remark: 'En cours d’Acquisition' };
+      return { grade: 'NA', remark: 'Non Acquis' };
+    }
     const percentage = (scoreNum / maxScore) * 100;
     if (percentage >= 80) return { grade: 'A', remark: 'Excellent' };
     if (percentage >= 70) return { grade: 'B', remark: 'Very Good' };
@@ -392,25 +430,53 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           return (
             <div key={s.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center">{s.name}</div>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={entry.score}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const score = val === '' ? '' : Number(val);
-                  const maxScore = 100;
-                  const { grade, remark } = score !== '' ? calculateGradeAndRemark(score, maxScore) : { grade: '', remark: '' };
-                  setGradeMatrix((prev) => ({
-                    ...prev,
-                    [Number(s.id)]: { student_id: Number(s.id), score, grade, remark }
-                  }));
-                }}
-                placeholder={t('teacher_portal.gradebook.score_placeholder')}
-                className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
-                disabled={isLoading}
-              />
+              {isApc ? (
+                <select
+                  value={entry.grade}
+                  onChange={(e) => {
+                    const grade = e.target.value;
+                    let score = '';
+                    let remark = '';
+                    if (grade === 'M') { score = '18'; remark = 'Maîtrisé'; }
+                    else if (grade === 'A') { score = '15'; remark = 'Acquis'; }
+                    else if (grade === 'EA') { score = '12'; remark = 'En cours d’Acquisition'; }
+                    else if (grade === 'NA') { score = '5'; remark = 'Non Acquis'; }
+
+                    setGradeMatrix((prev) => ({
+                      ...prev,
+                      [Number(s.id)]: { student_id: Number(s.id), score, grade, remark }
+                    }));
+                  }}
+                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  disabled={isLoading}
+                >
+                  <option value="">Select Mastery</option>
+                  <option value="M">M (Maîtrisé)</option>
+                  <option value="A">A (Acquis)</option>
+                  <option value="EA">EA (En cours d’Acquisition)</option>
+                  <option value="NA">NA (Non Acquis)</option>
+                </select>
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={entry.score}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const score = val === '' ? '' : Number(val);
+                    const maxScore = 100;
+                    const { grade, remark } = score !== '' ? calculateGradeAndRemark(score, maxScore) : { grade: '', remark: '' };
+                    setGradeMatrix((prev) => ({
+                      ...prev,
+                      [Number(s.id)]: { student_id: Number(s.id), score, grade, remark }
+                    }));
+                  }}
+                  placeholder={t('teacher_portal.gradebook.score_placeholder')}
+                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
+                  disabled={isLoading}
+                />
+              )}
               <input
                 value={entry.grade}
                 onChange={(e) => setGradeMatrix((prev) => ({
@@ -419,7 +485,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
                 }))}
                 placeholder={t('teacher_portal.gradebook.grade_placeholder')}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
-                disabled={isLoading}
+                disabled={isLoading || isApc}
               />
               <input
                 value={entry.remark}

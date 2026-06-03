@@ -495,3 +495,128 @@ def test_standard_grade_levels_endpoint(auth_client):
     assert data['levels'][1]['name'] == 'Grade 2'
     assert data['levels'][1]['order_index'] == 2
 
+
+@pytest.mark.academic_harmonization
+def test_get_grading_scheme_auto_seeds_from_profile(auth_client):
+    tenant = _create_tenant_and_membership(auth_client, country_code='GH')
+
+    # Seed an EducationalSystemConfig for this tenant representing gh_ges_standard
+    cfg = EducationalSystemConfig(
+        tenant_id=tenant.id,
+        template_key='gh_ges_standard',
+        name='Ghana GES Standard',
+        config={
+            'grading': {
+                'type': 'percentage',
+                'schemes': [
+                    {'name': 'A1', 'min': 80, 'max': 100, 'point': 4.0},
+                    {'name': 'F9', 'min': 0, 'max': 44.99, 'point': 0.0}
+                ]
+            }
+        },
+        is_active=True
+    )
+    db.session.add(cfg)
+    db.session.commit()
+
+    # Confirm there are no grading schemes yet
+    assert GradingScheme.query.filter_by(tenant_id=tenant.id).count() == 0
+
+    # Call the legacy/aliased endpoint /api/v1/academic/grading-system
+    resp = auth_client.get('/api/v1/academic/grading-system')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data.get('success') is True
+    assert len(data.get('gradingScheme')) > 0
+    
+    # Confirm it has seeded a scheme under this tenant ID
+    scheme = GradingScheme.query.filter_by(tenant_id=tenant.id, is_default=True).first()
+    assert scheme is not None
+    boundaries = GradeBoundary.query.filter_by(grading_scheme_id=scheme.id).all()
+    assert len(boundaries) == 2
+    assert {b.grade_symbol for b in boundaries} == {'A1', 'F9'}
+
+
+@pytest.mark.academic_harmonization
+def test_get_grading_scheme_apc_togo_seeding_and_calculation(auth_client):
+    tenant = _create_tenant_and_membership(auth_client, country_code='TG')
+    tenant.settings = {'education_system': 'APC'}
+    db.session.commit()
+
+    # Call the endpoint to auto-seed APC
+    resp = auth_client.get('/api/v1/academic/grading-system')
+    assert resp.status_code == 200
+    
+    scheme = GradingScheme.query.filter_by(tenant_id=tenant.id, is_default=True).first()
+    assert scheme is not None
+    boundaries = GradeBoundary.query.filter_by(grading_scheme_id=scheme.id).all()
+    assert len(boundaries) == 4
+    
+    symbols = {b.grade_symbol for b in boundaries}
+    assert symbols == {'M', 'A', 'EA', 'NA'}
+
+    names = {b.grade_name for b in boundaries}
+    assert 'Maîtrisé' in names
+    assert 'Non Acquis' in names
+
+    # Verify APC bypasses category weights in calculate_final_grades
+    # Create a Class, Student, and test calculation
+    cls = Class(tenant_id=tenant.id, name='CP1 A', grade_level='CP1', academic_year='2026/2027')
+    db.session.add(cls)
+    db.session.flush()
+
+    user = User(username='apc_stud', email='apc@example.com', role='student')
+    db.session.add(user)
+    db.session.flush()
+
+    student = Student(
+        tenant_id=tenant.id,
+        admission_number='APC001',
+        first_name='APC',
+        last_name='Student',
+        gender='male',
+        date_of_birth=date(2018, 1, 1),
+        user_id=user.id,
+        class_id=cls.id,
+        status='active'
+    )
+    db.session.add(student)
+    db.session.commit()
+
+    # Create grade records with specific scores (M=18, EA=12)
+    from app.models.exam import Exam
+    from app.models.grade import Grade
+    
+    from datetime import datetime
+    exam1 = Exam(title='Math Competency 1', class_id=cls.id, subject_id=1, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Exams')
+    exam2 = Exam(title='Math Competency 2', class_id=cls.id, subject_id=1, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Assignments')
+    db.session.add_all([exam1, exam2])
+    db.session.flush()
+
+    g1 = Grade(student_id=student.id, class_id=cls.id, subject_id=1, exam_id=exam1.id, marks_obtained=18.0, percentage=18.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
+    g2 = Grade(student_id=student.id, class_id=cls.id, subject_id=1, exam_id=exam2.id, marks_obtained=12.0, percentage=12.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
+    db.session.add_all([g1, g2])
+    db.session.commit()
+
+    # Calculate final grades
+    from app.services.grading.service import GradingService
+    success, err = GradingService.calculate_final_grades(cls.id, 1, 'Premier Trimestre', '2026/2027')
+    assert success is True
+
+    from app.models.grading_system import FinalGrade
+    fg = FinalGrade.query.filter_by(student_id=student.id, class_id=cls.id, subject_id=1).first()
+    assert fg is not None
+    print("\n--- DIAGNOSTICS ---")
+    print("FG PERCENTAGE:", fg.final_percentage)
+    print("FG SYMBOL:", fg.final_grade_symbol)
+    print("FG SCHEME ID:", fg.grading_scheme_id)
+    print("FG SCHEME:", fg.grading_scheme)
+    if fg.grading_scheme:
+        print("SCHEME BOUNDS:", [(b.grade_symbol, b.min_score, b.max_score) for b in fg.grading_scheme.grade_boundaries])
+    print("--- END DIAGNOSTICS ---\n")
+    # Simple average: (18 + 12) / 2 = 15.0
+    assert fg.final_percentage == 15.0
+    # 15.0 falls in 14.0 <= score < 16.0, which matches 'A' (Acquis)
+    assert fg.final_grade_symbol == 'A'
+
+

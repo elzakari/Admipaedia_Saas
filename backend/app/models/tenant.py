@@ -46,6 +46,16 @@ class Tenant(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    @property
+    def education_system(self):
+        from app.models.educational_system import EducationalSystemConfig
+        cfg = EducationalSystemConfig.query.filter_by(tenant_id=self.id, is_active=True).first()
+        if cfg and cfg.template_key:
+            return cfg.template_key
+        if isinstance(self.settings, dict):
+            return self.settings.get('education_system') or self.settings.get('educational_system')
+        return None
+
     def __repr__(self):
         return f'<Tenant {self.name} ({self.slug})>'
 

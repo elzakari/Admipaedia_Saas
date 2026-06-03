@@ -116,6 +116,12 @@ class GradingService:
         active_categories = {str(t['id']): t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)}
         active_categories_by_name = {t['name'].strip().lower(): t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)}
 
+        is_apc = False
+        from app.models.tenant import Tenant
+        tenant_obj = Tenant.query.get(tenant_id) if tenant_id else None
+        if tenant_obj and tenant_obj.education_system == 'APC':
+            is_apc = True
+
         # Get all students in class
         students = Student.query.filter_by(class_id=class_id).all()
         
@@ -178,18 +184,35 @@ class GradingService:
             if not category_scores:
                 continue
 
-            final_percentage = 0.0
-            for cat_id, cat in active_categories.items():
-                scores = category_scores.get(cat_id, [])
-                if scores:
-                    category_avg = sum(scores) / len(scores)
+            if is_apc:
+                all_scores = []
+                for cat_id, scores in category_scores.items():
+                    for s in scores:
+                        if s > 20.0:
+                            all_scores.append(s * 0.20)
+                        else:
+                            all_scores.append(s)
+                if all_scores:
+                    final_percentage = sum(all_scores) / len(all_scores)
                 else:
-                    category_avg = 0.0
-                weight = float(cat.get('weight', 0))
-                final_percentage += category_avg * (weight / 100.0)
+                    final_percentage = 0.0
+            else:
+                final_percentage = 0.0
+                for cat_id, cat in active_categories.items():
+                    scores = category_scores.get(cat_id, [])
+                    if scores:
+                        category_avg = sum(scores) / len(scores)
+                    else:
+                        category_avg = 0.0
+                    weight = float(cat.get('weight', 0))
+                    final_percentage += category_avg * (weight / 100.0)
 
             # Create/Update FinalGrade
-            grading_scheme = GradingScheme.query.first() # Fallback grading scheme
+            grading_scheme = GradingScheme.query.filter_by(tenant_id=tenant_id, is_active=True, is_default=True).first()
+            if not grading_scheme:
+                grading_scheme = GradingScheme.query.filter_by(tenant_id=tenant_id, is_active=True).first()
+            if not grading_scheme:
+                grading_scheme = GradingScheme.query.first() # Fallback grading scheme
             
             final_grade = FinalGrade.query.filter_by(
                 student_id=student.id,
@@ -198,7 +221,9 @@ class GradingService:
                 academic_year=academic_year
             ).first()
             
+            is_new_grade = False
             if not final_grade:
+                is_new_grade = True
                 final_grade = FinalGrade(
                     student_id=student.id,
                     subject_id=subject_id,
@@ -208,14 +233,14 @@ class GradingService:
                     academic_year=academic_year,
                     computed_by=1
                 )
-                db.session.add(final_grade)
             
             final_grade.final_percentage = final_percentage
             final_grade.class_score_average = final_percentage  # Map final percentage
             
             # Determine final grade symbol
-            if final_grade.grading_scheme:
-                for boundary in sorted(final_grade.grading_scheme.grade_boundaries, 
+            scheme_to_use = grading_scheme or final_grade.grading_scheme
+            if scheme_to_use:
+                for boundary in sorted(scheme_to_use.grade_boundaries, 
                                      key=lambda x: x.sequence_order):
                     if boundary.min_score <= final_percentage <= boundary.max_score:
                         final_grade.final_grade_symbol = boundary.grade_symbol
@@ -236,6 +261,9 @@ class GradingService:
                     final_grade.final_grade_symbol, final_grade.is_passing = 'E', True
                 else:
                     final_grade.final_grade_symbol, final_grade.is_passing = 'F', False
+            
+            if is_new_grade:
+                db.session.add(final_grade)
             
         db.session.commit()
         return True, None

@@ -145,7 +145,7 @@ class AcademicConfigurationService:
                         'grade': s.get('name'),
                         'minScore': min_v,
                         'maxScore': max_v,
-                        'description': s.get('name'),
+                        'description': s.get('description') or s.get('name'),
                         'gradePoint': s.get('point'),
                     }
                 )

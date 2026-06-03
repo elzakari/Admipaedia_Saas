@@ -11,6 +11,32 @@ logger = structlog.get_logger()
 
 # Master Registry of Polymorphic Curriculum Specifications
 MASTER_CURRICULUM_REGISTRY = {
+    "APC": {
+        "cycle_type": "TRIMESTRE",
+        "terms": ["Premier Trimestre", "Deuxième Trimestre", "Troisième Trimestre"],
+        "tracks": [
+            {
+                "name": "Parcours APC",
+                "rank": 1,
+                "levels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2", "6e", "5e", "4e", "3e", "Seconde", "Première", "Terminale"],
+                "grading": {
+                    "type": "RUBRIC",
+                    "max_score": 20.00,
+                    "passing_boundary": 10.00,
+                    "schemes": [
+                        {"min": 16.00, "max": 20.00, "name": "M", "description": "Maîtrisé", "point": 16.00},
+                        {"min": 14.00, "max": 15.99, "name": "A", "description": "Acquis", "point": 14.00},
+                        {"min": 10.00, "max": 13.99, "name": "EA", "description": "En cours d’Acquisition", "point": 10.00},
+                        {"min": 0.00, "max": 9.99, "name": "NA", "description": "Non Acquis", "point": 0.00}
+                    ]
+                },
+                "assessment": {
+                    "exam_weight": 60,
+                    "class_weight": 40
+                }
+            }
+        ]
+    },
     "tg_standard": {
         "cycle_type": "TRIMESTRE",
         "terms": ["Premier Trimestre", "Deuxième Trimestre", "Troisième Trimestre"],

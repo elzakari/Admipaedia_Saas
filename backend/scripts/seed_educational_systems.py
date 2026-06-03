@@ -204,7 +204,38 @@ def seed_templates():
             }
         }
 
-        templates = [gh_ges, ng_nerdc, ke_cbc, za_caps, tg_standard, bj_standard]
+        # 7. Togo APC - Competency Based Approach
+        tg_apc = {
+            "country_code": "TG",
+            "system_key": "APC",
+            "name": "Togo APC (Approche Par Compétence)",
+            "description": "Francophone structure utilizing APC rubric evaluation and 0-20 numeric aliasing",
+            "config": {
+                "phases": [
+                    {"name": "Primaire", "levels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2"]},
+                    {"name": "Secondaire - Collège", "levels": ["6e", "5e", "4e", "3e"]},
+                    {"name": "Secondaire - Lycée", "levels": ["Seconde", "Première", "Terminale"]}
+                ],
+                "grading": {
+                    "type": "rubric",
+                    "scale": "0-20",
+                    "pass_mark": 10,
+                    "schemes": [
+                        {"name": "M", "min": 16.00, "max": 20.00, "point": 16.00, "description": "Maîtrisé"},
+                        {"name": "A", "min": 14.00, "max": 15.99, "point": 14.00, "description": "Acquis"},
+                        {"name": "EA", "min": 10.00, "max": 13.99, "point": 10.00, "description": "En cours d’Acquisition"},
+                        {"name": "NA", "min": 0.00, "max": 9.99, "point": 0.00, "description": "Non Acquis"}
+                    ]
+                },
+                "assessments": {
+                    "continuous_assessment_weight": 40,
+                    "exam_weight": 60
+                },
+                "locales": {"default": "fr", "supported": ["fr", "en"]}
+            }
+        }
+
+        templates = [gh_ges, ng_nerdc, ke_cbc, za_caps, tg_standard, bj_standard, tg_apc]
 
         for t in templates:
             existing = EducationalSystemTemplate.query.filter_by(system_key=t['system_key']).first()

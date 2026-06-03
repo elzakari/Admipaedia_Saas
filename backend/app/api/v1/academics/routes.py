@@ -111,11 +111,98 @@ grading_scheme_schema = GradingSchemeSchema()
 grading_schemes_schema = GradingSchemeSchema(many=True)
 
 @academics_bp.route('/grading-scheme', methods=['GET'])
+@academics_bp.route('/grading-system', methods=['GET'])
 @jwt_required()
 @tenant_required
 def get_grading_scheme():
     """Get the active grading scheme configuration."""
     try:
+        from flask_jwt_extended import current_user, get_jwt_identity
+        from app.models.tenant import Tenant
+        from app.models.user import User
+        School = Tenant
+
+        # Helper: check if tenant has grading scales
+        def tenant_has_grading_scales(school_id):
+            return GradingScheme.query.filter_by(tenant_id=school_id, is_active=True).count() > 0
+
+        def seed_default_scale_for_system(school_id, system_template):
+            from app.extensions import db
+            from app.services.academic_configuration_service import AcademicConfigurationService
+            from app.models.educational_system import EducationalSystemConfig, EducationalSystemTemplate
+            from app.services.educational_system.service import EducationalSystemService
+            from app.services.education_initializer import TenantEducationInitializer
+            
+            # Ensure EducationalSystemTemplate exists for APC
+            if system_template == "APC":
+                tpl = EducationalSystemTemplate.query.filter_by(system_key="APC").first()
+                if not tpl:
+                    try:
+                        tpl = EducationalSystemTemplate(
+                            country_code="TG",
+                            system_key="APC",
+                            name="Togo APC (Approche Par Compétence)",
+                            description="Francophone structure utilizing APC rubric evaluation and 0-20 numeric aliasing",
+                            config={
+                                "phases": [
+                                    {"name": "Primaire", "levels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2"]},
+                                    {"name": "Secondaire - Collège", "levels": ["6e", "5e", "4e", "3e"]},
+                                    {"name": "Secondaire - Lycée", "levels": ["Seconde", "Première", "Terminale"]}
+                                ],
+                                "grading": {
+                                    "type": "rubric",
+                                    "scale": "0-20",
+                                    "pass_mark": 10,
+                                    "schemes": [
+                                        {"name": "M", "min": 16.00, "max": 20.00, "point": 16.00, "description": "Maîtrisé"},
+                                        {"name": "A", "min": 14.00, "max": 15.99, "point": 14.00, "description": "Acquis"},
+                                        {"name": "EA", "min": 10.00, "max": 13.99, "point": 10.00, "description": "En cours d’Acquisition"},
+                                        {"name": "NA", "min": 0.00, "max": 9.99, "point": 0.00, "description": "Non Acquis"}
+                                    ]
+                                },
+                                "assessments": {
+                                    "continuous_assessment_weight": 40,
+                                    "exam_weight": 60
+                                },
+                                "locales": {"default": "fr", "supported": ["fr", "en"]}
+                            }
+                        )
+                        db.session.add(tpl)
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+            # Ensure EducationalSystemConfig and structural layers are set up
+            cfg = EducationalSystemConfig.query.filter_by(tenant_id=school_id, is_active=True).first()
+            if not cfg and system_template:
+                try:
+                    EducationalSystemService.apply_template_to_tenant(system_template, school_id)
+                    TenantEducationInitializer.run_setup(school_id, system_template)
+                except Exception:
+                    pass
+            
+            # Run the harmonized config sync
+            config = AcademicConfigurationService.build_harmonized_config(school_id)
+            AcademicConfigurationService.sync_grading_scheme_from_config(school_id, config)
+
+        # Resolve active school/tenant ID
+        user_identity = get_jwt_identity()
+        user_obj = User.query.get(user_identity) if user_identity else None
+        
+        school_id = g.tenant_id
+        if not school_id and user_obj:
+            school_id = user_obj.school_id
+        elif not school_id and current_user and hasattr(current_user, 'school_id'):
+            school_id = current_user.school_id
+
+        if school_id:
+            # Backend defensive fallback pattern
+            school_profile = School.query.get(school_id)
+            if school_profile:
+                system_template = school_profile.education_system
+                if not tenant_has_grading_scales(school_id):
+                    seed_default_scale_for_system(school_id, system_template)
+
         scheme = GradingScheme.query.filter_by(tenant_id=g.tenant_id, is_active=True, is_default=True).first()
         
         # Fallback to first active scheme if no default

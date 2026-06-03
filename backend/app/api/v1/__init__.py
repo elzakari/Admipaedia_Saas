@@ -135,9 +135,11 @@ api_v1_bp.register_blueprint(plan_context_bp)
 
 from app.api.v1.saas.routes import complete_setup, get_tenant_notification_status
 from app.api.v1.settings.routes import get_assessment_categories
+from app.api.v1.academics.routes import get_grading_scheme
 api_v1_bp.add_url_rule('/tenant/complete-setup', 'complete_setup', complete_setup, methods=['POST'])
 api_v1_bp.add_url_rule('/tenant/notification-status', 'get_tenant_notification_status', get_tenant_notification_status, methods=['GET'])
 api_v1_bp.add_url_rule('/assessment-categories', 'get_assessment_categories', get_assessment_categories, methods=['GET'])
+api_v1_bp.add_url_rule('/academic/grading-system', 'get_grading_scheme_legacy', get_grading_scheme, methods=['GET'])
 
 from app.api.v1.dashboard.routes import get_admin_dashboard_metrics, get_admin_dashboard_analytics
 api_v1_bp.add_url_rule('/admin/dashboard-metrics', 'get_admin_dashboard_metrics', get_admin_dashboard_metrics, methods=['GET'])
