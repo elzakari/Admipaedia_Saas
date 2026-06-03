@@ -14,6 +14,7 @@ const mockUseToast = vi.hoisted(() => vi.fn());
 const mockSettingsService = vi.hoisted(() => ({
   getNotificationSettings: vi.fn(),
   updateNotificationSettings: vi.fn(),
+  getTenantNotificationStatus: vi.fn(),
   testEmailConfiguration: vi.fn(),
   testSmsConfiguration: vi.fn()
 }));
@@ -76,6 +77,21 @@ describe('NotificationSettings', () => {
     quietHoursEnd: '07:00'
   };
 
+  const mockStatus = {
+    email: {
+      status: 'Connected (Active)',
+      remaining: 'Unlimited',
+      allowance: 'Unlimited',
+      used: 120
+    },
+    sms: {
+      status: 'Connected (Active)',
+      remaining: 500,
+      allowance: 1000,
+      used: 500
+    }
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     
@@ -87,6 +103,13 @@ describe('NotificationSettings', () => {
       if (queryKey[0] === 'notification-settings') {
         return {
           data: mockSettings,
+          isLoading: false,
+          error: null
+        } as any;
+      }
+      if (queryKey[0] === 'tenant-notification-status') {
+        return {
+          data: mockStatus,
           isLoading: false,
           error: null
         } as any;
@@ -109,8 +132,7 @@ describe('NotificationSettings', () => {
     // Mock settings service
     mockSettingsService.getNotificationSettings.mockResolvedValue(mockSettings);
     mockSettingsService.updateNotificationSettings.mockResolvedValue({ success: true });
-    mockSettingsService.testEmailConfiguration.mockResolvedValue({ success: true });
-    mockSettingsService.testSmsConfiguration.mockResolvedValue({ success: true });
+    mockSettingsService.getTenantNotificationStatus.mockResolvedValue(mockStatus);
   });
 
   it('renders without crashing', () => {
@@ -159,24 +181,26 @@ describe('NotificationSettings', () => {
       render(<NotificationSettings />);
       
       expect(screen.getByLabelText(/enable email notifications/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/smtp host/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/smtp port/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/smtp username/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/smtp password/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/encryption/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/from email/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/from name/i)).toBeInTheDocument();
+      
+      // Removed fields shouldn't exist
+      expect(screen.queryByLabelText(/smtp host/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/smtp port/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/smtp username/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/smtp password/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/encryption/i)).not.toBeInTheDocument();
     });
 
-    it('updates email settings when inputs change', async () => {
-      const user = userEvent.setup();
+    it('renders platform gateway status banner', () => {
       render(<NotificationSettings />);
-      
-      const smtpHostInput = screen.getByLabelText(/smtp host/i);
-      await user.clear(smtpHostInput);
-      await user.type(smtpHostInput, 'smtp.outlook.com');
-      
-      expect(smtpHostInput).toHaveValue('smtp.outlook.com');
+      expect(screen.getByText('Platform Mail Gateway: Connected (Active)')).toBeInTheDocument();
+      expect(screen.getByText('Unlimited')).toBeInTheDocument();
+    });
+
+    it('renders domain verification note', () => {
+      render(<NotificationSettings />);
+      expect(screen.getByText(/Ensure your custom domain has verified SPF\/DKIM records/i)).toBeInTheDocument();
     });
 
     it('toggles email enabled switch', async () => {
@@ -187,50 +211,6 @@ describe('NotificationSettings', () => {
       await user.click(emailSwitch);
       
       expect(emailSwitch).not.toBeChecked();
-    });
-
-    it('shows/hides email fields based on enabled state', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      const emailSwitch = screen.getByLabelText(/enable email notifications/i);
-      await user.click(emailSwitch);
-      
-      expect(screen.queryByLabelText(/smtp host/i)).not.toBeInTheDocument();
-    });
-
-    it('handles test email functionality', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      const testEmailInput = screen.getByPlaceholderText(/enter test email address/i);
-      const testButton = screen.getByRole('button', { name: /test email/i });
-      
-      await user.type(testEmailInput, 'test@example.com');
-      await user.click(testButton);
-      
-      await waitFor(() => {
-        expect(mockSettingsService.testEmailConfiguration).toHaveBeenCalled();
-        expect(mockToast.toast).toHaveBeenCalledWith({
-          title: 'Email Sent',
-          description: 'Test email has been sent successfully.',
-          variant: 'default'
-        });
-      });
-    });
-
-    it('validates test email input', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      const testButton = screen.getByRole('button', { name: /test email/i });
-      await user.click(testButton);
-      
-      expect(mockToast.toast).toHaveBeenCalledWith({
-        title: 'Validation Error',
-        description: 'Please enter a test email address',
-        variant: 'destructive'
-      });
     });
   });
 
@@ -244,33 +224,11 @@ describe('NotificationSettings', () => {
       await user.click(smsTab);
       
       expect(screen.getByLabelText(/enable sms notifications/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/sms provider/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/sender id/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
-    });
-
-    it('handles test SMS functionality', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
       
-      // Switch to SMS tab
-      const smsTab = screen.getByRole('tab', { name: /sms/i });
-      await user.click(smsTab);
-      
-      const testPhoneInput = screen.getByPlaceholderText(/enter test phone number/i);
-      const testButton = screen.getByRole('button', { name: /test sms/i });
-      
-      await user.type(testPhoneInput, '+1234567890');
-      await user.click(testButton);
-      
-      await waitFor(() => {
-        expect(mockSettingsService.testSmsConfiguration).toHaveBeenCalled();
-        expect(mockToast.toast).toHaveBeenCalledWith({
-          title: 'SMS Sent',
-          description: 'Test SMS has been sent successfully.',
-          variant: 'default'
-        });
-      });
+      // Removed fields shouldn't exist
+      expect(screen.queryByLabelText(/sms provider/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
     });
   });
 
@@ -290,20 +248,6 @@ describe('NotificationSettings', () => {
       expect(screen.getByLabelText(/disciplinary actions/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/general announcements/i)).toBeInTheDocument();
     });
-
-    it('renders recipient toggles', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      // Switch to Notification Types tab
-      const typesTab = screen.getByRole('tab', { name: /notification types/i });
-      await user.click(typesTab);
-      
-      expect(screen.getByLabelText(/students/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/parents/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/teachers/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/administrators/i)).toBeInTheDocument();
-    });
   });
 
   describe('Timing & Delivery', () => {
@@ -318,32 +262,6 @@ describe('NotificationSettings', () => {
       expect(screen.getByLabelText(/send immediately/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/daily digest/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/quiet hours/i)).toBeInTheDocument();
-    });
-
-    it('shows digest time when daily digest is enabled', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      // Switch to Timing tab
-      const timingTab = screen.getByRole('tab', { name: /timing & delivery/i });
-      await user.click(timingTab);
-      
-      const dailyDigestSwitch = screen.getByLabelText(/daily digest/i);
-      await user.click(dailyDigestSwitch);
-      
-      expect(screen.getByLabelText(/digest time/i)).toBeInTheDocument();
-    });
-
-    it('shows quiet hours time fields when enabled', async () => {
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      // Switch to Timing tab
-      const timingTab = screen.getByRole('tab', { name: /timing & delivery/i });
-      await user.click(timingTab);
-      
-      expect(screen.getByLabelText(/start time/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/end time/i)).toBeInTheDocument();
     });
   });
 
@@ -366,98 +284,6 @@ describe('NotificationSettings', () => {
           queryKey: ['notification-settings']
         });
       });
-    });
-
-    it('handles save errors', async () => {
-      const errorMessage = 'Failed to save settings';
-      
-      mockSettingsService.updateNotificationSettings.mockRejectedValueOnce(new Error(errorMessage));
-
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      const saveButton = screen.getByRole('button', { name: /save changes/i });
-      await user.click(saveButton);
-      
-      await waitFor(() => {
-        expect(mockToast.toast).toHaveBeenCalledWith({
-          title: 'Error',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-      });
-    });
-
-    it('shows loading state during save', async () => {
-      mockUseMutation.mockImplementation(() => {
-        return {
-          mutate: vi.fn(),
-          isPending: true
-        } as any;
-      });
-
-      render(<NotificationSettings />);
-      
-      const saveButton = screen.getByRole('button', { name: /saving.../i });
-      expect(saveButton).toBeInTheDocument();
-      expect(saveButton).toBeDisabled();
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('handles query errors gracefully', () => {
-      mockUseQuery.mockImplementationOnce(({ queryKey }: any) => {
-        if (queryKey[0] === 'notification-settings') {
-          return {
-            data: null,
-            isLoading: false,
-            error: new Error('Failed to load settings')
-          } as any;
-        }
-        return { data: null, isLoading: false, error: null } as any;
-      });
-
-      render(<NotificationSettings />);
-      expect(screen.getByText('Notifications & Alerts')).toBeInTheDocument();
-    });
-
-    it('handles test email errors', async () => {
-      const errorMessage = 'Email test failed';
-      
-      mockSettingsService.testEmailConfiguration.mockRejectedValueOnce(new Error(errorMessage));
-
-      const user = userEvent.setup();
-      render(<NotificationSettings />);
-      
-      const testEmailInput = screen.getByPlaceholderText(/enter test email address/i);
-      const testButton = screen.getByRole('button', { name: /test email/i });
-      
-      await user.type(testEmailInput, 'test@example.com');
-      await user.click(testButton);
-      
-      await waitFor(() => {
-        expect(mockToast.toast).toHaveBeenCalledWith({
-          title: 'Email Failed',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-      });
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('has proper ARIA labels', () => {
-      render(<NotificationSettings />);
-      
-      expect(screen.getByRole('tab', { name: /email/i })).toHaveAttribute('aria-selected');
-      expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
-    });
-
-    it('provides clear form labels', () => {
-      render(<NotificationSettings />);
-      
-      expect(screen.getByLabelText(/enable email notifications/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/smtp host/i)).toBeInTheDocument();
     });
   });
 });

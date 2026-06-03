@@ -413,14 +413,15 @@ def get_notification_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
-    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
-        return jsonify({'success': False, 'message': 'Notification provider configuration is managed by the platform.'}), 403
-    if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
-        return jsonify({'success': False, 'message': 'Tenant context required'}), 400
-    if tenant_id is not None:
-        perr = _require_school_admin_for_tenant(tenant_id, user)
-        if perr:
-            return jsonify({'success': False, 'message': perr}), 403
+    
+    is_super = getattr(user, 'role', None) in ('super_admin', 'super_manager')
+    if not is_super:
+        if tenant_id is not None:
+            perr = _require_school_admin_for_tenant(tenant_id, user)
+            if perr:
+                return jsonify({'success': False, 'message': perr}), 403
+        else:
+            return jsonify({'success': False, 'message': 'Tenant context required'}), 400
 
     defaults = {
         'emailEnabled': True,
@@ -481,16 +482,26 @@ def update_notification_settings_v2():
         return jsonify({'success': False, 'message': err}), 403
     if not user:
         return jsonify({'success': False, 'message': 'Authentication required'}), 401
-    if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
-        return jsonify({'success': False, 'message': 'Notification provider configuration is managed by the platform.'}), 403
-    if tenant_id is None and getattr(user, 'role', None) != 'super_admin':
-        return jsonify({'success': False, 'message': 'Tenant context required'}), 400
-    if tenant_id is not None:
-        perr = _require_school_admin_for_tenant(tenant_id, user)
-        if perr:
-            return jsonify({'success': False, 'message': perr}), 403
+    
+    is_super = getattr(user, 'role', None) in ('super_admin', 'super_manager')
+    if not is_super:
+        if tenant_id is not None:
+            perr = _require_school_admin_for_tenant(tenant_id, user)
+            if perr:
+                return jsonify({'success': False, 'message': perr}), 403
+        else:
+            return jsonify({'success': False, 'message': 'Tenant context required'}), 400
 
     payload = request.get_json() or {}
+    
+    # Strip SMTP and SMS provider/key inputs completely out of tenant configurations
+    if tenant_id is not None:
+        infrastructure_keys = {
+            'smtpHost', 'smtpPort', 'smtpUsername', 'smtpPassword', 'smtpEncryption',
+            'smsProvider', 'smsApiKey'
+        }
+        payload = {k: v for k, v in payload.items() if k not in infrastructure_keys}
+
     for k, v in payload.items():
         if k == 'smtpPort':
             _set_scoped_setting(tenant_id, f'notifications.{k}', int(v), 'int')

@@ -1167,3 +1167,40 @@ def patch_admission_status(form_id):
         'message': f'Application status updated to {next_status}',
         'data': {'id': application.id, 'status': application.status}
     }), 200
+
+
+@jwt_required()
+def get_tenant_notification_status():
+    from app.utils.tenant_context import resolve_tenant_for_request
+    tenant_id, user, err = resolve_tenant_for_request(require_explicit=False)
+    if err:
+        return jsonify({'success': False, 'message': err}), 403
+    if not tenant_id:
+        from app.models.tenant import TenantMembership
+        membership = TenantMembership.query.filter_by(user_id=user.id, status='active').first()
+        if membership:
+            tenant_id = membership.tenant_id
+        else:
+            return jsonify({'success': False, 'message': 'Tenant context required'}), 400
+
+    from app.services.integrations.token_service import ServiceTokenService
+    
+    email_status = ServiceTokenService.get_status(str(tenant_id), 'email')
+    sms_status = ServiceTokenService.get_status(str(tenant_id), 'sms')
+
+    return jsonify({
+        'success': True,
+        'email': {
+            'status': 'Connected (Active)' if email_status.allowance is not None else 'Disconnected',
+            'remaining': 'Unlimited' if email_status.unlimited else email_status.remaining,
+            'allowance': 'Unlimited' if email_status.unlimited else email_status.allowance,
+            'used': email_status.used
+        },
+        'sms': {
+            'status': 'Connected (Active)' if sms_status.allowance is not None else 'Disconnected',
+            'remaining': 'Unlimited' if sms_status.unlimited else sms_status.remaining,
+            'allowance': 'Unlimited' if sms_status.unlimited else sms_status.allowance,
+            'used': sms_status.used
+        }
+    }), 200
+

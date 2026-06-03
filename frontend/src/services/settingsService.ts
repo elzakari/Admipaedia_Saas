@@ -192,6 +192,16 @@ export const settingsService = {
     }
   },
 
+  getTenantNotificationStatus: async (): Promise<Record<string, any>> => {
+    try {
+      const response = await api.get('/tenant/notification-status');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching tenant notification status:', error);
+      throw error;
+    }
+  },
+
   testEmailConfiguration: async (payload: Record<string, any>): Promise<{ success: boolean }> => {
     try {
       const response = await api.post('/settings/notifications/test-email', payload);

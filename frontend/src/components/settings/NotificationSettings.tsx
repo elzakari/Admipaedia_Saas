@@ -111,9 +111,15 @@ const NotificationSettings = () => {
   });
 
   // Fetch current settings
-  const { data: currentSettings, isLoading } = useQuery({
+  const { data: currentSettings, isLoading: isLoadingSettings } = useQuery({
     queryKey: ['notification-settings'],
     queryFn: () => settingsService.getNotificationSettings(),
+  } as any);
+
+  // Fetch current status and credits balance
+  const { data: statusData, isLoading: isLoadingStatus } = useQuery({
+    queryKey: ['tenant-notification-status'],
+    queryFn: () => settingsService.getTenantNotificationStatus(),
   } as any);
 
   useEffect(() => {
@@ -140,50 +146,6 @@ const NotificationSettings = () => {
     }
   });
 
-  // Test email mutation
-  const testEmailMutation = useMutation({
-    mutationFn: (email: string) => settingsService.testEmailConfiguration({
-      ...settings,
-      testEmail: email
-    }),
-    onSuccess: () => {
-      toast({
-        title: t('admin_settings.email_sent', 'Email Sent'),
-        description: t('admin_settings.email_sent_desc', 'Test email has been sent successfully.'),
-        variant: "default"
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('admin_settings.email_failed', 'Email Failed'),
-        description: error.message || t('admin_settings.email_failed_desc', 'Failed to send test email'),
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Test SMS mutation
-  const testSmsMutation = useMutation({
-    mutationFn: (phone: string) => settingsService.testSmsConfiguration({
-      ...settings,
-      testPhone: phone
-    }),
-    onSuccess: () => {
-      toast({
-        title: t('admin_settings.sms_sent', 'SMS Sent'),
-        description: t('admin_settings.sms_sent_desc', 'Test SMS has been sent successfully.'),
-        variant: "default"
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('admin_settings.sms_failed', 'SMS Failed'),
-        description: error.message || t('admin_settings.sms_failed_desc', 'Failed to send test SMS'),
-        variant: "destructive"
-      });
-    }
-  });
-
   const handleSave = () => {
     updateSettingsMutation.mutate(settings);
   };
@@ -192,29 +154,34 @@ const NotificationSettings = () => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleTestEmail = () => {
-    if (!testEmail.trim()) {
-      toast({
-        title: t('common.validation_error', 'Validation Error'),
-        description: t('admin_settings.enter_test_email_val', 'Please enter a test email address'),
-        variant: "destructive"
-      });
-      return;
-    }
-    testEmailMutation.mutate(testEmail);
+  const renderGatewayStatus = (type: 'email' | 'sms') => {
+    const data = statusData?.[type];
+    if (!data) return null;
+    
+    return (
+      <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-4 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <div>
+            <h4 className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
+              Platform {type === 'email' ? 'Mail' : 'SMS'} Gateway: {data.status}
+            </h4>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+              Centrally managed by Super Admin
+            </p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-900 px-3 py-1.5 rounded-md shadow-sm text-center">
+          <span className="text-xs text-zinc-500 block">Remaining Credits</span>
+          <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+            {data.remaining}
+          </span>
+        </div>
+      </div>
+    );
   };
 
-  const handleTestSms = () => {
-    if (!testPhone.trim()) {
-      toast({
-        title: t('common.validation_error', 'Validation Error'),
-        description: t('admin_settings.enter_test_phone_val', 'Please enter a test phone number'),
-        variant: "destructive"
-      });
-      return;
-    }
-    testSmsMutation.mutate(testPhone);
-  };
+  const isLoading = isLoadingSettings || isLoadingStatus;
 
   if (isLoading) {
     return (
@@ -277,6 +244,7 @@ const NotificationSettings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {renderGatewayStatus('email')}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="email-enabled">{t('admin_settings.enable_email_notifications', 'Enable Email Notifications')}</Label>
@@ -295,57 +263,6 @@ const NotificationSettings = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="smtp-host">{t('admin_settings.smtp_host', 'SMTP Host')}</Label>
-                      <Input
-                        id="smtp-host"
-                        value={settings.smtpHost}
-                        onChange={(e) => handleInputChange('smtpHost', e.target.value)}
-                        placeholder="smtp.gmail.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-port">{t('admin_settings.smtp_port', 'SMTP Port')}</Label>
-                      <Input
-                        id="smtp-port"
-                        type="number"
-                        value={settings.smtpPort}
-                        onChange={(e) => handleInputChange('smtpPort', parseInt(e.target.value))}
-                        placeholder="587"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-username">{t('admin_settings.smtp_username', 'SMTP Username')}</Label>
-                      <Input
-                        id="smtp-username"
-                        value={settings.smtpUsername}
-                        onChange={(e) => handleInputChange('smtpUsername', e.target.value)}
-                        placeholder="your-email@gmail.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-password">{t('admin_settings.smtp_password', 'SMTP Password')}</Label>
-                      <Input
-                        id="smtp-password"
-                        type="password"
-                        value={settings.smtpPassword}
-                        onChange={(e) => handleInputChange('smtpPassword', e.target.value)}
-                        placeholder="Your app password"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtp-encryption">{t('admin_settings.encryption', 'Encryption')}</Label>
-                      <Select value={settings.smtpEncryption} onValueChange={(value) => handleInputChange('smtpEncryption', value)}>
-                        <SelectTrigger id="smtp-encryption">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="tls">TLS</SelectItem>
-                          <SelectItem value="ssl">SSL</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
                       <Label htmlFor="from-email">{t('admin_settings.from_email', 'From Email')}</Label>
                       <Input
                         id="from-email"
@@ -355,37 +272,19 @@ const NotificationSettings = () => {
                         placeholder="noreply@your-school.edu"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="from-name">{t('admin_settings.from_name', 'From Name')}</Label>
+                      <Input
+                        id="from-name"
+                        value={settings.fromName}
+                        onChange={(e) => handleInputChange('fromName', e.target.value)}
+                        placeholder="Your School Name"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="from-name">{t('admin_settings.from_name', 'From Name')}</Label>
-                    <Input
-                      id="from-name"
-                      value={settings.fromName}
-                      onChange={(e) => handleInputChange('fromName', e.target.value)}
-                      placeholder="Your School Name"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder={t('admin_settings.enter_test_email', 'Enter test email address')}
-                      value={testEmail}
-                      onChange={(e) => setTestEmail(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button 
-                      onClick={handleTestEmail}
-                      disabled={testEmailMutation.isPending}
-                      variant="outline"
-                    >
-                      {testEmailMutation.isPending ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                      {t('admin_settings.test_email', 'Test Email')}
-                    </Button>
-                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium bg-blue-50 dark:bg-blue-900/20 p-2.5 border border-blue-200 dark:border-blue-800/50 rounded">
+                    Ensure your custom domain has verified SPF/DKIM records pointing to the platform's central mail relay.
+                  </p>
                 </>
               )}
             </CardContent>
@@ -404,6 +303,7 @@ const NotificationSettings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {renderGatewayStatus('sms')}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms_notifications', 'Enable SMS Notifications')}</Label>
@@ -419,67 +319,19 @@ const NotificationSettings = () => {
               </div>
 
               {settings.smsEnabled && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sms-provider">{t('admin_settings.sms_provider', 'SMS Provider')}</Label>
-                      <Select value={settings.smsProvider} onValueChange={(value) => handleInputChange('smsProvider', value)}>
-                        <SelectTrigger id="sms-provider">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="twilio">Twilio</SelectItem>
-                          <SelectItem value="nexmo">Nexmo (Vonage)</SelectItem>
-                          <SelectItem value="plivo">Plivo</SelectItem>
-                          <SelectItem value="africastalking">Africa's Talking</SelectItem>
-                          <SelectItem value="custom">Custom Provider</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sms-sender-id">{t('admin_settings.sender_id', 'Sender ID')}</Label>
-                      <Input
-                        id="sms-sender-id"
-                        value={settings.smsSenderId}
-                        onChange={(e) => handleInputChange('smsSenderId', e.target.value)}
-                        placeholder="ADMIPAEDIA"
-                        maxLength={11}
-                      />
-                      <p className="text-xs text-gray-500">{t('admin_settings.sender_id_hint', 'Maximum 11 characters')}</p>
-                    </div>
-                  </div>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sms-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
+                    <Label htmlFor="sms-sender-id">{t('admin_settings.sender_id', 'Sender ID')}</Label>
                     <Input
-                      id="sms-api-key"
-                      type="password"
-                      value={settings.smsApiKey}
-                      onChange={(e) => handleInputChange('smsApiKey', e.target.value)}
-                      placeholder="Your SMS provider API key"
+                      id="sms-sender-id"
+                      value={settings.smsSenderId}
+                      onChange={(e) => handleInputChange('smsSenderId', e.target.value)}
+                      placeholder="ADMIPAEDIA"
+                      maxLength={11}
                     />
+                    <p className="text-xs text-gray-500">{t('admin_settings.sender_id_hint', 'Maximum 11 characters')}</p>
                   </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder={t('admin_settings.enter_test_phone', 'Enter test phone number (+1234567890)')}
-                      value={testPhone}
-                      onChange={(e) => setTestPhone(e.target.value)}
-                      className="max-w-sm"
-                    />
-                    <Button 
-                      onClick={handleTestSms}
-                      disabled={testSmsMutation.isPending}
-                      variant="outline"
-                    >
-                      {testSmsMutation.isPending ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4" />
-                      )}
-                      {t('admin_settings.test_sms', 'Test SMS')}
-                    </Button>
-                  </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
