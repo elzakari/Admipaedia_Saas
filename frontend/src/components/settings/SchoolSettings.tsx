@@ -428,6 +428,8 @@ const SchoolSettings = () => {
                       <SelectItem value="USD">{t('admin_settings.currency_usd', 'US Dollar (USD)')}</SelectItem>
                       <SelectItem value="EUR">{t('admin_settings.currency_eur', 'Euro (EUR)')}</SelectItem>
                       <SelectItem value="GBP">{t('admin_settings.currency_gbp', 'British Pound (GBP)')}</SelectItem>
+                      <SelectItem value="NGN">{t('admin_settings.currency_ngn', 'Nigerian Naira (NGN)')}</SelectItem>
+                      <SelectItem value="XOF">{t('admin_settings.currency_xof', 'West African CFA franc (XOF)')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

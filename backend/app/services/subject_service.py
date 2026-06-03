@@ -84,15 +84,43 @@ class SubjectService:
             if Subject.query.filter_by(code=subject_data['code'], tenant_id=tenant_id).first():
                 return None, "Subject code already exists"
 
-            if subject_data.get('department_id'):
+            payload = dict(subject_data or {})
+            
+            # Resolve department string to department_id if needed
+            department_str = payload.pop('department', None)
+            if department_str and 'department_id' not in payload:
                 from app.models.department import Department
-                dept = Department.query.filter(Department.id == subject_data['department_id'], Department.tenant_id == tenant_id).first()
+                clean_dept_str = department_str.replace('_', ' ').strip().lower()
+                dept = Department.query.filter(
+                    db.func.lower(Department.name) == clean_dept_str,
+                    Department.tenant_id == tenant_id
+                ).first()
+                if dept:
+                    payload['department_id'] = dept.id
+                else:
+                    dept = Department.query.filter(
+                        db.func.lower(Department.code) == clean_dept_str,
+                        Department.tenant_id == tenant_id
+                    ).first()
+                    if dept:
+                        payload['department_id'] = dept.id
+
+            if payload.get('department_id'):
+                from app.models.department import Department
+                dept = Department.query.filter(Department.id == payload['department_id'], Department.tenant_id == tenant_id).first()
                 if not dept:
                     return None, "Department not found"
+
+            # Cast credit_hours safely
+            if 'credit_hours' in payload and payload['credit_hours'] is not None:
+                try:
+                    payload['credit_hours'] = float(payload['credit_hours'])
+                except (ValueError, TypeError):
+                    payload['credit_hours'] = 0.0
             
-            payload = dict(subject_data or {})
             if 'tenant_id' not in payload and hasattr(Subject, 'tenant_id'):
                 payload['tenant_id'] = tenant_id
+            
             new_subject = Subject(**payload)
             db.session.add(new_subject)
             db.session.commit()
@@ -121,13 +149,41 @@ class SubjectService:
                 if Subject.query.filter_by(code=subject_data['code'], tenant_id=tenant_id).first():
                     return None, "Subject code already exists"
 
-            if 'department_id' in subject_data and subject_data.get('department_id'):
+            payload = dict(subject_data or {})
+            
+            # Resolve department string to department_id if needed
+            department_str = payload.pop('department', None)
+            if department_str and 'department_id' not in payload:
                 from app.models.department import Department
-                dept = Department.query.filter(Department.id == subject_data['department_id'], Department.tenant_id == tenant_id).first()
+                clean_dept_str = department_str.replace('_', ' ').strip().lower()
+                dept = Department.query.filter(
+                    db.func.lower(Department.name) == clean_dept_str,
+                    Department.tenant_id == tenant_id
+                ).first()
+                if dept:
+                    payload['department_id'] = dept.id
+                else:
+                    dept = Department.query.filter(
+                        db.func.lower(Department.code) == clean_dept_str,
+                        Department.tenant_id == tenant_id
+                    ).first()
+                    if dept:
+                        payload['department_id'] = dept.id
+
+            if payload.get('department_id'):
+                from app.models.department import Department
+                dept = Department.query.filter(Department.id == payload['department_id'], Department.tenant_id == tenant_id).first()
                 if not dept:
                     return None, "Department not found"
+
+            # Cast credit_hours safely
+            if 'credit_hours' in payload and payload['credit_hours'] is not None:
+                try:
+                    payload['credit_hours'] = float(payload['credit_hours'])
+                except (ValueError, TypeError):
+                    payload['credit_hours'] = 0.0
             
-            for key, value in subject_data.items():
+            for key, value in payload.items():
                 setattr(subject, key, value)
             
             subject.updated_at = datetime.utcnow()

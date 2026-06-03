@@ -259,6 +259,7 @@ const GeneralSettings = () => {
                   <SelectItem value="EUR">Euro (EUR)</SelectItem>
                   <SelectItem value="GBP">British Pound (GBP)</SelectItem>
                   <SelectItem value="NGN">Nigerian Naira (NGN)</SelectItem>
+                  <SelectItem value="XOF">West African CFA franc (XOF)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

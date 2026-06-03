@@ -662,6 +662,8 @@ const SystemSettingsPage: React.FC = () => {
                       <SelectItem value="NGN">NGN</SelectItem>
                       <SelectItem value="USD">USD</SelectItem>
                       <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="XOF">XOF</SelectItem>
                     </SelectContent>
                   </Select>
                   {isSaved('tenancy_default_currency') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
