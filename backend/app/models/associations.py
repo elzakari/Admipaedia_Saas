@@ -12,7 +12,9 @@ teacher_subjects = db.Table('teacher_subjects',
 
 # Define the class_subjects association table if it doesn't exist already
 class_subjects = db.Table('class_subjects',
-    db.Column('class_id', db.Integer, db.ForeignKey('classes.id'), primary_key=True),
-    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True),
+    db.Column('id', db.Integer, primary_key=True, autoincrement=True),
+    db.Column('class_id', db.Integer, db.ForeignKey('classes.id', ondelete='CASCADE'), nullable=False),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id', ondelete='CASCADE'), nullable=False),
+    db.Column('teacher_id', db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
     db.Column('assigned_date', db.DateTime, default=datetime.utcnow)
 )
