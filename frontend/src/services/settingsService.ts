@@ -428,6 +428,16 @@ export const settingsService = {
     }
   },
 
+  getAssessmentCategories: async (): Promise<any[]> => {
+    try {
+      const response = await api.get('/assessment-categories');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching assessment categories:', error);
+      throw error;
+    }
+  },
+
   updateAcademicConfiguration: async (settings: Record<string, any>): Promise<Record<string, any>> => {
     try {
       const response = await api.put('/settings/academic', settings);

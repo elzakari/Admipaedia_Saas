@@ -33,8 +33,23 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   const [gradeMatrix, setGradeMatrix] = useState<Record<number, GradeEntry>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [assessmentCategories, setAssessmentCategories] = useState<any[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
   const activeRoster = cls.roster.filter((r) => r.status === 'active');
+
+  // Fetch assessment categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await api.get('/assessment-categories');
+        setAssessmentCategories(response.data || []);
+      } catch (err) {
+        console.error("Failed to load assessment categories:", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Pre-fetch assigned subjects for this class context on mount
   useEffect(() => {
@@ -213,7 +228,8 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           total_marks: 100,
           passing_marks: 50,
           class_id: Number(cls.id),
-          subject_id: Number(selectedSubjectId)
+          subject_id: Number(selectedSubjectId),
+          assessment_type: selectedCategoryId
         });
         const newExam = createRes.data?.exam;
         if (newExam) {
@@ -315,6 +331,17 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
                   placeholder={t('teacher_portal.gradebook.assessment_placeholder')}
                   disabled={isLoading}
                 />
+                <select
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  disabled={isLoading}
+                >
+                  <option value="">Select Category</option>
+                  {assessmentCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
                 <Button variant="ghost" onClick={() => setIsCustomAssessment(false)} className="h-10 px-2 text-xs">
                   {t('Cancel')}
                 </Button>

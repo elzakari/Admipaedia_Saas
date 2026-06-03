@@ -19,7 +19,9 @@ import {
   Save,
   RefreshCw,
   Edit,
-  CheckCircle
+  CheckCircle,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { settingsService } from '../../services';
 import SubjectsManagement from './subjects/SubjectsManagement';
@@ -247,11 +249,12 @@ const AcademicConfiguration = () => {
 
   const handleSave = () => {
     // Validate assessment weights
-    const totalWeight = Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0);
+    const activeCategories = settings.assessmentTypes?.filter(cat => cat.isActive) || [];
+    const totalWeight = activeCategories.reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0);
     if (totalWeight !== 100) {
       toast({
         title: t('common.validation_error', 'Validation Error'),
-        description: t('admin_settings.assessment_weights_total_validation', 'Assessment weights must total 100%. Current total: {{total}}%', { total: totalWeight }),
+        description: t('admin_settings.assessment_weights_total_validation', 'Active assessment weights must total exactly 100%. Current total: {{total}}%', { total: totalWeight }),
         variant: "destructive"
       });
       return;
@@ -264,13 +267,28 @@ const AcademicConfiguration = () => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAssessmentWeightChange = (type: keyof AssessmentWeights, value: number) => {
+  const handleCategoryChange = (index: number, key: keyof AssessmentType, value: any) => {
+    setSettings(prev => {
+      const updated = [...(prev.assessmentTypes || [])];
+      updated[index] = { ...updated[index], [key]: value };
+      return { ...prev, assessmentTypes: updated };
+    });
+  };
+
+  const handleAddCategory = () => {
     setSettings(prev => ({
       ...prev,
-      assessmentWeights: {
-        ...prev.assessmentWeights,
-        [type]: value
-      }
+      assessmentTypes: [
+        ...(prev.assessmentTypes || []),
+        { id: Date.now().toString(), name: 'New Category', weight: 0, description: '', isActive: true }
+      ]
+    }));
+  };
+
+  const handleRemoveCategory = (index: number) => {
+    setSettings(prev => ({
+      ...prev,
+      assessmentTypes: (prev.assessmentTypes || []).filter((_, idx) => idx !== index)
     }));
   };
 
@@ -586,99 +604,97 @@ const AcademicConfiguration = () => {
 
         <TabsContent value="assessment" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                {t('admin_settings.assessment_config', 'Assessment Configuration')}
-              </CardTitle>
-              <CardDescription>
-                {t('admin_settings.assessment_config_desc', 'Configure assessment types and their weights')}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  {t('admin_settings.assessment_config', 'Assessment Configuration')}
+                </CardTitle>
+                <CardDescription>
+                  {t('admin_settings.assessment_config_desc', 'Configure assessment types and their weights')}
+                </CardDescription>
+              </div>
+              <Button onClick={handleAddCategory} size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                {t('admin_settings.add_category', 'Add Category')}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.assessment_weights', 'Assessment Weights')}</h4>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="exams-weight">{t('admin_settings.exams', 'Exams')}</Label>
-                      <span className="text-sm text-gray-500">{settings.assessmentWeights.exams}%</span>
-                    </div>
-                    <Input
-                      id="exams-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={settings.assessmentWeights.exams}
-                      onChange={(e) => handleAssessmentWeightChange('exams', parseInt(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="assignments-weight">{t('admin_settings.assignments', 'Assignments')}</Label>
-                      <span className="text-sm text-gray-500">{settings.assessmentWeights.assignments}%</span>
-                    </div>
-                    <Input
-                      id="assignments-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={settings.assessmentWeights.assignments}
-                      onChange={(e) => handleAssessmentWeightChange('assignments', parseInt(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="quizzes-weight">{t('admin_settings.quizzes', 'Quizzes')}</Label>
-                      <span className="text-sm text-gray-500">{settings.assessmentWeights.quizzes}%</span>
-                    </div>
-                    <Input
-                      id="quizzes-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={settings.assessmentWeights.quizzes}
-                      onChange={(e) => handleAssessmentWeightChange('quizzes', parseInt(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="projects-weight">{t('admin_settings.projects', 'Projects')}</Label>
-                      <span className="text-sm text-gray-500">{settings.assessmentWeights.projects}%</span>
-                    </div>
-                    <Input
-                      id="projects-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={settings.assessmentWeights.projects}
-                      onChange={(e) => handleAssessmentWeightChange('projects', parseInt(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label htmlFor="participation-weight">{t('admin_settings.class_participation', 'Class Participation')}</Label>
-                      <span className="text-sm text-gray-500">{settings.assessmentWeights.classParticipation}%</span>
-                    </div>
-                    <Input
-                      id="participation-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={settings.assessmentWeights.classParticipation}
-                      onChange={(e) => handleAssessmentWeightChange('classParticipation', parseInt(e.target.value))}
-                    />
-                  </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('admin_settings.category_name', 'Category Name')}</TableHead>
+                        <TableHead>{t('admin_settings.description', 'Description')}</TableHead>
+                        <TableHead>{t('admin_settings.weight', 'Weight (%)')}</TableHead>
+                        <TableHead>{t('admin_settings.active', 'Active')}</TableHead>
+                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(settings.assessmentTypes || []).map((category, index) => (
+                        <TableRow key={category.id || index}>
+                          <TableCell>
+                            <Input
+                              value={category.name}
+                              onChange={(e) => handleCategoryChange(index, 'name', e.target.value)}
+                              className="max-w-[200px]"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={category.description}
+                              onChange={(e) => handleCategoryChange(index, 'description', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={category.weight}
+                              onChange={(e) => handleCategoryChange(index, 'weight', parseInt(e.target.value) || 0)}
+                              className="w-24"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={category.isActive}
+                              onCheckedChange={(checked) => handleCategoryChange(index, 'isActive', checked)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveCategory(index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(settings.assessmentTypes || []).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-4 text-gray-500">
+                            {t('admin_settings.no_categories', 'No assessment categories defined. Click Add Category.')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
                 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-lg p-4">
                   <div className="flex items-start">
                     <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Total Weight')}</h4>
+                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Total Active Weight')}</h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                        {t('admin_settings.current_total', 'Current total:')} {Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0)}%
-                        {Object.values(settings.assessmentWeights).reduce((sum, weight) => sum + weight, 0) !== 100 && (
+                        {t('admin_settings.current_total', 'Current total:')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
+                        {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0) !== 100 && (
                           <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Should equal 100%)')}</span>
                         )}
                       </p>

@@ -22,6 +22,7 @@ import assignmentService from "../../services/assignmentService";
 import classService from "../../services/classService";
 import subjectService from "../../services/subjectService";
 import studentService from "../../services/studentService";
+import settingsService from "../../services/settingsService";
 
 // Use the types from the service
 import type { Assignment, AssignmentSubmission } from "../../services/assignmentService";
@@ -105,6 +106,12 @@ export function AssignmentManagement() {
   const { data: studentsData } = useQuery({
     queryKey: ['students'],
     queryFn: () => studentService.getStudents(),
+  });
+
+  // Fetch assessment categories
+  const { data: assessmentCategories } = useQuery({
+    queryKey: ['assessment-categories'],
+    queryFn: () => settingsService.getAssessmentCategories(),
   });
   
   // Create assignment mutation
@@ -414,21 +421,30 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="assignment-type" className="text-right">
-                    Type
+                    Assessment Type *
                   </Label>
                   <Select 
                     onValueChange={(value) => handleSelectChange('assignment_type', value)}
                     value={formData.assignment_type}
+                    required
                   >
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder="Select Assessment Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="homework">Homework</SelectItem>
-                      <SelectItem value="quiz">Quiz</SelectItem>
-                      <SelectItem value="test">Test</SelectItem>
-                      <SelectItem value="project">Project</SelectItem>
-                      <SelectItem value="essay">Essay</SelectItem>
+                      {assessmentCategories?.map((cat) => (
+                        <SelectItem key={cat.id || cat.name} value={cat.id || cat.name}>
+                          {cat.name} ({cat.weight}%)
+                        </SelectItem>
+                      ))}
+                      {!assessmentCategories && (
+                        <>
+                          <SelectItem value="homework">Homework</SelectItem>
+                          <SelectItem value="quiz">Quiz</SelectItem>
+                          <SelectItem value="test">Test</SelectItem>
+                          <SelectItem value="project">Project</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

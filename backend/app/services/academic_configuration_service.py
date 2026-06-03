@@ -8,6 +8,15 @@ from app.models.system_setting import SystemSetting
 from app.models.academic_term import AcademicTerm
 
 
+DEFAULT_ASSESSMENT_TYPES = [
+    { 'id': '1', 'name': 'Exams', 'weight': 40, 'description': 'Major examinations', 'isActive': True },
+    { 'id': '2', 'name': 'Assignments', 'weight': 20, 'description': 'Homework and assignments', 'isActive': True },
+    { 'id': '3', 'name': 'Quizzes', 'weight': 15, 'description': 'Short tests and quizzes', 'isActive': True },
+    { 'id': '4', 'name': 'Projects', 'weight': 15, 'description': 'Research and practical projects', 'isActive': True },
+    { 'id': '5', 'name': 'Class Participation', 'weight': 10, 'description': 'Student participation in class', 'isActive': True }
+]
+
+
 class AcademicConfigurationService:
     @staticmethod
     def _defaults() -> Dict[str, Any]:
@@ -24,7 +33,7 @@ class AcademicConfigurationService:
                 'class_score_weight': 40,
                 'external_exam_weight': 60
             },
-            'assessmentTypes': [],
+            'assessmentTypes': DEFAULT_ASSESSMENT_TYPES,
             'assessmentWeights': {
                 'exams': 40,
                 'assignments': 20,

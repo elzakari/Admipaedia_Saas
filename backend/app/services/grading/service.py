@@ -100,13 +100,30 @@ class GradingService:
 
     @staticmethod
     def calculate_final_grades(class_id, subject_id, term, academic_year):
-        """Compute final grades for a class/subject."""
+        """Compute final grades for a class/subject dynamically based on active categories."""
+        from flask import g
+        from app.services.academic_configuration_service import AcademicConfigurationService
+        from app.models.exam import Exam
+        from app.models.grade import Grade
+
+        tenant_id = getattr(g, 'tenant_id', None)
+        if not tenant_id:
+            cls_obj = Class.query.get(class_id)
+            tenant_id = cls_obj.tenant_id if cls_obj else None
+
+        config = AcademicConfigurationService.build_harmonized_config(tenant_id)
+        assessment_types = config.get('assessmentTypes') or []
+        active_categories = {str(t['id']): t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)}
+        active_categories_by_name = {t['name'].strip().lower(): t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)}
+
         # Get all students in class
         students = Student.query.filter_by(class_id=class_id).all()
         
         for student in students:
-            # Fetch all grades
-            grades = EnhancedGrade.query.filter_by(
+            category_scores = {}
+            
+            # 1. Fetch EnhancedGrade records
+            enhanced_grades = EnhancedGrade.query.filter_by(
                 student_id=student.id,
                 class_id=class_id,
                 subject_id=subject_id,
@@ -114,30 +131,65 @@ class GradingService:
                 academic_year=academic_year
             ).all()
             
-            if not grades:
-                continue
+            for eg in enhanced_grades:
+                cat_id = str(eg.assessment_type_id)
+                matched_cat = None
+                if cat_id in active_categories:
+                    matched_cat = active_categories[cat_id]
+                else:
+                    for c_id, c in active_categories.items():
+                        if c['name'].strip().lower() == str(eg.assessment_type_id).strip().lower():
+                            matched_cat = c
+                            break
                 
-            # Aggregate Class Score (Continuous Assessment)
-            class_score_total = 0
-            class_score_max = 0
+                if matched_cat:
+                    cat_key = matched_cat['id']
+                    if cat_key not in category_scores:
+                        category_scores[cat_key] = []
+                    category_scores[cat_key].append(eg.percentage)
             
-            external_score = 0
-            external_max = 0
+            # 2. Fetch regular Grade records
+            regular_grades = Grade.query.filter_by(
+                student_id=student.id,
+                class_id=class_id,
+                subject_id=subject_id,
+                term=term,
+                academic_year=academic_year
+            ).all()
             
-            for grade in grades:
-                if grade.is_class_score:
-                    class_score_total += grade.percentage * grade.weight # Simplified weighting
-                    class_score_max += 100 * grade.weight
-                elif grade.is_external_exam:
-                    external_score = grade.percentage
-                    external_max = 100
-            
-            # Normalize Class Score to 100%
-            class_score_avg = (class_score_total / class_score_max * 100) if class_score_max > 0 else 0
-            
+            for rg in regular_grades:
+                exam_obj = rg.exam
+                exam_type = exam_obj.assessment_type or rg.assessment_type if exam_obj else rg.assessment_type
+                
+                if exam_type:
+                    exam_type_str = str(exam_type).strip().lower()
+                    matched_cat = None
+                    if exam_type_str in active_categories:
+                        matched_cat = active_categories[exam_type_str]
+                    elif exam_type_str in active_categories_by_name:
+                        matched_cat = active_categories_by_name[exam_type_str]
+                    
+                    if matched_cat:
+                        cat_key = matched_cat['id']
+                        if cat_key not in category_scores:
+                            category_scores[cat_key] = []
+                        category_scores[cat_key].append(rg.percentage)
+
+            if not category_scores:
+                continue
+
+            final_percentage = 0.0
+            for cat_id, cat in active_categories.items():
+                scores = category_scores.get(cat_id, [])
+                if scores:
+                    category_avg = sum(scores) / len(scores)
+                else:
+                    category_avg = 0.0
+                weight = float(cat.get('weight', 0))
+                final_percentage += category_avg * (weight / 100.0)
+
             # Create/Update FinalGrade
-            # Assuming GradingScheme is linked to Class or Subject (simplified lookup)
-            grading_scheme = GradingScheme.query.first() # Placeholder: Needs proper lookup logic
+            grading_scheme = GradingScheme.query.first() # Fallback grading scheme
             
             final_grade = FinalGrade.query.filter_by(
                 student_id=student.id,
@@ -151,16 +203,39 @@ class GradingService:
                     student_id=student.id,
                     subject_id=subject_id,
                     class_id=class_id,
-                    grading_scheme_id=grading_scheme.id if grading_scheme else 1, # Fallback
+                    grading_scheme_id=grading_scheme.id if grading_scheme else 1,
                     term=term,
                     academic_year=academic_year,
-                    computed_by=1 # System/Admin user
+                    computed_by=1
                 )
                 db.session.add(final_grade)
             
-            final_grade.class_score_average = class_score_avg
-            final_grade.external_exam_score = external_score
-            final_grade.compute_final_grade()
+            final_grade.final_percentage = final_percentage
+            final_grade.class_score_average = final_percentage  # Map final percentage
+            
+            # Determine final grade symbol
+            if final_grade.grading_scheme:
+                for boundary in sorted(final_grade.grading_scheme.grade_boundaries, 
+                                     key=lambda x: x.sequence_order):
+                    if boundary.min_score <= final_percentage <= boundary.max_score:
+                        final_grade.final_grade_symbol = boundary.grade_symbol
+                        final_grade.final_grade_points = boundary.grade_points
+                        final_grade.is_passing = boundary.is_passing
+                        break
+            else:
+                # Simple fallback grading scale
+                if final_percentage >= 80:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'A', True
+                elif final_percentage >= 70:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'B', True
+                elif final_percentage >= 60:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'C', True
+                elif final_percentage >= 50:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'D', True
+                elif final_percentage >= 40:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'E', True
+                else:
+                    final_grade.final_grade_symbol, final_grade.is_passing = 'F', False
             
         db.session.commit()
         return True, None

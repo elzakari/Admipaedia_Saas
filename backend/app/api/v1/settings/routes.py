@@ -966,6 +966,22 @@ def get_academic_settings_v2():
 @tenant_required
 def update_academic_settings_v2():
     payload = request.get_json() or {}
+    
+    assessment_types = payload.get('assessmentTypes')
+    if isinstance(assessment_types, list):
+        active_types = [t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)]
+        total_weight = 0
+        for t in active_types:
+            try:
+                total_weight += float(t.get('weight', 0))
+            except (ValueError, TypeError):
+                pass
+        if total_weight != 100:
+            return jsonify({
+                'success': False,
+                'message': f'Cumulative weight of active assessment categories must equal exactly 100%. Current total: {total_weight}%'
+            }), 400
+
     AcademicConfigurationService.upsert_tenant_settings(g.tenant_id, payload)
     AcademicConfigurationService.sync_grading_scheme_from_config(g.tenant_id, payload)
     return jsonify({'success': True}), 200
@@ -1015,3 +1031,12 @@ def get_audit_filter_options_v2():
 def export_audit_logs_v2():
     header = 'timestamp,userName,userRole,action,resource,status,severity,category\n'
     return header, 200, {'Content-Type': 'text/csv'}
+
+
+@jwt_required()
+@tenant_required
+def get_assessment_categories():
+    config = AcademicConfigurationService.build_harmonized_config(g.tenant_id)
+    assessment_types = config.get('assessmentTypes') or []
+    active_types = [t for t in assessment_types if isinstance(t, dict) and t.get('isActive', True)]
+    return jsonify(active_types), 200

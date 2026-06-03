@@ -91,7 +91,8 @@ class ExamService:
             class_id=data['class_id'],
             subject_id=data['subject_id'],
             created_by=data['created_by'],
-            status=data.get('status', 'scheduled')
+            status=data.get('status', 'scheduled'),
+            assessment_type=data.get('assessment_type')
         )
         
         try:
@@ -130,6 +131,8 @@ class ExamService:
             exam.passing_marks = data['passing_marks']
         if 'status' in data:
             exam.status = data['status']
+        if 'assessment_type' in data:
+            exam.assessment_type = data['assessment_type']
         
         try:
             db.session.commit()

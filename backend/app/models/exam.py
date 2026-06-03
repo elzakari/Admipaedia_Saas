@@ -16,6 +16,7 @@ class Exam(db.Model):
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     status = db.Column(db.String(20), default='scheduled')  # scheduled, ongoing, completed, cancelled
+    assessment_type = db.Column(db.String(50), nullable=True)  # e.g., 'Class Work', 'Home Assignments'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
