@@ -24,7 +24,10 @@ interface GradeEntry {
 
 export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   const { t } = useTranslation();
-  const [assessment, setAssessment] = useState<string>('Mid-term Test');
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
+  const [assessment, setAssessment] = useState<string>('');
+  const [isCustomAssessment, setIsCustomAssessment] = useState<boolean>(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [gradeMatrix, setGradeMatrix] = useState<Record<number, GradeEntry>>({});
@@ -33,25 +36,59 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
   const activeRoster = cls.roster.filter((r) => r.status === 'active');
 
-  // Pre-fetch valid assignments (exams) for this class context on mount
+  // Pre-fetch assigned subjects for this class context on mount
   useEffect(() => {
-    const fetchClassContext = async () => {
+    const fetchSubjects = async () => {
       try {
-        const response = await api.get('/exams', { params: { class_id: cls.id } });
+        const response = await api.get(`/classes/${cls.id}/subjects`);
+        const list = response.data?.subjects || response.data || [];
+        if (Array.isArray(list)) {
+          setSubjects(list);
+          if (list.length > 0) {
+            setSelectedSubjectId(list[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load subjects for class:", err);
+      }
+    };
+    fetchSubjects();
+  }, [cls.id]);
+
+  // Fetch valid assignments (exams) whenever class_id or subject_id changes
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setAssignments([]);
+      return;
+    }
+    const fetchClassSubjectContext = async () => {
+      try {
+        const response = await api.get('/exams', {
+          params: { class_id: cls.id, subject_id: selectedSubjectId }
+        });
         const list = response.data?.exams || response.data || [];
         if (Array.isArray(list)) {
-          setAssignments(list.map((e: any) => ({
+          const mapped = list.map((e: any) => ({
             id: e.id,
             title: e.title || '',
             max_score: e.total_marks || 100
-          })));
+          }));
+          setAssignments(mapped);
+          
+          // Pre-select first assignment if available to reduce manual selection steps
+          if (mapped.length > 0) {
+            setAssessment(mapped[0].title);
+            setIsCustomAssessment(false);
+          } else {
+            setAssessment('');
+          }
         }
       } catch (err) {
         console.error("Failed to load secure assignment validation tokens:", err);
       }
     };
-    fetchClassContext();
-  }, [cls.id]);
+    fetchClassSubjectContext();
+  }, [cls.id, selectedSubjectId]);
 
   // Standardized Education Scale Evaluator
   const calculateGradeAndRemark = (scoreNum: number, maxScore: number = 100) => {
@@ -66,6 +103,10 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
   // Secure Load Handler: Token-sanitizes input text strings safely
   const handleLoadGradebook = async () => {
+    if (!selectedSubjectId) {
+      setErrorMessage("Please select a subject context first.");
+      return;
+    }
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -73,7 +114,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
     const sanitizedInput = assessment.trim().toLowerCase().replace(/[\s_-]+/g, '');
 
     if (!sanitizedInput) {
-      setErrorMessage("Please enter an assignment or test title to load.");
+      setErrorMessage("Please select or enter an assessment title to load.");
       setIsLoading(false);
       return;
     }
@@ -85,7 +126,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
     if (!matchedAssignment) {
       // Fallback: If not found in API, check local storage key
-      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}`;
+      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}.${selectedSubjectId}`;
       try {
         const raw = localStorage.getItem(localKey);
         if (raw) {
@@ -111,7 +152,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
         console.warn("Failed to check local fallback:", localErr);
       }
 
-      setErrorMessage(`No matching assessment named "${assessment}" found for this class.`);
+      setErrorMessage(`No matching assessment named "${assessment}" found for this subject.`);
       setIsLoading(false);
       return;
     }
@@ -150,6 +191,10 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   };
 
   const handleSaveGradebook = async () => {
+    if (!selectedSubjectId) {
+      setErrorMessage("Please select a subject context first.");
+      return;
+    }
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -160,10 +205,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
     try {
       if (!matchedAssignment) {
-        // Create new assignment/exam dynamically
-        const subjectsRes = await api.get(`/classes/${cls.id}/subjects`);
-        const subjectId = subjectsRes.data?.subjects?.[0]?.id || 1;
-
+        // Create new assignment/exam dynamically for the selected class + subject
         const createRes = await api.post('/exams', {
           title: assessment,
           exam_date: new Date().toISOString(),
@@ -171,7 +213,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           total_marks: 100,
           passing_marks: 50,
           class_id: Number(cls.id),
-          subject_id: subjectId
+          subject_id: Number(selectedSubjectId)
         });
         const newExam = createRes.data?.exam;
         if (newExam) {
@@ -181,6 +223,8 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
             max_score: newExam.total_marks || 100
           };
           setAssignments(prev => [...prev, matchedAssignment!]);
+          setAssessment(newExam.title);
+          setIsCustomAssessment(false);
         }
       }
 
@@ -204,7 +248,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
 
     // Save to localStorage as fallback
     try {
-      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}`;
+      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}.${selectedSubjectId}`;
       const existing: any[] = (() => {
         try {
           const raw = localStorage.getItem(localKey);
@@ -242,20 +286,70 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('teacher_portal.gradebook.title')}</div>
           <div className="text-xs text-slate-500">{t('teacher_portal.gradebook.subtitle')}</div>
         </div>
-        <div className="flex gap-2 items-center">
-          <input
-            value={assessment}
-            onChange={(e) => setAssessment(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
-            placeholder={t('teacher_portal.gradebook.assessment_placeholder')}
-            disabled={isLoading}
-          />
-          <Button variant="outline" className="rounded-xl" onClick={handleLoadGradebook} disabled={isLoading}>
-            {isLoading ? "..." : t('teacher_portal.gradebook.load')}
-          </Button>
-          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={handleSaveGradebook} disabled={isLoading}>
-            {isLoading ? "..." : t('teacher_portal.gradebook.save')}
-          </Button>
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-slate-500">{t('Subject')}</span>
+            <select
+              value={selectedSubjectId}
+              onChange={(e) => {
+                setSelectedSubjectId(e.target.value === '' ? '' : Number(e.target.value));
+              }}
+              className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+              disabled={isLoading}
+            >
+              <option value="">Select Subject</option>
+              {subjects.map((sub) => (
+                <option key={sub.id} value={sub.id}>{sub.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-slate-500">{t('Assessment')}</span>
+            {isCustomAssessment ? (
+              <div className="flex gap-2 items-center">
+                <input
+                  value={assessment}
+                  onChange={(e) => setAssessment(e.target.value)}
+                  className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder={t('teacher_portal.gradebook.assessment_placeholder')}
+                  disabled={isLoading}
+                />
+                <Button variant="ghost" onClick={() => setIsCustomAssessment(false)} className="h-10 px-2 text-xs">
+                  {t('Cancel')}
+                </Button>
+              </div>
+            ) : (
+              <select
+                value={assessment}
+                onChange={(e) => {
+                  if (e.target.value === '__new__') {
+                    setIsCustomAssessment(true);
+                    setAssessment('');
+                  } else {
+                    setAssessment(e.target.value);
+                  }
+                }}
+                className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[180px]"
+                disabled={isLoading || !selectedSubjectId}
+              >
+                <option value="">Select Assessment</option>
+                {assignments.map((a) => (
+                  <option key={a.id} value={a.title}>{a.title}</option>
+                ))}
+                <option value="__new__">+ Create New...</option>
+              </select>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-xl h-10" onClick={handleLoadGradebook} disabled={isLoading || !selectedSubjectId}>
+              {isLoading ? "..." : t('teacher_portal.gradebook.load')}
+            </Button>
+            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 h-10" onClick={handleSaveGradebook} disabled={isLoading || !selectedSubjectId || !assessment}>
+              {isLoading ? "..." : t('teacher_portal.gradebook.save')}
+            </Button>
+          </div>
         </div>
       </div>
 
