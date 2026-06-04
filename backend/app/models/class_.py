@@ -96,6 +96,9 @@ class Class(db.Model):
 class ClassTeacherMapping(db.Model):
     """Class to Teacher Mapping Model."""
     __tablename__ = 'class_teacher_mappings'
+    __table_args__ = (
+        db.UniqueConstraint('class_id', 'teacher_id', name='class_teacher_mappings_class_teacher_key'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id', ondelete='CASCADE'), nullable=False)

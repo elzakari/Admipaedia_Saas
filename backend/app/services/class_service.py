@@ -241,13 +241,59 @@ class ClassService:
             if not teacher:
                 return None, "Teacher not found"
             
+            # Legacy pointer write
             class_obj.teacher_id = teacher_id
             class_obj.updated_at = datetime.utcnow()
+            
+            # Idempotent ClassTeacherMapping write
+            from app.models.class_ import ClassTeacherMapping
+            existing = ClassTeacherMapping.query.filter_by(
+                class_id=class_id,
+                teacher_id=teacher.user_id
+            ).first()
+            
+            if not existing:
+                mapping = ClassTeacherMapping(class_id=class_id, teacher_id=teacher.user_id)
+                db.session.add(mapping)
+                
             db.session.commit()
             
-            logger.info("Teacher assigned to class", class_id=class_obj.id, teacher_id=teacher_id)
+            logger.info("Teacher assigned to class (twin-write completed)", class_id=class_obj.id, teacher_id=teacher_id)
             return class_obj, None
         except SQLAlchemyError as e:
             db.session.rollback()
             logger.error("Error assigning teacher to class", error=str(e), class_id=class_id)
             return None, str(e)
+
+    @staticmethod
+    def unassign_teacher(class_id, teacher_id):
+        """Unassign a teacher from a class."""
+        try:
+            class_obj = Class.query.get(class_id)
+            if not class_obj:
+                return False, "Class not found"
+            
+            teacher = Teacher.query.get(teacher_id)
+            if not teacher:
+                return False, "Teacher not found"
+            
+            # Legacy pointer revert
+            if class_obj.teacher_id == teacher_id:
+                class_obj.teacher_id = None
+                class_obj.updated_at = datetime.utcnow()
+            
+            # Delete ClassTeacherMapping entries
+            from app.models.class_ import ClassTeacherMapping
+            ClassTeacherMapping.query.filter_by(
+                class_id=class_id,
+                teacher_id=teacher.user_id
+            ).delete()
+            
+            db.session.commit()
+            
+            logger.info("Teacher unassigned from class (twin-write sweep completed)", class_id=class_obj.id, teacher_id=teacher_id)
+            return True, None
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            logger.error("Error unassigning teacher from class", error=str(e), class_id=class_id)
+            return False, str(e)

@@ -388,17 +388,12 @@ def assign_teacher_class(teacher_id):
 @jwt_required()
 @admin_required
 def unassign_teacher_class(teacher_id, class_id):
-    from app.models.class_ import Class
-    from app.extensions import db
-
-    class_obj = Class.query.get(class_id)
-    if not class_obj:
-        return jsonify({'success': False, 'message': 'Class not found'}), 404
-    if class_obj.teacher_id != teacher_id:
-        return jsonify({'success': False, 'message': 'Class is not assigned to this teacher'}), 400
-
-    class_obj.teacher_id = None
-    db.session.commit()
+    from app.services.class_service import ClassService
+    success, error = ClassService.unassign_teacher(class_id=class_id, teacher_id=teacher_id)
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+    if not success:
+        return jsonify({'success': False, 'message': 'Failed to unassign teacher'}), 400
     return jsonify({'success': True, 'message': 'Teacher unassigned from class'}), 200
 
 

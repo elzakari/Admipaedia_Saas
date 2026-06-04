@@ -1,3 +1,4 @@
+import os
 from app import create_app
 from app.extensions import db
 from sqlalchemy import text, inspect
@@ -5,6 +6,9 @@ from sqlalchemy import text, inspect
 def fix_database():
     app = create_app()
     with app.app_context():
+        if app.config.get('ENV') == 'production' or os.environ.get('FLASK_ENV') == 'production':
+            print("Production environment detected. Ad-hoc database fixes via fix_db.py aborted.")
+            return
         engine = db.engine
         inspector = inspect(engine)
         

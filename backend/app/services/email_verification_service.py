@@ -183,6 +183,13 @@ class EmailVerificationService:
         db.session.add(user)
         db.session.commit()
 
+        if user.role == 'teacher':
+            try:
+                from app.services.teacher_provisioning_service import TeacherProvisioningService
+                TeacherProvisioningService.provision_teacher(user.id)
+            except Exception as e:
+                logger.error("Failed to run TeacherProvisioningService during email verification activation", error=str(e), user_id=user.id)
+
         logger.info("Email verification complete. User activated.", user_id=user.id, email=user.email)
         return True, "Email verified successfully"
 

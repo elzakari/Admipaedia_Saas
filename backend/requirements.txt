@@ -44,6 +44,8 @@ redis==5.0.1
 Flask-SocketIO==5.3.6
 gunicorn>=21.2.0  # Upgraded for 3.11 support
 eventlet==0.33.3
+gevent==23.9.1
+gevent-websocket==0.10.1
 
 # PDF generation
 reportlab==4.0.8  # For generating PDF reports

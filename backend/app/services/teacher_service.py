@@ -180,6 +180,11 @@ class TeacherService:
             broadcast_teacher_update(new_teacher.id, 'teacher_created')
     
             logger.info("Teacher created", teacher_id=new_teacher.id, user_id=new_teacher.user_id)
+            try:
+                from app.services.teacher_provisioning_service import TeacherProvisioningService
+                TeacherProvisioningService.provision_teacher(new_teacher.user_id)
+            except Exception as e:
+                logger.error("Failed to run TeacherProvisioningService during creation", error=str(e), user_id=new_teacher.user_id)
             return new_teacher, None
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -216,6 +221,11 @@ class TeacherService:
             broadcast_teacher_update(teacher.id, 'teacher_updated')
             
             logger.info("Teacher updated", teacher_id=teacher.id)
+            try:
+                from app.services.teacher_provisioning_service import TeacherProvisioningService
+                TeacherProvisioningService.provision_teacher(teacher.user_id)
+            except Exception as e:
+                logger.error("Failed to run TeacherProvisioningService during update", error=str(e), user_id=teacher.user_id)
             return teacher, None
         except Exception as e:
             db.session.rollback()
@@ -274,6 +284,12 @@ class TeacherService:
             broadcast_teacher_update(teacher.id, 'teacher_updated')
             
             logger.info("Teacher status updated", teacher_id=teacher.id, status=status)
+            if status == 'active':
+                try:
+                    from app.services.teacher_provisioning_service import TeacherProvisioningService
+                    TeacherProvisioningService.provision_teacher(teacher.user_id)
+                except Exception as e:
+                    logger.error("Failed to run TeacherProvisioningService during status update", error=str(e), user_id=teacher.user_id)
             return teacher, None
         except SQLAlchemyError as e:
             db.session.rollback()

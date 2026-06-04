@@ -9,18 +9,20 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - backend-api
+      - backend-socket
     environment:
       - NODE_ENV=production
     restart: unless-stopped
     networks:
       - admipaedia-network
 
-  # Backend Service
-  backend:
+  # Backend API Service
+  backend-api:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
+    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "gthread", "--threads", "4", "--timeout", "120", "--keepalive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "wsgi_api:app"]
     ports:
       - "5000:5000"
     depends_on:
@@ -32,9 +34,45 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SOCKETIO_ASYNC_MODE=disabled
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - admipaedia-network
+
+  # Backend Socket.IO Service
+  backend-socket:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "eventlet", "--timeout", "120", "--keepalive", "2", "socket_server:app"]
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://admipaedia:${DB_PASSWORD}@postgres:5432/admipaedia
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SOCKETIO_ASYNC_MODE=eventlet
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 5000))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
     networks:
       - admipaedia-network

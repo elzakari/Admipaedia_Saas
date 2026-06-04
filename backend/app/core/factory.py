@@ -51,14 +51,16 @@ def create_app(config_name=None):
         from app import models
         
         from app.extensions import db
-        if (app.config.get('AUTO_CREATE_DB') or app.config.get('INIT_DB_ON_START')) and not app.config.get('TESTING'):
-            db.create_all()
+        is_production = app.config.get('ENV') == 'production' or os.environ.get('FLASK_ENV') == 'production'
+        if not is_production:
+            if (app.config.get('AUTO_CREATE_DB') or app.config.get('INIT_DB_ON_START')) and not app.config.get('TESTING'):
+                db.create_all()
 
-        if app.config.get('INIT_DB_ON_START') and not app.config.get('TESTING'):
-            try:
-                from app.db_init import init_db
-                init_db()
-            except Exception:
-                pass
+            if app.config.get('INIT_DB_ON_START') and not app.config.get('TESTING'):
+                try:
+                    from app.db_init import init_db
+                    init_db()
+                except Exception:
+                    pass
     
     return app

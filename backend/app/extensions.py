@@ -61,8 +61,12 @@ cors = CORS()
 mail = Mail()
 babel = Babel()
 # Initialize SocketIO with async mode and ping timeout settings
+import os
+socketio_async_mode = os.environ.get('SOCKETIO_ASYNC_MODE', 'eventlet')
+async_mode = 'threading' if socketio_async_mode == 'disabled' else socketio_async_mode
+
 socketio = SocketIO(
-    async_mode='eventlet', 
+    async_mode=async_mode, 
     ping_timeout=120, 
     ping_interval=25, 
     cors_allowed_origins="*"

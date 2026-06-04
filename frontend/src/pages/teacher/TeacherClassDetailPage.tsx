@@ -44,7 +44,17 @@ const TeacherClassDetailPage: React.FC = () => {
         }
       } catch (err: any) {
         if (active) {
-          setError(err.message || 'Failed to load class workspace.');
+          const status = err.response?.status;
+          if (status === 403) {
+            setError("Vous n’êtes pas autorisé à accéder aux élèves de cette classe.");
+          } else if (status === 404) {
+            setError("Classe non trouvée.");
+          } else if (status === 401) {
+            alert("Votre session a expiré. Veuillez vous reconnecter.");
+            setError("Session expirée. Veuillez vous reconnecter.");
+          } else {
+            setError(err.message || 'Failed to load class workspace.');
+          }
         }
       } finally {
         if (active) {
@@ -77,12 +87,23 @@ const TeacherClassDetailPage: React.FC = () => {
   }
 
   if (error || !cls) {
+    let title = t('teacher_portal.class_detail.class_not_found');
+    let description = error || t('teacher_portal.class_detail.class_not_available');
+
+    if (error === "Vous n’êtes pas autorisé à accéder aux élèves de cette classe.") {
+      title = "Accès refusé";
+    } else if (error === "Classe non trouvée.") {
+      title = "Classe non trouvée";
+    } else if (error === "Session expirée. Veuillez vous reconnecter.") {
+      title = "Session expirée";
+    }
+
     return (
       <div className="p-6">
         <Card>
           <CardHeader>
-            <CardTitle>{t('teacher_portal.class_detail.class_not_found')}</CardTitle>
-            <CardDescription>{error || t('teacher_portal.class_detail.class_not_available')}</CardDescription>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
           </CardHeader>
           <CardContent>
             <Link to="/teacher/classes" className="text-indigo-600 hover:text-indigo-700">{t('teacher_portal.class_detail.back_to_classes')}</Link>

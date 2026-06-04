@@ -14,6 +14,10 @@ def check_and_fix_database():
     app = create_app()
     
     with app.app_context():
+        if app.config.get('ENV') == 'production' or os.environ.get('FLASK_ENV') == 'production':
+            print("Production environment detected. Ad-hoc db.create_all() bypassed.")
+            return True
+            
         try:
             # Import all models to ensure they're registered
             from app.models.security import LoginAttempt, SecurityEvent, PasswordHistory, APIKey
