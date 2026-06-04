@@ -112,6 +112,26 @@ class AcademicConfigurationService:
         else:
             record = TenantAcademicSettings(tenant_id=tenant_id, settings=sanitized or {})
             db.session.add(record)
+
+        # Update Tenant education system settings and EducationalSystemConfig on grading system update
+        grading_system = payload.get('gradingSystem')
+        if grading_system:
+            from app.models.tenant import Tenant
+            from app.models.educational_system import EducationalSystemConfig
+            tenant = Tenant.query.get(tenant_id)
+            if tenant:
+                tenant_settings = dict(tenant.settings) if isinstance(tenant.settings, dict) else {}
+                tenant_settings['education_system'] = grading_system
+                tenant_settings['educational_system'] = grading_system
+                tenant.settings = tenant_settings
+                
+                cfg = EducationalSystemConfig.query.filter_by(tenant_id=tenant_id, is_active=True).first()
+                if cfg:
+                    cfg.template_key = grading_system
+                else:
+                    cfg = EducationalSystemConfig(tenant_id=tenant_id, template_key=grading_system, is_active=True)
+                    db.session.add(cfg)
+
         db.session.commit()
 
     @staticmethod

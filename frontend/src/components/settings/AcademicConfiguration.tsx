@@ -283,16 +283,42 @@ const AcademicConfiguration = () => {
         description: b.description || b.grade,
         gradePoint: b.gradePoint || 0.0
       }));
-      setSettings(prev => ({
-        ...prev,
-        gradingSystem: selectedValue,
-        gradeScale: mappedBoundaries
-      }));
+      setSettings(prev => {
+        const nextSettings = {
+          ...prev,
+          gradingSystem: selectedValue,
+          gradeScale: mappedBoundaries
+        };
+        if (selectedValue === 'APC') {
+          nextSettings.maxGrade = 20;
+          nextSettings.passingGrade = 10;
+        } else {
+          if (nextSettings.maxGrade === 20) nextSettings.maxGrade = 100;
+          if (nextSettings.passingGrade === 10) nextSettings.passingGrade = 50;
+        }
+        return nextSettings;
+      });
     } else {
-      setSettings(prev => ({
-        ...prev,
-        gradingSystem: selectedValue
-      }));
+      setSettings(prev => {
+        const nextSettings = {
+          ...prev,
+          gradingSystem: selectedValue
+        };
+        if (selectedValue === 'APC') {
+          nextSettings.maxGrade = 20;
+          nextSettings.passingGrade = 10;
+          nextSettings.gradeScale = [
+            { id: '1', minScore: 16.00, maxScore: 20.00, grade: 'M', description: 'Maîtrisé', gradePoint: 16.00 },
+            { id: '2', minScore: 12.00, maxScore: 15.99, grade: 'A', description: 'Acquis', gradePoint: 14.00 },
+            { id: '3', minScore: 10.00, maxScore: 11.99, grade: 'EA', description: 'En cours d\'Acquisition', gradePoint: 10.00 },
+            { id: '4', minScore: 0.00, maxScore: 9.99, grade: 'NA', description: 'Non Acquis', gradePoint: 0.00 }
+          ];
+        } else {
+          if (nextSettings.maxGrade === 20) nextSettings.maxGrade = 100;
+          if (nextSettings.passingGrade === 10) nextSettings.passingGrade = 50;
+        }
+        return nextSettings;
+      });
     }
   };
 
@@ -510,6 +536,7 @@ const AcademicConfiguration = () => {
                       <SelectItem value="WAEC">West African Examinations Council (WAEC)</SelectItem>
                       <SelectItem value="IB">International Baccalaureate (IB)</SelectItem>
                       <SelectItem value="Cambridge">Cambridge International</SelectItem>
+                      <SelectItem value="APC">Approche Par Compétence (APC - Togo)</SelectItem>
                       <SelectItem value="Custom">Custom Grading System</SelectItem>
                     </SelectContent>
                   </Select>
