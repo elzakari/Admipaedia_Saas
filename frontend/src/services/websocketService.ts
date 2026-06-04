@@ -49,8 +49,10 @@ class WebSocketService {
       transports: ['websocket'],
       upgrade: false,
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
+      reconnectionAttempts: 5,     // Cap maximum connection retries
+      reconnectionDelay: 2000,     // Wait 2 seconds before retrying
+      reconnectionDelayMax: 10000, // Progressively scale delay up to 10 seconds max
+      timeout: 5000,               // Time out individual handshakes after 5 seconds
       autoConnect: true
     });
 
