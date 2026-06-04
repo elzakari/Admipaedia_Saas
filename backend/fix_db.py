@@ -81,6 +81,19 @@ def fix_database():
                 print(f"Error creating teacher_subjects: {e}")
                 db.session.rollback()
 
+        # 4. Fix Classes Table
+        print("Checking 'classes' table...")
+        if 'classes' in inspector.get_table_names():
+            columns = [c['name'] for c in inspector.get_columns('classes')]
+            if 'code' not in columns:
+                print("Adding column 'code' to 'classes' table...")
+                try:
+                    db.session.execute(text("ALTER TABLE classes ADD COLUMN code VARCHAR(50)"))
+                    db.session.commit()
+                except Exception as e:
+                    print(f"Error adding code to classes: {e}")
+                    db.session.rollback()
+
         print("Database check and fix completed.")
 
 if __name__ == "__main__":

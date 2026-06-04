@@ -5,6 +5,7 @@ class ClassSchema(Schema):
     """Schema for serializing and deserializing Class objects"""
     id = fields.Integer(dump_only=True)
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
+    code = fields.String(validate=validate.Length(max=50), allow_none=True)
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level", deserialize="load_grade_level")
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
@@ -59,6 +60,7 @@ class ClassSchema(Schema):
 class ClassCreateSchema(Schema):
     """Schema for creating a new class"""
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
+    code = fields.String(validate=validate.Length(max=50), allow_none=True)
     grade_level = fields.String(required=True, validate=validate.Length(min=1, max=20))
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
     academic_year = fields.String(required=True, validate=validate.Length(min=4, max=20))
@@ -74,6 +76,7 @@ class ClassCreateSchema(Schema):
 class ClassUpdateSchema(Schema):
     """Schema for updating an existing class"""
     name = fields.String(validate=validate.Length(min=2, max=100))
+    code = fields.String(validate=validate.Length(max=50), allow_none=True)
     grade_level = fields.String(validate=validate.Length(min=1, max=20))
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
     academic_year = fields.String(validate=validate.Length(min=4, max=20))
@@ -90,6 +93,7 @@ class ClassListSchema(Schema):
     """Schema for listing classes with minimal information"""
     id = fields.Integer(dump_only=True)
     name = fields.String()
+    code = fields.String()
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level")
     section = fields.String()

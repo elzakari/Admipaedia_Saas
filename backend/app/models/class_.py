@@ -11,6 +11,7 @@ class Class(db.Model):
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=False, index=True)
     branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(50), nullable=True)
     grade_level = db.Column(db.String(20), nullable=False)  # Keep for backward compatibility
     educational_level_id = db.Column(db.Integer, db.ForeignKey('educational_levels.id'), nullable=True)  # New field
     section = db.Column(db.String(20))
