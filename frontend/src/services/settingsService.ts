@@ -500,6 +500,16 @@ export const settingsService = {
       throw error;
     }
   },
+
+  getGradingSchemeBoundaries: async (system: string): Promise<any[]> => {
+    try {
+      const response = await api.get('/academics/grading-scheme', { params: { system } });
+      return response.data.success ? response.data.gradingScheme : [];
+    } catch (error) {
+      console.error('Error fetching grading scheme boundaries:', error);
+      throw error;
+    }
+  },
 };
 
 export default settingsService;

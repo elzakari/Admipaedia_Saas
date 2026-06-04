@@ -122,6 +122,64 @@ def get_grading_scheme():
         from app.models.user import User
         School = Tenant
 
+        # Dynamic query parameter check for template boundaries
+        system_param = request.args.get('system')
+        if system_param:
+            sys_upper = system_param.upper()
+            boundaries = []
+            if sys_upper in ('GES', 'WAEC'):
+                boundaries = [
+                    {'grade': 'A1', 'description': 'Excellent', 'minScore': 80, 'maxScore': 100, 'gradePoint': 4.0},
+                    {'grade': 'B2', 'description': 'Very Good', 'minScore': 75, 'maxScore': 79, 'gradePoint': 3.5},
+                    {'grade': 'B3', 'description': 'Good', 'minScore': 70, 'maxScore': 74, 'gradePoint': 3.0},
+                    {'grade': 'C4', 'description': 'Credit', 'minScore': 65, 'maxScore': 69, 'gradePoint': 2.5},
+                    {'grade': 'C5', 'description': 'Credit', 'minScore': 60, 'maxScore': 64, 'gradePoint': 2.0},
+                    {'grade': 'C6', 'description': 'Credit', 'minScore': 55, 'maxScore': 59, 'gradePoint': 1.5},
+                    {'grade': 'D7', 'description': 'Pass', 'minScore': 50, 'maxScore': 54, 'gradePoint': 1.0},
+                    {'grade': 'E8', 'description': 'Pass', 'minScore': 45, 'maxScore': 49, 'gradePoint': 0.5},
+                    {'grade': 'F9', 'description': 'Fail', 'minScore': 0, 'maxScore': 44, 'gradePoint': 0.0},
+                ]
+            elif sys_upper == 'IB':
+                boundaries = [
+                    {'grade': '7', 'description': 'Excellent', 'minScore': 90, 'maxScore': 100, 'gradePoint': 7.0},
+                    {'grade': '6', 'description': 'Very Good', 'minScore': 80, 'maxScore': 89, 'gradePoint': 6.0},
+                    {'grade': '5', 'description': 'Good', 'minScore': 70, 'maxScore': 79, 'gradePoint': 5.0},
+                    {'grade': '4', 'description': 'Satisfactory', 'minScore': 60, 'maxScore': 69, 'gradePoint': 4.0},
+                    {'grade': '3', 'description': 'Mediocre', 'minScore': 50, 'maxScore': 59, 'gradePoint': 3.0},
+                    {'grade': '2', 'description': 'Poor', 'minScore': 40, 'maxScore': 49, 'gradePoint': 2.0},
+                    {'grade': '1', 'description': 'Very Poor', 'minScore': 0, 'maxScore': 39, 'gradePoint': 1.0},
+                ]
+            elif sys_upper == 'CAMBRIDGE':
+                boundaries = [
+                    {'grade': 'A*', 'description': 'Excellent', 'minScore': 90, 'maxScore': 100, 'gradePoint': 4.0},
+                    {'grade': 'A', 'description': 'Very Good', 'minScore': 80, 'maxScore': 89, 'gradePoint': 3.8},
+                    {'grade': 'B', 'description': 'Good', 'minScore': 70, 'maxScore': 79, 'gradePoint': 3.5},
+                    {'grade': 'C', 'description': 'Satisfactory', 'minScore': 60, 'maxScore': 69, 'gradePoint': 3.0},
+                    {'grade': 'D', 'description': 'Minimum Pass', 'minScore': 50, 'maxScore': 59, 'gradePoint': 2.0},
+                    {'grade': 'E', 'description': 'Unsatisfactory Pass', 'minScore': 40, 'maxScore': 49, 'gradePoint': 1.0},
+                    {'grade': 'U', 'description': 'Ungraded', 'minScore': 0, 'maxScore': 39, 'gradePoint': 0.0},
+                ]
+            elif sys_upper == 'APC':
+                boundaries = [
+                    {'grade': 'M', 'description': 'Maîtrisé', 'minScore': 16, 'maxScore': 20, 'gradePoint': 16.0},
+                    {'grade': 'A', 'description': 'Acquis', 'minScore': 14, 'maxScore': 15.99, 'gradePoint': 14.0},
+                    {'grade': 'EA', 'description': 'En cours d’Acquisition', 'minScore': 10, 'maxScore': 13.99, 'gradePoint': 10.0},
+                    {'grade': 'NA', 'description': 'Non Acquis', 'minScore': 0, 'maxScore': 9.99, 'gradePoint': 0.0},
+                ]
+            else:
+                boundaries = [
+                    {'grade': 'A', 'description': 'Excellent', 'minScore': 80, 'maxScore': 100, 'gradePoint': 4.0},
+                    {'grade': 'B', 'description': 'Very Good', 'minScore': 70, 'maxScore': 79, 'gradePoint': 3.5},
+                    {'grade': 'C', 'description': 'Good', 'minScore': 60, 'maxScore': 69, 'gradePoint': 3.0},
+                    {'grade': 'D', 'description': 'Satisfactory', 'minScore': 50, 'maxScore': 59, 'gradePoint': 2.5},
+                    {'grade': 'E', 'description': 'Pass', 'minScore': 40, 'maxScore': 49, 'gradePoint': 2.0},
+                    {'grade': 'F', 'description': 'Fail', 'minScore': 0, 'maxScore': 39, 'gradePoint': 0.0},
+                ]
+            return jsonify({
+                'success': True,
+                'gradingScheme': boundaries
+            }), 200
+
         # Helper: check if tenant has grading scales
         def tenant_has_grading_scales(school_id):
             return GradingScheme.query.filter_by(tenant_id=school_id, is_active=True).count() > 0

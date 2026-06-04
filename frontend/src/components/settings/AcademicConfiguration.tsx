@@ -126,6 +126,8 @@ const AcademicConfiguration = () => {
   const [activeTab, setActiveTab] = useState('academic-year');
   const [editingGrade, setEditingGrade] = useState<string | null>(null);
   const [newGrade, setNewGrade] = useState<Partial<GradeRange>>({});
+  const [selectedSystem, setSelectedSystem] = useState<string>('GES');
+  const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<AcademicConfiguration>({
     // Academic Year
@@ -225,6 +227,9 @@ const AcademicConfiguration = () => {
       coreSubjects: Array.isArray(normalized.coreSubjects) ? normalized.coreSubjects : prev.coreSubjects,
       electiveSubjects: Array.isArray(normalized.electiveSubjects) ? normalized.electiveSubjects : prev.electiveSubjects
     }));
+    if (normalized && normalized.gradingSystem) {
+      setSelectedSystem(normalized.gradingSystem);
+    }
   }, [currentSettings]);
 
   // Update settings mutation
@@ -265,6 +270,43 @@ const AcademicConfiguration = () => {
 
   const handleInputChange = (field: keyof AcademicConfiguration, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const fetchGradingSchemeBoundaries = async (selectedValue: string) => {
+    const boundaries = await settingsService.getGradingSchemeBoundaries(selectedValue);
+    if (boundaries && Array.isArray(boundaries)) {
+      const mappedBoundaries = boundaries.map((b: any, idx: number) => ({
+        id: b.id?.toString() || (idx + 1).toString(),
+        minScore: b.minScore,
+        maxScore: b.maxScore,
+        grade: b.grade,
+        description: b.description || b.grade,
+        gradePoint: b.gradePoint || 0.0
+      }));
+      setSettings(prev => ({
+        ...prev,
+        gradingSystem: selectedValue,
+        gradeScale: mappedBoundaries
+      }));
+    } else {
+      setSettings(prev => ({
+        ...prev,
+        gradingSystem: selectedValue
+      }));
+    }
+  };
+
+  const handleSystemChange = async (selectedValue: string) => {
+    try {
+      setSelectedSystem(selectedValue);
+      if (!selectedValue) return;
+      
+      // Trigger the network query purely independent of socket lifecycle states
+      await fetchGradingSchemeBoundaries(selectedValue);
+    } catch (err) {
+      console.error("Defensive UI Trap: Dropdown state update halted safely", err);
+      setLocalErrorMessage("Unable to change template selection due to state collision.");
+    }
   };
 
   const handleCategoryChange = (index: number, key: keyof AssessmentType, value: any) => {
@@ -338,6 +380,11 @@ const AcademicConfiguration = () => {
 
   return (
     <div className="space-y-6">
+      {localErrorMessage && (
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-md p-4 text-sm" role="alert">
+          {localErrorMessage}
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.academic', 'Academic Configuration')}</h2>
@@ -454,7 +501,7 @@ const AcademicConfiguration = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="grading-system">{t('admin_settings.grading_system', 'Grading System')}</Label>
-                  <Select value={settings.gradingSystem} onValueChange={(value) => handleInputChange('gradingSystem', value)}>
+                  <Select value={settings.gradingSystem || selectedSystem} onValueChange={handleSystemChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
