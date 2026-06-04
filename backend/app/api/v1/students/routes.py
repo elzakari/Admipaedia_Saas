@@ -149,6 +149,22 @@ def get_students():
         status = request.args.get('status')
         search = request.args.get('search')
         
+        # Dynamic database check for teacher's class assignment context
+        user_id = get_jwt_identity()
+        if user_id:
+            from app.models.user import User
+            from app.models.class_ import ClassTeacherMapping
+            from flask import abort
+            user_obj = User.query.get(user_id)
+            if user_obj and getattr(user_obj, 'role', '').lower() == 'teacher' and class_id:
+                is_assigned = db.session.query(ClassTeacherMapping).filter_by(
+                    teacher_id=user_id, 
+                    class_id=class_id
+                ).first() is not None
+                
+                if not is_assigned:
+                    return abort(403, description="Insufficient permissions for this class context.")
+        
         paginated_students = student_service.get_all_students(
             page=page,
             per_page=per_page,
@@ -178,6 +194,9 @@ def get_students():
             }
         }), 200
     except Exception as e:
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            raise e
         current_app.logger.error(f"Error getting students: {str(e)}")
         return jsonify({
             'success': True,

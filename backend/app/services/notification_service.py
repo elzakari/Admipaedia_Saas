@@ -131,3 +131,98 @@ class NotificationService:
         db.session.add(log)
         db.session.commit()
         return log
+
+    @staticmethod
+    def get_user_notifications(user_id, page=1, per_page=20, unread_only=False):
+        """Get notifications for a user, including class-scoped announcements if user is a parent or student."""
+        from app.models.user import User
+        from app.models.dashboard import Notification
+        from app.models.announcement import Announcement
+        from app.models.parent import Parent
+        from app.models.student import Student
+        from sqlalchemy import or_
+        
+        user = User.query.get(user_id)
+        if not user:
+            return [], 0
+            
+        notifications_list = []
+        
+        # 1. Fetch direct/scope notifications
+        notif_query = Notification.query.filter(
+            or_(
+                Notification.recipient_id == int(user_id),
+                Notification.user_id == int(user_id),
+                Notification.scope == user.role,
+                Notification.scope == f"{user.role}s",
+                Notification.scope == 'all'
+            )
+        )
+        if unread_only:
+            notif_query = notif_query.filter(Notification.read == False)
+            
+        db_notifications = notif_query.all()
+        for n in db_notifications:
+            int_id = hash(n.id) & 0x7fffffff if isinstance(n.id, str) else n.id
+            notifications_list.append({
+                'id': int_id,
+                'user_id': user_id,
+                'title': n.title,
+                'message': n.message,
+                'type': n.type or 'general',
+                'priority': 'medium',
+                'is_read': n.read,
+                'created_at': n.time or n.created_at,
+                'updated_at': n.updated_at
+            })
+            
+        # 2. Fetch classroom-context announcements if user is parent or student
+        class_ids = []
+        if user.role == 'student':
+            student = Student.query.filter_by(user_id=int(user_id)).first()
+            if student and student.class_id:
+                class_ids.append(student.class_id)
+        elif user.role == 'parent':
+            parent = Parent.query.filter_by(user_id=int(user_id)).first()
+            if parent:
+                # Retrieve from parent.children relationship
+                class_ids = [s.class_id for s in parent.children if s.class_id]
+                
+        if class_ids:
+            ann_query = Announcement.query.filter(
+                (Announcement.class_id.in_(class_ids)) |
+                (Announcement.recipients == 'all')
+            )
+            announcements = ann_query.order_by(Announcement.created_at.desc()).all()
+            
+            for a in announcements:
+                notifications_list.append({
+                    'id': a.id,
+                    'user_id': user_id,
+                    'title': a.title,
+                    'message': a.content,
+                    'type': 'announcement',
+                    'priority': 'high',
+                    'is_read': False,
+                    'created_at': a.created_at,
+                    'updated_at': a.updated_at
+                })
+                
+        # Sort combined list by created_at desc
+        notifications_list.sort(key=lambda x: x['created_at'] or datetime.min, reverse=True)
+        
+        # Paginate in memory
+        total = len(notifications_list)
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated_list = notifications_list[start:end]
+        
+        # Return as Notification objects (or dicts)
+        # Marshmallow schema expects objects/dicts with keys matching schema fields.
+        # We can construct lightweight dummy objects for marshmallow compatibility
+        class DummyNotification:
+            def __init__(self, **entries):
+                self.__dict__.update(entries)
+                
+        dummy_objects = [DummyNotification(**x) for x in paginated_list]
+        return dummy_objects, total

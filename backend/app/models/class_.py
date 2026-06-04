@@ -90,3 +90,16 @@ class Class(db.Model):
         if self.educational_level:
             return self.educational_level.name
         return self.grade_level
+
+
+class ClassTeacherMapping(db.Model):
+    """Class to Teacher Mapping Model."""
+    __tablename__ = 'class_teacher_mappings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id', ondelete='CASCADE'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    
+    # Relationships
+    class_ = db.relationship('Class', backref=db.backref('teacher_mappings', lazy='dynamic', cascade='all, delete-orphan'))
+    teacher_user = db.relationship('User', backref=db.backref('class_mappings', lazy='dynamic', cascade='all, delete-orphan'))

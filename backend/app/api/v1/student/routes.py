@@ -531,14 +531,16 @@ def get_student_notifications():
     if not student:
         return jsonify({'success': False, 'message': 'Student profile not found'}), 404
 
-    from app.models.dashboard import Notification
-    from sqlalchemy import or_
-    notifications = Notification.query.filter(
-        or_(
-            Notification.recipient_id == int(user_id),
-            Notification.scope.in_(['students', 'all'])
-        )
-    ).order_by(Notification.time.desc()).all()
+    from app.services.notification_service import NotificationService
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    
+    notifications, _ = NotificationService.get_user_notifications(
+        user_id=int(user_id),
+        page=page,
+        per_page=per_page
+    )
 
     serialized = []
     for n in notifications:
@@ -547,8 +549,8 @@ def get_student_notifications():
             'title': n.title,
             'body': n.message,
             'message': n.message,
-            'createdAt': n.time.isoformat() if n.time else (n.created_at.isoformat() if hasattr(n, 'created_at') else ''),
-            'read': n.read,
+            'createdAt': n.created_at.isoformat() if hasattr(n, 'created_at') and n.created_at else (n.time.isoformat() if hasattr(n, 'time') and n.time else ''),
+            'read': getattr(n, 'is_read', False),
             'kind': n.type or 'info'
         })
     return jsonify({'success': True, 'notifications': serialized}), 200
