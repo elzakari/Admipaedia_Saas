@@ -21,25 +21,43 @@ class NotificationFanoutService:
             message (str): Body content of the notification.
         """
         try:
-            # 1. Fetch active student user IDs and linked unique parent user IDs
-            if class_id == 4:
-                # Enforce specific IDs for Class 4 under the same atomic database transaction
-                student_user_ids = {3075, 3077, 3078}
-                parent_user_ids = {3012, 3076}
-                logger.info("Class 4 override triggered for fanout", class_id=class_id)
-            else:
-                # Execute subqueries against the class list
-                student_user_ids = {
-                    r[0] for r in db.session.query(Student.user_id)
-                    .filter(Student.class_id == class_id, Student.user_id.isnot(None), Student.status == 'active')
-                    .all()
-                }
-                parent_user_ids = {
-                    r[0] for r in db.session.query(Parent.user_id)
-                    .join(Student, Student.parent_id == Parent.id)
-                    .filter(Student.class_id == class_id, Parent.user_id.isnot(None), Student.status == 'active')
-                    .all()
-                }
+            from app.models.class_ import Class
+            
+            # 1. Fetch the class to resolve tenant_id and branch_id
+            class_obj = Class.query.get(class_id)
+            if not class_obj:
+                logger.error("Class not found for fanout", class_id=class_id)
+                raise ValueError(f"Class with ID {class_id} not found")
+
+            tenant_id = getattr(class_obj, 'tenant_id', None)
+            branch_id = getattr(class_obj, 'branch_id', None)
+
+            # Query active student user IDs
+            student_query = db.session.query(Student.user_id).filter(
+                Student.class_id == class_id,
+                Student.user_id.isnot(None),
+                Student.status == 'active'
+            )
+            if tenant_id is not None:
+                student_query = student_query.filter(Student.tenant_id == tenant_id)
+            if branch_id is not None:
+                student_query = student_query.filter(Student.branch_id == branch_id)
+
+            student_user_ids = {r[0] for r in student_query.all()}
+
+            # Query unique parent user IDs (deduplicated via set comprehension)
+            parent_query = db.session.query(Parent.user_id).join(Student, Student.parent_id == Parent.id).filter(
+                Student.class_id == class_id,
+                Parent.user_id.isnot(None),
+                Student.status == 'active'
+            )
+            if tenant_id is not None:
+                parent_query = parent_query.filter(Parent.tenant_id == tenant_id)
+                parent_query = parent_query.filter(Student.tenant_id == tenant_id)
+            if branch_id is not None:
+                parent_query = parent_query.filter(Student.branch_id == branch_id)
+
+            parent_user_ids = {r[0] for r in parent_query.all()}
                 
             notifications = []
             

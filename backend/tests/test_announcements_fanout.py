@@ -274,6 +274,41 @@ def test_class_4_override_fanout(app, db_session):
         db_session.add(c)
         db_session.flush()
         
+        # Link teacher to class
+        ClassService.assign_teacher(c.id, teacher.id)
+        
+        # Seed student users with specific IDs
+        for s_uid in [3075, 3077, 3078]:
+            u = User(id=s_uid, username=f"student_{s_uid}_{uuid.uuid4().hex[:4]}", email=f"student_{s_uid}@example.com", role='student', tenant_id=tenant.id)
+            u.set_password('Password123!')
+            db_session.add(u)
+        db_session.flush()
+        
+        # Seed parent users with specific IDs
+        for p_uid in [3012, 3076]:
+            u = User(id=p_uid, username=f"parent_{p_uid}_{uuid.uuid4().hex[:4]}", email=f"parent_{p_uid}@example.com", role='parent', tenant_id=tenant.id)
+            u.set_password('Password123!')
+            db_session.add(u)
+        db_session.flush()
+        
+        # Create Parents
+        p_obj_3012 = Parent(user_id=3012, tenant_id=tenant.id, relationship='Father')
+        p_obj_3076 = Parent(user_id=3076, tenant_id=tenant.id, relationship='Mother')
+        db_session.add(p_obj_3012)
+        db_session.add(p_obj_3076)
+        db_session.flush()
+        
+        # Create Students associated with Class 4 and parents
+        s_obj_3075 = Student(user_id=3075, tenant_id=tenant.id, admission_number="ADM-3075", first_name='S3075', last_name='S', date_of_birth=datetime(2010, 1, 1).date(), gender='male', email='student_3075@example.com', class_id=4, parent_id=p_obj_3012.id, status='active')
+        s_obj_3077 = Student(user_id=3077, tenant_id=tenant.id, admission_number="ADM-3077", first_name='S3077', last_name='S', date_of_birth=datetime(2010, 1, 1).date(), gender='male', email='student_3077@example.com', class_id=4, parent_id=p_obj_3076.id, status='active')
+        s_obj_3078 = Student(user_id=3078, tenant_id=tenant.id, admission_number="ADM-3078", first_name='S3078', last_name='S', date_of_birth=datetime(2010, 1, 1).date(), gender='male', email='student_3078@example.com', class_id=4, parent_id=p_obj_3076.id, status='active')
+        db_session.add(s_obj_3075)
+        db_session.add(s_obj_3077)
+        db_session.add(s_obj_3078)
+        db_session.flush()
+        
+        db_session.commit()
+        
         announcement_data = {
             'title': 'Class 4 Notice',
             'content': 'This is a test notice for class 4 overrides.',
@@ -300,4 +335,128 @@ def test_class_4_override_fanout(app, db_session):
             notif = Notification.query.filter_by(user_id=user_id, scope='parent', title='Class 4 Notice').first()
             assert notif is not None
             assert notif.message == 'This is a test notice for class 4 overrides.'
+
+
+def test_insert_notification_without_explicit_id_succeeds(app, db_session):
+    """Verify that inserting a Notification without an explicit id succeeds (primary key autoincrement)."""
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        u = create_test_user(db_session, f"u_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        
+        notif = Notification(
+            title="Implicit ID Test",
+            message="This notification should get an autoincremented ID.",
+            type="info",
+            user_id=u.id,
+            recipient_id=u.id,
+            scope="student"
+        )
+        db_session.add(notif)
+        db_session.commit()
+        
+        assert notif.id is not None
+        assert isinstance(notif.id, int)
+
+
+def test_parent_multiple_children_deduplication(app, db_session):
+    """Verify that a parent with multiple students in the same class receives only one notification (deduplication)."""
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        t_user = create_test_user(db_session, f"t_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher = create_test_teacher(db_session, t_user, tenant.id)
+        
+        c = Class(
+            name=f"Class {uuid.uuid4().hex[:6]}",
+            grade_level='Primary 2',
+            academic_year='2024/2025',
+            capacity=30,
+            tenant_id=tenant.id,
+            status='active'
+        )
+        db_session.add(c)
+        db_session.flush()
+        
+        # Link teacher to class
+        ClassService.assign_teacher(c.id, teacher.id)
+        
+        # Create one parent
+        p_user = create_test_user(db_session, f"p_multi_{uuid.uuid4().hex[:6]}@example.com", 'parent', tenant.id)
+        parent = create_test_parent(db_session, p_user, tenant.id)
+        
+        # Create student 1
+        s1_user = create_test_user(db_session, f"s1_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        student1 = create_test_student(db_session, s1_user, tenant.id, class_id=c.id)
+        student1.parent_id = parent.id
+        
+        # Create student 2
+        s2_user = create_test_user(db_session, f"s2_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        student2 = create_test_student(db_session, s2_user, tenant.id, class_id=c.id)
+        student2.parent_id = parent.id
+        
+        db_session.commit()
+        
+        # Post announcement
+        announcement_data = {
+            'title': 'Deduplication Announcement',
+            'content': 'Check if parent gets only one notification.',
+            'class_id': c.id,
+            'teacher_id': teacher.id,
+            'recipients': 'all',
+            'is_published': True
+        }
+        
+        announcement, error = AnnouncementService.create_announcement(announcement_data, broadcast=False)
+        assert error is None
+        assert announcement is not None
+        
+        # Parent notifications count
+        parent_notifs = Notification.query.filter_by(user_id=p_user.id, title='Deduplication Announcement', scope='parent').all()
+        assert len(parent_notifs) == 1
+
+
+def test_fanout_failure_logged_and_propagated(app, db_session):
+    """Verify that a failure in the fanout service is logged clearly and propagated, rolling back the transaction."""
+    from unittest.mock import patch
+    from app.models.announcement import Announcement
+    
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        t_user = create_test_user(db_session, f"t_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher = create_test_teacher(db_session, t_user, tenant.id)
+        
+        c = Class(
+            name=f"Class {uuid.uuid4().hex[:6]}",
+            grade_level='Primary 3',
+            academic_year='2024/2025',
+            capacity=30,
+            tenant_id=tenant.id,
+            status='active'
+        )
+        db_session.add(c)
+        db_session.flush()
+        
+        ClassService.assign_teacher(c.id, teacher.id)
+        db_session.commit()
+        
+        announcement_data = {
+            'title': 'Failure Test Announcement',
+            'content': 'This announcement creation should fail due to fanout error.',
+            'class_id': c.id,
+            'teacher_id': teacher.id,
+            'recipients': 'all',
+            'is_published': True
+        }
+        
+        from app.services.fanout import NotificationFanoutService
+        
+        with patch.object(NotificationFanoutService, 'enqueue_class_fanout', side_effect=RuntimeError("Database connection lost during fanout")):
+            announcement, error = AnnouncementService.create_announcement(announcement_data, broadcast=False)
+            
+            assert announcement is None
+            assert "Database connection lost during fanout" in error
+            
+            # Verify that the announcement was rolled back and does not exist in DB
+            db_announcement = Announcement.query.filter_by(title='Failure Test Announcement').first()
+            assert db_announcement is None
+
 
