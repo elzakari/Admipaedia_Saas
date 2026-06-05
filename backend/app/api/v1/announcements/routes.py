@@ -50,17 +50,18 @@ def create_announcement():
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        if user.role == 'teacher':
-            from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
-            if not is_assigned:
-                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
-
         teacher_id = None
         if user.role == 'teacher':
             teacher = Teacher.query.filter_by(user_id=user_id).first()
-            if teacher:
-                teacher_id = teacher.id
+            if not teacher:
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+            teacher_id = teacher.id
+
+            from app.models.class_ import ClassTeacherMapping
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.id).first() is not None
+            current_app.logger.info(f"Announcement permission check: user_id={user_id}, teacher_id={teacher.id}, class_id={class_id}, is_assigned={is_assigned}")
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
         if teacher_id is None:
             try:
@@ -144,6 +145,12 @@ def update_announcement(announcement_id):
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
+        teacher = None
+        if user.role not in ('admin', 'super_admin', 'superadmin', 'super_manager'):
+            teacher = Teacher.query.filter_by(user_id=user_id).first()
+            if not teacher:
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+
         data = request.get_json() or {}
         updates = {}
         for key in ('title', 'content', 'recipients', 'send_email', 'is_published', 'target_roles', 'scheduled_date'):
@@ -184,18 +191,15 @@ def update_announcement(announcement_id):
             else:
                 updates['target_roles'] = None
 
-        if user.role == 'admin':
+        if user.role in ('admin', 'super_admin', 'superadmin', 'super_manager'):
             announcement, err = AnnouncementService.update_announcement_admin(announcement_id, updates)
         else:
-            teacher = Teacher.query.filter_by(user_id=user_id).first()
-            if not teacher:
-                return jsonify({'success': False, 'message': 'Teacher record not found'}), 400
             announcement = AnnouncementService.get_announcement_by_id(announcement_id)
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
             from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=user_id).first() is not None
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.id).first() is not None
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
@@ -222,18 +226,21 @@ def delete_announcement(announcement_id):
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        if user.role == 'admin':
-            ok, err = AnnouncementService.delete_announcement_admin(announcement_id)
-        else:
+        teacher = None
+        if user.role not in ('admin', 'super_admin', 'superadmin', 'super_manager'):
             teacher = Teacher.query.filter_by(user_id=user_id).first()
             if not teacher:
-                return jsonify({'success': False, 'message': 'Teacher record not found'}), 400
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+
+        if user.role in ('admin', 'super_admin', 'superadmin', 'super_manager'):
+            ok, err = AnnouncementService.delete_announcement_admin(announcement_id)
+        else:
             announcement = AnnouncementService.get_announcement_by_id(announcement_id)
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
             from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=user_id).first() is not None
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.id).first() is not None
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
