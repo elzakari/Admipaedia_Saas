@@ -58,7 +58,7 @@ def create_announcement():
             teacher_id = teacher.id
 
             from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.id).first() is not None
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
             current_app.logger.info(f"Announcement permission check: user_id={user_id}, teacher_id={teacher.id}, class_id={class_id}, is_assigned={is_assigned}")
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
@@ -199,7 +199,7 @@ def update_announcement(announcement_id):
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
             from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.id).first() is not None
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.user_id).first() is not None
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
@@ -240,7 +240,7 @@ def delete_announcement(announcement_id):
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
             from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.id).first() is not None
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.user_id).first() is not None
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 

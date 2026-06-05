@@ -253,3 +253,51 @@ def test_class_announcement_route_authorization(app, client, db_session):
             'content': 'Mapped teacher body'
         }, headers=headers_teacher1)
         assert resp.status_code == 201
+
+
+def test_class_4_override_fanout(app, db_session):
+    """Verify that creating an announcement for Class 4 transactionally maps to student users 3075, 3077, 3078 and parent users 3012, 3076."""
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        t_user = create_test_user(db_session, f"t_4_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher = create_test_teacher(db_session, t_user, tenant.id)
+        
+        c = Class(
+            id=4,
+            name="Class 4 Override Test",
+            grade_level='Primary 4',
+            academic_year='2024/2025',
+            capacity=30,
+            tenant_id=tenant.id,
+            status='active'
+        )
+        db_session.add(c)
+        db_session.flush()
+        
+        announcement_data = {
+            'title': 'Class 4 Notice',
+            'content': 'This is a test notice for class 4 overrides.',
+            'class_id': 4,
+            'teacher_id': teacher.id,
+            'recipients': 'all',
+            'is_published': True
+        }
+        
+        announcement, error = AnnouncementService.create_announcement(announcement_data, broadcast=False)
+        
+        assert error is None
+        assert announcement is not None
+        
+        # Verify the notification entries created in DB:
+        # student user IDs: 3075, 3077, 3078
+        for user_id in [3075, 3077, 3078]:
+            notif = Notification.query.filter_by(user_id=user_id, scope='student', title='Class 4 Notice').first()
+            assert notif is not None
+            assert notif.message == 'This is a test notice for class 4 overrides.'
+            
+        # parent user IDs: 3012, 3076
+        for user_id in [3012, 3076]:
+            notif = Notification.query.filter_by(user_id=user_id, scope='parent', title='Class 4 Notice').first()
+            assert notif is not None
+            assert notif.message == 'This is a test notice for class 4 overrides.'
+

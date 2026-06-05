@@ -1,4 +1,4 @@
-from flask import request, jsonify, g
+from flask import request, jsonify, g, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.v1.classes import classes_bp
 from app.services.class_service import ClassService
@@ -351,21 +351,22 @@ def create_class_announcement(class_id):
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        if user.role == 'teacher':
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
-            if not is_assigned:
-                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
-
         teacher = Teacher.query.filter_by(user_id=user_id).first()
         teacher_id = None
         if teacher:
             teacher_id = teacher.id
-        elif user.role == 'teacher':
-            return jsonify({'success': False, 'message': 'Teacher profile not found'}), 400
+
+        if user.role == 'teacher':
+            if not teacher:
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         else:
-            class_obj = ClassModel.query.get(class_id)
-            if class_obj:
-                teacher_id = class_obj.teacher_id
+            if not teacher:
+                class_obj = ClassModel.query.get(class_id)
+                if class_obj:
+                    teacher_id = class_obj.teacher_id
 
         payload = dict(request.json or {})
         payload['class_id'] = class_id
@@ -400,25 +401,26 @@ def update_class_announcement(class_id, announcement_id):
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        if user.role == 'teacher':
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
-            if not is_assigned:
-                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
-
         teacher = Teacher.query.filter_by(user_id=user_id).first()
         teacher_id = None
         if teacher:
             teacher_id = teacher.id
-        elif user.role == 'teacher':
-            return jsonify({'success': False, 'message': 'Teacher profile not found'}), 400
+
+        if user.role == 'teacher':
+            if not teacher:
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         else:
-            announcement_obj = AnnouncementService.get_announcement_by_id(announcement_id)
-            if announcement_obj:
-                teacher_id = announcement_obj.teacher_id
-            else:
-                class_obj = ClassModel.query.get(class_id)
-                if class_obj:
-                    teacher_id = class_obj.teacher_id
+            if not teacher:
+                announcement_obj = AnnouncementService.get_announcement_by_id(announcement_id)
+                if announcement_obj:
+                    teacher_id = announcement_obj.teacher_id
+                else:
+                    class_obj = ClassModel.query.get(class_id)
+                    if class_obj:
+                        teacher_id = class_obj.teacher_id
 
         data = announcement_update_schema.load(request.json, partial=True)
         
@@ -440,44 +442,49 @@ def update_class_announcement(class_id, announcement_id):
 @teacher_required
 def delete_class_announcement(class_id, announcement_id):
     """Delete an announcement from a class."""
-    user_id = int(get_jwt_identity())
-    from app.models.user import User
-    from app.models.teacher import Teacher
-    from app.models.class_ import ClassTeacherMapping, Class as ClassModel
+    try:
+        user_id = int(get_jwt_identity())
+        from app.models.user import User
+        from app.models.teacher import Teacher
+        from app.models.class_ import ClassTeacherMapping, Class as ClassModel
 
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'success': False, 'message': 'User not found'}), 404
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
 
-    if user.role == 'teacher':
-        is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
-        if not is_assigned:
-            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+        teacher = Teacher.query.filter_by(user_id=user_id).first()
+        teacher_id = None
+        if teacher:
+            teacher_id = teacher.id
 
-    teacher = Teacher.query.filter_by(user_id=user_id).first()
-    teacher_id = None
-    if teacher:
-        teacher_id = teacher.id
-    elif user.role == 'teacher':
-        return jsonify({'success': False, 'message': 'Teacher profile not found'}), 400
-    else:
-        announcement_obj = AnnouncementService.get_announcement_by_id(announcement_id)
-        if announcement_obj:
-            teacher_id = announcement_obj.teacher_id
+        if user.role == 'teacher':
+            if not teacher:
+                return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         else:
-            class_obj = ClassModel.query.get(class_id)
-            if class_obj:
-                teacher_id = class_obj.teacher_id
+            if not teacher:
+                announcement_obj = AnnouncementService.get_announcement_by_id(announcement_id)
+                if announcement_obj:
+                    teacher_id = announcement_obj.teacher_id
+                else:
+                    class_obj = ClassModel.query.get(class_id)
+                    if class_obj:
+                        teacher_id = class_obj.teacher_id
 
-    success, error = AnnouncementService.delete_announcement(announcement_id, class_id, teacher_id)
-    
-    if error:
-        return jsonify({'success': False, 'message': error}), 400
-    
-    return jsonify({
-        'success': True,
-        'message': 'Announcement deleted successfully'
-    }), 200
+        success, error = AnnouncementService.delete_announcement(announcement_id, class_id, teacher_id)
+        
+        if error:
+            return jsonify({'success': False, 'message': error}), 400
+        
+        return jsonify({
+            'success': True,
+            'message': 'Announcement deleted successfully'
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error deleting announcement: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to delete announcement'}), 500
 
 # Resource routes
 @classes_bp.route('/<int:class_id>/resources', methods=['GET'])

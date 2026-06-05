@@ -67,16 +67,18 @@ export function TeacherClassAnnouncementsTab({ cls }: { cls: TeacherClass }) {
         is_published: true
       });
       
-      if (res.status === 201 || res.data?.success) {
+      if (res.status === 201) {
         const newAnnouncement = res.data?.announcement;
-        const item: Announcement = {
-          id: (newAnnouncement?.id || Date.now()).toString(),
-          title: (newAnnouncement?.title || title).trim(),
-          body: (newAnnouncement?.content || newAnnouncement?.message || body).trim(),
-          createdAt: (newAnnouncement?.created_at || newAnnouncement?.time || new Date().toISOString()).slice(0, 10),
-          attachments: attachments.map(f => f.name)
-        };
-        setItems(prev => [item, ...prev]);
+        if (newAnnouncement) {
+          const item: Announcement = {
+            id: newAnnouncement.id.toString(),
+            title: newAnnouncement.title,
+            body: newAnnouncement.content || newAnnouncement.message || newAnnouncement.body || '',
+            createdAt: (newAnnouncement.created_at || '').slice(0, 10),
+            attachments: attachments.map(f => f.name)
+          };
+          setItems(prev => [item, ...prev]);
+        }
         setTitle('');
         setBody('');
         setAttachments([]);

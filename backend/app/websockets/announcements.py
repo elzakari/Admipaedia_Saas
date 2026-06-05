@@ -170,6 +170,6 @@ def broadcast_announcement(announcement_data, target_rooms):
             )
         logger.info(f"Announcement broadcasted to {len(target_rooms)} rooms")
         return True
-    except Exception as e:
+    except BaseException as e:
         logger.error(f"Broadcast error: {str(e)}")
         return False
