@@ -152,7 +152,9 @@ def create_sample_department_roles():
             'attendance_read', 'attendance_write',
             'exam_read', 'exam_write',
             'assignment_read', 'assignment_write',
-            'report_read'
+            'report_read',
+            'announcement.read', 'announcement.create', 'announcement.update', 'announcement.delete',
+            'announcement_read', 'announcement_create', 'announcement_update', 'announcement_delete'
         ]
         
         for perm_name in class_teacher_permissions:

@@ -135,12 +135,62 @@ def ensure_analytics_permissions():
             logger.error(f"Error ensuring analytics permissions: {str(e)}")
             raise
 
+def ensure_announcement_permissions():
+    app = create_app()
+    with app.app_context():
+        try:
+            logger.info("Ensuring announcement permissions exist...")
+            from app.models.rbac import RBACPermission, RBACRole, ResourceType, PermissionType
+
+            wanted = [
+                ('announcement.create', 'Create Announcements', ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT', PermissionType.CREATE, 'academic'),
+                ('announcement.read', 'View Announcements', ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT', PermissionType.READ, 'academic'),
+                ('announcement.update', 'Update Announcements', ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT', PermissionType.UPDATE, 'academic'),
+                ('announcement.delete', 'Delete Announcements', ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT', PermissionType.DELETE, 'academic'),
+            ]
+
+            created = 0
+            for name, display, res, ptype, category in wanted:
+                existing = RBACPermission.query.filter_by(name=name).first()
+                if not existing:
+                    RBACService.create_permission(
+                        name=name,
+                        display_name=display,
+                        resource_type=res,
+                        permission_type=ptype,
+                        category=category,
+                        is_system=True
+                    )
+                    created += 1
+
+            role = RBACRole.query.filter_by(name='teacher', is_active=True).first()
+            if not role:
+                logger.error("Teacher role not found; cannot attach announcement permissions")
+                return
+
+            perm_names = [w[0] for w in wanted]
+            perms = RBACPermission.query.filter(RBACPermission.name.in_(perm_names)).all()
+            existing_names = {p.name for p in role.permissions}
+            for p in perms:
+                if p.name not in existing_names:
+                    role.permissions.append(p)
+
+            db.session.commit()
+            logger.info(f"Announcement permissions ensured; created={created}, attached_to_teacher={len(perms)}")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error ensuring announcement permissions: {str(e)}")
+            raise
+
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '--assign-admin':
         assign_admin_role()
     elif len(sys.argv) > 1 and sys.argv[1] == '--ensure-analytics-perms':
         ensure_analytics_permissions()
+    elif len(sys.argv) > 1 and sys.argv[1] == '--ensure-announcement-perms':
+        ensure_announcement_permissions()
     else:
         init_rbac_system()
+        ensure_announcement_permissions()
         if '--with-admin' in sys.argv:
             assign_admin_role()

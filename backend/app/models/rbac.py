@@ -70,6 +70,7 @@ class ResourceType(Enum):
     SYSTEM = "SYSTEM"
     DASHBOARD = "DASHBOARD"
     TEACHER_ANALYTICS = "TEACHER_ANALYTICS"
+    ANNOUNCEMENT = "ANNOUNCEMENT"
 
 class SubjectType(Enum):
     """Types of subjects in access control lists"""

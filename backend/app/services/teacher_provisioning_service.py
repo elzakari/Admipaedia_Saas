@@ -65,6 +65,34 @@ class TeacherProvisioningService:
                     'resource_type': ResourceType.TEACHER if hasattr(ResourceType, 'TEACHER') else 'teacher',
                     'permission_type': PermissionType.READ if hasattr(PermissionType, 'READ') else 'read',
                     'category': 'academic'
+                },
+                {
+                    'name': 'announcement.create',
+                    'display_name': 'Create Announcements',
+                    'resource_type': ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT',
+                    'permission_type': PermissionType.CREATE if hasattr(PermissionType, 'CREATE') else 'create',
+                    'category': 'academic'
+                },
+                {
+                    'name': 'announcement.read',
+                    'display_name': 'View Announcements',
+                    'resource_type': ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT',
+                    'permission_type': PermissionType.READ if hasattr(PermissionType, 'READ') else 'read',
+                    'category': 'academic'
+                },
+                {
+                    'name': 'announcement.update',
+                    'display_name': 'Update Announcements',
+                    'resource_type': ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT',
+                    'permission_type': PermissionType.UPDATE if hasattr(PermissionType, 'UPDATE') else 'update',
+                    'category': 'academic'
+                },
+                {
+                    'name': 'announcement.delete',
+                    'display_name': 'Delete Announcements',
+                    'resource_type': ResourceType.ANNOUNCEMENT if hasattr(ResourceType, 'ANNOUNCEMENT') else 'ANNOUNCEMENT',
+                    'permission_type': PermissionType.DELETE if hasattr(PermissionType, 'DELETE') else 'delete',
+                    'category': 'academic'
                 }
             ]
 

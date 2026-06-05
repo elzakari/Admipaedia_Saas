@@ -92,6 +92,12 @@ class RBACService:
                 {'name': 'assignment.delete', 'display_name': 'Delete Assignments', 'resource_type': ResourceType.ASSIGNMENT, 'permission_type': PermissionType.DELETE, 'category': 'academic'},
                 {'name': 'assignment.grade', 'display_name': 'Grade Assignments', 'resource_type': ResourceType.ASSIGNMENT, 'permission_type': PermissionType.UPDATE, 'category': 'academic'},
                 
+                # Announcement Management
+                {'name': 'announcement.create', 'display_name': 'Create Announcements', 'resource_type': ResourceType.ANNOUNCEMENT, 'permission_type': PermissionType.CREATE, 'category': 'academic'},
+                {'name': 'announcement.read', 'display_name': 'View Announcements', 'resource_type': ResourceType.ANNOUNCEMENT, 'permission_type': PermissionType.READ, 'category': 'academic'},
+                {'name': 'announcement.update', 'display_name': 'Update Announcements', 'resource_type': ResourceType.ANNOUNCEMENT, 'permission_type': PermissionType.UPDATE, 'category': 'academic'},
+                {'name': 'announcement.delete', 'display_name': 'Delete Announcements', 'resource_type': ResourceType.ANNOUNCEMENT, 'permission_type': PermissionType.DELETE, 'category': 'academic'},
+                
                 # Financial Management
                 {'name': 'finance.read', 'display_name': 'View Financial Data', 'resource_type': ResourceType.FINANCE, 'permission_type': PermissionType.READ, 'category': 'finance'},
                 {'name': 'finance.manage', 'display_name': 'Manage Finances', 'resource_type': ResourceType.FINANCE, 'permission_type': PermissionType.MANAGE, 'category': 'finance'},
@@ -177,7 +183,7 @@ class RBACService:
                     'level': 2,
                     'color': '#059669',
                     'icon': 'academic-cap',
-                    'permissions': ['dashboard.teacher', 'student.read', 'student.view_grades', 'student.manage_grades', 'class.read', 'subject.read', 'attendance.create', 'attendance.read', 'attendance.update', 'grade.create', 'grade.read', 'grade.update', 'exam.create', 'exam.read', 'exam.update', 'assignment.create', 'assignment.read', 'assignment.update', 'assignment.grade', 'report.view']
+                    'permissions': ['dashboard.teacher', 'student.read', 'student.view_grades', 'student.manage_grades', 'class.read', 'subject.read', 'attendance.create', 'attendance.read', 'attendance.update', 'grade.create', 'grade.read', 'grade.update', 'exam.create', 'exam.read', 'exam.update', 'assignment.create', 'assignment.read', 'assignment.update', 'assignment.grade', 'report.view', 'announcement.read', 'announcement.create', 'announcement.update', 'announcement.delete']
                 },
                 {
                     'name': 'student',
