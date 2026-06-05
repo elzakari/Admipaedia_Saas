@@ -1,27 +1,50 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, X, Loader2 } from 'lucide-react';
 import type { TeacherClass } from '../teacherMockData';
+import api from '../../../lib/api';
 
 type Announcement = { id: string; title: string; body: string; createdAt: string; attachments?: string[] };
-const announcementsKey = (classId: string) => `admipaedia.teacher.announcements.v1.${classId}`;
 
 export function TeacherClassAnnouncementsTab({ cls }: { cls: TeacherClass }) {
-  const loadAnnouncements = (): Announcement[] => {
-    try {
-      const raw = localStorage.getItem(announcementsKey(cls.id));
-      if (!raw) return [];
-      return JSON.parse(raw) as Announcement[];
-    } catch {
-      return [];
-    }
-  };
-
-  const [items, setItems] = useState<Announcement[]>(() => loadAnnouncements());
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadAnnouncements() {
+      if (!cls.id) return;
+      try {
+        setLoading(true);
+        const res = await api.get(`/classes/${cls.id}/announcements`);
+        const list = res.data?.announcements || res.data?.data || [];
+        if (active) {
+          setItems(list.map((a: any) => ({
+            id: a.id.toString(),
+            title: a.title,
+            body: a.content || a.message || a.body || '',
+            createdAt: (a.created_at || a.time || '').slice(0, 10),
+            attachments: a.attachments || []
+          })));
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || 'Failed to load announcements');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadAnnouncements();
+    return () => { active = false; };
+  }, [cls.id]);
 
   const handleFileAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -33,21 +56,35 @@ export function TeacherClassAnnouncementsTab({ cls }: { cls: TeacherClass }) {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const add = () => {
+  const add = async () => {
     if (!title.trim() || !body.trim()) return;
-    const item: Announcement = {
-      id: `an-${Date.now()}`,
-      title: title.trim(),
-      body: body.trim(),
-      createdAt: new Date().toISOString().slice(0, 10),
-      attachments: attachments.map(f => f.name)
-    };
-    const next = [item, ...items];
-    setItems(next);
-    localStorage.setItem(announcementsKey(cls.id), JSON.stringify(next));
-    setTitle('');
-    setBody('');
-    setAttachments([]);
+    try {
+      const res = await api.post(`/classes/${cls.id}/announcements`, {
+        title: title.trim(),
+        content: body.trim(),
+        recipients: 'all',
+        send_email: false,
+        is_published: true
+      });
+      
+      if (res.status === 201 || res.data?.success) {
+        const newAnnouncement = res.data?.announcement;
+        const item: Announcement = {
+          id: (newAnnouncement?.id || Date.now()).toString(),
+          title: (newAnnouncement?.title || title).trim(),
+          body: (newAnnouncement?.content || newAnnouncement?.message || body).trim(),
+          createdAt: (newAnnouncement?.created_at || newAnnouncement?.time || new Date().toISOString()).slice(0, 10),
+          attachments: attachments.map(f => f.name)
+        };
+        setItems(prev => [item, ...prev]);
+        setTitle('');
+        setBody('');
+        setAttachments([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to post announcement', err);
+      alert('Failed to post announcement. ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const sorted = useMemo(() => {
@@ -111,7 +148,13 @@ export function TeacherClassAnnouncementsTab({ cls }: { cls: TeacherClass }) {
           <CardDescription>{sorted.length} item(s) shared</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {sorted.length ? sorted.map((a) => (
+          {loading ? (
+            <div className="flex justify-center items-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
+            </div>
+          ) : error ? (
+            <div className="text-sm text-rose-500 py-4">{error}</div>
+          ) : sorted.length ? sorted.map((a) => (
             <div key={a.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900/50">
               <div className="flex justify-between items-start">
                 <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</div>
