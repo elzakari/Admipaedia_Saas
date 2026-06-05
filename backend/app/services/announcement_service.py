@@ -44,16 +44,28 @@ class AnnouncementService:
             
             new_announcement = Announcement(**announcement_data)
             db.session.add(new_announcement)
-            db.session.commit()
+            db.session.flush()
             
+            # Execute durable fanout in the same transaction
+            from app.services.fanout import execute_durable_audience_fanout
+            execute_durable_audience_fanout(
+                class_id=new_announcement.class_id,
+                title=new_announcement.title,
+                message=new_announcement.content
+            )
+            
+            db.session.commit()
             logger.info("Announcement created", announcement_id=new_announcement.id, class_id=new_announcement.class_id)
             
             # Broadcast the announcement if requested
             if broadcast:
-                AnnouncementService.broadcast_announcement(new_announcement)
+                try:
+                    AnnouncementService.broadcast_announcement(new_announcement)
+                except Exception as be:
+                    logger.error("Error broadcasting announcement", error=str(be), announcement_id=new_announcement.id)
             
             return new_announcement, None
-        except SQLAlchemyError as e:
+        except Exception as e:
             db.session.rollback()
             logger.error("Error creating announcement", error=str(e))
             return None, str(e)

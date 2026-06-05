@@ -45,10 +45,19 @@ def create_announcement():
         elif isinstance(target_roles_raw, str) and target_roles_raw.strip():
             target_roles = target_roles_raw.strip().lower()
 
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+
+        if user.role == 'teacher':
+            from app.models.class_ import ClassTeacherMapping
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
         teacher_id = None
-        if user and user.role == 'teacher':
+        if user.role == 'teacher':
             teacher = Teacher.query.filter_by(user_id=user_id).first()
             if teacher:
                 teacher_id = teacher.id
@@ -72,13 +81,7 @@ def create_announcement():
             'target_roles': target_roles,
             'is_published': bool(data.get('is_published', True))
         }
-        # Remove existing announcements with the same title to avoid duplicate queries in tests
-        try:
-            from app.models.announcement import Announcement as AnnouncementModel
-            AnnouncementModel.query.filter_by(title=announcement_data['title']).delete(synchronize_session=False)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
+
         announcement, error = AnnouncementService.create_announcement(announcement_data)
         if error:
             return jsonify({'success': False, 'message': error}), 400
@@ -136,7 +139,7 @@ def get_announcements():
 @teacher_required
 def update_announcement(announcement_id):
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
@@ -190,6 +193,12 @@ def update_announcement(announcement_id):
             announcement = AnnouncementService.get_announcement_by_id(announcement_id)
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
+
+            from app.models.class_ import ClassTeacherMapping
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
             announcement, err = AnnouncementService.update_announcement(announcement_id, updates, announcement.class_id, teacher.id)
 
         if err:
@@ -208,7 +217,7 @@ def update_announcement(announcement_id):
 @teacher_required
 def delete_announcement(announcement_id):
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
@@ -222,6 +231,12 @@ def delete_announcement(announcement_id):
             announcement = AnnouncementService.get_announcement_by_id(announcement_id)
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
+
+            from app.models.class_ import ClassTeacherMapping
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=user_id).first() is not None
+            if not is_assigned:
+                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
             ok, err = AnnouncementService.delete_announcement(announcement_id, announcement.class_id, teacher.id)
 
         if err:

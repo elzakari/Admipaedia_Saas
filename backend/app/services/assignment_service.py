@@ -16,6 +16,16 @@ class AssignmentService:
         try:
             assignment = Assignment(**data)
             db.session.add(assignment)
+            db.session.flush()
+            
+            # Execute durable fanout in the same transaction
+            from app.services.fanout import execute_durable_audience_fanout
+            execute_durable_audience_fanout(
+                class_id=assignment.class_id,
+                title=f"New Assignment: {assignment.title}",
+                message=assignment.description or f"A new assignment for your subject has been posted. Due date: {assignment.due_date}"
+            )
+            
             db.session.commit()
             return assignment, None
         except Exception as e:
