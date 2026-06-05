@@ -20,11 +20,62 @@ subjects_schema = SubjectListSchema(many=True)
 @require_permission('subject.read')
 def get_subjects():
     """Get all subjects with pagination and filtering."""
+    class_id = request.args.get('class_id', type=int)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     department = request.args.get('department', type=str)
     is_active = request.args.get('is_active', type=lambda v: v.lower() == 'true' if v else None)
     
+    if class_id:
+        try:
+            from app.models.associations import class_subjects
+            from app.models.subject import Subject
+            
+            # Query class_subjects table to find subjects explicitly mapped to class_id
+            query = Subject.query.join(class_subjects).filter(
+                class_subjects.c.class_id == class_id
+            )
+            if g.tenant_id is not None:
+                query = query.filter(Subject.tenant_id == g.tenant_id)
+            
+            subjects_list = query.order_by(Subject.name).all()
+            
+            if subjects_list:
+                return jsonify({
+                    'success': True,
+                    'subjects': subjects_schema.dump(subjects_list),
+                    'pagination': {
+                        'total': len(subjects_list),
+                        'pages': 1,
+                        'page': 1,
+                        'per_page': len(subjects_list),
+                        'next': None,
+                        'prev': None
+                    }
+                }), 200
+        except Exception:
+            pass
+            
+    # Fallback to returning all active subjects if class_id query came back empty (or not provided but class_id was queried)
+    if class_id:
+        from app.models.subject import Subject
+        query = Subject.query.filter_by(is_active=True)
+        if g.tenant_id is not None:
+            query = query.filter(Subject.tenant_id == g.tenant_id)
+        subjects_list = query.order_by(Subject.name).all()
+        return jsonify({
+            'success': True,
+            'subjects': subjects_schema.dump(subjects_list),
+            'pagination': {
+                'total': len(subjects_list),
+                'pages': 1,
+                'page': 1,
+                'per_page': len(subjects_list),
+                'next': None,
+                'prev': None
+            }
+        }), 200
+        
     paginated_subjects = SubjectService.get_all_subjects(page, per_page, department, is_active, tenant_id=g.tenant_id)
     
     return jsonify({

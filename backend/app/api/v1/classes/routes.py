@@ -597,19 +597,31 @@ def get_class_subjects(class_id):
         # Check if class exists
         if not ClassService.get_class_by_id(class_id):
             return jsonify({'success': False, 'message': 'Class not found'}), 404
-        # If class exists but no subjects, paginated_subjects might be empty but not None unless error
-        # SubjectService.get_subjects_by_class returns None on error or class not found
         return jsonify({'success': False, 'message': 'Failed to fetch subjects'}), 500
+        
+    subjects_list = paginated_subjects.items
+    total = paginated_subjects.total
+    pages = paginated_subjects.pages
     
+    # Fallback to returning all active subjects if class mapping is empty
+    if not subjects_list:
+        from app.models.subject import Subject
+        query = Subject.query.filter_by(is_active=True)
+        if getattr(g, 'tenant_id', None) is not None:
+            query = query.filter(Subject.tenant_id == g.tenant_id)
+        subjects_list = query.order_by(Subject.name).all()
+        total = len(subjects_list)
+        pages = 1
+        
     return jsonify({
         'success': True,
-        'subjects': subjects_schema.dump(paginated_subjects.items),
+        'subjects': subjects_schema.dump(subjects_list),
         'pagination': {
-            'total': paginated_subjects.total,
-            'pages': paginated_subjects.pages,
-            'page': paginated_subjects.page,
-            'per_page': paginated_subjects.per_page,
-            'next': paginated_subjects.next_num,
-            'prev': paginated_subjects.prev_num
+            'total': total,
+            'pages': pages,
+            'page': 1 if not paginated_subjects.items else paginated_subjects.page,
+            'per_page': per_page,
+            'next': None if not paginated_subjects.items else paginated_subjects.next_num,
+            'prev': None if not paginated_subjects.items else paginated_subjects.prev_num
         }
     }), 200
