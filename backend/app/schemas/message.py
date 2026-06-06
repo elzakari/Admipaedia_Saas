@@ -8,7 +8,7 @@ class MessageSchema(Schema):
     recipient_id = fields.Integer(required=True)
     recipient_type = fields.String(
         required=True,
-        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent', 'class'])
+        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent', 'class', 'user'])
     )
     subject = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True, validate=validate.Length(min=1))
@@ -21,7 +21,7 @@ class MessageCreateSchema(Schema):
     recipient_id = fields.Integer(required=True)
     recipient_type = fields.String(
         required=True,
-        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent', 'class'])
+        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent', 'class', 'user'])
     )
     subject = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True, validate=validate.Length(min=1))
@@ -39,7 +39,7 @@ class BulkMessageCreateSchema(Schema):
     recipient_ids = fields.List(fields.Integer(), required=True, validate=validate.Length(min=1))
     recipient_type = fields.String(
         required=True,
-        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent'])
+        validate=validate.OneOf(['admin', 'teacher', 'student', 'parent', 'user'])
     )
     subject = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True, validate=validate.Length(min=1))

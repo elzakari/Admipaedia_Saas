@@ -10,7 +10,7 @@ class NotificationFanoutService:
     """Service to handle transactional notification fanout to class audiences."""
     
     @staticmethod
-    def enqueue_class_fanout(class_id, title, message):
+    def enqueue_class_fanout(class_id, title, message, notification_type='info'):
         """
         Executes a transactional fanout of a class notification to all enrolled
         students and their parents, inserting records in the notifications table.
@@ -19,6 +19,7 @@ class NotificationFanoutService:
             class_id (int): The ID of the class.
             title (str): Title of the notification.
             message (str): Body content of the notification.
+            notification_type (str): Type/kind of notification (e.g., info, assignment).
         """
         try:
             from app.models.class_ import Class
@@ -67,7 +68,7 @@ class NotificationFanoutService:
                     Notification(
                         title=title,
                         message=message or f"New update for class: {title}",
-                        type='info',
+                        type=notification_type,
                         user_id=s_user_id,
                         recipient_id=s_user_id,
                         scope='student'
@@ -80,7 +81,7 @@ class NotificationFanoutService:
                     Notification(
                         title=title,
                         message=message or f"New update for class: {title}",
-                        type='info',
+                        type=notification_type,
                         user_id=p_user_id,
                         recipient_id=p_user_id,
                         scope='parent'

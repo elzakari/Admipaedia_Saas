@@ -226,3 +226,79 @@ class NotificationService:
                 
         dummy_objects = [DummyNotification(**x) for x in paginated_list]
         return dummy_objects, total
+
+    @staticmethod
+    def create_notification(title, message, notification_type, user_id=None, send_email=False, send_websocket=True):
+        from app.models.dashboard import Notification
+        from app.extensions import db
+        from datetime import datetime
+        
+        notification = Notification(
+            title=title,
+            message=message,
+            type=notification_type,
+            user_id=user_id,
+            recipient_id=user_id,
+            time=datetime.utcnow(),
+            read=False
+        )
+        db.session.add(notification)
+        db.session.commit()
+        
+        if send_websocket:
+            try:
+                from app.extensions import socketio
+                room = f"user_{user_id}" if user_id else "global"
+                socketio.emit('notification_created', {
+                    'id': notification.id,
+                    'title': notification.title,
+                    'message': notification.message,
+                    'type': notification.type,
+                    'time': notification.time.isoformat() if notification.time else datetime.utcnow().isoformat(),
+                    'read': notification.read,
+                    'user_id': notification.user_id
+                }, room=room, namespace='/notifications')
+            except Exception as e:
+                logger.warning(f"Failed to emit WebSocket for notification: {str(e)}")
+                
+        return notification
+
+    @staticmethod
+    def create_bulk_notifications(title, message, notification_type, user_ids, send_email=False, send_websocket=True):
+        from app.models.dashboard import Notification
+        from app.extensions import db
+        from datetime import datetime
+        
+        notifications = []
+        for uid in user_ids:
+            notification = Notification(
+                title=title,
+                message=message,
+                type=notification_type,
+                user_id=uid,
+                recipient_id=uid,
+                time=datetime.utcnow(),
+                read=False
+            )
+            db.session.add(notification)
+            notifications.append(notification)
+            
+        db.session.commit()
+        
+        if send_websocket:
+            try:
+                from app.extensions import socketio
+                for n in notifications:
+                    socketio.emit('notification_created', {
+                        'id': n.id,
+                        'title': n.title,
+                        'message': n.message,
+                        'type': n.type,
+                        'time': n.time.isoformat() if n.time else datetime.utcnow().isoformat(),
+                        'read': n.read,
+                        'user_id': n.user_id
+                    }, room=f"user_{n.user_id}", namespace='/notifications')
+            except Exception as e:
+                logger.warning(f"Failed to emit WebSocket for bulk notifications: {str(e)}")
+                
+        return notifications

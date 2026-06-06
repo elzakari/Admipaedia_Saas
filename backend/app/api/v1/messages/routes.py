@@ -116,6 +116,60 @@ def create_message():
         logger.error(f"Error creating message: {str(e)}")
         return error_response(message="Failed to send message", status_code=500)
 
+@messages_bp.route('/send', methods=['POST'])
+@jwt_required()
+@require_role(['admin', 'teacher', 'student', 'parent', 'user'])
+def send_message_http():
+    """Send a message via HTTP POST, committing to DB first and then emitting realtime event."""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        # Handle both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+            # Handle file attachments
+            attachments = request.files.getlist('attachments')
+            if attachments:
+                data['attachments'] = attachments
+        
+        # Validate input
+        try:
+            validated_data = message_create_schema.load(data)
+        except ValidationError as err:
+            return error_response(message="Validation error", errors=err.messages, status_code=400)
+        
+        # Add sender information
+        validated_data['sender_id'] = current_user_id
+        
+        # Create message (commits to DB inside MessageService.create_message)
+        message = MessageService.create_message(validated_data)
+        
+        # Real-time WebSocket notifications - non-blocking wrapper additions
+        try:
+            from app.extensions import socketio
+            message_data = message_schema.dump(message)
+            
+            # Emit new_message to recipient
+            socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/messages')
+            socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/chat')
+            
+            # Emit message_sent to sender
+            socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/messages')
+            socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/chat')
+        except Exception as socket_err:
+            logger.warning(f"Failed to emit Socket.IO notification: {str(socket_err)}")
+        
+        return success_response(
+            data=message_schema.dump(message),
+            message="Message sent successfully",
+            status_code=201
+        )
+    except Exception as e:
+        logger.error(f"Error sending message: {str(e)}")
+        return error_response(message="Failed to send message", status_code=500)
+
 @messages_bp.route('/bulk', methods=['POST'])
 @jwt_required()
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])

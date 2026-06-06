@@ -85,7 +85,7 @@ const communicationService = {
         }
       });
 
-      const response = await api.post('/messages', formData, {
+      const response = await api.post('/messages/send', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return ApiResponseStandardizer.standardizeSingleResponse<Message>(response, 'message');
@@ -105,13 +105,13 @@ const communicationService = {
         formData.append('subject', messageData.subject);
         formData.append('content', messageData.content);
         messageData.attachments.forEach((file) => formData.append('attachments', file));
-        const response = await api.post('/messages', formData, {
+        const response = await api.post('/messages/send', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data?.data || response.data?.message;
       }
 
-      const response = await api.post('/messages', messageData);
+      const response = await api.post('/messages/send', messageData);
       return response.data?.data || response.data?.message;
     } catch (error) {
       console.error('Error creating message:', error);

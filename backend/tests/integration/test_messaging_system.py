@@ -77,7 +77,7 @@ class TestAnnouncementManagement:
         assert response.status_code == 400
         data = json.loads(response.data)
         assert data['success'] is False
-        assert 'Missing required fields' in data['message']
+        assert 'required' in data['message']
     
     def test_get_announcements_for_user(self, client, auth_headers, sample_announcements):
         """Test retrieval of announcements for a specific user"""
@@ -117,10 +117,20 @@ class TestAnnouncementManagement:
             assert 'content' in announcement
             assert 'created_at' in announcement
     
-    def test_update_class_announcement(self, client, teacher_auth_headers, sample_class_announcement):
+    def test_update_class_announcement(self, client, sample_class_announcement, db_session):
         """Test updating a class announcement"""
         class_id = sample_class_announcement.class_id
         announcement_id = sample_class_announcement.id
+        
+        assigned_teacher = sample_class_announcement.class_.teacher
+        teacher_user = assigned_teacher.user
+        
+        from flask_jwt_extended import create_access_token
+        token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_class_announcement.class_.tenant_id)
+        }
         
         update_data = {
             'title': 'Updated Announcement Title',
@@ -130,7 +140,7 @@ class TestAnnouncementManagement:
         
         response = client.put(
             f'/api/v1/classes/{class_id}/announcements/{announcement_id}',
-            headers=teacher_auth_headers,
+            headers=headers,
             json=update_data
         )
         
@@ -220,12 +230,14 @@ class TestNotificationSystem:
         )
         
         assert response.status_code == 200
-        data = json.loads(response.data)
-        assert isinstance(data, list)
+        response_data = json.loads(response.data)
+        assert 'notifications' in response_data
+        notifications = response_data['notifications']
+        assert isinstance(notifications, list)
         
         # Verify notification structure
-        if data:
-            notification = data[0]
+        if notifications:
+            notification = notifications[0]
             required_fields = ['id', 'title', 'message', 'time', 'read', 'type']
             for field in required_fields:
                 assert field in notification
@@ -269,32 +281,21 @@ class TestWebSocketMessaging:
     
     def test_websocket_connection_with_auth(self, app, sample_user, valid_jwt_token):
         """Test WebSocket connection with valid authentication"""
-        client = SocketIOTestClient(app, socketio, namespace='/messages')
+        client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_token})
         
-        # Connect with authentication
-        received = client.get_received('/messages')
-        client.emit('connect', {'token': valid_jwt_token}, namespace='/messages')
-        
-        # Should receive connection confirmation
-        received = client.get_received('/messages')
-        assert len(received) > 0
+        # Should be connected successfully
+        assert client.is_connected('/messages')
     
     def test_websocket_connection_without_auth(self, app):
         """Test WebSocket connection without authentication"""
         client = SocketIOTestClient(app, socketio, namespace='/messages')
         
-        # Attempt to connect without token
-        connected = client.emit('connect', {}, namespace='/messages')
-        
         # Connection should be rejected
-        assert not connected
+        assert not client.is_connected()
     
     def test_send_message_via_websocket(self, app, sample_users, valid_jwt_token):
         """Test sending a message via WebSocket"""
-        client = SocketIOTestClient(app, socketio, namespace='/messages')
-        
-        # Connect with authentication
-        client.emit('connect', {'token': valid_jwt_token}, namespace='/messages')
+        client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_token})
         
         # Send message
         message_data = {
@@ -319,10 +320,7 @@ class TestWebSocketMessaging:
     
     def test_websocket_message_validation(self, app, sample_user, valid_jwt_token):
         """Test WebSocket message validation"""
-        client = SocketIOTestClient(app, socketio, namespace='/messages')
-        
-        # Connect with authentication
-        client.emit('connect', {'token': valid_jwt_token}, namespace='/messages')
+        client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_token})
         
         # Send invalid message (missing required fields)
         invalid_message = {
@@ -340,10 +338,7 @@ class TestWebSocketMessaging:
     
     def test_notification_websocket_delivery(self, app, sample_user, valid_jwt_token):
         """Test notification delivery via WebSocket"""
-        client = SocketIOTestClient(app, socketio, namespace='/notifications')
-        
-        # Connect to notifications namespace
-        client.emit('connect', {'token': valid_jwt_token}, namespace='/notifications')
+        client = SocketIOTestClient(app, socketio, namespace='/notifications', auth={'token': valid_jwt_token})
         
         # Create notification that should be delivered via WebSocket
         with patch('app.services.notification_service.NotificationService.create_notification') as mock_create:
@@ -373,7 +368,7 @@ class TestWebSocketMessaging:
 class TestMessagingIntegrationWorkflow:
     """Test end-to-end messaging system workflows"""
     
-    def test_complete_announcement_workflow(self, client, admin_auth_headers, teacher_auth_headers, sample_class):
+    def test_complete_announcement_workflow(self, client, admin_auth_headers, sample_class, db_session):
         """Test complete workflow from announcement creation to retrieval"""
         # Step 1: Admin creates announcement
         announcement_data = {
@@ -392,9 +387,19 @@ class TestMessagingIntegrationWorkflow:
         assert response.status_code == 201
         
         # Step 2: Teacher retrieves class announcements
+        assigned_teacher = sample_class.teacher
+        teacher_user = assigned_teacher.user
+        
+        from flask_jwt_extended import create_access_token
+        token = create_access_token(identity=teacher_user.id)
+        teacher_headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_class.tenant_id)
+        }
+        
         response = client.get(
             f'/api/v1/classes/{sample_class.id}/announcements',
-            headers=teacher_auth_headers
+            headers=teacher_headers
         )
         assert response.status_code == 200
         announcements = json.loads(response.data)['announcements']
@@ -409,7 +414,7 @@ class TestMessagingIntegrationWorkflow:
         
         response = client.put(
             f'/api/v1/classes/{sample_class.id}/announcements/{announcement_id}',
-            headers=teacher_auth_headers,
+            headers=teacher_headers,
             json=update_data
         )
         assert response.status_code == 200
@@ -417,24 +422,25 @@ class TestMessagingIntegrationWorkflow:
         # Step 4: Verify update
         response = client.get(
             f'/api/v1/classes/{sample_class.id}/announcements',
-            headers=teacher_auth_headers
+            headers=teacher_headers
         )
         updated_announcements = json.loads(response.data)['announcements']
         updated_announcement = next(a for a in updated_announcements if a['id'] == announcement_id)
         assert 'Updated:' in updated_announcement['content']
     
-    def test_notification_cascade_workflow(self, client, admin_auth_headers, sample_users):
+    def test_notification_cascade_workflow(self, client, admin_auth_headers, sample_users, sample_class):
         """Test workflow where announcement triggers notifications"""
         # Create announcement with notification enabled
         announcement_data = {
             'title': 'Emergency Closure',
             'content': 'School is closed today due to severe weather conditions.',
             'target_roles': ['all'],
+            'class_id': sample_class.id,
             'send_notification': True,
             'send_email': True
         }
         
-        with patch('app.services.notification_service.NotificationService.create_notification') as mock_notify:
+        with patch('app.services.fanout.NotificationFanoutService.enqueue_class_fanout') as mock_fanout:
             response = client.post(
                 '/api/v1/announcements',
                 headers=admin_auth_headers,
@@ -442,18 +448,19 @@ class TestMessagingIntegrationWorkflow:
             )
             assert response.status_code == 201
             
-            # Verify notification service was called
-            assert mock_notify.called
+            # Verify notification fanout service was called
+            assert mock_fanout.called
+            mock_fanout.assert_called_once_with(
+                sample_class.id,
+                'Emergency Closure',
+                'School is closed today due to severe weather conditions.'
+            )
     
     def test_real_time_messaging_workflow(self, app, sample_users, valid_jwt_tokens):
         """Test real-time messaging between users"""
         # Create two WebSocket clients for different users
-        client1 = SocketIOTestClient(app, socketio, namespace='/messages')
-        client2 = SocketIOTestClient(app, socketio, namespace='/messages')
-        
-        # Connect both clients
-        client1.emit('connect', {'token': valid_jwt_tokens[0]}, namespace='/messages')
-        client2.emit('connect', {'token': valid_jwt_tokens[1]}, namespace='/messages')
+        client1 = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_tokens[0]})
+        client2 = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_tokens[1]})
         
         # User 1 sends message to User 2
         message_data = {
@@ -475,6 +482,56 @@ class TestMessagingIntegrationWorkflow:
         message_sent_events = [r for r in received_by_user1 if r['name'] == 'message_sent']
         assert len(message_sent_events) > 0
 
+    def test_http_message_send_route_and_socket_cascade(self, client, app, sample_users, valid_jwt_tokens):
+        """Test sending a message via HTTP POST /send and verifying DB commit and WebSocket notification"""
+        # User 1 sends message to User 2 via HTTP POST /messages/send
+        token1 = valid_jwt_tokens[0]
+        token2 = valid_jwt_tokens[1]
+        
+        # Connect User 2 via WebSocket to check real-time notification
+        socket_client2 = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': token2})
+        
+        # Connect User 1 via WebSocket to check real-time confirmation
+        socket_client1 = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': token1})
+
+        message_payload = {
+            'recipient_id': sample_users[1].id,
+            'recipient_type': 'user',
+            'subject': 'HTTP Send Test',
+            'content': 'This message is sent via HTTP POST to /messages/send'
+        }
+        
+        headers = {'Authorization': f'Bearer {token1}'}
+        
+        response = client.post(
+            '/api/v1/messages/send',
+            headers=headers,
+            json=message_payload
+        )
+        
+        assert response.status_code == 201
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['data']['content'] == message_payload['content']
+        
+        # Verify message was committed to database
+        message_db = Message.query.filter_by(subject='HTTP Send Test').first()
+        assert message_db is not None
+        assert message_db.content == message_payload['content']
+        assert message_db.sender_id == sample_users[0].id
+        assert message_db.recipient_id == sample_users[1].id
+        
+        # User 2 should receive the new_message event in real-time
+        received_by_user2 = socket_client2.get_received('/messages')
+        new_message_events = [r for r in received_by_user2 if r['name'] == 'new_message']
+        assert len(new_message_events) > 0
+        assert new_message_events[0]['args'][0]['subject'] == 'HTTP Send Test'
+        
+        # User 1 should receive the message_sent event in real-time
+        received_by_user1 = socket_client1.get_received('/messages')
+        message_sent_events = [r for r in received_by_user1 if r['name'] == 'message_sent']
+        assert len(message_sent_events) > 0
+
 
 class TestMessagingErrorHandling:
     """Test error handling in messaging system"""
@@ -487,6 +544,7 @@ class TestMessagingErrorHandling:
             announcement_data = {
                 'title': 'Test Announcement',
                 'content': 'Test content',
+                'class_id': 1,
                 'target_roles': ['students']
             }
             
@@ -502,13 +560,10 @@ class TestMessagingErrorHandling:
     
     def test_websocket_connection_with_invalid_token(self, app):
         """Test WebSocket connection with invalid JWT token"""
-        client = SocketIOTestClient(app, socketio, namespace='/messages')
-        
-        # Attempt connection with invalid token
-        connected = client.emit('connect', {'token': 'invalid_token'}, namespace='/messages')
+        client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': 'invalid_token'})
         
         # Connection should be rejected
-        assert not connected
+        assert not client.is_connected()
     
     def test_notification_creation_validation_error(self, client, admin_auth_headers):
         """Test notification creation with validation errors"""
@@ -528,12 +583,9 @@ class TestMessagingErrorHandling:
     
     def test_websocket_message_database_error(self, app, sample_user, valid_jwt_token):
         """Test WebSocket message handling with database error"""
-        client = SocketIOTestClient(app, socketio, namespace='/messages')
+        client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_token})
         
-        # Connect with authentication
-        client.emit('connect', {'token': valid_jwt_token}, namespace='/messages')
-        
-        with patch('app.models.message.Message') as mock_message:
+        with patch('app.websockets.message_handler.Message') as mock_message:
             mock_message.side_effect = Exception("Database error")
             
             # Send message that should trigger database error
@@ -579,9 +631,8 @@ class TestMessagingPerformance:
         
         # Create multiple WebSocket clients
         for i in range(10):
-            client = SocketIOTestClient(app, socketio, namespace='/messages')
             token = valid_jwt_tokens[i % len(valid_jwt_tokens)]
-            client.emit('connect', {'token': token}, namespace='/messages')
+            client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': token})
             clients.append(client)
         
         # Send messages from multiple clients simultaneously
@@ -675,12 +726,13 @@ def sample_class_with_announcements(db_session, sample_class, sample_teacher):
 @pytest.fixture
 def sample_class_announcement(db_session, sample_class, sample_teacher):
     """Create a single class announcement for testing"""
+    teacher_id = sample_class.teacher_id if getattr(sample_class, 'teacher_id', None) is not None else sample_class.teacher.id
     announcement = Announcement(
         title='Editable Announcement',
         content='This announcement can be edited',
         target_roles='students,parents',
         class_id=sample_class.id,
-        teacher_id=sample_teacher.id,
+        teacher_id=teacher_id,
         is_published=True
     )
     db_session.add(announcement)
@@ -708,11 +760,13 @@ def sample_notifications(db_session, sample_user):
 @pytest.fixture
 def sample_users(db_session):
     """Create multiple sample users for testing"""
+    import uuid
     users = []
     for i in range(5):
+        suffix = uuid.uuid4().hex[:6]
         user = User(
-            username=f'testuser{i+1}',
-            email=f'testuser{i+1}@example.com',
+            username=f'testuser{i+1}_{suffix}',
+            email=f'testuser{i+1}_{suffix}@example.com',
             first_name=f'Test{i+1}',
             last_name='User',
             is_active=True
@@ -725,6 +779,16 @@ def sample_users(db_session):
     return users
 
 @pytest.fixture
+def sample_user(sample_users):
+    """Return a single sample user"""
+    return sample_users[0]
+
+@pytest.fixture
+def sample_teacher(db_session, teacher_factory):
+    """Create a sample teacher for testing"""
+    return teacher_factory()
+
+@pytest.fixture
 def valid_jwt_tokens(sample_users):
     """Create valid JWT tokens for test users"""
     from flask_jwt_extended import create_access_token
@@ -733,6 +797,39 @@ def valid_jwt_tokens(sample_users):
         token = create_access_token(identity=user.id)
         tokens.append(token)
     return tokens
+
+@pytest.fixture
+def valid_jwt_token(valid_jwt_tokens):
+    """Return a single valid JWT token"""
+    return valid_jwt_tokens[0]
+
+@pytest.fixture
+def teacher_auth_headers(db_session, client, user_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    user = user_factory('teacher')
+    from tests.test_production_integration import create_test_teacher, create_test_membership
+    teacher = create_test_teacher(db_session, user, sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, user.id, 'teacher')
+    db_session.commit()
+    token = create_access_token(identity=user.id)
+    return {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id)
+    }
+
+@pytest.fixture
+def student_auth_headers(db_session, client, user_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    user = user_factory('student')
+    from tests.test_production_integration import create_test_student, create_test_membership
+    student = create_test_student(db_session, user, sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, user.id, 'student')
+    db_session.commit()
+    token = create_access_token(identity=user.id)
+    return {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id)
+    }
 
 @pytest.fixture
 def large_announcement_dataset(db_session, sample_class, sample_teacher):

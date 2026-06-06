@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "../ui/checkbox";
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Plus } from 'lucide-react';
-import { announcementService } from "../../services";
+import { announcementService, classService } from "../../services";
 import { useAnnouncementWebSocket } from '../../services/announcementWebSocketService';
 
 interface ClassAnnouncementsTabProps {
@@ -44,9 +44,17 @@ export function ClassAnnouncementsTab({ classId }: ClassAnnouncementsTabProps) {
   const { isConnected: wsConnected, announcements: wsAnnouncements } = useAnnouncementWebSocket(classId);
   
   // Fetch announcements for selected class
-  const { data: announcementsData, isLoading } = useQuery({
+  const { data: announcementsData, isLoading, isError, error } = useQuery<any, any>({
     queryKey: ['class-announcements', classId],
-    queryFn: () => announcementService.getClassAnnouncements(classId),
+    queryFn: async () => {
+      try {
+        const res = await classService.getClassAnnouncements(classId);
+        return res?.data || [];
+      } catch (err) {
+        console.error('Failed to fetch class announcements:', err);
+        throw err;
+      }
+    },
     enabled: !!classId
   });
   
@@ -130,6 +138,12 @@ export function ClassAnnouncementsTab({ classId }: ClassAnnouncementsTabProps) {
       
       {isLoading ? (
         <div className="text-center py-4">Loading announcements...</div>
+      ) : isError ? (
+        <div className="text-center py-4 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg p-4 font-medium">
+          {error?.status === 403 || error?.response?.status === 403
+            ? "You do not have permission to view class announcements."
+            : "Failed to load class announcements."}
+        </div>
       ) : (
         <div className="space-y-4">
           {combinedAnnouncements.map((announcement: Announcement) => (

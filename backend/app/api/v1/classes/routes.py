@@ -312,9 +312,51 @@ def delete_class_lesson(class_id, lesson_id):
 # Announcement routes
 @classes_bp.route('/<int:class_id>/announcements', methods=['GET'])
 @jwt_required()
-@require_permission('announcement.read')
 def get_class_announcements(class_id):
     """Get announcements for a specific class."""
+    user_id = int(get_jwt_identity())
+    from app.models.user import User
+    from app.models.teacher import Teacher
+    from app.models.student import Student
+    from app.models.parent import Parent
+    from app.models.class_ import ClassTeacherMapping, Class as ClassModel
+
+    class_obj = ClassModel.query.get(class_id)
+    if not class_obj:
+        return jsonify({'success': False, 'message': 'Class not found'}), 404
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    # Permission check:
+    allowed = False
+    admin_roles = {'super_admin', 'admin', 'school_admin', 'super_manager', 'superadmin'}
+    if user.role in admin_roles:
+        allowed = True
+
+    if not allowed and user.role == 'teacher':
+        teacher = Teacher.query.filter_by(user_id=user_id).first()
+        if teacher:
+            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
+            if is_assigned:
+                allowed = True
+
+    if not allowed and user.role == 'student':
+        student = Student.query.filter_by(user_id=user_id, class_id=class_id).first()
+        if student:
+            allowed = True
+
+    if not allowed and user.role == 'parent':
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if parent:
+            student = Student.query.filter_by(parent_id=parent.id, class_id=class_id).first()
+            if student:
+                allowed = True
+
+    if not allowed:
+        return jsonify({'success': False, 'message': 'Insufficient permissions to view class announcements'}), 403
+
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     

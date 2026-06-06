@@ -246,6 +246,21 @@ def db_isolation(app):
         connection.close()
 
 @pytest.fixture
+def sample_tenant(db_session):
+    from app.models.tenant import Tenant
+    import uuid
+    tenant = Tenant(
+        name="Test School",
+        slug=f"test-school-{uuid.uuid4().hex[:6]}",
+        country_code="GH",
+        currency="GHS",
+        schema_name=f"tenant_{uuid.uuid4().hex[:8]}"
+    )
+    db_session.add(tenant)
+    db_session.flush()
+    return tenant
+
+@pytest.fixture
 def admin_auth_headers(auth_headers):
     return auth_headers
 
@@ -254,8 +269,9 @@ def admin_headers(auth_headers):
     return auth_headers
 
 @pytest.fixture
-def sample_class(db_session, teacher_factory):
+def sample_class(db_session, teacher_factory, sample_tenant):
     from app.models.class_ import Class
+    from app.services.class_service import ClassService
     teacher = teacher_factory()
     c = Class(
         name=f"Class {uuid.uuid4().hex[:6]}",
@@ -263,11 +279,14 @@ def sample_class(db_session, teacher_factory):
         academic_year='2024/2025',
         capacity=30,
         teacher_id=teacher.id,
+        tenant_id=sample_tenant.id,
         status='active'
     )
     db_session.add(c)
     db_session.flush()
+    ClassService.assign_teacher(c.id, teacher.id)
     return c
+
 def unique_email(prefix: str = 'user'):
     return f"{prefix}_{uuid.uuid4().hex[:8]}@example.com"
 
@@ -286,12 +305,13 @@ def user_factory(db_session):
     return _create_user
 
 @pytest.fixture
-def student_factory(db_session, user_factory):
+def student_factory(db_session, user_factory, sample_tenant):
     from app.models.student import Student
-    def _create_student(class_id: int = None):
+    def _create_student(class_id: int = None, tenant_id=None):
         user = user_factory('student')
         s = Student(
             user_id=user.id,
+            tenant_id=tenant_id or sample_tenant.id,
             admission_number=f"ADM-{datetime.now().year}-{uuid.uuid4().hex[:5].upper()}",
             first_name='Test',
             last_name=unique_username('Student'),
@@ -307,12 +327,13 @@ def student_factory(db_session, user_factory):
     return _create_student
 
 @pytest.fixture
-def teacher_factory(db_session, user_factory):
+def teacher_factory(db_session, user_factory, sample_tenant):
     from app.models.teacher import Teacher
-    def _create_teacher():
+    def _create_teacher(tenant_id=None):
         user = user_factory('teacher')
         t = Teacher(
             user_id=user.id,
+            tenant_id=tenant_id or sample_tenant.id,
             employee_id=f"EMP-{datetime.now().year}-{uuid.uuid4().hex[:5].upper()}",
             first_name='Teacher',
             last_name=unique_username('Name'),
@@ -322,3 +343,4 @@ def teacher_factory(db_session, user_factory):
         db_session.flush()
         return t
     return _create_teacher
+

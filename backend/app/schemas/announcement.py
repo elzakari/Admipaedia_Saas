@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, pre_load
 
 class AnnouncementSchema(Schema):
     """Schema for announcement model."""
@@ -14,6 +14,16 @@ class AnnouncementSchema(Schema):
     teacher_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(format='iso', dump_only=True)
     updated_at = fields.DateTime(format='iso', dump_only=True)
+
+    @pre_load
+    def process_target_roles(self, data, **kwargs):
+        if data and 'target_roles' in data:
+            tr = data['target_roles']
+            if isinstance(tr, list):
+                data['target_roles'] = ','.join([str(x).strip().lower() for x in tr if str(x).strip()])
+            elif isinstance(tr, str):
+                data['target_roles'] = tr.strip().lower()
+        return data
 
 class AnnouncementCreateSchema(AnnouncementSchema):
     """Schema for creating an announcement."""

@@ -460,3 +460,102 @@ def test_fanout_failure_logged_and_propagated(app, db_session):
             assert db_announcement is None
 
 
+def test_class_announcement_get_authorization(app, client, db_session):
+    """Verify read permissions for class announcements."""
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        
+        # 1. Create a class
+        c = Class(
+            name=f"Class {uuid.uuid4().hex[:6]}",
+            grade_level='Primary 1',
+            academic_year='2024/2025',
+            capacity=30,
+            tenant_id=tenant.id,
+            status='active'
+        )
+        db_session.add(c)
+        db_session.flush()
+        
+        # 2. Mapped teacher
+        t_user = create_test_user(db_session, f"t1_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher = create_test_teacher(db_session, t_user, tenant.id)
+        create_test_membership(db_session, tenant.id, t_user.id, 'teacher')
+        ClassService.assign_teacher(c.id, teacher.id)
+        
+        # 3. Unmapped teacher
+        t2_user = create_test_user(db_session, f"t2_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher2 = create_test_teacher(db_session, t2_user, tenant.id)
+        create_test_membership(db_session, tenant.id, t2_user.id, 'teacher')
+        
+        # 4. Student in class
+        s_user = create_test_user(db_session, f"s_in_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        student_in = create_test_student(db_session, s_user, tenant.id, class_id=c.id)
+        create_test_membership(db_session, tenant.id, s_user.id, 'student')
+        
+        # 5. Student out of class
+        s2_user = create_test_user(db_session, f"s_out_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        student_out = create_test_student(db_session, s2_user, tenant.id)
+        create_test_membership(db_session, tenant.id, s2_user.id, 'student')
+        
+        # 6. Parent of student in class
+        p_user = create_test_user(db_session, f"p_in_{uuid.uuid4().hex[:6]}@example.com", 'parent', tenant.id)
+        parent_in = create_test_parent(db_session, p_user, tenant.id)
+        student_in.parent_id = parent_in.id
+        create_test_membership(db_session, tenant.id, p_user.id, 'parent')
+        
+        # 7. Parent of student out of class
+        p2_user = create_test_user(db_session, f"p_out_{uuid.uuid4().hex[:6]}@example.com", 'parent', tenant.id)
+        parent_out = create_test_parent(db_session, p2_user, tenant.id)
+        student_out.parent_id = parent_out.id
+        create_test_membership(db_session, tenant.id, p2_user.id, 'parent')
+        
+        # 8. Admin user
+        admin_user = create_test_user(db_session, f"admin_{uuid.uuid4().hex[:6]}@example.com", 'admin', tenant.id)
+        create_test_membership(db_session, tenant.id, admin_user.id, 'admin')
+        
+        db_session.commit()
+        
+        # Helper function to get token and headers
+        def get_headers(user):
+            login_resp = client.post('/api/v1/auth/login', json={
+                'email': user.email,
+                'password': 'Password123!'
+            })
+            token = login_resp.json['access_token']
+            return {
+                'Authorization': f'Bearer {token}',
+                'X-Tenant-ID': str(tenant.id)
+            }
+            
+        # Verify GET status codes:
+        # Assigned teacher: 200
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(t_user))
+        assert resp.status_code == 200
+        
+        # Student in class: 200
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(s_user))
+        assert resp.status_code == 200
+        
+        # Parent of student in class: 200
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(p_user))
+        assert resp.status_code == 200
+        
+        # Unrelated student: 403
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(s2_user))
+        assert resp.status_code == 403
+        
+        # Unrelated parent: 403
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(p2_user))
+        assert resp.status_code == 403
+        
+        # Unassigned teacher: 403
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(t2_user))
+        assert resp.status_code == 403
+        
+        # Admin: 200
+        resp = client.get(f'/api/v1/classes/{c.id}/announcements', headers=get_headers(admin_user))
+        assert resp.status_code == 200
+
+
+

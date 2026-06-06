@@ -491,7 +491,7 @@ def handle_leave_communication_room(data):
 
 @socketio.on('send_real_time_message', namespace='/communications')
 def handle_real_time_message(data):
-    """Handle real-time message sending."""
+    """Handle real-time message sending with durable database transaction."""
     try:
         sender_id = data.get('sender_id')
         recipient_id = data.get('recipient_id')
@@ -502,14 +502,37 @@ def handle_real_time_message(data):
             emit('error', {'message': 'Missing required fields'})
             return
         
-        # Create real-time message
+        # Persist to database first (durable message transaction)
+        from app.models.message import Message as DBMessage
+        from app.models.user import User as DBUser
+        from app.services.message_service import MessageService
+        
+        sender = DBUser.query.get(sender_id)
+        recipient = DBUser.query.get(recipient_id)
+        
+        sender_type = MessageService._get_user_type(sender) if sender else 'unknown'
+        recipient_type = MessageService._get_user_type(recipient) if recipient else 'unknown'
+
+        db_message = DBMessage(
+            sender_id=sender_id,
+            sender_type=sender_type,
+            recipient_id=recipient_id,
+            recipient_type=recipient_type,
+            subject='Direct Message',
+            content=message,
+            is_read=False
+        )
+        db.session.add(db_message)
+        db.session.commit()
+        
+        # Create real-time message payload using persistent id
         real_time_message = {
-            'id': f"rt_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{sender_id}",
+            'id': db_message.id,
             'sender_id': sender_id,
             'recipient_id': recipient_id,
             'message': message,
             'type': message_type,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': db_message.created_at.isoformat() if db_message.created_at else datetime.utcnow().isoformat(),
             'status': 'delivered'
         }
         
@@ -524,12 +547,13 @@ def handle_real_time_message(data):
             'timestamp': real_time_message['timestamp']
         })
         
-        logger.info("Real-time message sent",
-                   message_id=real_time_message['id'],
-                   sender_id=sender_id,
-                   recipient_id=recipient_id)
+        logger.info("Real-time message saved to DB and sent",
+                    message_id=real_time_message['id'],
+                    sender_id=sender_id,
+                    recipient_id=recipient_id)
         
     except Exception as e:
+        db.session.rollback()
         logger.error("Failed to send real-time message", error=str(e))
         emit('error', {'message': 'Failed to send message'})
 

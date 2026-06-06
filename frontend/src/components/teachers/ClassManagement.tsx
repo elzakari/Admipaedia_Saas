@@ -114,7 +114,10 @@ export function ClassManagement() {
   // Fetch announcements for selected class
   const { data: announcementsData, isLoading: isLoadingAnnouncements } = useQuery({
     queryKey: ['class-announcements', selectedClassId],
-    queryFn: () => classService.getClassAnnouncements(selectedClassId!),
+    queryFn: async () => {
+      const res = await classService.getClassAnnouncements(selectedClassId!);
+      return res?.data || [];
+    },
     enabled: !!selectedClassId,
   });
   

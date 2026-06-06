@@ -104,53 +104,54 @@ class NotificationsNamespace(Namespace):
         """Broadcast notification to specific user"""
         self.emit('new_notification', notification_data, room=f"user_{user_id}")
 
+    def on_create_notification(self, data):
+        """Create a new notification from WebSocket"""
+        try:
+            from app.services.notification_service import NotificationService
+            
+            sid = getattr(request, 'sid', None)
+            user_id = self._connected.get(sid)
+            if user_id is None:
+                emit('error', {'message': 'Authentication failed'})
+                return
+            
+            # Validate required fields
+            required_fields = ['title', 'message', 'type']
+            for field in required_fields:
+                if field not in data:
+                    emit('error', {'message': f'Missing required field: {field}'})
+                    return
+            
+            # Get optional fields with defaults
+            target_user_id = data.get('user_id')  # If None, it's a global notification
+            send_email = data.get('send_email', False)
+            
+            # Create the notification
+            notification = NotificationService.create_notification(
+                title=data['title'],
+                message=data['message'],
+                notification_type=data['type'],
+                user_id=target_user_id,
+                send_email=send_email,
+                send_websocket=True
+            )
+            
+            # Format notification for response
+            notification_data = {
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'time': 'Just now',
+                'read': notification.read,
+                'type': notification.type,
+                'user_id': notification.user_id
+            }
+            
+            emit('notification_created', notification_data)
+            
+        except Exception as e:
+            logger.error(f"Notification creation error: {str(e)}")
+            emit('error', {'message': 'Failed to create notification'})
+
 # Create namespace instance
 notifications_namespace = NotificationsNamespace('/notifications')
-
-
-# Add this import at the top of the file
-from app.services.notification_service import NotificationService
-
-# Add this method to the NotificationsNamespace class
-def on_create_notification(self, data):
-    """Create a new notification from WebSocket"""
-    try:
-        user_id = get_jwt_identity()
-        
-        # Validate required fields
-        required_fields = ['title', 'message', 'type']
-        for field in required_fields:
-            if field not in data:
-                emit('error', {'message': f'Missing required field: {field}'})
-                return
-        
-        # Get optional fields with defaults
-        target_user_id = data.get('user_id')  # If None, it's a global notification
-        send_email = data.get('send_email', False)
-        
-        # Create the notification
-        notification = NotificationService.create_notification(
-            title=data['title'],
-            message=data['message'],
-            notification_type=data['type'],
-            user_id=target_user_id,
-            send_email=send_email,
-            send_websocket=True
-        )
-        
-        # Format notification for response
-        notification_data = {
-            'id': notification.id,
-            'title': notification.title,
-            'message': notification.message,
-            'time': 'Just now',
-            'read': notification.read,
-            'type': notification.type,
-            'user_id': notification.user_id
-        }
-        
-        emit('notification_created', notification_data)
-        
-    except Exception as e:
-        logger.error(f"Notification creation error: {str(e)}")
-        emit('error', {'message': 'Failed to create notification'})

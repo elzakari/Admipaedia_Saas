@@ -37,10 +37,20 @@ class MessageNamespace(Namespace):
                 emit('error', {'message': 'Invalid message data'}, room=f"user_{data.get('sender_id')}")
                 return
             
+            # Resolve user types
+            sender = User.query.get(data['sender_id'])
+            recipient = User.query.get(data['recipient_id'])
+            
+            from app.services.message_service import MessageService
+            sender_type = MessageService._get_user_type(sender)
+            recipient_type = MessageService._get_user_type(recipient)
+            
             # Create new message
             new_message = Message(
                 sender_id=data['sender_id'],
+                sender_type=sender_type,
                 recipient_id=data['recipient_id'],
+                recipient_type=recipient_type,
                 subject=data['subject'],
                 content=data['content']
             )
@@ -56,7 +66,7 @@ class MessageNamespace(Namespace):
                 'subject': new_message.subject,
                 'content': new_message.content,
                 'created_at': new_message.created_at.isoformat(),
-                'read': new_message.read
+                'read': new_message.is_read
             }
             
             # Send to recipient if online

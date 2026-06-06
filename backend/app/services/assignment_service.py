@@ -19,11 +19,12 @@ class AssignmentService:
             db.session.flush()
             
             # Execute durable fanout in the same transaction
-            from app.services.fanout import execute_durable_audience_fanout
-            execute_durable_audience_fanout(
+            from app.services.fanout import NotificationFanoutService
+            NotificationFanoutService.enqueue_class_fanout(
                 class_id=assignment.class_id,
                 title=f"New Assignment: {assignment.title}",
-                message=assignment.description or f"A new assignment for your subject has been posted. Due date: {assignment.due_date}"
+                message=assignment.description or f"A new assignment for your subject has been posted. Due date: {assignment.due_date}",
+                notification_type="assignment"
             )
             
             db.session.commit()
