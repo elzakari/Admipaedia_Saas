@@ -585,8 +585,8 @@ class TestMessagingErrorHandling:
         """Test WebSocket message handling with database error"""
         client = SocketIOTestClient(app, socketio, namespace='/messages', auth={'token': valid_jwt_token})
         
-        with patch('app.websockets.message_handler.Message') as mock_message:
-            mock_message.side_effect = Exception("Database error")
+        with patch('app.services.message_service.MessageService.create_message') as mock_create:
+            mock_create.side_effect = Exception("Database error")
             
             # Send message that should trigger database error
             message_data = {
@@ -684,6 +684,183 @@ class TestMessagingPerformance:
         
         assert response.status_code == 201
         assert (end_time - start_time) < 3.0  # Should complete within 3 seconds
+
+
+class TestMessagingIdentityResolution:
+    """Test identity resolution and class dynamic messaging"""
+    
+    def test_parent_profile_id_resolution(self, db_session, sample_tenant):
+        """Test that sending to a parent using profile ID resolves to user_id"""
+        from app.models.parent import Parent
+        from app.models.user import User
+        from app.services.message_service import MessageService
+        
+        # Create user and parent profile
+        parent_user = User(username='parent_resolve_user', email='parent_resolve@example.com')
+        parent_user.set_password('password')
+        db_session.add(parent_user)
+        db_session.flush()
+        
+        parent_profile = Parent(tenant_id=sample_tenant.id, user_id=parent_user.id)
+        db_session.add(parent_profile)
+        db_session.commit()
+        
+        # Sender user
+        sender_user = User(username='sender_resolve_user', email='sender_resolve@example.com')
+        sender_user.set_password('password')
+        db_session.add(sender_user)
+        db_session.commit()
+        
+        message_data = {
+            'sender_id': sender_user.id,
+            'recipient_id': parent_profile.id, # Using parent profile ID!
+            'recipient_type': 'parent',
+            'subject': 'Parent Resolution Test',
+            'content': 'Test content'
+        }
+        
+        msg = MessageService.create_message(message_data)
+        
+        assert msg is not None
+        assert msg.recipient_id == parent_user.id # Resolved to parent user ID!
+        assert msg.recipient_type == 'parent'
+
+    def test_student_profile_id_resolution(self, db_session, sample_tenant):
+        """Test that sending to a student using profile ID resolves to user_id"""
+        from app.models.student import Student
+        from app.models.user import User
+        from app.services.message_service import MessageService
+        
+        # Create user and student profile
+        student_user = User(username='student_resolve_user', email='student_resolve@example.com')
+        student_user.set_password('password')
+        db_session.add(student_user)
+        db_session.flush()
+        
+        from datetime import date
+        student_profile = Student(
+            tenant_id=sample_tenant.id,
+            user_id=student_user.id,
+            admission_number='RESOLVE123',
+            first_name='Resolve',
+            last_name='Student',
+            date_of_birth=date(2010, 1, 1),
+            gender='male'
+        )
+        db_session.add(student_profile)
+        db_session.commit()
+        
+        # Sender user
+        sender_user = User(username='sender_resolve_user_2', email='sender_resolve2@example.com')
+        sender_user.set_password('password')
+        db_session.add(sender_user)
+        db_session.commit()
+        
+        message_data = {
+            'sender_id': sender_user.id,
+            'recipient_id': student_profile.id, # Using student profile ID!
+            'recipient_type': 'student',
+            'subject': 'Student Resolution Test',
+            'content': 'Test content'
+        }
+        
+        msg = MessageService.create_message(message_data)
+        
+        assert msg is not None
+        assert msg.recipient_id == student_user.id # Resolved to student user ID!
+        assert msg.recipient_type == 'student'
+
+    def test_class_messaging_dynamic_resolution(self, db_session, sample_tenant):
+        """Test that sending to a class resolves to students and parents and deduplicates"""
+        from app.models.student import Student
+        from app.models.parent import Parent
+        from app.models.user import User
+        from app.models.class_ import Class
+        from app.models.message import Message
+        from app.services.message_service import MessageService
+        from datetime import date
+        
+        # Create a class
+        test_class = Class(tenant_id=sample_tenant.id, name='Test Resolve Class', grade_level='Grade 1', academic_year='2024')
+        db_session.add(test_class)
+        db_session.flush()
+        
+        # Parent user & profile
+        p_user = User(username='parent_class_user', email='p_class@example.com')
+        p_user.set_password('password')
+        db_session.add(p_user)
+        db_session.flush()
+        parent_profile = Parent(tenant_id=sample_tenant.id, user_id=p_user.id)
+        db_session.add(parent_profile)
+        db_session.flush()
+        
+        # Student 1 user & profile (linked to parent)
+        s_user1 = User(username='s_class_user1', email='s1_class@example.com')
+        s_user1.set_password('password')
+        db_session.add(s_user1)
+        db_session.flush()
+        student_profile1 = Student(
+            tenant_id=sample_tenant.id,
+            user_id=s_user1.id,
+            admission_number='SC1',
+            first_name='Student',
+            last_name='One',
+            date_of_birth=date(2010, 1, 1),
+            gender='male',
+            class_id=test_class.id,
+            parent_id=parent_profile.id
+        )
+        db_session.add(student_profile1)
+        
+        # Student 2 user & profile (linked to SAME parent, to test deduplication)
+        s_user2 = User(username='s_class_user2', email='s2_class@example.com')
+        s_user2.set_password('password')
+        db_session.add(s_user2)
+        db_session.flush()
+        student_profile2 = Student(
+            tenant_id=sample_tenant.id,
+            user_id=s_user2.id,
+            admission_number='SC2',
+            first_name='Student',
+            last_name='Two',
+            date_of_birth=date(2010, 1, 1),
+            gender='male',
+            class_id=test_class.id,
+            parent_id=parent_profile.id
+        )
+        db_session.add(student_profile2)
+        
+        db_session.commit()
+        
+        # Sender user
+        sender_user = User(username='teacher_class_sender', email='t_sender@example.com')
+        sender_user.set_password('password')
+        db_session.add(sender_user)
+        db_session.commit()
+        
+        message_data = {
+            'sender_id': sender_user.id,
+            'recipient_id': test_class.id,
+            'recipient_type': 'class',
+            'subject': 'Class Message Test',
+            'content': 'Hello class'
+        }
+        
+        # Send class message
+        msg = MessageService.create_message(message_data)
+        
+        assert msg is not None
+        
+        # Verify messages persisted in DB
+        db_messages = Message.query.filter_by(subject='Class Message Test').all()
+        # Should have exactly 3 messages (Student 1, Student 2, Parent)
+        # Parent must be deduplicated (only 1 message for parent, not 2)
+        assert len(db_messages) == 3
+        
+        recipients = [m.recipient_id for m in db_messages]
+        assert s_user1.id in recipients
+        assert s_user2.id in recipients
+        assert p_user.id in recipients
 
 
 # Fixtures for test data

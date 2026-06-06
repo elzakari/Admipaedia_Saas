@@ -37,48 +37,19 @@ class MessageNamespace(Namespace):
                 emit('error', {'message': 'Invalid message data'}, room=f"user_{data.get('sender_id')}")
                 return
             
-            # Resolve user types
-            sender = User.query.get(data['sender_id'])
-            recipient = User.query.get(data['recipient_id'])
+            # If recipient_type is not present, determine it
+            if 'recipient_type' not in data:
+                recipient = User.query.get(data['recipient_id'])
+                from app.services.message_service import MessageService
+                data['recipient_type'] = MessageService._get_user_type(recipient)
             
             from app.services.message_service import MessageService
-            sender_type = MessageService._get_user_type(sender)
-            recipient_type = MessageService._get_user_type(recipient)
-            
-            # Create new message
-            new_message = Message(
-                sender_id=data['sender_id'],
-                sender_type=sender_type,
-                recipient_id=data['recipient_id'],
-                recipient_type=recipient_type,
-                subject=data['subject'],
-                content=data['content']
-            )
-            
-            db.session.add(new_message)
-            db.session.commit()
-            
-            # Prepare message data for sending
-            message_data = {
-                'id': new_message.id,
-                'sender_id': new_message.sender_id,
-                'recipient_id': new_message.recipient_id,
-                'subject': new_message.subject,
-                'content': new_message.content,
-                'created_at': new_message.created_at.isoformat(),
-                'read': new_message.is_read
-            }
-            
-            # Send to recipient if online
-            emit('new_message', message_data, room=f"user_{data['recipient_id']}")
-            
-            # Confirm to sender
-            emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{data['sender_id']}")
+            new_message = MessageService.create_message(data)
             
             logger.info("Message sent", 
-                       message_id=new_message.id, 
-                       sender_id=data['sender_id'], 
-                       recipient_id=data['recipient_id'])
+                        message_id=new_message.id if new_message else None, 
+                        sender_id=data['sender_id'], 
+                        recipient_id=data['recipient_id'])
             
         except Exception as e:
             logger.error("Error sending message", error=str(e))

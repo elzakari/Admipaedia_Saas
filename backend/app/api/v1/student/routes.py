@@ -683,18 +683,17 @@ def send_student_message():
     if not recipient_id or not content:
         return jsonify({'success': False, 'message': 'Missing recipient or content'}), 400
         
-    from app.models.message import Message
-    msg = Message(
-        sender_id=int(user_id),
-        sender_type='student',
-        recipient_id=recipient_id,
-        recipient_type='teacher',
-        subject='Direct Message',
-        content=content,
-        is_read=False
-    )
-    db.session.add(msg)
-    db.session.commit()
+    from app.services.message_service import MessageService
+    try:
+        msg = MessageService.create_message({
+            'sender_id': int(user_id),
+            'recipient_id': recipient_id,
+            'recipient_type': 'teacher',
+            'subject': 'Direct Message',
+            'content': content
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
     
     return jsonify({'success': True, 'message': 'Sent successfully'}), 200
 

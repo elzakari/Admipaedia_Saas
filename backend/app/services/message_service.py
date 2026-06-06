@@ -103,21 +103,129 @@ class MessageService:
             sender = User.query.get(data['sender_id'])
             sender_type = MessageService._get_user_type(sender)
             
-            message = Message(
-                sender_id=data['sender_id'],
-                sender_type=sender_type,
-                recipient_id=data['recipient_id'],
-                recipient_type=data['recipient_type'],
-                subject=data['subject'],
-                content=data['content'],
-                attachments=attachment_paths if attachment_paths else None
-            )
+            recipient_id = data['recipient_id']
+            recipient_type = data['recipient_type']
             
-            db.session.add(message)
-            db.session.commit()
+            created_messages = []
             
-            return message
+            if recipient_type == 'class':
+                from app.models.student import Student
+                from app.models.parent import Parent
+                
+                # Resolve all students in this class
+                students_in_class = Student.query.filter_by(class_id=recipient_id).all()
+                
+                target_recipients = []
+                for student in students_in_class:
+                    if student.user_id:
+                        target_recipients.append((student.user_id, 'student'))
+                    if student.parent_id:
+                        parent = Parent.query.get(student.parent_id)
+                        if parent and parent.user_id:
+                            target_recipients.append((parent.user_id, 'parent'))
+                
+                # Deduplicate recipients by user_id
+                seen_ids = set()
+                deduped_recipients = []
+                for r_id, r_type in target_recipients:
+                    if r_id not in seen_ids:
+                        seen_ids.add(r_id)
+                        deduped_recipients.append((r_id, r_type))
+                
+                if not deduped_recipients:
+                    raise ValueError("No recipients found in the specified class.")
+                
+                for r_id, r_type in deduped_recipients:
+                    msg = Message(
+                        sender_id=data['sender_id'],
+                        sender_type=sender_type,
+                        recipient_id=r_id,
+                        recipient_type=r_type,
+                        subject=data['subject'],
+                        content=data['content'],
+                        attachments=attachment_paths if attachment_paths else None
+                    )
+                    db.session.add(msg)
+                    created_messages.append(msg)
+                
+                db.session.commit()
+                
+                # Attempt Socket.IO emit inside try/except Exception
+                try:
+                    from app.extensions import socketio
+                    from app.schemas.message import MessageSchema
+                    schema = MessageSchema()
+                    
+                    for msg in created_messages:
+                        msg_data = schema.dump(msg)
+                        socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/messages')
+                        socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/chat')
+                    
+                    if created_messages:
+                        sender_msg_data = schema.dump(created_messages[0])
+                        socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/messages')
+                        socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/chat')
+                except Exception as socket_err:
+                    logger.warning(f"Failed to emit Socket.IO notification for class message: {str(socket_err)}")
+                
+                return created_messages[0] if created_messages else None
             
+            else:
+                # Direct message (recipient_type can be student, parent, teacher, admin, user)
+                # 1. Resolve parent/student/teacher profile id to user_id
+                if recipient_type == 'parent':
+                    from app.models.parent import Parent
+                    parent = Parent.query.get(recipient_id)
+                    if parent:
+                        recipient_id = parent.user_id
+                elif recipient_type == 'student':
+                    from app.models.student import Student
+                    student = Student.query.get(recipient_id)
+                    if student:
+                        recipient_id = student.user_id
+                elif recipient_type == 'teacher':
+                    from app.models.teacher import Teacher
+                    teacher = Teacher.query.get(recipient_id)
+                    if teacher:
+                        recipient_id = teacher.user_id
+                
+                # 2. Harmonize recipient_type to role label only
+                recipient = User.query.get(recipient_id)
+                if recipient:
+                    recipient_type = MessageService._get_user_type(recipient)
+                else:
+                    if recipient_type not in ['admin', 'teacher', 'student', 'parent']:
+                        recipient_type = 'user'
+                
+                message = Message(
+                    sender_id=data['sender_id'],
+                    sender_type=sender_type,
+                    recipient_id=recipient_id,
+                    recipient_type=recipient_type,
+                    subject=data['subject'],
+                    content=data['content'],
+                    attachments=attachment_paths if attachment_paths else None
+                )
+                
+                db.session.add(message)
+                db.session.commit()
+                
+                # Attempt Socket.IO emit inside try/except Exception
+                try:
+                    from app.extensions import socketio
+                    from app.schemas.message import MessageSchema
+                    schema = MessageSchema()
+                    message_data = schema.dump(message)
+                    
+                    socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/messages')
+                    socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/chat')
+                    socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/messages')
+                    socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/chat')
+                except Exception as socket_err:
+                    logger.warning(f"Failed to emit Socket.IO notification: {str(socket_err)}")
+                
+                return message
+                
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error creating message: {str(e)}")
@@ -138,11 +246,37 @@ class MessageService:
             
             messages = []
             for recipient_id in data['recipient_ids']:
+                r_id = int(recipient_id)
+                r_type = data['recipient_type']
+                
+                if r_type == 'parent':
+                    from app.models.parent import Parent
+                    parent = Parent.query.get(r_id)
+                    if parent:
+                        r_id = parent.user_id
+                elif r_type == 'student':
+                    from app.models.student import Student
+                    student = Student.query.get(r_id)
+                    if student:
+                        r_id = student.user_id
+                elif r_type == 'teacher':
+                    from app.models.teacher import Teacher
+                    teacher = Teacher.query.get(r_id)
+                    if teacher:
+                        r_id = teacher.user_id
+                
+                recipient = User.query.get(r_id)
+                if recipient:
+                    r_type = MessageService._get_user_type(recipient)
+                else:
+                    if r_type not in ['admin', 'teacher', 'student', 'parent']:
+                        r_type = 'user'
+                
                 message = Message(
                     sender_id=data['sender_id'],
                     sender_type=sender_type,
-                    recipient_id=int(recipient_id),
-                    recipient_type=data['recipient_type'],
+                    recipient_id=r_id,
+                    recipient_type=r_type,
                     subject=data['subject'],
                     content=data['content'],
                     attachments=attachment_paths if attachment_paths else None
@@ -151,6 +285,24 @@ class MessageService:
             
             db.session.add_all(messages)
             db.session.commit()
+            
+            # Attempt Socket.IO emit inside try/except Exception
+            try:
+                from app.extensions import socketio
+                from app.schemas.message import MessageSchema
+                schema = MessageSchema()
+                
+                for msg in messages:
+                    msg_data = schema.dump(msg)
+                    socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/messages')
+                    socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/chat')
+                
+                if messages:
+                    sender_msg_data = schema.dump(messages[0])
+                    socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/messages')
+                    socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/chat')
+            except Exception as socket_err:
+                logger.warning(f"Failed to emit Socket.IO notification for bulk messages: {str(socket_err)}")
             
             return len(messages)
             

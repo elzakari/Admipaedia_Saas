@@ -502,34 +502,26 @@ def handle_real_time_message(data):
             emit('error', {'message': 'Missing required fields'})
             return
         
-        # Persist to database first (durable message transaction)
-        from app.models.message import Message as DBMessage
-        from app.models.user import User as DBUser
+        # Persist to database first (durable message transaction) using MessageService
         from app.services.message_service import MessageService
+        from app.models.user import User as DBUser
         
-        sender = DBUser.query.get(sender_id)
         recipient = DBUser.query.get(recipient_id)
-        
-        sender_type = MessageService._get_user_type(sender) if sender else 'unknown'
         recipient_type = MessageService._get_user_type(recipient) if recipient else 'unknown'
-
-        db_message = DBMessage(
-            sender_id=sender_id,
-            sender_type=sender_type,
-            recipient_id=recipient_id,
-            recipient_type=recipient_type,
-            subject='Direct Message',
-            content=message,
-            is_read=False
-        )
-        db.session.add(db_message)
-        db.session.commit()
         
-        # Create real-time message payload using persistent id
+        db_message = MessageService.create_message({
+            'sender_id': sender_id,
+            'recipient_id': recipient_id,
+            'recipient_type': recipient_type,
+            'subject': 'Direct Message',
+            'content': message
+        })
+        
+        # Create real-time message payload using persistent resolved id
         real_time_message = {
             'id': db_message.id,
             'sender_id': sender_id,
-            'recipient_id': recipient_id,
+            'recipient_id': db_message.recipient_id,
             'message': message,
             'type': message_type,
             'timestamp': db_message.created_at.isoformat() if db_message.created_at else datetime.utcnow().isoformat(),
@@ -538,7 +530,7 @@ def handle_real_time_message(data):
         
         # Send to recipient
         emit('real_time_message', real_time_message, 
-             room=f"user_{recipient_id}")
+             room=f"user_{db_message.recipient_id}")
         
         # Confirm to sender
         emit('message_sent', {
@@ -550,10 +542,9 @@ def handle_real_time_message(data):
         logger.info("Real-time message saved to DB and sent",
                     message_id=real_time_message['id'],
                     sender_id=sender_id,
-                    recipient_id=recipient_id)
+                    recipient_id=db_message.recipient_id)
         
     except Exception as e:
-        db.session.rollback()
         logger.error("Failed to send real-time message", error=str(e))
         emit('error', {'message': 'Failed to send message'})
 

@@ -146,21 +146,6 @@ def send_message_http():
         # Create message (commits to DB inside MessageService.create_message)
         message = MessageService.create_message(validated_data)
         
-        # Real-time WebSocket notifications - non-blocking wrapper additions
-        try:
-            from app.extensions import socketio
-            message_data = message_schema.dump(message)
-            
-            # Emit new_message to recipient
-            socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/messages')
-            socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/chat')
-            
-            # Emit message_sent to sender
-            socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/messages')
-            socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/chat')
-        except Exception as socket_err:
-            logger.warning(f"Failed to emit Socket.IO notification: {str(socket_err)}")
-        
         return success_response(
             data=message_schema.dump(message),
             message="Message sent successfully",
