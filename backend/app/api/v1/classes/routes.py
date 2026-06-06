@@ -674,3 +674,154 @@ def get_class_subjects(class_id):
             'prev': None if not paginated_subjects.items else paginated_subjects.prev_num
         }
     }), 200
+
+# Assignment routes
+@classes_bp.route('/<int:class_id>/assignments', methods=['POST'])
+@jwt_required()
+@teacher_required
+def create_class_assignment(class_id):
+    """Create a new assignment for a class."""
+    try:
+        from datetime import datetime
+        from app.extensions import db
+        user_id = int(get_jwt_identity())
+        from app.models.user import User
+        from app.models.teacher import Teacher
+        from app.models.class_ import ClassTeacherMapping, Class as ClassModel
+        from app.models.subject import Subject
+        from app.services.assignment_service import AssignmentService
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+            
+        teacher = Teacher.query.filter_by(user_id=user_id).first()
+        if not teacher:
+            return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
+            
+        class_obj = ClassModel.query.get(class_id)
+        if not class_obj:
+            return jsonify({'success': False, 'message': 'Class not found'}), 404
+            
+        # Verify teacher is assigned to class
+        is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=user_id).first() is not None
+        if not is_assigned and user.role == 'teacher':
+            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+            
+        # Extract and format payload
+        payload = request.json or {}
+        title = payload.get('title')
+        if not title or not title.strip():
+            return jsonify({'success': False, 'message': 'Title is required'}), 400
+            
+        description = payload.get('description') or payload.get('instructions') or ''
+        
+        due_date_raw = payload.get('due_date') or payload.get('dueAt')
+        if not due_date_raw:
+            return jsonify({'success': False, 'message': 'due_date is required'}), 400
+        try:
+            due_date = datetime.fromisoformat(str(due_date_raw).replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            try:
+                due_date = datetime.strptime(str(due_date_raw)[:10], '%Y-%m-%d')
+            except Exception:
+                try:
+                    due_date = datetime.strptime(str(due_date_raw), '%Y-%m-%d')
+                except Exception:
+                    return jsonify({'success': False, 'message': 'Invalid due_date format'}), 400
+
+        # Resolve subject_id
+        subject_id = payload.get('subject_id')
+        if not subject_id:
+            first_subject = class_obj.subjects.first()
+            if first_subject:
+                subject_id = first_subject.id
+            else:
+                fallback_subject = Subject.query.filter_by(tenant_id=class_obj.tenant_id).first()
+                if fallback_subject:
+                    subject_id = fallback_subject.id
+                else:
+                    fallback_subject = Subject(
+                        name="General",
+                        code=f"GEN-{class_id}",
+                        tenant_id=class_obj.tenant_id
+                    )
+                    db.session.add(fallback_subject)
+                    db.session.flush()
+                    subject_id = fallback_subject.id
+
+        total_points = payload.get('total_points') or payload.get('total_marks')
+        if total_points is None:
+            total_points = 100.0
+        else:
+            total_points = float(total_points)
+
+        assignment_type = payload.get('assignment_type', 'homework')
+        status = payload.get('status', 'active')
+        if status == 'published':
+            status = 'active'
+            
+        assignment_data = {
+            'class_id': class_id,
+            'teacher_id': teacher.id,
+            'title': title.strip(),
+            'description': description.strip(),
+            'due_date': due_date,
+            'subject_id': subject_id,
+            'total_points': total_points,
+            'assignment_type': assignment_type,
+            'status': status
+        }
+        
+        assignment, error = AssignmentService.create_assignment(assignment_data)
+        if error:
+            return jsonify({'success': False, 'message': error}), 400
+            
+        return jsonify({
+            'success': True,
+            'message': 'Assignment created successfully',
+            'assignment': {
+                'id': assignment.id,
+                'title': assignment.title,
+                'description': assignment.description,
+                'due_date': assignment.due_date.isoformat(),
+                'subject_id': assignment.subject_id,
+                'class_id': assignment.class_id,
+                'teacher_id': assignment.teacher_id,
+                'total_points': assignment.total_points,
+                'assignment_type': assignment.assignment_type,
+                'status': assignment.status
+            }
+        }), 201
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@classes_bp.route('/<int:class_id>/assignments', methods=['GET'])
+@jwt_required()
+def get_class_assignments(class_id):
+    """Get assignments for a specific class."""
+    try:
+        from app.services.assignment_service import AssignmentService
+        assignments = AssignmentService.get_assignments_by_class(class_id, status='active')
+        
+        assignments_data = []
+        for a in assignments:
+            assignments_data.append({
+                'id': a.id,
+                'title': a.title,
+                'description': a.description or '',
+                'due_date': a.due_date.isoformat(),
+                'subject_id': a.subject_id,
+                'class_id': a.class_id,
+                'teacher_id': a.teacher_id,
+                'total_points': a.total_points,
+                'assignment_type': a.assignment_type,
+                'status': a.status
+            })
+            
+        return jsonify({
+            'success': True,
+            'assignments': assignments_data
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

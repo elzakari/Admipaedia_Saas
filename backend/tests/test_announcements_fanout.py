@@ -558,4 +558,98 @@ def test_class_announcement_get_authorization(app, client, db_session):
         assert resp.status_code == 200
 
 
+def test_class_assignment_routes_flow(app, client, db_session):
+    """Verify class assignment POST and GET routes including authorization, persistence, and fanout."""
+    with app.app_context():
+        tenant = create_test_tenant(db_session)
+        
+        # Setup Teacher, Student, Parent
+        t_user = create_test_user(db_session, f"t_{uuid.uuid4().hex[:6]}@example.com", 'teacher', tenant.id)
+        teacher = create_test_teacher(db_session, t_user, tenant.id)
+        create_test_membership(db_session, tenant.id, t_user.id, 'teacher')
+        
+        s_user = create_test_user(db_session, f"s_{uuid.uuid4().hex[:6]}@example.com", 'student', tenant.id)
+        student = create_test_student(db_session, s_user, tenant.id)
+        create_test_membership(db_session, tenant.id, s_user.id, 'student')
+        
+        p_user = create_test_user(db_session, f"p_{uuid.uuid4().hex[:6]}@example.com", 'parent', tenant.id)
+        parent = create_test_parent(db_session, p_user, tenant.id)
+        create_test_membership(db_session, tenant.id, p_user.id, 'parent')
+        
+        # Link Student to Parent
+        student.parent_id = parent.id
+        
+        # Create class
+        c = Class(
+            name=f"Class {uuid.uuid4().hex[:6]}",
+            grade_level='Primary 1',
+            academic_year='2024/2025',
+            capacity=30,
+            tenant_id=tenant.id,
+            status='active'
+        )
+        db_session.add(c)
+        db_session.flush()
+        
+        # Assign teacher and student to class
+        ClassService.assign_teacher(c.id, teacher.id)
+        student.class_id = c.id
+        
+        # Create Subject
+        sub = Subject(
+            name='Science',
+            code='SCI101',
+            tenant_id=tenant.id
+        )
+        db_session.add(sub)
+        db_session.flush()
+        db_session.commit()
+        
+        # Helper to generate authorization headers
+        from flask_jwt_extended import create_access_token
+        def get_headers(user):
+            token = create_access_token(identity=user.id)
+            return {
+                'Authorization': f'Bearer {token}',
+                'X-Tenant-ID': str(tenant.id)
+            }
+            
+        # Post a new assignment as the assigned teacher
+        payload = {
+            'title': 'Science Project 1',
+            'instructions': 'Build a simple water filter.',
+            'due_date': '2026-12-31T23:59:00',
+            'subject_id': sub.id,
+            'total_points': 50.0,
+            'assignment_type': 'project',
+            'status': 'published'
+        }
+        
+        resp = client.post(f'/api/v1/classes/{c.id}/assignments', json=payload, headers=get_headers(t_user))
+        assert resp.status_code == 201
+        data = resp.json
+        assert data['success'] is True
+        assert data['assignment']['title'] == 'Science Project 1'
+        
+        # Verify it was persisted to assignments table
+        from app.models.assignment import Assignment
+        assignment = Assignment.query.filter_by(title='Science Project 1').first()
+        assert assignment is not None
+        assert assignment.class_id == c.id
+        
+        # Assert database notifications were populated via fanout
+        student_notif = Notification.query.filter_by(user_id=s_user.id, scope='student').first()
+        assert student_notif is not None
+        assert student_notif.title == 'New Assignment: Science Project 1'
+        
+        parent_notif = Notification.query.filter_by(user_id=p_user.id, scope='parent').first()
+        assert parent_notif is not None
+        assert parent_notif.title == 'New Assignment: Science Project 1'
+        
+        # Get class assignments
+        resp = client.get(f'/api/v1/classes/{c.id}/assignments', headers=get_headers(t_user))
+        assert resp.status_code == 200
+        assert len(resp.json['assignments']) > 0
+
+
 

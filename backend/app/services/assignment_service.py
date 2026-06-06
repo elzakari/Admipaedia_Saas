@@ -41,7 +41,7 @@ class AssignmentService:
         query = Assignment.query.options(
             joinedload(Assignment.class_),
             joinedload(Assignment.subject),
-            joinedload(Assignment.created_by)
+            joinedload(Assignment.teacher)
         ).filter(Assignment.class_id == class_id)
         
         if subject_id:
