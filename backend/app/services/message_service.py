@@ -172,30 +172,8 @@ class MessageService:
             
             else:
                 # Direct message (recipient_type can be student, parent, teacher, admin, user)
-                # 1. Resolve parent/student/teacher profile id to user_id
-                if recipient_type == 'parent':
-                    from app.models.parent import Parent
-                    parent = Parent.query.get(recipient_id)
-                    if parent:
-                        recipient_id = parent.user_id
-                elif recipient_type == 'student':
-                    from app.models.student import Student
-                    student = Student.query.get(recipient_id)
-                    if student:
-                        recipient_id = student.user_id
-                elif recipient_type == 'teacher':
-                    from app.models.teacher import Teacher
-                    teacher = Teacher.query.get(recipient_id)
-                    if teacher:
-                        recipient_id = teacher.user_id
-                
-                # 2. Harmonize recipient_type to role label only
-                recipient = User.query.get(recipient_id)
-                if recipient:
-                    recipient_type = MessageService._get_user_type(recipient)
-                else:
-                    if recipient_type not in ['admin', 'teacher', 'student', 'parent']:
-                        recipient_type = 'user'
+                # Resolve recipient profile or user ID to canonical User.id and role type
+                recipient_id, recipient_type = MessageService._resolve_recipient(recipient_id, recipient_type)
                 
                 message = Message(
                     sender_id=data['sender_id'],
@@ -246,31 +224,7 @@ class MessageService:
             
             messages = []
             for recipient_id in data['recipient_ids']:
-                r_id = int(recipient_id)
-                r_type = data['recipient_type']
-                
-                if r_type == 'parent':
-                    from app.models.parent import Parent
-                    parent = Parent.query.get(r_id)
-                    if parent:
-                        r_id = parent.user_id
-                elif r_type == 'student':
-                    from app.models.student import Student
-                    student = Student.query.get(r_id)
-                    if student:
-                        r_id = student.user_id
-                elif r_type == 'teacher':
-                    from app.models.teacher import Teacher
-                    teacher = Teacher.query.get(r_id)
-                    if teacher:
-                        r_id = teacher.user_id
-                
-                recipient = User.query.get(r_id)
-                if recipient:
-                    r_type = MessageService._get_user_type(recipient)
-                else:
-                    if r_type not in ['admin', 'teacher', 'student', 'parent']:
-                        r_type = 'user'
+                r_id, r_type = MessageService._resolve_recipient(recipient_id, data['recipient_type'])
                 
                 message = Message(
                     sender_id=data['sender_id'],
@@ -438,3 +392,41 @@ class MessageService:
             return 'parent'
         
         return 'user'
+
+    @staticmethod
+    def _resolve_recipient(recipient_id, recipient_type):
+        """
+        Resolves a frontend recipient_id (which could be a User.id or a profile ID)
+        to the canonical User.id, and validates/harmonizes the recipient_type role.
+        """
+        try:
+            recipient_id = int(recipient_id)
+        except (ValueError, TypeError):
+            return recipient_id, recipient_type
+
+        # 1. Try profile mapping first
+        if recipient_type == 'parent':
+            from app.models.parent import Parent
+            parent = Parent.query.get(recipient_id)
+            if parent:
+                recipient_id = parent.user_id
+        elif recipient_type == 'student':
+            from app.models.student import Student
+            student = Student.query.get(recipient_id)
+            if student:
+                recipient_id = student.user_id
+        elif recipient_type == 'teacher':
+            from app.models.teacher import Teacher
+            teacher = Teacher.query.get(recipient_id)
+            if teacher:
+                recipient_id = teacher.user_id
+
+        # 2. Retrieve target user to harmonize/verify recipient_type
+        recipient = User.query.get(recipient_id)
+        if recipient:
+            recipient_type = MessageService._get_user_type(recipient)
+        else:
+            if recipient_type not in ['admin', 'teacher', 'student', 'parent']:
+                recipient_type = 'user'
+
+        return recipient_id, recipient_type
