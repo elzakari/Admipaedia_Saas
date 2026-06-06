@@ -62,10 +62,10 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
       {/* Main Dashboard Tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
+          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="analytics">Analyses</TabsTrigger>
+          <TabsTrigger value="assignments">Devoirs assignés</TabsTrigger>
+          <TabsTrigger value="ai-insights">Analyses IA</TabsTrigger>
         </TabsList>
         
         {/* Overview Tab */}

@@ -552,9 +552,9 @@ const TeachersPage: React.FC = () => {
         <div className="flex-1 overflow-auto p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="management">{t('teachers_page.management_tab', 'Management')}</TabsTrigger>
-              <TabsTrigger value="dashboard">{t('navigation.dashboard', 'Dashboard')}</TabsTrigger>
-              <TabsTrigger value="analytics">{t('navigation.analytics', 'Analytics')}</TabsTrigger>
+              <TabsTrigger value="management">{t('teachers_page.management_tab', 'Gestion')}</TabsTrigger>
+              <TabsTrigger value="dashboard">{t('navigation.dashboard', 'Synthèse')}</TabsTrigger>
+              <TabsTrigger value="analytics">{t('navigation.analytics', 'Analyses')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="management" className="mt-6">

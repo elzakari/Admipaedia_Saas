@@ -189,10 +189,10 @@ export function StudentsPage() {
     const atRiskCount = analyticsSummary?.at_risk_students_count;
 
     return [
-      { name: t('students_page.total_students', 'Total Students'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
-      { name: t('students_page.avg_attendance', 'Average Attendance'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
-      { name: t('students_page.avg_performance', 'Average Performance'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
-      { name: t('students_page.at_risk_students', 'At-Risk Students'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
+      { name: t('students_page.total_students', 'Total Élèves'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
+      { name: t('students_page.avg_attendance', 'Présence Moyenne'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
+      { name: t('students_page.avg_performance', 'Performance Moyenne'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
+      { name: t('students_page.at_risk_students', 'Élèves à Risque'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
     ];
   };
 
@@ -787,15 +787,15 @@ export function StudentsPage() {
           {calculateStudentStats().map((stat, index) => {
             const IconComponent = stat.icon;
             return (
-              <Card key={index}>
-                <CardContent className="p-6">
+              <Card key={index} className="border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+                <CardContent className="p-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                      <p className="text-2xl font-bold">{stat.value}</p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.name}</p>
+                      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stat.value}</p>
                     </div>
-                    <div className={`p-3 rounded-full ${stat.color}`}>
-                      <IconComponent className="h-6 w-6 text-white" />
+                    <div className={`p-3 rounded-xl ${stat.color} text-white shadow-sm`}>
+                      <IconComponent className="h-5 w-5" />
                     </div>
                   </div>
                 </CardContent>

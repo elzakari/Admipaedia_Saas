@@ -145,20 +145,30 @@ export function TeacherStats({ teacher, classesCount }: TeacherStatsProps) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
+
+        // Map English backend names to clean French terminology
+        let nameFr = stat.name;
+        if (stat.name === "Students Taught") nameFr = "Total Élèves";
+        else if (stat.name === "Classes Assigned") nameFr = "Classes Assignées";
+        else if (stat.name === "Pending Grades") nameFr = "Notes en Attente";
+        else if (stat.name === "Attendance Rate") nameFr = "Présence Moyenne";
+
         return (
-          <Card key={index} className="glass-card">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div className={`${stat.color} bg-opacity-20 p-2 rounded-full`}>
-                  <Icon className={`h-5 w-5 ${stat.color.replace('bg-', 'text-')}`} />
+          <Card key={index} className="glass-card border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-indigo-700/70 dark:text-indigo-300/70">{nameFr}</p>
+                  <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-1">{stat.value}</p>
+                  <div className="mt-1.5">
+                    <Badge variant={stat.trendDirection === "up" ? "success" : "destructive"} className="text-[10px] px-1.5 py-0">
+                      {stat.trend}
+                    </Badge>
+                  </div>
                 </div>
-                <Badge variant={stat.trendDirection === "up" ? "success" : "destructive"} className="text-xs">
-                  {stat.trend}
-                </Badge>
-              </div>
-              <div className="mt-3">
-                <h3 className="text-2xl font-bold text-indigo-900">{stat.value}</h3>
-                <p className="text-sm text-indigo-700">{stat.name}</p>
+                <div className={`p-3 rounded-xl ${stat.color} text-white shadow-sm`}>
+                  <Icon className="h-5 w-5" />
+                </div>
               </div>
             </CardContent>
           </Card>

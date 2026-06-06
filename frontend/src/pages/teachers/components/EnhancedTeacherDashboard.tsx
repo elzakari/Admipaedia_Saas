@@ -153,56 +153,72 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Students Count */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.studentsCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Across {classesCount} classes
-            </p>
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Élèves</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.studentsCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sur {classesCount} classes
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500 text-white shadow-sm">
+                <Users className="h-5 w-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Attendance Rate */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.attendanceRate.toFixed(1)}%</div>
-            <Progress value={stats.attendanceRate} className="mt-2" />
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 mr-4">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Présence Moyenne</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.attendanceRate.toFixed(1)}%</p>
+                <Progress value={stats.attendanceRate} className="mt-2 h-1.5" />
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-500 text-white shadow-sm">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Pending Grades */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Grades</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingGrades}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.pendingGrades > 0 ? 'Need attention' : 'All caught up!'}
-            </p>
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Notes en Attente</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.pendingGrades}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.pendingGrades > 0 ? 'Attention requise' : 'Tout est à jour !'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500 text-white shadow-sm">
+                <Award className="h-5 w-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Messages */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.messageCount}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.messageCount > 0 ? 'New messages' : 'No new messages'}
-            </p>
+        <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Messages Non Lus</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.messageCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.messageCount > 0 ? 'Nouveaux messages' : 'Aucun nouveau message'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-purple-500 text-white shadow-sm">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

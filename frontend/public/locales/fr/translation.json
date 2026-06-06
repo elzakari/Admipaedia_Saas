@@ -1134,10 +1134,10 @@
     "delete_student_confirm": "Êtes-vous sûr de vouloir supprimer",
     "import_export_title": "Importer/Exporter des élèves",
     "import_export_desc": "Importer des élèves à partir d'un fichier CSV ou exporter les données des élèves actuels.",
-    "total_students": "Nombre total d'élèves",
-    "avg_attendance": "Présence moyenne",
-    "avg_performance": "Performance moyenne",
-    "at_risk_students": "Élèves à risque"
+    "total_students": "Total Élèves",
+    "avg_attendance": "Présence Moyenne",
+    "avg_performance": "Performance Moyenne",
+    "at_risk_students": "Élèves à Risque"
   },
   "teachers_page": {
     "loading_title": "Chargement des enseignants...",
