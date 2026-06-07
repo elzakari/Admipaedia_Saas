@@ -5,6 +5,12 @@
 
 import { Student } from "./student";
 import { Teacher } from "./teacher.types";
+import type { AcademicStructure } from "./academic_structure.types";
+
+// Re-export so existing imports keep working
+export type { AcademicStructure };
+/** @deprecated Use AcademicStructure from academic_structure.types instead */
+export type Department = AcademicStructure;
 
 // Class Interface
 export interface Class {
@@ -55,28 +61,7 @@ export interface Subject {
   updated_at: string;
 }
 
-// Department Interface
-export interface Department {
-  id: number;
-  name: string;
-  code: string;
-  description?: string;
-  
-  // Leadership
-  head_of_department_id?: number;
-  head_of_department?: Teacher;
-  
-  // Relationships
-  teachers?: Teacher[];
-  subjects?: Subject[];
-  
-  // Status
-  is_active: boolean;
-  
-  // Timestamps
-  created_at: string;
-  updated_at: string;
-}
+// (Department is now imported from academic_structure.types — see top of file)
 
 // Grade Interface
 export interface Grade {

@@ -6,7 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { departmentService } from '@/services/departmentService';
+import { academicStructureService } from '@/services/departmentService';
+import { ACADEMIC_STRUCTURE_TYPES } from '@/types/academic_structure.types';
+import type { AcademicStructureType } from '@/types/academic_structure.types';
 import { toast } from 'react-hot-toast';
 
 interface Department {
@@ -15,6 +17,7 @@ interface Department {
   code: string;
   description?: string;
   head_id?: number;
+  structure_type: AcademicStructureType;
   is_active: boolean;
   subjects_count: number;
   staff_count: number;
@@ -29,16 +32,17 @@ const DepartmentManagement: React.FC = () => {
     name: '',
     code: '',
     description: '',
+    structure_type: 'discipline',
     is_active: true
   });
 
   const { data: departments, isLoading } = useQuery<Department[]>({
     queryKey: ['departments'],
-    queryFn: departmentService.getAllDepartments
+    queryFn: () => academicStructureService.getAll(),
   });
 
   const createMutation = useMutation({
-    mutationFn: departmentService.createDepartment,
+    mutationFn: (d: Partial<Department>) => academicStructureService.create(d as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department created successfully');
@@ -51,7 +55,8 @@ const DepartmentManagement: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: departmentService.updateDepartment,
+    mutationFn: ({ id, ...data }: Partial<Department> & { id: number }) =>
+      academicStructureService.update(id, data as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department updated successfully');
@@ -64,7 +69,7 @@ const DepartmentManagement: React.FC = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: departmentService.deleteDepartment,
+    mutationFn: (id: number) => academicStructureService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department deleted successfully');
@@ -91,6 +96,7 @@ const DepartmentManagement: React.FC = () => {
         name: department.name,
         code: department.code,
         description: department.description || '',
+        structure_type: department.structure_type,
         is_active: department.is_active
       });
     } else {
@@ -120,6 +126,7 @@ const DepartmentManagement: React.FC = () => {
       name: '',
       code: '',
       description: '',
+      structure_type: 'discipline',
       is_active: true
     });
     setSelectedDepartment(null);
@@ -179,8 +186,8 @@ const DepartmentManagement: React.FC = () => {
               <CardContent>
                 <div className="text-sm mb-2">{department.description || 'No description'}</div>
                 <div className="flex justify-between text-sm text-gray-500">
+                  <span className="capitalize px-1.5 py-0.5 rounded bg-slate-100 text-xs">{department.structure_type ?? 'discipline'}</span>
                   <span>Subjects: {department.subjects_count}</span>
-                  <span>Staff: {department.staff_count}</span>
                   <span className={department.is_active ? 'text-green-500' : 'text-red-500'}>
                     {department.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -199,7 +206,21 @@ const DepartmentManagement: React.FC = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Department Name</Label>
+                <Label htmlFor="structure_type" className="text-right">Type</Label>
+                <select
+                  id="structure_type"
+                  name="structure_type"
+                  value={formData.structure_type ?? 'discipline'}
+                  onChange={(e) => setFormData({ ...formData, structure_type: e.target.value as AcademicStructureType })}
+                  className="col-span-3 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  {ACADEMIC_STRUCTURE_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">Name</Label>
                 <Input
                   id="name"
                   name="name"

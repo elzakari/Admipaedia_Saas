@@ -66,9 +66,14 @@ from app.api.v1.invitations import invitations_bp
 from app.api.v1.service_tokens import service_tokens_bp
 from app.api.v1.plan_context import plan_context_bp
 from app.api.v1.branches.routes import branches_bp
+from app.api.v1.departments import departments_bp
+
 
 # Register existing blueprints
 api_v1_bp.register_blueprint(branches_bp, url_prefix='/school/branches')
+api_v1_bp.register_blueprint(departments_bp, url_prefix='/departments')
+api_v1_bp.register_blueprint(departments_bp, url_prefix='/structures', name='structures')  # polymorphic alias
+
 api_v1_bp.register_blueprint(academics_bp, url_prefix='/academics')
 api_v1_bp.register_blueprint(auth_bp, url_prefix='/auth')  # Enhanced auth is now included
 api_v1_bp.register_blueprint(profile_bp, url_prefix='/profile')

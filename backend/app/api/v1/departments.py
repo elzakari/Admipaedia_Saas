@@ -1,88 +1,175 @@
-from flask import Blueprint, request, jsonify
-from app.services.department_service import DepartmentService
-from app.schemas.department_schema import DepartmentSchema
-from app.utils.auth import jwt_required, admin_required
+"""
+Academic Structures / Departments API
+--------------------------------------
+URL prefix: /api/v1/departments   (legacy; also registered at /api/v1/structures)
 
-departments_bp = Blueprint('departments', __name__)
-department_schema = DepartmentSchema()
-departments_schema = DepartmentSchema(many=True)
+Endpoints:
+  GET    /                          list all (filter by type, is_active)
+  POST   /                          create
+  GET    /<id>                      retrieve one
+  PUT    /<id>                      update
+  DELETE /<id>                      delete
+  POST   /<id>/staff                add staff member
+  DELETE /<id>/staff/<user_id>      remove staff member
+  GET    /types                     return enum values for frontend dropdowns
+"""
+from flask import Blueprint, request, jsonify, g
+from app.services.department_service import AcademicStructureService
+from app.schemas.department_schema import AcademicStructureSchema, AcademicStructureListSchema
+from app.models.department import AcademicStructureType
+from app.utils.auth import jwt_required, admin_required, tenant_required
 
-@departments_bp.route('', methods=['GET'])
+departments_bp = Blueprint("departments", __name__)
+
+_schema      = AcademicStructureSchema()
+_schema_many = AcademicStructureListSchema(many=True)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _tenant_id():
+    """Return current tenant id from Flask g (set by @tenant_required)."""
+    return getattr(g, "tenant_id", None)
+
+
+def _parse_bool(raw) -> bool | None:
+    if raw is None:
+        return None
+    return str(raw).lower() in ("1", "true", "yes")
+
+
+def _coerce_type(raw) -> AcademicStructureType | None:
+    if not raw:
+        return None
+    try:
+        return AcademicStructureType(raw.lower())
+    except ValueError:
+        return None
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@departments_bp.route("/types", methods=["GET"])
 @jwt_required
-def get_departments():
-    is_active = request.args.get('is_active')
-    if is_active is not None:
-        is_active = is_active.lower() == 'true'
-    
-    departments = DepartmentService.get_all_departments(is_active=is_active)
+def list_types():
+    """Return all valid structure_type values so the frontend can build dropdowns."""
     return jsonify({
-        'success': True,
-        'data': departments_schema.dump(departments)
+        "success": True,
+        "types": [
+            {"value": t.value, "label": t.value.capitalize()}
+            for t in AcademicStructureType
+        ],
     }), 200
 
-@departments_bp.route('/<int:department_id>', methods=['GET'])
+
+@departments_bp.route("", methods=["GET"])
 @jwt_required
-def get_department(department_id):
-    department = DepartmentService.get_department_by_id(department_id)
-    if not department:
-        return jsonify({
-            'success': False,
-            'message': f'Department with ID {department_id} not found'
-        }), 404
-    
+@tenant_required
+def get_structures():
+    tid       = _tenant_id()
+    is_active = _parse_bool(request.args.get("is_active"))
+    stype     = _coerce_type(request.args.get("structure_type") or request.args.get("type"))
+
+    items = AcademicStructureService.get_all(
+        is_active=is_active,
+        structure_type=stype,
+        tenant_id=tid,
+    )
     return jsonify({
-        'success': True,
-        'data': department_schema.dump(department)
+        "success": True,
+        "data": _schema_many.dump(items),
     }), 200
 
-@departments_bp.route('', methods=['POST'])
+
+@departments_bp.route("/<int:structure_id>", methods=["GET"])
+@jwt_required
+@tenant_required
+def get_structure(structure_id):
+    item = AcademicStructureService.get_by_id(structure_id, tenant_id=_tenant_id())
+    if not item:
+        return jsonify({"success": False, "message": f"Not found: {structure_id}"}), 404
+    return jsonify({"success": True, "data": _schema.dump(item)}), 200
+
+
+@departments_bp.route("", methods=["POST"])
 @jwt_required
 @admin_required
-def create_department():
-    data = request.get_json()
-    department = DepartmentService.create_department(data)
-    if not department:
+@tenant_required
+def create_structure():
+    data = request.get_json() or {}
+    item = AcademicStructureService.create(data, tenant_id=_tenant_id())
+    if not item:
         return jsonify({
-            'success': False,
-            'message': 'Department could not be created. Code may already exist.'
+            "success": False,
+            "message": "Could not create. Code may already exist or tenant context missing.",
         }), 400
-    
     return jsonify({
-        'success': True,
-        'data': department_schema.dump(department),
-        'message': 'Department created successfully'
+        "success": True,
+        "data": _schema.dump(item),
+        "message": "Created successfully",
     }), 201
 
-@departments_bp.route('/<int:department_id>', methods=['PUT'])
+
+@departments_bp.route("/<int:structure_id>", methods=["PUT"])
 @jwt_required
 @admin_required
-def update_department(department_id):
-    data = request.get_json()
-    department = DepartmentService.update_department(department_id, data)
-    if not department:
+@tenant_required
+def update_structure(structure_id):
+    data = request.get_json() or {}
+    item = AcademicStructureService.update(structure_id, data, tenant_id=_tenant_id())
+    if not item:
         return jsonify({
-            'success': False,
-            'message': f'Department with ID {department_id} not found or code already exists'
+            "success": False,
+            "message": f"Not found or code conflict: {structure_id}",
         }), 404
-    
     return jsonify({
-        'success': True,
-        'data': department_schema.dump(department),
-        'message': 'Department updated successfully'
+        "success": True,
+        "data": _schema.dump(item),
+        "message": "Updated successfully",
     }), 200
 
-@departments_bp.route('/<int:department_id>', methods=['DELETE'])
+
+@departments_bp.route("/<int:structure_id>", methods=["DELETE"])
 @jwt_required
 @admin_required
-def delete_department(department_id):
-    success = DepartmentService.delete_department(department_id)
-    if not success:
-        return jsonify({
-            'success': False,
-            'message': f'Department with ID {department_id} not found'
-        }), 404
-    
-    return jsonify({
-        'success': True,
-        'message': 'Department deleted successfully'
-    }), 200
+@tenant_required
+def delete_structure(structure_id):
+    ok = AcademicStructureService.delete(structure_id, tenant_id=_tenant_id())
+    if not ok:
+        return jsonify({"success": False, "message": f"Not found: {structure_id}"}), 404
+    return jsonify({"success": True, "message": "Deleted successfully"}), 200
+
+
+@departments_bp.route("/<int:structure_id>/staff", methods=["POST"])
+@jwt_required
+@admin_required
+@tenant_required
+def add_staff(structure_id):
+    data    = request.get_json() or {}
+    user_id = data.get("user_id")
+    role    = data.get("role")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id required"}), 400
+    ok = AcademicStructureService.add_staff(
+        structure_id, user_id, role=role, tenant_id=_tenant_id()
+    )
+    if not ok:
+        return jsonify({"success": False, "message": "Could not add staff member"}), 400
+    return jsonify({"success": True, "message": "Staff member added"}), 200
+
+
+@departments_bp.route("/<int:structure_id>/staff/<int:user_id>", methods=["DELETE"])
+@jwt_required
+@admin_required
+@tenant_required
+def remove_staff(structure_id, user_id):
+    from app.models.department import department_staff
+    from app.extensions import db
+    db.session.execute(
+        department_staff.delete().where(
+            (department_staff.c.department_id == structure_id)
+            & (department_staff.c.user_id == user_id)
+        )
+    )
+    db.session.commit()
+    return jsonify({"success": True, "message": "Staff member removed"}), 200

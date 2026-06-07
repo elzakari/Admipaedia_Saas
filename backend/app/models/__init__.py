@@ -13,7 +13,12 @@ from app.models.teacher_attendance import TeacherAttendance
 # Only import once
 from app.models.associations import teacher_subjects, class_subjects
 # In app/models/__init__.py
-from app.models.department import Department, department_staff
+from app.models.department import (
+    AcademicStructure,
+    AcademicStructureType,
+    Department,          # backward-compat alias for AcademicStructure
+    department_staff,
+)
 # Session token management
 from app.models.session_token import SessionToken
 # Security models - MISSING IMPORT
@@ -129,7 +134,9 @@ from app.models.billing import (
     PendingInvoiceAdjustment
 )
 from app.models.educational_system import EducationalSystemTemplate, EducationalSystemConfig, GradeLevel
-from app.models.academic_cycle import AcademicCycle
+# AcademicCycle is superseded by AcademicStructure(structure_type=CYCLE).
+# Kept imported here for backward compat. Migrate callers over time.
+from app.models.academic_cycle import AcademicCycle  # noqa: F401 - deprecated
 from app.models.grade_track import GradeTrack
 from app.models.polymorphic_grading_scale import PolymorphicGradingScale
 from app.models.tenant_academic_settings import TenantAcademicSettings

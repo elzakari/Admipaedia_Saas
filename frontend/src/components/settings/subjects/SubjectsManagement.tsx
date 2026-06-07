@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
@@ -150,7 +151,7 @@ export default function SubjectsManagement() {
                 <TableHead>{t('common.code', 'Code')}</TableHead>
                 <TableHead>{t('common.department', 'Department')}</TableHead>
                 <TableHead>{t('admin_settings.credits', 'Credits')}</TableHead>
-                <TableHead>{t('common.status', 'Status')}</TableHead>
+                <TableHead>{t('admin_settings.subject_status_col', 'Status')}</TableHead>
                 <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -215,7 +216,7 @@ export default function SubjectsManagement() {
               <div><span className="font-medium">{t('common.code', 'Code')}:</span> {detailQuery.data.code}</div>
               <div><span className="font-medium">{t('common.department', 'Department')}:</span> {detailQuery.data.department || '-'}</div>
               <div><span className="font-medium">{t('admin_settings.credits', 'Credits')}:</span> {(detailQuery.data as any).credits ?? detailQuery.data.credit_hours ?? '-'}</div>
-              <div><span className="font-medium">{t('common.status', 'Status')}:</span> {detailQuery.data.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</div>
+              <div><span className="font-medium">{t('super_admin.users.table.status', 'Status')}:</span> {detailQuery.data.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</div>
               <div><span className="font-medium">{t('common.description', 'Description')}:</span> {detailQuery.data.description || '-'}</div>
             </div>
           ) : (
@@ -242,11 +243,19 @@ export default function SubjectsManagement() {
 
 function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Subject | null; onSubmit: (data: Partial<Subject>) => void; onCancel: () => void; submitting: boolean }) {
   const { t } = useTranslation()
+  const { data: disciplines = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['academic-structures', 'discipline'],
+    queryFn: async () => {
+      const { academicStructureService } = await import('../../../services/departmentService')
+      return academicStructureService.getDisciplines()
+    },
+    staleTime: 5 * 60 * 1000,
+  })
   const [data, setData] = useState<Partial<Subject>>({
     name: editing?.name || '',
     code: editing?.code || '',
     description: editing?.description || '',
-    department: editing?.department || '',
+    department_id: (editing as any)?.department_id ?? undefined,
     credit_hours: editing?.credit_hours ?? (editing as any)?.credits ?? 0,
     is_active: editing?.is_active ?? true,
   })
@@ -262,8 +271,17 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
           <Input value={data.code || ''} onChange={(e) => setData((d) => ({ ...d, code: e.target.value }))} />
         </div>
         <div className="space-y-2">
-          <Label>{t('common.department', 'Department')}</Label>
-          <Input value={data.department || ''} onChange={(e) => setData((d) => ({ ...d, department: e.target.value }))} />
+          <Label>{t('common.department', 'Discipline')}</Label>
+          <select
+            value={String((data as any).department_id ?? '')}
+            onChange={(e) => setData((d) => ({ ...d, department_id: e.target.value ? Number(e.target.value) : undefined }))}
+            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+          >
+            <option value="">{t('admin_settings.select_discipline', 'Select discipline…')}</option>
+            {disciplines.map(dep => (
+              <option key={dep.id} value={String(dep.id)}>{dep.name}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t('admin_settings.credit_hours', 'Credit Hours')}</Label>

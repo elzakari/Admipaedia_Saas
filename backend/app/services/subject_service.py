@@ -9,6 +9,7 @@ from app.models.associations import teacher_subjects, class_subjects
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 
+
 logger = structlog.get_logger()
 cache_service = get_cache_service()
 subject_schema = SubjectSchema()
@@ -111,6 +112,19 @@ class SubjectService:
                 if not dept:
                     return None, "Department not found"
 
+
+            # Auto-generate subject code if not supplied by the caller
+            if not payload.get('code'):
+                from app.services.department_service import AcademicStructureService
+                from app.models.department import AcademicStructure as _AS
+                _dept_obj = None
+                if payload.get('department_id'):
+                    _dept_obj = _AS.query.get(payload['department_id'])
+                payload['code'] = AcademicStructureService.generate_subject_code(
+                    payload.get('name', 'SUB'),
+                    _dept_obj,
+                    tenant_id=tenant_id,
+                )
             # Cast credit_hours safely
             if 'credit_hours' in payload and payload['credit_hours'] is not None:
                 try:
