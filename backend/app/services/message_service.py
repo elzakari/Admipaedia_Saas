@@ -91,6 +91,7 @@ class MessageService:
             raise
     
     @staticmethod
+    @staticmethod
     def create_message(data):
         """Create a new message"""
         try:
@@ -103,112 +104,70 @@ class MessageService:
             sender = User.query.get(data['sender_id'])
             sender_type = MessageService._get_user_type(sender)
             
-            recipient_id = data['recipient_id']
-            recipient_type = data['recipient_type']
+            # Extract recipient_ref if provided, or build from recipient_id and recipient_type
+            recipient_ref = data.get('recipient_ref')
+            if not recipient_ref:
+                recipient_id = data.get('recipient_id')
+                recipient_type = data.get('recipient_type')
+                if not recipient_id or not recipient_type:
+                    raise ValueError("Either recipient_ref or recipient_id + recipient_type must be provided.")
+                # Build simulated recipient_ref
+                if recipient_type == 'class':
+                    recipient_ref = f"class:{recipient_id}:all"
+                elif recipient_type in ('parent', 'student', 'teacher'):
+                    recipient_ref = f"{recipient_type}:{recipient_id}"
+                else:
+                    recipient_ref = f"user:{recipient_id}"
+            
+            # Resolve the recipient ref
+            resolved_recipients, r_type = MessageService.resolve_recipient_ref(recipient_ref)
+            
+            # Validate permissions for each resolved recipient
+            for r_id, r_role in resolved_recipients:
+                if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
+                    raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
             
             created_messages = []
-            
-            if recipient_type == 'class':
-                from app.models.student import Student
-                from app.models.parent import Parent
-                
-                # Resolve all students in this class
-                students_in_class = Student.query.filter_by(class_id=recipient_id).all()
-                
-                target_recipients = []
-                for student in students_in_class:
-                    if student.user_id:
-                        target_recipients.append((student.user_id, 'student'))
-                    if student.parent_id:
-                        parent = Parent.query.get(student.parent_id)
-                        if parent and parent.user_id:
-                            target_recipients.append((parent.user_id, 'parent'))
-                
-                # Deduplicate recipients by user_id
-                seen_ids = set()
-                deduped_recipients = []
-                for r_id, r_type in target_recipients:
-                    if r_id not in seen_ids:
-                        seen_ids.add(r_id)
-                        deduped_recipients.append((r_id, r_type))
-                
-                if not deduped_recipients:
-                    raise ValueError("No recipients found in the specified class.")
-                
-                for r_id, r_type in deduped_recipients:
-                    msg = Message(
-                        sender_id=data['sender_id'],
-                        sender_type=sender_type,
-                        recipient_id=r_id,
-                        recipient_type=r_type,
-                        subject=data['subject'],
-                        content=data['content'],
-                        attachments=attachment_paths if attachment_paths else None
-                    )
-                    db.session.add(msg)
-                    created_messages.append(msg)
-                
-                db.session.commit()
-                
-                # Attempt Socket.IO emit inside try/except Exception
-                try:
-                    from app.extensions import socketio
-                    from app.schemas.message import MessageSchema
-                    schema = MessageSchema()
-                    
-                    for msg in created_messages:
-                        msg_data = schema.dump(msg)
-                        socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/messages')
-                        socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/chat')
-                    
-                    if created_messages:
-                        sender_msg_data = schema.dump(created_messages[0])
-                        socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/messages')
-                        socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/chat')
-                except Exception as socket_err:
-                    logger.warning(f"Failed to emit Socket.IO notification for class message: {str(socket_err)}")
-                
-                return created_messages[0] if created_messages else None
-            
-            else:
-                # Direct message (recipient_type can be student, parent, teacher, admin, user)
-                # Resolve recipient profile or user ID to canonical User.id and role type
-                recipient_id, recipient_type = MessageService._resolve_recipient(recipient_id, recipient_type)
-                
-                message = Message(
+            for r_id, r_role in resolved_recipients:
+                msg = Message(
                     sender_id=data['sender_id'],
                     sender_type=sender_type,
-                    recipient_id=recipient_id,
-                    recipient_type=recipient_type,
+                    recipient_id=r_id,
+                    recipient_type=r_role,
                     subject=data['subject'],
                     content=data['content'],
                     attachments=attachment_paths if attachment_paths else None
                 )
+                db.session.add(msg)
+                created_messages.append(msg)
                 
-                db.session.add(message)
-                db.session.commit()
+            db.session.commit()
+            
+            # Emit socket events safely
+            try:
+                from app.extensions import socketio
+                from app.schemas.message import MessageSchema
+                schema = MessageSchema()
                 
-                # Attempt Socket.IO emit inside try/except Exception
-                try:
-                    from app.extensions import socketio
-                    from app.schemas.message import MessageSchema
-                    schema = MessageSchema()
-                    message_data = schema.dump(message)
-                    
-                    socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/messages')
-                    socketio.emit('new_message', message_data, room=f"user_{message.recipient_id}", namespace='/chat')
-                    socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/messages')
-                    socketio.emit('message_sent', {'success': True, 'message': message_data}, room=f"user_{message.sender_id}", namespace='/chat')
-                except Exception as socket_err:
-                    logger.warning(f"Failed to emit Socket.IO notification: {str(socket_err)}")
+                for msg in created_messages:
+                    msg_data = schema.dump(msg)
+                    socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/messages')
+                    socketio.emit('new_message', msg_data, room=f"user_{msg.recipient_id}", namespace='/chat')
                 
-                return message
+                if created_messages:
+                    sender_msg_data = schema.dump(created_messages[0])
+                    socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/messages')
+                    socketio.emit('message_sent', {'success': True, 'message': sender_msg_data}, room=f"user_{data['sender_id']}", namespace='/chat')
+            except Exception as socket_err:
+                logger.warning(f"Failed to emit Socket.IO notification: {str(socket_err)}")
                 
+            return created_messages[0] if created_messages else None
+            
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error creating message: {str(e)}")
             raise
-    
+
     @staticmethod
     def create_bulk_message(data):
         """Create messages to multiple recipients"""
@@ -222,20 +181,36 @@ class MessageService:
             sender = User.query.get(data['sender_id'])
             sender_type = MessageService._get_user_type(sender)
             
+            recipient_refs = data.get('recipient_refs')
+            if not recipient_refs:
+                recipient_ids = data.get('recipient_ids')
+                recipient_type = data.get('recipient_type')
+                recipient_refs = []
+                for rid in recipient_ids:
+                    if recipient_type == 'class':
+                        recipient_refs.append(f"class:{rid}:all")
+                    elif recipient_type in ('parent', 'student', 'teacher'):
+                        recipient_refs.append(f"{recipient_type}:{rid}")
+                    else:
+                        recipient_refs.append(f"user:{rid}")
+            
             messages = []
-            for recipient_id in data['recipient_ids']:
-                r_id, r_type = MessageService._resolve_recipient(recipient_id, data['recipient_type'])
-                
-                message = Message(
-                    sender_id=data['sender_id'],
-                    sender_type=sender_type,
-                    recipient_id=r_id,
-                    recipient_type=r_type,
-                    subject=data['subject'],
-                    content=data['content'],
-                    attachments=attachment_paths if attachment_paths else None
-                )
-                messages.append(message)
+            for ref in recipient_refs:
+                resolved_recipients, r_type = MessageService.resolve_recipient_ref(ref)
+                for r_id, r_role in resolved_recipients:
+                    if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
+                        raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
+                    
+                    message = Message(
+                        sender_id=data['sender_id'],
+                        sender_type=sender_type,
+                        recipient_id=r_id,
+                        recipient_type=r_role,
+                        subject=data['subject'],
+                        content=data['content'],
+                        attachments=attachment_paths if attachment_paths else None
+                    )
+                    messages.append(message)
             
             db.session.add_all(messages)
             db.session.commit()
@@ -264,6 +239,262 @@ class MessageService:
             db.session.rollback()
             logger.error(f"Error creating bulk message: {str(e)}")
             raise
+
+    @staticmethod
+    def resolve_recipient_ref(recipient_ref):
+        """
+        Resolves a recipient_ref string into a list of tuples: (user_id, role)
+        Supported ref formats:
+        - user:<id> -> [(user_id, role)]
+        - parent:<id> -> [(parent.user_id, 'parent')]
+        - student:<id> -> [(student.user_id, 'student')]
+        - teacher:<id> -> [(teacher.user_id, 'teacher')]
+        - class:<id>:students -> list of (student.user_id, 'student')
+        - class:<id>:parents -> list of (parent.user_id, 'parent')
+        - class:<id>:all -> list of both
+        """
+        if not recipient_ref:
+            raise ValueError("recipient_ref cannot be empty")
+            
+        parts = recipient_ref.split(':')
+        if not parts:
+            raise ValueError(f"Invalid recipient_ref: {recipient_ref}")
+            
+        ref_type = parts[0]
+        
+        if ref_type == 'class':
+            if len(parts) < 3:
+                raise ValueError(f"Invalid class ref format. Expected class:<id>:<audience>, got: {recipient_ref}")
+            class_id_str, audience = parts[1], parts[2]
+            try:
+                class_id = int(class_id_str)
+            except ValueError:
+                raise ValueError(f"Invalid class ID: {class_id_str}")
+                
+            from app.models.student import Student
+            from app.models.parent import Parent
+            
+            students = Student.query.filter_by(class_id=class_id).all()
+            recipients = []
+            
+            if audience in ('students', 'all'):
+                for s in students:
+                    if s.user_id:
+                        recipients.append((s.user_id, 'student'))
+            if audience in ('parents', 'all'):
+                for s in students:
+                    if s.parent_id:
+                        parent = Parent.query.get(s.parent_id)
+                        if parent and parent.user_id:
+                            recipients.append((parent.user_id, 'parent'))
+                            
+            # Deduplicate
+            seen = set()
+            deduped = []
+            for uid, role in recipients:
+                if uid not in seen:
+                    seen.add(uid)
+                    deduped.append((uid, role))
+                    
+            if not deduped:
+                raise ValueError(f"No active recipients found for class ID {class_id}")
+            return deduped, 'class'
+            
+        else:
+            if len(parts) < 2:
+                raise ValueError(f"Invalid ref format: {recipient_ref}")
+            id_str = parts[1]
+            try:
+                numeric_id = int(id_str)
+            except ValueError:
+                raise ValueError(f"Invalid numeric ID: {id_str}")
+                
+            if ref_type == 'parent':
+                from app.models.parent import Parent
+                parent = Parent.query.get(numeric_id)
+                if not parent:
+                    # Fallback to User table
+                    user = User.query.get(numeric_id)
+                    if user and MessageService._get_user_type(user) == 'parent':
+                        return [(user.id, 'parent')], 'parent'
+                    raise ValueError(f"Parent profile with ID {numeric_id} does not exist.")
+                return [(parent.user_id, 'parent')], 'parent'
+                
+            elif ref_type == 'student':
+                from app.models.student import Student
+                student = Student.query.get(numeric_id)
+                if not student:
+                    # Fallback to User table
+                    user = User.query.get(numeric_id)
+                    if user and MessageService._get_user_type(user) == 'student':
+                        return [(user.id, 'student')], 'student'
+                    raise ValueError(f"Student profile with ID {numeric_id} does not exist.")
+                return [(student.user_id, 'student')], 'student'
+                
+            elif ref_type == 'teacher':
+                from app.models.teacher import Teacher
+                teacher = Teacher.query.get(numeric_id)
+                if not teacher:
+                    # Fallback to User table
+                    user = User.query.get(numeric_id)
+                    if user and MessageService._get_user_type(user) == 'teacher':
+                        return [(user.id, 'teacher')], 'teacher'
+                    raise ValueError(f"Teacher profile with ID {numeric_id} does not exist.")
+                return [(teacher.user_id, 'teacher')], 'teacher'
+                
+            elif ref_type == 'user':
+                user = User.query.get(numeric_id)
+                if not user:
+                    raise ValueError(f"User with ID {numeric_id} does not exist.")
+                role = MessageService._get_user_type(user)
+                return [(user.id, role)], role
+            else:
+                raise ValueError(f"Unknown recipient ref type: {ref_type}")
+
+    @staticmethod
+    def validate_sender_recipient_relation(sender_id, recipient_user_id):
+        """
+        Validates whether a sender is allowed to message a recipient user.
+        """
+        if sender_id == recipient_user_id:
+            return True # Can message oneself
+            
+        from app.models.user import User
+        sender = User.query.get(sender_id)
+        recipient = User.query.get(recipient_user_id)
+        if not sender or not recipient:
+            return False
+            
+        sender_role = MessageService._get_user_type(sender)
+        recipient_role = MessageService._get_user_type(recipient)
+        
+        # Bypass membership boundary checks if no active tenant context or if either user has the generic 'user' role
+        from flask import g, has_app_context
+        tenant_context_active = has_app_context() and getattr(g, 'tenant_id', None) is not None
+        if not tenant_context_active or sender_role == 'user' or recipient_role == 'user':
+            return True
+        
+        # Check tenant membership commonality (must share at least one active tenant membership, unless super_admin/super_manager)
+        from app.models.tenant import TenantMembership
+        sender_memberships = TenantMembership.query.filter_by(user_id=sender_id, status='active').all()
+        recipient_memberships = TenantMembership.query.filter_by(user_id=recipient_user_id, status='active').all()
+        
+        sender_tenants = {m.tenant_id for m in sender_memberships}
+        recipient_tenants = {m.tenant_id for m in recipient_memberships}
+        
+        common_tenants = sender_tenants.intersection(recipient_tenants)
+        if not common_tenants and sender_role not in ('super_admin', 'super_manager'):
+            return False
+            
+        # Admin / super admin can message anyone within tenant
+        if sender_role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
+            return True
+            
+        # If recipient is an admin, anyone in the tenant can message them
+        if recipient_role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
+            return True
+            
+        # If sender is a teacher:
+        if sender_role == 'teacher':
+            # Teachers can message other teachers in the tenant, and students/parents in their assigned classes.
+            if recipient_role == 'teacher':
+                return True
+                
+            from app.models.class_ import Class, ClassTeacherMapping
+            from app.models.teacher import Teacher
+            
+            # Find all classes assigned to this teacher
+            assigned_class_ids = set()
+            teacher_profile = Teacher.query.filter_by(user_id=sender_id).first()
+            if teacher_profile:
+                primary_classes = Class.query.filter_by(teacher_id=teacher_profile.id).all()
+                for c in primary_classes:
+                    assigned_class_ids.add(c.id)
+            mappings = ClassTeacherMapping.query.filter_by(teacher_id=sender_id).all()
+            for m in mappings:
+                assigned_class_ids.add(m.class_id)
+                
+            if recipient_role == 'student':
+                from app.models.student import Student
+                student_profile = Student.query.filter_by(user_id=recipient_user_id).first()
+                if student_profile and student_profile.class_id in assigned_class_ids:
+                    return True
+            elif recipient_role == 'parent':
+                from app.models.student import Student
+                from app.models.parent import Parent
+                parent_profile = Parent.query.filter_by(user_id=recipient_user_id).first()
+                if parent_profile:
+                    # check if any child of this parent is in teacher's assigned classes
+                    children = Student.query.filter_by(parent_id=parent_profile.id).all()
+                    for child in children:
+                        if child.class_id in assigned_class_ids:
+                            return True
+            return False
+            
+        # If sender is a parent:
+        elif sender_role == 'parent':
+            # Parents can message teachers assigned to their child's class.
+            if recipient_role != 'teacher':
+                return False
+                
+            from app.models.student import Student
+            from app.models.parent import Parent
+            from app.models.class_ import Class, ClassTeacherMapping
+            
+            parent_profile = Parent.query.filter_by(user_id=sender_id).first()
+            if not parent_profile:
+                return False
+                
+            children = Student.query.filter_by(parent_id=parent_profile.id).all()
+            child_class_ids = {s.class_id for s in children if s.class_id}
+            
+            # Check if recipient teacher is primary class teacher
+            class_teachers = Class.query.filter(Class.id.in_(child_class_ids)).all()
+            primary_teacher_ids = {c.teacher_id for c in class_teachers if c.teacher_id}
+            from app.models.teacher import Teacher
+            recipient_teacher_profile = Teacher.query.filter_by(user_id=recipient_user_id).first()
+            if recipient_teacher_profile and recipient_teacher_profile.id in primary_teacher_ids:
+                return True
+                
+            # Check if mapped
+            is_mapped = ClassTeacherMapping.query.filter(
+                and_(
+                    ClassTeacherMapping.class_id.in_(child_class_ids),
+                    ClassTeacherMapping.teacher_id == recipient_user_id
+                )
+            ).first() is not None
+            
+            return is_mapped
+            
+        # If sender is a student:
+        elif sender_role == 'student':
+            # Students can message teachers assigned to their class.
+            if recipient_role != 'teacher':
+                return False
+                
+            from app.models.student import Student
+            from app.models.class_ import Class, ClassTeacherMapping
+            
+            student_profile = Student.query.filter_by(user_id=sender_id).first()
+            if not student_profile or not student_profile.class_id:
+                return False
+                
+            # Check primary class teacher
+            class_obj = Class.query.get(student_profile.class_id)
+            from app.models.teacher import Teacher
+            recipient_teacher_profile = Teacher.query.filter_by(user_id=recipient_user_id).first()
+            if class_obj and recipient_teacher_profile and class_obj.teacher_id == recipient_teacher_profile.id:
+                return True
+                
+            # Check mapped
+            is_mapped = ClassTeacherMapping.query.filter_by(
+                class_id=student_profile.class_id,
+                teacher_id=recipient_user_id
+            ).first() is not None
+            
+            return is_mapped
+            
+        return False
     
     @staticmethod
     def update_message(message_id, user_id, data):
@@ -372,7 +603,7 @@ class MessageService:
             return 'unknown'
         
         # Check user roles to determine type
-        if hasattr(user, 'roles'):
+        if hasattr(user, 'roles') and user.roles:
             role_names = [role.name for role in user.roles]
             if 'admin' in role_names:
                 return 'admin'
@@ -383,8 +614,15 @@ class MessageService:
             elif 'student' in role_names:
                 return 'student'
         
+        # Check user.role attribute directly
+        if hasattr(user, 'role') and user.role:
+            if user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
+                return 'admin'
+            elif user.role in ('teacher', 'parent', 'student'):
+                return user.role
+        
         # Fallback to checking related models
-        if hasattr(user, 'teacher') and user.teacher:
+        if hasattr(user, 'teacher_profile') and user.teacher_profile:
             return 'teacher'
         elif hasattr(user, 'student') and user.student:
             return 'student'
@@ -466,3 +704,270 @@ class MessageService:
         )
 
         return resolved_recipient_id, resolved_user_role
+
+    @staticmethod
+    def get_user_display_name(user):
+        if not user:
+            return "Unknown"
+        if hasattr(user, 'teacher_profile') and user.teacher_profile:
+            return f"{user.teacher_profile.first_name} {user.teacher_profile.last_name}"
+        if hasattr(user, 'student') and user.student:
+            return f"{user.student.first_name} {user.student.last_name}"
+        if hasattr(user, 'profile') and user.profile:
+            if user.profile.display_name:
+                return user.profile.display_name
+            if user.profile.legal_name:
+                return user.profile.legal_name
+        return user.username
+
+    @staticmethod
+    def get_parent_display_name(parent):
+        if not parent:
+            return "Unknown Parent"
+        if parent.user:
+            return MessageService.get_user_display_name(parent.user)
+        return f"Parent #{parent.id}"
+
+    @staticmethod
+    def get_allowed_recipient_queries(current_user_id, current_role, tenant_id, type_filter, search=None, class_id=None, audience=None):
+        from app.models.user import User
+        from app.models.class_ import Class, ClassTeacherMapping
+        from app.models.teacher import Teacher
+        from app.models.student import Student
+        from app.models.parent import Parent
+        from app.models.tenant import TenantMembership
+        from app.models.user_profile import UserProfile
+        from sqlalchemy import or_, and_
+
+        if current_role == 'teacher':
+            assigned_class_ids = set()
+            teacher_profile = Teacher.query.filter_by(user_id=current_user_id).first()
+            if teacher_profile:
+                primary_classes = Class.query.filter_by(teacher_id=teacher_profile.id).all()
+                for c in primary_classes:
+                    assigned_class_ids.add(c.id)
+            mappings = ClassTeacherMapping.query.filter_by(teacher_id=current_user_id).all()
+            for m in mappings:
+                assigned_class_ids.add(m.class_id)
+                
+            if type_filter == 'class':
+                classes_query = Class.query.filter(Class.tenant_id == tenant_id, Class.id.in_(assigned_class_ids))
+                if search:
+                    classes_query = classes_query.filter(Class.name.ilike(f"%{search}%"))
+                return classes_query.all()
+                
+            elif type_filter == 'student':
+                student_query = Student.query.filter(Student.tenant_id == tenant_id, Student.class_id.in_(assigned_class_ids))
+                if search:
+                    student_query = student_query.filter(
+                        or_(
+                            Student.first_name.ilike(f"%{search}%"),
+                            Student.last_name.ilike(f"%{search}%"),
+                            Student.admission_number.ilike(f"%{search}%"),
+                            Student.email.ilike(f"%{search}%")
+                        )
+                    )
+                return student_query.all()
+                
+            elif type_filter == 'parent':
+                parent_query = Parent.query.filter(Parent.tenant_id == tenant_id)
+                if search:
+                    search_pat = f"%{search}%"
+                    parent_query = parent_query.join(User, User.id == Parent.user_id)\
+                                               .outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                               .join(Student, Student.parent_id == Parent.id)\
+                                               .filter(
+                                                   and_(
+                                                       Student.class_id.in_(assigned_class_ids),
+                                                       or_(
+                                                           User.email.ilike(search_pat),
+                                                           User.username.ilike(search_pat),
+                                                           UserProfile.display_name.ilike(search_pat),
+                                                           UserProfile.legal_name.ilike(search_pat),
+                                                           Student.first_name.ilike(search_pat),
+                                                           Student.last_name.ilike(search_pat)
+                                                       )
+                                                   )
+                                               )
+                else:
+                    parent_query = parent_query.join(Student, Student.parent_id == Parent.id)\
+                                               .filter(Student.class_id.in_(assigned_class_ids))
+                return parent_query.distinct().all()
+                
+            elif type_filter == 'teacher':
+                teacher_query = Teacher.query.filter(Teacher.tenant_id == tenant_id)
+                if search:
+                    teacher_query = teacher_query.filter(
+                        or_(
+                            Teacher.first_name.ilike(f"%{search}%"),
+                            Teacher.last_name.ilike(f"%{search}%")
+                        )
+                    )
+                return teacher_query.all()
+                
+            elif type_filter == 'admin':
+                admin_query = User.query.join(TenantMembership, TenantMembership.user_id == User.id)\
+                                        .filter(TenantMembership.tenant_id == tenant_id, TenantMembership.role.in_(['admin', 'school_admin', 'super_admin']))
+                if search:
+                    search_pat = f"%{search}%"
+                    admin_query = admin_query.outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                             .filter(
+                                                 or_(
+                                                     User.email.ilike(search_pat),
+                                                     User.username.ilike(search_pat),
+                                                     UserProfile.display_name.ilike(search_pat)
+                                                 )
+                                             )
+                return admin_query.all()
+
+        elif current_role == 'parent':
+            parent_profile = Parent.query.filter_by(user_id=current_user_id).first()
+            child_class_ids = set()
+            if parent_profile:
+                children = Student.query.filter_by(parent_id=parent_profile.id).all()
+                child_class_ids = {s.class_id for s in children if s.class_id}
+                
+            if type_filter == 'teacher':
+                class_teachers = Class.query.filter(Class.tenant_id == tenant_id, Class.id.in_(child_class_ids)).all()
+                teacher_ids = {c.teacher_id for c in class_teachers if c.teacher_id}
+                mappings = ClassTeacherMapping.query.filter(ClassTeacherMapping.class_id.in_(child_class_ids)).all()
+                mapped_user_ids = {m.teacher_id for m in mappings}
+                
+                teacher_query = Teacher.query.filter(
+                    Teacher.tenant_id == tenant_id,
+                    or_(
+                        Teacher.id.in_(teacher_ids),
+                        Teacher.user_id.in_(mapped_user_ids)
+                    )
+                )
+                if search:
+                    teacher_query = teacher_query.filter(
+                        or_(
+                            Teacher.first_name.ilike(f"%{search}%"),
+                            Teacher.last_name.ilike(f"%{search}%")
+                        )
+                    )
+                return teacher_query.all()
+                
+            elif type_filter == 'admin':
+                admin_query = User.query.join(TenantMembership, TenantMembership.user_id == User.id)\
+                                        .filter(TenantMembership.tenant_id == tenant_id, TenantMembership.role.in_(['admin', 'school_admin', 'super_admin']))
+                if search:
+                    search_pat = f"%{search}%"
+                    admin_query = admin_query.outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                             .filter(
+                                                 or_(
+                                                     User.email.ilike(search_pat),
+                                                     User.username.ilike(search_pat),
+                                                     UserProfile.display_name.ilike(search_pat)
+                                                 )
+                                             )
+                return admin_query.all()
+
+        elif current_role == 'student':
+            student_profile = Student.query.filter_by(user_id=current_user_id).first()
+            class_id = student_profile.class_id if student_profile else None
+            
+            if type_filter == 'teacher' and class_id:
+                class_obj = Class.query.get(class_id)
+                teacher_ids = {class_obj.teacher_id} if class_obj and class_obj.teacher_id else set()
+                mappings = ClassTeacherMapping.query.filter_by(class_id=class_id).all()
+                mapped_user_ids = {m.teacher_id for m in mappings}
+                
+                teacher_query = Teacher.query.filter(
+                    Teacher.tenant_id == tenant_id,
+                    or_(
+                        Teacher.id.in_(teacher_ids),
+                        Teacher.user_id.in_(mapped_user_ids)
+                    )
+                )
+                if search:
+                    teacher_query = teacher_query.filter(
+                        or_(
+                            Teacher.first_name.ilike(f"%{search}%"),
+                            Teacher.last_name.ilike(f"%{search}%")
+                        )
+                    )
+                return teacher_query.all()
+                
+            elif type_filter == 'admin':
+                admin_query = User.query.join(TenantMembership, TenantMembership.user_id == User.id)\
+                                        .filter(TenantMembership.tenant_id == tenant_id, TenantMembership.role.in_(['admin', 'school_admin', 'super_admin']))
+                if search:
+                    search_pat = f"%{search}%"
+                    admin_query = admin_query.outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                             .filter(
+                                                 or_(
+                                                     User.email.ilike(search_pat),
+                                                     User.username.ilike(search_pat),
+                                                     UserProfile.display_name.ilike(search_pat)
+                                                 )
+                                             )
+                return admin_query.all()
+
+        elif current_role in ('admin', 'school_admin', 'super_admin'):
+            if type_filter == 'class':
+                classes_query = Class.query.filter(Class.tenant_id == tenant_id)
+                if search:
+                    classes_query = classes_query.filter(Class.name.ilike(f"%{search}%"))
+                return classes_query.all()
+                
+            elif type_filter == 'student':
+                student_query = Student.query.filter(Student.tenant_id == tenant_id)
+                if search:
+                    student_query = student_query.filter(
+                        or_(
+                            Student.first_name.ilike(f"%{search}%"),
+                            Student.last_name.ilike(f"%{search}%"),
+                            Student.admission_number.ilike(f"%{search}%"),
+                            Student.email.ilike(f"%{search}%")
+                        )
+                    )
+                return student_query.all()
+                
+            elif type_filter == 'parent':
+                parent_query = Parent.query.filter(Parent.tenant_id == tenant_id)
+                if search:
+                    search_pat = f"%{search}%"
+                    parent_query = parent_query.join(User, User.id == Parent.user_id)\
+                                               .outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                               .outerjoin(Student, Student.parent_id == Parent.id)\
+                                               .filter(
+                                                   or_(
+                                                       User.email.ilike(search_pat),
+                                                       User.username.ilike(search_pat),
+                                                       UserProfile.display_name.ilike(search_pat),
+                                                       UserProfile.legal_name.ilike(search_pat),
+                                                       Student.first_name.ilike(search_pat),
+                                                       Student.last_name.ilike(search_pat)
+                                                   )
+                                               )
+                return parent_query.distinct().all()
+                
+            elif type_filter == 'teacher':
+                teacher_query = Teacher.query.filter(Teacher.tenant_id == tenant_id)
+                if search:
+                    teacher_query = teacher_query.filter(
+                        or_(
+                            Teacher.first_name.ilike(f"%{search}%"),
+                            Teacher.last_name.ilike(f"%{search}%")
+                        )
+                    )
+                return teacher_query.all()
+                
+            elif type_filter == 'admin':
+                admin_query = User.query.join(TenantMembership, TenantMembership.user_id == User.id)\
+                                        .filter(TenantMembership.tenant_id == tenant_id, TenantMembership.role.in_(['admin', 'school_admin', 'super_admin']))
+                if search:
+                    search_pat = f"%{search}%"
+                    admin_query = admin_query.outerjoin(UserProfile, UserProfile.user_id == User.id)\
+                                             .filter(
+                                                 or_(
+                                                     User.email.ilike(search_pat),
+                                                     User.username.ilike(search_pat),
+                                                     UserProfile.display_name.ilike(search_pat)
+                                                 )
+                                             )
+                return admin_query.all()
+
+        return []

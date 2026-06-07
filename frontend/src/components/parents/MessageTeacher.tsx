@@ -158,7 +158,7 @@ const MessageTeacher = ({ currentChild, currentAcademicData, onClose }: MessageT
     setIsLoading(true);
     try {
       await communicationService.createMessage({
-        recipient_id: selectedTeacher,
+        recipient_ref: `teacher:${selectedTeacher}`,
         recipient_type: 'teacher',
         subject: subject,
         content: message

@@ -974,6 +974,131 @@ class TestMessagingIdentityResolution:
         assert teacher_user.id in teacher_user_ids
         assert assistant_user.id in teacher_user_ids
 
+    def test_get_recipients_scoping_and_references(self, client, db_session, sample_tenant, admin_auth_headers):
+        """Test GET /api/v1/messages/recipients and message creation with references"""
+        from app.models.student import Student
+        from app.models.parent import Parent
+        from app.models.teacher import Teacher
+        from app.models.user import User
+        from app.models.class_ import Class as ClassModel, ClassTeacherMapping
+        from tests.test_production_integration import create_test_membership
+        
+        # Link admin user to sample tenant
+        admin_user = User.query.filter_by(email='test@example.com').first()
+        create_test_membership(db_session, sample_tenant.id, admin_user.id, 'admin')
+        db_session.flush()
+
+        # Create a student user, student profile, parent user, and parent profile
+        student_user = User(username='test_student_user', email='student@example.com', role='student')
+        student_user.set_password('password')
+        db_session.add(student_user)
+        db_session.flush()
+
+        parent_user = User(username='test_parent_user', email='parent@example.com', role='parent')
+        parent_user.set_password('password')
+        db_session.add(parent_user)
+        db_session.flush()
+
+        parent_profile = Parent(tenant_id=sample_tenant.id, user_id=parent_user.id)
+        db_session.add(parent_profile)
+        db_session.flush()
+
+        student_profile = Student(
+            tenant_id=sample_tenant.id,
+            user_id=student_user.id,
+            admission_number='STU1001',
+            first_name='Yvette',
+            last_name='Doe',
+            date_of_birth=date(2010, 1, 1),
+            gender='female',
+            parent_id=parent_profile.id
+        )
+        db_session.add(student_profile)
+        db_session.flush()
+
+        # Create class group
+        test_class = ClassModel(tenant_id=sample_tenant.id, name='Class Class1', grade_level='Primary 1', academic_year='2024')
+        db_session.add(test_class)
+        db_session.flush()
+
+        student_profile.class_id = test_class.id
+        db_session.add(student_profile)
+
+        # Create teacher
+        teacher_user = User(username='math_teacher_user', email='teacher@example.com', role='teacher')
+        teacher_user.set_password('password')
+        db_session.add(teacher_user)
+        db_session.flush()
+
+        teacher_profile = Teacher(tenant_id=sample_tenant.id, user_id=teacher_user.id, first_name='Teacher', last_name='One', specialization='Math')
+        db_session.add(teacher_profile)
+        db_session.flush()
+
+        mapping = ClassTeacherMapping(class_id=test_class.id, teacher_id=teacher_user.id)
+        db_session.add(mapping)
+        db_session.commit()
+
+        # Create memberships for all
+        create_test_membership(db_session, sample_tenant.id, student_user.id, 'student')
+        create_test_membership(db_session, sample_tenant.id, parent_user.id, 'parent')
+        create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+        db_session.commit()
+
+        # 1. Search recipients: parent role searching student (unauthorized, parents cannot search students)
+        from flask_jwt_extended import create_access_token
+        parent_token = create_access_token(identity=parent_user.id)
+        headers = {
+            'Authorization': f'Bearer {parent_token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        response = client.get('/api/v1/messages/recipients?type=student', headers=headers)
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert len(data['data']['recipients']) == 0
+
+        # 2. Search recipients: teacher searching parent "Yvette" -> should find Yvette's parent
+        teacher_token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {teacher_token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        response = client.get('/api/v1/messages/recipients?type=parent&search=Yvette', headers=headers)
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert len(data['data']['recipients']) == 1
+        rec = data['data']['recipients'][0]
+        assert rec['ref'] == f"parent:{parent_profile.id}"
+        assert 'Yvette Doe' in rec['subtitle']
+
+        # 3. Send message via POST /messages/send using recipient_ref
+        message_data = {
+            'recipient_ref': f"parent:{parent_profile.id}",
+            'subject': 'Test Ref Message',
+            'content': 'Hello from Ref!'
+        }
+        response = client.post(
+            '/api/v1/messages/send',
+            headers=headers,
+            json=message_data
+        )
+        assert response.status_code == 201
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['data']['recipient_id'] == parent_user.id
+
+        # 4. Try invalid recipient_ref format (should return 400)
+        message_data = {
+            'recipient_ref': 'invalid_format_ref',
+            'subject': 'Failure Test',
+            'content': 'Should fail'
+        }
+        response = client.post(
+            '/api/v1/messages/send',
+            headers=headers,
+            json=message_data
+        )
+        assert response.status_code == 400
+
 
 # Fixtures for test data
 @pytest.fixture

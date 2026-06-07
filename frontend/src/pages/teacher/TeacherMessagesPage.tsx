@@ -17,8 +17,8 @@ const TeacherMessagesPage: React.FC = () => {
   
   // Compose message state
   const [isComposing, setIsComposing] = useState(false);
-  const [composeRecipientId, setComposeRecipientId] = useState('');
-  const [composeRecipientType, setComposeRecipientType] = useState<'admin' | 'teacher' | 'student' | 'parent'>('student');
+  const [composeRecipientRef, setComposeRecipientRef] = useState('');
+  const [composeRecipientType, setComposeRecipientType] = useState<'admin' | 'teacher' | 'student' | 'parent' | 'class'>('student');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeContent, setComposeContent] = useState('');
   const [composeSending, setComposeSending] = useState(false);
@@ -34,45 +34,21 @@ const TeacherMessagesPage: React.FC = () => {
       if (!isComposing) return;
       setLoadingRecipients(true);
       try {
-        const q = composeSearch.trim().toLowerCase();
-        let options: any[] = [];
-        
-        if (composeRecipientType === 'student') {
-          const res = await api.get('/students', { params: { per_page: 200 } });
-          const students = Array.isArray(res.data?.students) ? res.data.students : [];
-          options = students.map((s: any) => ({
-            id: s.user_id || s.id,
-            label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || `Student ${s.id}`
-          }));
-        } else if (composeRecipientType === 'parent') {
-          const res = await api.get('/parents', { params: { per_page: 200, search: composeSearch.trim() || undefined } });
-          const parents = Array.isArray(res.data?.data?.parents)
-            ? res.data.data.parents
-            : Array.isArray(res.data?.parents)
-              ? res.data.parents
-              : [];
-          options = parents.map((p: any) => ({
-            id: p.user_id || p.id,
-            label: `${p.first_name || ''} ${p.last_name || ''}`.trim() || `Parent ${p.id}`
-          }));
-        } else if (composeRecipientType === 'teacher') {
-          const res = await api.get('/teachers', { params: { per_page: 200, search: composeSearch.trim() || undefined } });
-          const teachers = Array.isArray(res.data?.teachers) ? res.data.teachers : [];
-          options = teachers.map((t: any) => ({
-            id: t.user_id || t.id,
-            label: `${t.first_name || ''} ${t.last_name || ''}`.trim() || `Teacher ${t.id}`
-          }));
-        }
-        
-        if (q) {
-          options = options.filter(o => o.label.toLowerCase().includes(q));
-        }
-
+        const res = await api.get('/messages/recipients', {
+          params: {
+            type: composeRecipientType,
+            search: composeSearch.trim() || undefined
+          }
+        });
+        const list = res.data?.data?.recipients || res.data?.recipients || [];
         if (active) {
-          setRecipientOptions(options);
+          setRecipientOptions(list);
         }
       } catch (err) {
         console.error('Error fetching recipient options:', err);
+        if (active) {
+          setRecipientOptions([]);
+        }
       } finally {
         if (active) {
           setLoadingRecipients(false);
@@ -206,20 +182,20 @@ const TeacherMessagesPage: React.FC = () => {
 
   const handleCreateNewThread = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composeRecipientId || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
+    if (!composeRecipientRef || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
     try {
       setComposeSending(true);
       const newMsg = await communicationService.createMessage({
-        recipient_id: parseInt(composeRecipientId),
-        recipient_type: composeRecipientType,
+        recipient_ref: composeRecipientRef,
+        recipient_type: composeRecipientType === 'class' ? 'class' : composeRecipientType,
         subject: composeSubject.trim(),
         content: composeContent.trim()
       });
       if (newMsg) {
-        setMessages((prev) => [...prev, newMsg]);
+        await loadData();
         setActiveId(composeSubject.trim().toLowerCase());
         setIsComposing(false);
-        setComposeRecipientId('');
+        setComposeRecipientRef('');
         setComposeSubject('');
         setComposeContent('');
       }
@@ -311,7 +287,7 @@ const TeacherMessagesPage: React.FC = () => {
                       value={composeRecipientType}
                       onChange={(e) => {
                         setComposeRecipientType(e.target.value as any);
-                        setComposeRecipientId('');
+                        setComposeRecipientRef('');
                         setComposeSearch('');
                       }}
                       className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
@@ -320,43 +296,40 @@ const TeacherMessagesPage: React.FC = () => {
                       <option value="parent">Parent</option>
                       <option value="teacher">Teacher</option>
                       <option value="admin">Administrator</option>
+                      <option value="class">Class Group</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Recipient</label>
-                    {recipientOptions.length > 0 ? (
-                      <div className="space-y-2">
+                    <div className="space-y-2">
+                      <div className="relative">
                         <input
                           type="text"
                           value={composeSearch}
                           onChange={(e) => setComposeSearch(e.target.value)}
-                          placeholder="Search name..."
+                          placeholder="Search name or group..."
                           className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                         />
-                        <select
-                          value={composeRecipientId}
-                          onChange={(e) => setComposeRecipientId(e.target.value)}
-                          required
-                          className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                        >
-                          <option value="">Select recipient...</option>
-                          {recipientOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                        {loadingRecipients && (
+                          <div className="absolute right-3 top-3">
+                            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <input
-                        type="number"
-                        value={composeRecipientId}
-                        onChange={(e) => setComposeRecipientId(e.target.value)}
+                      <select
+                        value={composeRecipientRef}
+                        onChange={(e) => setComposeRecipientRef(e.target.value)}
                         required
-                        placeholder="Enter recipient user ID"
                         className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                      />
-                    )}
+                      >
+                        <option value="">Select recipient...</option>
+                        {recipientOptions.map((opt) => (
+                          <option key={opt.ref} value={opt.ref}>
+                            {opt.label} ({opt.subtitle})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 

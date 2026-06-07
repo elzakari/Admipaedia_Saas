@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from app.api.v1.messages import messages_bp
@@ -7,6 +7,7 @@ from app.schemas.message import MessageSchema, MessageCreateSchema, MessageUpdat
 from app.utils.auth_utils import admin_required, teacher_required, parent_required
 from app.utils.rbac_decorators import require_permission, require_role
 from app.utils.response import success_response, error_response, paginated_response
+from app.utils.tenant_context import tenant_required
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
@@ -17,6 +18,129 @@ message_schema = MessageSchema()
 messages_schema = MessageSchema(many=True)
 message_create_schema = MessageCreateSchema()
 message_update_schema = MessageUpdateSchema()
+
+@messages_bp.route('/recipients', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_recipients():
+    """Search/list allowed message recipients based on query parameters and security context."""
+    try:
+        current_user_id = get_jwt_identity()
+        from app.models.user import User
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return error_response(message="User not found", status_code=404)
+            
+        current_role = MessageService._get_user_type(current_user)
+        tenant_id = g.tenant_id
+        
+        type_filter = request.args.get('type')  # parent | student | teacher | admin | class
+        search = request.args.get('search')
+        class_id = request.args.get('class_id', type=int)
+        audience = request.args.get('audience')  # students | parents | all
+        
+        if not type_filter:
+            return error_response(message="Missing required parameter: type", status_code=400)
+            
+        if type_filter not in ('parent', 'student', 'teacher', 'admin', 'class'):
+            return error_response(message="Invalid type parameter", status_code=400)
+            
+        # Call the scoping function
+        results = MessageService.get_allowed_recipient_queries(
+            current_user_id=current_user_id,
+            current_role=current_role,
+            tenant_id=tenant_id,
+            type_filter=type_filter,
+            search=search,
+            class_id=class_id,
+            audience=audience
+        )
+        
+        recipients = []
+        
+        if type_filter == 'class':
+            for c in results:
+                audiences_to_add = [audience] if audience else ['all', 'students', 'parents']
+                for aud in audiences_to_add:
+                    if aud == 'all':
+                        label = f"{c.name} (All)"
+                        sub = f"All students and parents in {c.name}"
+                        ref = f"class:{c.id}:all"
+                    elif aud == 'students':
+                        label = f"{c.name} (Students)"
+                        sub = f"All students in {c.name}"
+                        ref = f"class:{c.id}:students"
+                    elif aud == 'parents':
+                        label = f"{c.name} (Parents)"
+                        sub = f"All parents in {c.name}"
+                        ref = f"class:{c.id}:parents"
+                    else:
+                        continue
+                        
+                    recipients.append({
+                        "ref": ref,
+                        "recipient_type": "class",
+                        "label": label,
+                        "subtitle": sub,
+                        "avatar_initials": "C"
+                    })
+                    
+        elif type_filter == 'student':
+            for s in results:
+                class_name = s.class_.name if s.class_ else "No Class"
+                recipients.append({
+                    "ref": f"student:{s.id}",
+                    "recipient_type": "student",
+                    "label": f"{s.first_name} {s.last_name}",
+                    "subtitle": f"Student in class {class_name} ({s.admission_number})",
+                    "user_id": s.user_id,
+                    "avatar_initials": f"{s.first_name[0] if s.first_name else ''}{s.last_name[0] if s.last_name else ''}".upper() or "S"
+                })
+                
+        elif type_filter == 'parent':
+            for p in results:
+                display_name = MessageService.get_parent_display_name(p)
+                child_names = [f"{c.first_name} {c.last_name}" for c in p.children]
+                subtitle = f"Parent of {', '.join(child_names)}" if child_names else "Parent"
+                recipients.append({
+                    "ref": f"parent:{p.id}",
+                    "recipient_type": "parent",
+                    "label": display_name,
+                    "subtitle": subtitle,
+                    "user_id": p.user_id,
+                    "avatar_initials": f"{display_name[0] if display_name else ''}".upper() or "P"
+                })
+                
+        elif type_filter == 'teacher':
+            for t in results:
+                recipients.append({
+                    "ref": f"teacher:{t.id}",
+                    "recipient_type": "teacher",
+                    "label": f"{t.first_name} {t.last_name}",
+                    "subtitle": f"Teacher - {t.specialization or 'General'}",
+                    "user_id": t.user_id,
+                    "avatar_initials": f"{t.first_name[0] if t.first_name else ''}{t.last_name[0] if t.last_name else ''}".upper() or "T"
+                })
+                
+        elif type_filter == 'admin':
+            for u in results:
+                display_name = MessageService.get_user_display_name(u)
+                recipients.append({
+                    "ref": f"user:{u.id}",
+                    "recipient_type": "admin",
+                    "label": display_name,
+                    "subtitle": f"Administrator ({u.email})",
+                    "user_id": u.id,
+                    "avatar_initials": f"{display_name[0] if display_name else ''}".upper() or "A"
+                })
+                
+        return success_response(
+            data={"recipients": recipients},
+            message="Recipients retrieved successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error in get_recipients: {str(e)}")
+        return error_response(message="Failed to retrieve recipients", status_code=500)
 
 @messages_bp.route('', methods=['GET'])
 @jwt_required()
