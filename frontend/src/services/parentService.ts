@@ -520,6 +520,7 @@ export interface SchoolEvent {
 
 export interface TeacherInfo {
   id: number;
+  user_id?: number;
   name: string;
   subject: string;
   email: string;

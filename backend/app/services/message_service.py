@@ -399,34 +399,70 @@ class MessageService:
         Resolves a frontend recipient_id (which could be a User.id or a profile ID)
         to the canonical User.id, and validates/harmonizes the recipient_type role.
         """
-        try:
-            recipient_id = int(recipient_id)
-        except (ValueError, TypeError):
-            return recipient_id, recipient_type
+        original_recipient_id = recipient_id
+        original_recipient_type = recipient_type
+        resolved_recipient_id = None
 
-        # 1. Try profile mapping first
+        try:
+            numeric_id = int(recipient_id)
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid recipient ID format: {recipient_id}")
+
         if recipient_type == 'parent':
             from app.models.parent import Parent
-            parent = Parent.query.get(recipient_id)
+            parent = Parent.query.get(numeric_id)
             if parent:
-                recipient_id = parent.user_id
+                resolved_recipient_id = parent.user_id
+            else:
+                user = User.query.get(numeric_id)
+                if user and MessageService._get_user_type(user) == 'parent':
+                    resolved_recipient_id = user.id
         elif recipient_type == 'student':
             from app.models.student import Student
-            student = Student.query.get(recipient_id)
+            student = Student.query.get(numeric_id)
             if student:
-                recipient_id = student.user_id
+                resolved_recipient_id = student.user_id
+            else:
+                user = User.query.get(numeric_id)
+                if user and MessageService._get_user_type(user) == 'student':
+                    resolved_recipient_id = user.id
         elif recipient_type == 'teacher':
             from app.models.teacher import Teacher
-            teacher = Teacher.query.get(recipient_id)
+            teacher = Teacher.query.get(numeric_id)
             if teacher:
-                recipient_id = teacher.user_id
-
-        # 2. Retrieve target user to harmonize/verify recipient_type
-        recipient = User.query.get(recipient_id)
-        if recipient:
-            recipient_type = MessageService._get_user_type(recipient)
+                resolved_recipient_id = teacher.user_id
+            else:
+                user = User.query.get(numeric_id)
+                if user and MessageService._get_user_type(user) == 'teacher':
+                    resolved_recipient_id = user.id
+        elif recipient_type == 'admin':
+            user = User.query.get(numeric_id)
+            if user and MessageService._get_user_type(user) == 'admin':
+                resolved_recipient_id = user.id
         else:
-            if recipient_type not in ['admin', 'teacher', 'student', 'parent']:
-                recipient_type = 'user'
+            user = User.query.get(numeric_id)
+            if user:
+                resolved_recipient_id = user.id
 
-        return recipient_id, recipient_type
+        if not resolved_recipient_id:
+            raise ValueError(f"Could not resolve recipient ID {original_recipient_id} with type {original_recipient_type} to a valid user.")
+
+        resolved_user = User.query.get(resolved_recipient_id)
+        if not resolved_user:
+            raise ValueError(f"Resolved recipient ID {resolved_recipient_id} does not exist in users table.")
+
+        resolved_user_role = MessageService._get_user_type(resolved_user)
+
+        logger.info(
+            "Recipient resolved successfully: "
+            "original_recipient_id=%s, "
+            "original_recipient_type=%s, "
+            "resolved_recipient_id=%s, "
+            "resolved_user_role=%s",
+            original_recipient_id,
+            original_recipient_type,
+            resolved_recipient_id,
+            resolved_user_role
+        )
+
+        return resolved_recipient_id, resolved_user_role

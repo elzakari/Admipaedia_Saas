@@ -862,6 +862,118 @@ class TestMessagingIdentityResolution:
         assert s_user2.id in recipients
         assert p_user.id in recipients
 
+    def test_invalid_recipient_resolution_failure(self, client, admin_auth_headers):
+        """Test that sending a message to a non-existent recipient ID returns 400 Bad Request"""
+        message_data = {
+            'recipient_id': 999999,
+            'recipient_type': 'parent',
+            'subject': 'Failure Test',
+            'content': 'Should fail'
+        }
+        
+        response = client.post(
+            '/api/v1/messages/send',
+            headers=admin_auth_headers,
+            json=message_data
+        )
+        
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert data['success'] is False
+        assert 'does not exist' in data['message'] or 'Could not resolve' in data['message']
+
+    def test_recipient_role_mismatch_failure(self, client, db_session, admin_auth_headers, sample_tenant):
+        """Test that sending a message where resolved user has a role mismatch returns 400"""
+        from app.models.user import User
+        # Create a user with role 'teacher'
+        mismatch_user = User(username='mismatch_user', email='mismatch@example.com', role='teacher')
+        mismatch_user.set_password('password')
+        db_session.add(mismatch_user)
+        db_session.commit()
+        
+        # Send message with recipient_type 'parent' but passing mismatch_user.id
+        message_data = {
+            'recipient_id': mismatch_user.id,
+            'recipient_type': 'parent',
+            'subject': 'Role Mismatch Test',
+            'content': 'Should fail'
+        }
+        
+        response = client.post(
+            '/api/v1/messages/send',
+            headers=admin_auth_headers,
+            json=message_data
+        )
+        
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert data['success'] is False
+
+    def test_get_class_teachers_endpoint(self, client, db_session, sample_tenant, admin_auth_headers):
+        """Test GET /api/v1/classes/<class_id>/teachers endpoint"""
+        from app.models.class_ import Class as ClassModel, ClassTeacherMapping
+        from app.models.teacher import Teacher
+        from app.models.user import User
+        from tests.test_production_integration import create_test_membership
+        
+        # Link admin user to sample tenant
+        admin_user = User.query.filter_by(email='test@example.com').first()
+        create_test_membership(db_session, sample_tenant.id, admin_user.id, 'admin')
+        db_session.flush()
+
+        # Create a teacher user and teacher profile
+        teacher_user = User(username='class_teacher_user', email='cteacher@example.com', role='teacher')
+        teacher_user.set_password('password')
+        db_session.add(teacher_user)
+        db_session.flush()
+        
+        teacher_profile = Teacher(tenant_id=sample_tenant.id, user_id=teacher_user.id, first_name='John', last_name='Doe', specialization='Math')
+        db_session.add(teacher_profile)
+        db_session.flush()
+        
+        # Create a class and assign the teacher as primary
+        test_class = ClassModel(tenant_id=sample_tenant.id, name='Test Class Math', grade_level='Grade 1', academic_year='2024', teacher_id=teacher_profile.id)
+        db_session.add(test_class)
+        db_session.flush()
+        
+        # Map another teacher user via ClassTeacherMapping
+        assistant_user = User(username='assistant_teacher_user', email='assistant@example.com', role='teacher')
+        assistant_user.set_password('password')
+        db_session.add(assistant_user)
+        db_session.flush()
+        
+        assistant_profile = Teacher(tenant_id=sample_tenant.id, user_id=assistant_user.id, first_name='Jane', last_name='Smith', specialization='Science')
+        db_session.add(assistant_profile)
+        db_session.flush()
+        
+        mapping = ClassTeacherMapping(class_id=test_class.id, teacher_id=assistant_user.id)
+        db_session.add(mapping)
+        db_session.commit()
+        
+        # Call the endpoint
+        headers = {
+            **admin_auth_headers,
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        response = client.get(
+            f'/api/v1/classes/{test_class.id}/teachers',
+            headers=headers
+        )
+        
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert 'teachers' in data
+        assert len(data['teachers']) == 2
+        
+        teacher_names = [t['name'] for t in data['teachers']]
+        assert 'John Doe' in teacher_names
+        assert 'Jane Smith' in teacher_names
+        
+        teacher_user_ids = [t['user_id'] for t in data['teachers']]
+        assert teacher_user.id in teacher_user_ids
+        assert assistant_user.id in teacher_user_ids
+
 
 # Fixtures for test data
 @pytest.fixture

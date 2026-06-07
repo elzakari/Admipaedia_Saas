@@ -825,3 +825,57 @@ def get_class_assignments(class_id):
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@classes_bp.route('/<int:class_id>/teachers', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_class_teachers(class_id):
+    """Get all teachers assigned to a specific class."""
+    try:
+        from app.models.class_ import Class as ClassModel, ClassTeacherMapping
+        from app.models.teacher import Teacher
+        from app.models.user import User
+
+        class_obj = ClassModel.query.get(class_id)
+        if not class_obj or getattr(class_obj, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+            return jsonify({'success': False, 'message': 'Class not found'}), 404
+
+        teachers = []
+        seen_teacher_ids = set()
+
+        # 1. Primary class teacher
+        if class_obj.teacher_id:
+            primary_teacher = Teacher.query.get(class_obj.teacher_id)
+            if primary_teacher and primary_teacher.id not in seen_teacher_ids:
+                seen_teacher_ids.add(primary_teacher.id)
+                teachers.append(primary_teacher)
+
+        # 2. Teachers mapped through ClassTeacherMapping
+        mappings = ClassTeacherMapping.query.filter_by(class_id=class_id).all()
+        for m in mappings:
+            # m.teacher_id matches User.id of the teacher
+            teacher_profile = Teacher.query.filter_by(user_id=m.teacher_id).first()
+            if teacher_profile and teacher_profile.id not in seen_teacher_ids:
+                seen_teacher_ids.add(teacher_profile.id)
+                teachers.append(teacher_profile)
+
+        formatted_teachers = []
+        for t in teachers:
+            user_email = t.user.email if t.user else ''
+            formatted_teachers.append({
+                'id': t.id,
+                'user_id': t.user_id,
+                'name': f"{t.first_name} {t.last_name}",
+                'subject': t.specialization or 'General',
+                'email': user_email,
+                'phone': t.phone_number or ''
+            })
+
+        return jsonify({
+            'success': True,
+            'teachers': formatted_teachers
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error fetching teachers for class {class_id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch teachers'}), 500

@@ -112,6 +112,9 @@ def create_message():
             message="Message sent successfully",
             status_code=201
         )
+    except ValueError as val_err:
+        logger.error(f"Validation error in create_message: {str(val_err)}")
+        return error_response(message=str(val_err), status_code=400)
     except Exception as e:
         logger.error(f"Error creating message: {str(e)}")
         return error_response(message="Failed to send message", status_code=500)
@@ -151,6 +154,9 @@ def send_message_http():
             message="Message sent successfully",
             status_code=201
         )
+    except ValueError as val_err:
+        logger.error(f"Validation error in send_message_http: {str(val_err)}")
+        return error_response(message=str(val_err), status_code=400)
     except Exception as e:
         logger.error(f"Error sending message: {str(e)}")
         return error_response(message="Failed to send message", status_code=500)
@@ -187,6 +193,9 @@ def create_bulk_message():
             message=f"Messages sent to {count} recipients successfully",
             status_code=201
         )
+    except ValueError as val_err:
+        logger.error(f"Validation error in create_bulk_message: {str(val_err)}")
+        return error_response(message=str(val_err), status_code=400)
     except Exception as e:
         logger.error(f"Error creating bulk message: {str(e)}")
         return error_response(message="Failed to send bulk message", status_code=500)
