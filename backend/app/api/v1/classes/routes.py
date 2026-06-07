@@ -329,32 +329,8 @@ def get_class_announcements(class_id):
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
-    # Permission check:
-    allowed = False
-    admin_roles = {'super_admin', 'admin', 'school_admin', 'super_manager', 'superadmin'}
-    if user.role in admin_roles:
-        allowed = True
-
-    if not allowed and user.role == 'teacher':
-        teacher = Teacher.query.filter_by(user_id=user_id).first()
-        if teacher:
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
-            if is_assigned:
-                allowed = True
-
-    if not allowed and user.role == 'student':
-        student = Student.query.filter_by(user_id=user_id, class_id=class_id).first()
-        if student:
-            allowed = True
-
-    if not allowed and user.role == 'parent':
-        parent = Parent.query.filter_by(user_id=user_id).first()
-        if parent:
-            student = Student.query.filter_by(parent_id=parent.id, class_id=class_id).first()
-            if student:
-                allowed = True
-
-    if not allowed:
+    from app.services.identity_resolver import IdentityResolver
+    if not IdentityResolver.can_user_access_class(user_id, class_id):
         return jsonify({'success': False, 'message': 'Insufficient permissions to view class announcements'}), 403
 
     page = request.args.get('page', 1, type=int)
@@ -401,8 +377,8 @@ def create_class_announcement(class_id):
         if user.role == 'teacher':
             if not teacher:
                 return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
-            if not is_assigned:
+            from app.services.identity_resolver import IdentityResolver
+            if not IdentityResolver.can_user_access_class(user_id, class_id):
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         else:
             if not teacher:
@@ -879,3 +855,62 @@ def get_class_teachers(class_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching teachers for class {class_id}: {str(e)}")
         return jsonify({'success': False, 'message': 'Failed to fetch teachers'}), 500
+
+@classes_bp.route('/submissions/<int:submission_id>/grade', methods=['POST'])
+@jwt_required()
+@teacher_required
+def grade_class_submission(submission_id):
+    """Grade a student assignment submission."""
+    try:
+        user_id = int(get_jwt_identity())
+        from app.models.user import User
+        from app.models.student import Student
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.services.assignment_service import AssignmentService
+        from app.services.identity_resolver import IdentityResolver
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+            
+        submission = AssignmentSubmission.query.get(submission_id)
+        if not submission:
+            return jsonify({'success': False, 'message': 'Submission not found'}), 404
+            
+        student = Student.query.get(submission.student_id)
+        if not student:
+            return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+            
+        if not IdentityResolver.can_user_access_class(user_id, student.class_id) and user.role == 'teacher':
+            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+            
+        payload = request.json or {}
+        score = payload.get('score')
+        feedback = payload.get('feedback', '')
+        
+        if score is None:
+            return jsonify({'success': False, 'message': 'Score is required'}), 400
+            
+        submission, error = AssignmentService.grade_submission(
+            submission_id=submission_id,
+            score=float(score),
+            feedback=feedback,
+            graded_by=user_id
+        )
+        
+        if error:
+            return jsonify({'success': False, 'message': error}), 400
+            
+        return jsonify({
+            'success': True,
+            'message': 'Submission graded successfully',
+            'submission': {
+                'id': submission.id,
+                'score': submission.score,
+                'feedback': submission.feedback,
+                'status': submission.status,
+                'graded_by': submission.graded_by
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

@@ -81,6 +81,19 @@ def create_test_membership(db_session, tenant_id, user_id, role='teacher'):
     return membership
 
 
+def create_test_parent(db_session, user, tenant_id):
+    from app.models.parent import Parent
+    parent = Parent(
+        user_id=user.id,
+        tenant_id=tenant_id,
+        relationship='Father'
+    )
+    db_session.add(parent)
+    db_session.flush()
+    return parent
+
+
+
 def test_schema_classes_code_exists(app):
     """Verify classes.code column exists in the schema."""
     with app.app_context():

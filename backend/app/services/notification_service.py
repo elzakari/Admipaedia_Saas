@@ -230,8 +230,14 @@ class NotificationService:
     @staticmethod
     def create_notification(title, message, notification_type, user_id=None, send_email=False, send_websocket=True):
         from app.models.dashboard import Notification
+        from app.models.user import User
         from app.extensions import db
         from datetime import datetime
+        
+        if user_id:
+            user = User.query.get(user_id)
+            if not user:
+                raise ValueError(f"Recipient user with ID {user_id} does not exist.")
         
         notification = Notification(
             title=title,
@@ -266,11 +272,17 @@ class NotificationService:
     @staticmethod
     def create_bulk_notifications(title, message, notification_type, user_ids, send_email=False, send_websocket=True):
         from app.models.dashboard import Notification
+        from app.models.user import User
         from app.extensions import db
         from datetime import datetime
         
         notifications = []
         for uid in user_ids:
+            if uid:
+                user = User.query.get(uid)
+                if not user:
+                    raise ValueError(f"Recipient user with ID {uid} does not exist.")
+                    
             notification = Notification(
                 title=title,
                 message=message,

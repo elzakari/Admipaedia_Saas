@@ -213,18 +213,17 @@ class AnnouncementService:
                 parent = Parent.query.filter_by(user_id=user_id).first()
                 if parent:
                     # Get announcements for parent's children classes
-                    student_ids = [student.id for student in parent.students]
-                    students = Student.query.filter(Student.id.in_(student_ids)).all()
-                    class_ids = [student.class_id for student in students]
+                    student_ids = [student.id for student in parent.children]
+                    students = Student.query.filter(Student.id.in_(student_ids)).all() if student_ids else []
+                    class_ids = [student.class_id for student in students if student.class_id]
                     query = query.filter(
                         (Announcement.class_id.in_(class_ids)) &
                         (Announcement.recipients.in_(['all', 'parents']))
                     )
             elif user.role == 'teacher':
-                teacher = Teacher.query.filter_by(user_id=user_id).first()
-                if teacher:
-                    # Get announcements for classes taught by the teacher
-                    query = query.filter(Announcement.class_id.in_([c.id for c in teacher.classes]))
+                from app.services.identity_resolver import IdentityResolver
+                class_ids = IdentityResolver.resolve_teacher_class_ids(user_id)
+                query = query.filter(Announcement.class_id.in_(class_ids))
             elif user.role == 'admin':
                 # Admins can see all announcements
                 pass

@@ -697,3 +697,47 @@ def send_student_message():
     
     return jsonify({'success': True, 'message': 'Sent successfully'}), 200
 
+@student_bp.route('/assignments/<int:assignment_id>/submit', methods=['POST'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def submit_student_assignment(assignment_id):
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+        
+    assignment = Assignment.query.get(assignment_id)
+    if not assignment:
+        return jsonify({'success': False, 'message': 'Assignment not found'}), 404
+        
+    if assignment.class_id != student.class_id:
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+        
+    data = request.json or {}
+    content = data.get('content')
+    file_path = data.get('file_path')
+    
+    from app.services.assignment_service import AssignmentService
+    submission, error = AssignmentService.submit_assignment({
+        'assignment_id': assignment_id,
+        'student_id': student.id,
+        'content': content,
+        'file_path': file_path,
+        'status': 'submitted'
+    })
+    
+    if error:
+        return jsonify({'success': False, 'message': error}), 400
+        
+    return jsonify({
+        'success': True,
+        'message': 'Assignment submitted successfully',
+        'submission': {
+            'id': submission.id,
+            'assignment_id': submission.assignment_id,
+            'student_id': submission.student_id,
+            'status': submission.status
+        }
+    }), 201
+

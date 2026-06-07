@@ -57,8 +57,8 @@ def create_announcement():
                 return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
             teacher_id = teacher.id
 
-            from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=class_id, teacher_id=teacher.user_id).first() is not None
+            from app.services.identity_resolver import IdentityResolver
+            is_assigned = IdentityResolver.can_user_access_class(user_id, class_id)
             current_app.logger.info(f"Announcement permission check: user_id={user_id}, teacher_id={teacher.id}, class_id={class_id}, is_assigned={is_assigned}")
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
@@ -198,8 +198,8 @@ def update_announcement(announcement_id):
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
-            from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.user_id).first() is not None
+            from app.services.identity_resolver import IdentityResolver
+            is_assigned = IdentityResolver.can_user_access_class(user_id, announcement.class_id)
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
@@ -239,8 +239,8 @@ def delete_announcement(announcement_id):
             if not announcement:
                 return jsonify({'success': False, 'message': 'Announcement not found'}), 404
 
-            from app.models.class_ import ClassTeacherMapping
-            is_assigned = ClassTeacherMapping.query.filter_by(class_id=announcement.class_id, teacher_id=teacher.user_id).first() is not None
+            from app.services.identity_resolver import IdentityResolver
+            is_assigned = IdentityResolver.can_user_access_class(user_id, announcement.class_id)
             if not is_assigned:
                 return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 

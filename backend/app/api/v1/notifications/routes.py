@@ -146,12 +146,16 @@ def mark_read():
     from app.extensions import db
     from app.models.dashboard import Notification
     
+    user_id = int(get_jwt_identity())
     data = request.json or {}
     notification_ids = data.get('notification_ids', [])
     if not notification_ids:
         return jsonify({'success': False, 'message': 'No notification_ids provided'}), 400
         
-    Notification.query.filter(Notification.id.in_(notification_ids)).update({'read': True}, synchronize_session=False)
+    Notification.query.filter(
+        Notification.id.in_(notification_ids),
+        Notification.recipient_id == user_id
+    ).update({'read': True}, synchronize_session=False)
     db.session.commit()
     return jsonify({'success': True, 'message': 'Notifications marked as read'}), 200
 

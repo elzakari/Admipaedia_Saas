@@ -288,13 +288,15 @@ class MessageService:
                         if parent and parent.user_id:
                             recipients.append((parent.user_id, 'parent'))
                             
-            # Deduplicate
+            # Deduplicate and validate that the users exist
             seen = set()
             deduped = []
             for uid, role in recipients:
                 if uid not in seen:
-                    seen.add(uid)
-                    deduped.append((uid, role))
+                    user_exists = User.query.get(uid) is not None
+                    if user_exists:
+                        seen.add(uid)
+                        deduped.append((uid, role))
                     
             if not deduped:
                 raise ValueError(f"No active recipients found for class ID {class_id}")
@@ -318,7 +320,12 @@ class MessageService:
                     if user and MessageService._get_user_type(user) == 'parent':
                         return [(user.id, 'parent')], 'parent'
                     raise ValueError(f"Parent profile with ID {numeric_id} does not exist.")
-                return [(parent.user_id, 'parent')], 'parent'
+                
+                # Enforce that parent.user_id is valid and exists in users table
+                p_user_id = parent.user_id
+                if not p_user_id or User.query.get(p_user_id) is None:
+                    raise ValueError("Associated parent user account not found or deactivated.")
+                return [(p_user_id, 'parent')], 'parent'
                 
             elif ref_type == 'student':
                 from app.models.student import Student
@@ -329,7 +336,12 @@ class MessageService:
                     if user and MessageService._get_user_type(user) == 'student':
                         return [(user.id, 'student')], 'student'
                     raise ValueError(f"Student profile with ID {numeric_id} does not exist.")
-                return [(student.user_id, 'student')], 'student'
+                
+                # Enforce that student.user_id is valid and exists in users table
+                s_user_id = student.user_id
+                if not s_user_id or User.query.get(s_user_id) is None:
+                    raise ValueError("Associated student user account not found or deactivated.")
+                return [(s_user_id, 'student')], 'student'
                 
             elif ref_type == 'teacher':
                 from app.models.teacher import Teacher
@@ -340,7 +352,12 @@ class MessageService:
                     if user and MessageService._get_user_type(user) == 'teacher':
                         return [(user.id, 'teacher')], 'teacher'
                     raise ValueError(f"Teacher profile with ID {numeric_id} does not exist.")
-                return [(teacher.user_id, 'teacher')], 'teacher'
+                
+                # Enforce that teacher.user_id is valid and exists in users table
+                t_user_id = teacher.user_id
+                if not t_user_id or User.query.get(t_user_id) is None:
+                    raise ValueError("Associated teacher user account not found or deactivated.")
+                return [(t_user_id, 'teacher')], 'teacher'
                 
             elif ref_type == 'user':
                 user = User.query.get(numeric_id)
@@ -356,145 +373,8 @@ class MessageService:
         """
         Validates whether a sender is allowed to message a recipient user.
         """
-        if sender_id == recipient_user_id:
-            return True # Can message oneself
-            
-        from app.models.user import User
-        sender = User.query.get(sender_id)
-        recipient = User.query.get(recipient_user_id)
-        if not sender or not recipient:
-            return False
-            
-        sender_role = MessageService._get_user_type(sender)
-        recipient_role = MessageService._get_user_type(recipient)
-        
-        # Bypass membership boundary checks if no active tenant context or if either user has the generic 'user' role
-        from flask import g, has_app_context
-        tenant_context_active = has_app_context() and getattr(g, 'tenant_id', None) is not None
-        if not tenant_context_active or sender_role == 'user' or recipient_role == 'user':
-            return True
-        
-        # Check tenant membership commonality (must share at least one active tenant membership, unless super_admin/super_manager)
-        from app.models.tenant import TenantMembership
-        sender_memberships = TenantMembership.query.filter_by(user_id=sender_id, status='active').all()
-        recipient_memberships = TenantMembership.query.filter_by(user_id=recipient_user_id, status='active').all()
-        
-        sender_tenants = {m.tenant_id for m in sender_memberships}
-        recipient_tenants = {m.tenant_id for m in recipient_memberships}
-        
-        common_tenants = sender_tenants.intersection(recipient_tenants)
-        if not common_tenants and sender_role not in ('super_admin', 'super_manager'):
-            return False
-            
-        # Admin / super admin can message anyone within tenant
-        if sender_role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
-            return True
-            
-        # If recipient is an admin, anyone in the tenant can message them
-        if recipient_role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
-            return True
-            
-        # If sender is a teacher:
-        if sender_role == 'teacher':
-            # Teachers can message other teachers in the tenant, and students/parents in their assigned classes.
-            if recipient_role == 'teacher':
-                return True
-                
-            from app.models.class_ import Class, ClassTeacherMapping
-            from app.models.teacher import Teacher
-            
-            # Find all classes assigned to this teacher
-            assigned_class_ids = set()
-            teacher_profile = Teacher.query.filter_by(user_id=sender_id).first()
-            if teacher_profile:
-                primary_classes = Class.query.filter_by(teacher_id=teacher_profile.id).all()
-                for c in primary_classes:
-                    assigned_class_ids.add(c.id)
-            mappings = ClassTeacherMapping.query.filter_by(teacher_id=sender_id).all()
-            for m in mappings:
-                assigned_class_ids.add(m.class_id)
-                
-            if recipient_role == 'student':
-                from app.models.student import Student
-                student_profile = Student.query.filter_by(user_id=recipient_user_id).first()
-                if student_profile and student_profile.class_id in assigned_class_ids:
-                    return True
-            elif recipient_role == 'parent':
-                from app.models.student import Student
-                from app.models.parent import Parent
-                parent_profile = Parent.query.filter_by(user_id=recipient_user_id).first()
-                if parent_profile:
-                    # check if any child of this parent is in teacher's assigned classes
-                    children = Student.query.filter_by(parent_id=parent_profile.id).all()
-                    for child in children:
-                        if child.class_id in assigned_class_ids:
-                            return True
-            return False
-            
-        # If sender is a parent:
-        elif sender_role == 'parent':
-            # Parents can message teachers assigned to their child's class.
-            if recipient_role != 'teacher':
-                return False
-                
-            from app.models.student import Student
-            from app.models.parent import Parent
-            from app.models.class_ import Class, ClassTeacherMapping
-            
-            parent_profile = Parent.query.filter_by(user_id=sender_id).first()
-            if not parent_profile:
-                return False
-                
-            children = Student.query.filter_by(parent_id=parent_profile.id).all()
-            child_class_ids = {s.class_id for s in children if s.class_id}
-            
-            # Check if recipient teacher is primary class teacher
-            class_teachers = Class.query.filter(Class.id.in_(child_class_ids)).all()
-            primary_teacher_ids = {c.teacher_id for c in class_teachers if c.teacher_id}
-            from app.models.teacher import Teacher
-            recipient_teacher_profile = Teacher.query.filter_by(user_id=recipient_user_id).first()
-            if recipient_teacher_profile and recipient_teacher_profile.id in primary_teacher_ids:
-                return True
-                
-            # Check if mapped
-            is_mapped = ClassTeacherMapping.query.filter(
-                and_(
-                    ClassTeacherMapping.class_id.in_(child_class_ids),
-                    ClassTeacherMapping.teacher_id == recipient_user_id
-                )
-            ).first() is not None
-            
-            return is_mapped
-            
-        # If sender is a student:
-        elif sender_role == 'student':
-            # Students can message teachers assigned to their class.
-            if recipient_role != 'teacher':
-                return False
-                
-            from app.models.student import Student
-            from app.models.class_ import Class, ClassTeacherMapping
-            
-            student_profile = Student.query.filter_by(user_id=sender_id).first()
-            if not student_profile or not student_profile.class_id:
-                return False
-                
-            # Check primary class teacher
-            class_obj = Class.query.get(student_profile.class_id)
-            from app.models.teacher import Teacher
-            recipient_teacher_profile = Teacher.query.filter_by(user_id=recipient_user_id).first()
-            if class_obj and recipient_teacher_profile and class_obj.teacher_id == recipient_teacher_profile.id:
-                return True
-                
-            # Check mapped
-            is_mapped = ClassTeacherMapping.query.filter_by(
-                class_id=student_profile.class_id,
-                teacher_id=recipient_user_id
-            ).first() is not None
-            
-            return is_mapped
-            
-        return False
+        from app.services.identity_resolver import IdentityResolver
+        return IdentityResolver.can_user_message_recipient(sender_id, f"user:{recipient_user_id}")
     
     @staticmethod
     def update_message(message_id, user_id, data):

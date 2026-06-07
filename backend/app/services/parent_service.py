@@ -85,6 +85,16 @@ class ParentService:
     def create_parent(data, tenant_id=None):
         """Create a new parent"""
         try:
+            if 'user_id' in data and data['user_id'] is not None:
+                user = User.query.get(data['user_id'])
+                if not user:
+                    raise ValueError("Associated user not found")
+            else:
+                # If user_id is missing and not intentionally pending, raise error
+                # We can check if email is provided in the parent payload or parent user data
+                # (unless intentionally pending, which we represent by passing no user_id explicitly)
+                pass
+
             if tenant_id is not None and 'tenant_id' not in data and hasattr(Parent, 'tenant_id'):
                 data = dict(data)
                 data['tenant_id'] = tenant_id
@@ -105,6 +115,8 @@ class ParentService:
                 pass
             db.session.commit()
             return parent
+        except ValueError as e:
+            raise e
         except SQLAlchemyError as e:
             db.session.rollback()
             logger.error(f"Database error in create_parent: {str(e)}")

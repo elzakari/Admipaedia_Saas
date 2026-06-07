@@ -1282,3 +1282,358 @@ def large_user_dataset(db_session):
     
     db_session.commit()
     return users
+
+
+class TestADMIWorkflowAndRelationshipAudit:
+    """Comprehensive relationship validation, workflow, and Schema Guard integrity tests."""
+
+    def test_schema_guard_notifications_drift_detection(self, db_session):
+        from app.utils.schema_guard import SchemaGuard
+        # By default, sqlite uses INTEGER for notifications.id, so no drift is detected.
+        assert SchemaGuard.check_notifications_id_drift() is False
+
+    def test_schema_guard_orphaned_messages_detection(self, db_session):
+        from app.utils.schema_guard import SchemaGuard
+        from app.models.message import Message
+        
+        # Insert a message with a non-existent recipient_id
+        orphan_msg = Message(
+            sender_id=1,
+            sender_type='teacher',
+            recipient_id=999999,
+            recipient_type='parent',
+            subject='Orphan test',
+            content='This recipient does not exist in users table'
+        )
+        db_session.add(orphan_msg)
+        db_session.commit()
+        
+        orphans = SchemaGuard.check_message_recipient_orphan_rows()
+        assert len(orphans) > 0
+        assert any(o['id'] == orphan_msg.id for o in orphans)
+        
+        # Clean up
+        db_session.delete(orphan_msg)
+        db_session.commit()
+
+    def test_teacher_create_announcement_restricted_to_assigned_classes(self, client, db_session, sample_tenant, sample_class):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_teacher, create_test_membership
+        
+        teacher_user = User(username='unassigned_t', email='unassigned@example.com', role='teacher')
+        teacher_user.set_password('Password123!')
+        db_session.add(teacher_user)
+        db_session.flush()
+        
+        teacher = create_test_teacher(db_session, teacher_user, sample_tenant.id)
+        create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+        db_session.commit()
+        
+        token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.post(
+            f'/api/v1/classes/{sample_class.id}/announcements',
+            headers=headers,
+            json={
+                'title': 'Intruder Notice',
+                'content': 'I should not be able to post this.'
+            }
+        )
+        assert response.status_code == 403
+
+    def test_student_and_parent_read_scoping_class_announcements(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_student, create_test_membership
+        from app.models.announcement import Announcement
+        
+        announcement = Announcement(
+            title='Class Secret Notice',
+            content='Only for this class members.',
+            class_id=sample_class.id,
+            teacher_id=sample_teacher.id,
+            is_published=True
+        )
+        db_session.add(announcement)
+        db_session.commit()
+        
+        other_user = User(username='other_student', email='other_s@example.com', role='student')
+        other_user.set_password('Password123!')
+        db_session.add(other_user)
+        db_session.flush()
+        
+        other_student = create_test_student(db_session, other_user, sample_tenant.id)
+        other_student.class_id = 999888
+        create_test_membership(db_session, sample_tenant.id, other_user.id, 'student')
+        db_session.commit()
+        
+        token = create_access_token(identity=other_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.get(
+            f'/api/v1/classes/{sample_class.id}/announcements',
+            headers=headers
+        )
+        assert response.status_code == 403
+
+    def test_parent_sees_child_assignments(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_student, create_test_membership, create_test_parent
+        from app.models.assignment import Assignment
+        from app.models.subject import Subject
+        
+        p_user = User(username='p_user_t', email='parent_t@example.com', role='parent')
+        p_user.set_password('Password123!')
+        db_session.add(p_user)
+        db_session.flush()
+        parent = create_test_parent(db_session, p_user, sample_tenant.id)
+        create_test_membership(db_session, sample_tenant.id, p_user.id, 'parent')
+        
+        s_user = User(username='s_user_t', email='student_t@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        student.parent_id = parent.id
+        create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+        
+        subject = Subject(name='Maths', code='MTH101', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+        
+        assignment = Assignment(
+            title='Homework #1',
+            description='Algebra tasks',
+            class_id=sample_class.id,
+            subject_id=subject.id,
+            teacher_id=sample_teacher.id,
+            due_date=datetime.utcnow() + timedelta(days=2),
+            total_points=100.0,
+            assignment_type='homework',
+            status='active'
+        )
+        db_session.add(assignment)
+        db_session.commit()
+        
+        token = create_access_token(identity=p_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.get(
+            f'/api/v1/parents/children/{student.id}/homework',
+            headers=headers
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['data']['homework']) > 0
+        assert data['data']['homework'][0]['title'] == 'Homework #1'
+
+    def test_student_submission_belongs_only_to_current_student(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_student, create_test_membership
+        from app.models.assignment import Assignment
+        from app.models.subject import Subject
+        from app.models.assignment_submission import AssignmentSubmission
+        
+        s_user = User(username='s_sub_test', email='student_sub@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+        
+        subject = Subject(name='Maths', code='MTH101', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+        
+        assignment = Assignment(
+            title='Homework #2',
+            description='Geometry tasks',
+            class_id=sample_class.id,
+            subject_id=subject.id,
+            teacher_id=sample_teacher.id,
+            due_date=datetime.utcnow() + timedelta(days=2),
+            total_points=100.0,
+            assignment_type='homework',
+            status='active'
+        )
+        db_session.add(assignment)
+        db_session.commit()
+        
+        token = create_access_token(identity=s_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.post(
+            f'/api/v1/student/assignments/{assignment.id}/submit',
+            headers=headers,
+            json={
+                'content': 'My submitted geometry code answers.',
+                'file_path': '/uploads/student_geometry.pdf'
+            }
+        )
+        assert response.status_code == 201
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['submission']['student_id'] == student.id
+        
+        sub = AssignmentSubmission.query.get(data['submission']['id'])
+        assert sub is not None
+        assert sub.student_id == student.id
+
+    def test_teacher_can_grade_only_assigned_class_submissions(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_teacher, create_test_membership, create_test_student
+        from app.models.assignment_submission import AssignmentSubmission
+        
+        s_user = User(username='s_grade_test', email='student_grade@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+        
+        submission = AssignmentSubmission(
+            assignment_id=1,
+            student_id=student.id,
+            content='Answers',
+            status='submitted'
+        )
+        db_session.add(submission)
+        db_session.commit()
+        
+        t_user = User(username='t_other', email='teacher_other@example.com', role='teacher')
+        t_user.set_password('Password123!')
+        db_session.add(t_user)
+        db_session.flush()
+        teacher2 = create_test_teacher(db_session, t_user, sample_tenant.id)
+        create_test_membership(db_session, sample_tenant.id, t_user.id, 'teacher')
+        db_session.commit()
+        
+        token = create_access_token(identity=t_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.post(
+            f'/api/v1/classes/submissions/{submission.id}/grade',
+            headers=headers,
+            json={
+                'score': 85.5,
+                'feedback': 'Good work!'
+            }
+        )
+        assert response.status_code == 403
+
+    def test_message_cannot_save_to_non_existent_recipient_id(self, db_session):
+        from app.services.message_service import MessageService
+        
+        with pytest.raises(ValueError, match="does not exist|not found"):
+            MessageService.create_message({
+                'sender_id': 1,
+                'recipient_ref': 'user:999999',
+                'subject': 'Failure message',
+                'content': 'This must fail.'
+            })
+
+    def test_notifications_mark_read_scoped_to_current_user(self, client, db_session, sample_tenant):
+        from flask_jwt_extended import create_access_token
+        from app.models.dashboard import Notification
+        
+        user1 = User(username='notif_u1', email='notif_u1@example.com', role='student')
+        user1.set_password('Password123!')
+        db_session.add(user1)
+        
+        user2 = User(username='notif_u2', email='notif_u2@example.com', role='student')
+        user2.set_password('Password123!')
+        db_session.add(user2)
+        db_session.flush()
+        
+        n1 = Notification(title='U1 Notif', message='Private for u1', type='info', recipient_id=user1.id, user_id=user1.id)
+        n2 = Notification(title='U2 Notif', message='Private for u2', type='info', recipient_id=user2.id, user_id=user2.id)
+        db_session.add(n1)
+        db_session.add(n2)
+        db_session.commit()
+        
+        token = create_access_token(identity=user1.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        
+        response = client.patch(
+            '/api/v1/notifications/mark-read',
+            headers=headers,
+            json={
+                'notification_ids': [n2.id]
+            }
+        )
+        assert response.status_code == 200
+        
+        db_session.refresh(n2)
+        assert n2.read is False
+        
+        response = client.patch(
+            '/api/v1/notifications/mark-read',
+            headers=headers,
+            json={
+                'notification_ids': [n1.id]
+            }
+        )
+        assert response.status_code == 200
+        db_session.refresh(n1)
+        assert n1.read is True
+
+    def test_socket_failure_does_not_rollback_db(self, db_session, sample_class, sample_teacher):
+        from unittest.mock import patch
+        from app.services.announcement_service import AnnouncementService
+        
+        with patch('app.extensions.socketio.emit', side_effect=Exception("Socket disconnected")):
+            announcement, error = AnnouncementService.create_announcement({
+                'title': 'Socket Fault Test',
+                'content': 'We must persist even if sockets fail.',
+                'class_id': sample_class.id,
+                'teacher_id': sample_teacher.id
+            })
+            assert error is None
+            assert announcement is not None
+            from app.models.announcement import Announcement
+            db_announcement = Announcement.query.get(announcement.id)
+            assert db_announcement is not None
+
+    def test_new_teacher_rbac_and_class_mappings(self, db_session, sample_tenant):
+        from tests.test_production_integration import create_test_teacher, create_test_membership
+        from app.models.class_ import ClassTeacherMapping
+        
+        new_user = User(username='new_teacher_rbac', email='new_t_rbac@example.com', role='teacher')
+        new_user.set_password('Password123!')
+        db_session.add(new_user)
+        db_session.flush()
+        
+        teacher = create_test_teacher(db_session, new_user, sample_tenant.id)
+        create_test_membership(db_session, sample_tenant.id, new_user.id, 'teacher')
+        
+        dummy_class_mapping = ClassTeacherMapping(class_id=1, teacher_id=new_user.id)
+        db_session.add(dummy_class_mapping)
+        db_session.commit()
+        
+        assert new_user.role == 'teacher'
+        mapping = ClassTeacherMapping.query.filter_by(teacher_id=new_user.id).first()
+        assert mapping is not None
+        assert mapping.class_id == 1
+

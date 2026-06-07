@@ -9,7 +9,7 @@ class Message(db.Model):
     id = Column(Integer, primary_key=True)
     sender_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     sender_type = Column(String(20), nullable=False)  # admin, teacher, student, parent
-    recipient_id = Column(Integer, nullable=False)  # Can reference different tables
+    recipient_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     recipient_type = Column(String(20), nullable=False)  # admin, teacher, student, parent, class
     subject = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
@@ -22,6 +22,7 @@ class Message(db.Model):
     
     # Relationships
     sender = relationship('User', foreign_keys=[sender_id], backref='sent_messages')
+    recipient = relationship('User', foreign_keys=[recipient_id], backref='received_messages')
     
     def __repr__(self):
         return f'<Message {self.id}: {self.subject}>'

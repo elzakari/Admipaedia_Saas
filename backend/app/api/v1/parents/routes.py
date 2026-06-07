@@ -91,6 +91,9 @@ def create_parent():
         )
     except ValidationError as e:
         return error_response(message="Validation error", errors=e.messages, status_code=400)
+    except ValueError as e:
+        logger.warning(f"Validation error creating parent: {str(e)}")
+        return error_response(message=str(e), status_code=400)
     except SQLAlchemyError as e:
         logger.error(f"Database error creating parent: {str(e)}")
         return error_response(message="Failed to create parent", status_code=500)
@@ -561,9 +564,31 @@ def get_child_homework(child_id):
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
         
-        # For now, return empty homework list - can be implemented later
-        homework = []
-        total = 0
+        from app.models.student import Student
+        from app.models.assignment import Assignment
+        
+        child = Student.query.get(child_id)
+        if not child or not child.class_id:
+            homework = []
+            total = 0
+        else:
+            query = Assignment.query.filter_by(class_id=child.class_id, status='active')
+            total = query.count()
+            items = query.order_by(Assignment.due_date.desc()).offset((page - 1) * per_page).limit(per_page).all()
+            
+            homework = []
+            for a in items:
+                homework.append({
+                    'id': a.id,
+                    'title': a.title,
+                    'description': a.description or '',
+                    'instructions': a.description or '',
+                    'due_date': a.due_date.isoformat(),
+                    'dueAt': a.due_date.isoformat(),
+                    'subject_name': a.subject.name if a.subject else 'Subject',
+                    'assignment_type': a.assignment_type,
+                    'total_points': a.total_points
+                })
         
         return success_response(
             data={
@@ -572,7 +597,7 @@ def get_child_homework(child_id):
                     'page': page,
                     'per_page': per_page,
                     'total': total,
-                    'pages': 0
+                    'pages': (total + per_page - 1) // per_page
                 }
             },
             message="Homework assignments retrieved successfully"
