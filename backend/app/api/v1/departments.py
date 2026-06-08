@@ -4,6 +4,7 @@ Academic Structures / Departments API
 URL prefix: /api/v1/departments   (legacy; also registered at /api/v1/structures)
 
 Endpoints:
+  GET    /types                     return enum values for frontend dropdowns
   GET    /                          list all (filter by type, is_active)
   POST   /                          create
   GET    /<id>                      retrieve one
@@ -11,13 +12,18 @@ Endpoints:
   DELETE /<id>                      delete
   POST   /<id>/staff                add staff member
   DELETE /<id>/staff/<user_id>      remove staff member
-  GET    /types                     return enum values for frontend dropdowns
 """
+import logging
+
 from flask import Blueprint, request, jsonify, g
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils.auth_utils import admin_required
+from app.utils.tenant_context import tenant_required
 from app.services.department_service import AcademicStructureService
 from app.schemas.department_schema import AcademicStructureSchema, AcademicStructureListSchema
 from app.models.department import AcademicStructureType
-from app.utils.auth import jwt_required, admin_required, tenant_required
+
+logger = logging.getLogger(__name__)
 
 departments_bp = Blueprint("departments", __name__)
 
@@ -32,13 +38,13 @@ def _tenant_id():
     return getattr(g, "tenant_id", None)
 
 
-def _parse_bool(raw) -> bool | None:
+def _parse_bool(raw):
     if raw is None:
         return None
     return str(raw).lower() in ("1", "true", "yes")
 
 
-def _coerce_type(raw) -> AcademicStructureType | None:
+def _coerce_type(raw):
     if not raw:
         return None
     try:
@@ -50,7 +56,7 @@ def _coerce_type(raw) -> AcademicStructureType | None:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @departments_bp.route("/types", methods=["GET"])
-@jwt_required
+@jwt_required()
 def list_types():
     """Return all valid structure_type values so the frontend can build dropdowns."""
     return jsonify({
@@ -63,7 +69,7 @@ def list_types():
 
 
 @departments_bp.route("", methods=["GET"])
-@jwt_required
+@jwt_required()
 @tenant_required
 def get_structures():
     tid       = _tenant_id()
@@ -82,7 +88,7 @@ def get_structures():
 
 
 @departments_bp.route("/<int:structure_id>", methods=["GET"])
-@jwt_required
+@jwt_required()
 @tenant_required
 def get_structure(structure_id):
     item = AcademicStructureService.get_by_id(structure_id, tenant_id=_tenant_id())
@@ -92,7 +98,7 @@ def get_structure(structure_id):
 
 
 @departments_bp.route("", methods=["POST"])
-@jwt_required
+@jwt_required()
 @admin_required
 @tenant_required
 def create_structure():
@@ -111,7 +117,7 @@ def create_structure():
 
 
 @departments_bp.route("/<int:structure_id>", methods=["PUT"])
-@jwt_required
+@jwt_required()
 @admin_required
 @tenant_required
 def update_structure(structure_id):
@@ -130,7 +136,7 @@ def update_structure(structure_id):
 
 
 @departments_bp.route("/<int:structure_id>", methods=["DELETE"])
-@jwt_required
+@jwt_required()
 @admin_required
 @tenant_required
 def delete_structure(structure_id):
@@ -141,7 +147,7 @@ def delete_structure(structure_id):
 
 
 @departments_bp.route("/<int:structure_id>/staff", methods=["POST"])
-@jwt_required
+@jwt_required()
 @admin_required
 @tenant_required
 def add_staff(structure_id):
@@ -159,7 +165,7 @@ def add_staff(structure_id):
 
 
 @departments_bp.route("/<int:structure_id>/staff/<int:user_id>", methods=["DELETE"])
-@jwt_required
+@jwt_required()
 @admin_required
 @tenant_required
 def remove_staff(structure_id, user_id):
