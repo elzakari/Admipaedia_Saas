@@ -210,40 +210,28 @@ def app_context(app):
 @pytest.fixture(autouse=True)
 def db_isolation(app):
     from app.extensions import db
-    connection = db.engine.connect()
-    transaction = connection.begin()
-    from sqlalchemy.orm import scoped_session, sessionmaker
-    session_factory = sessionmaker(bind=connection)
-    session = scoped_session(session_factory)
-    db.session = session
-
-    # Implement nested transactions (savepoints)
+    
+    session = db.session
     nested = session.begin_nested()
-    from sqlalchemy import event
-    active = True
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(session, transaction):
+    
+    # Save original commit and wrap it
+    orig_commit = session.commit
+    def commit_savepoint():
         nonlocal nested
-        if not active:
-            return
-        if not nested.is_active:
-            nested = session.begin_nested()
+        if nested.is_active:
+            nested.commit()
+        nested = session.begin_nested()
+        
+    session.commit = commit_savepoint
 
     try:
         yield
     finally:
-        active = False
-        from sqlalchemy import event
+        session.commit = orig_commit
         try:
-            event.remove(session, "after_transaction_end", restart_savepoint)
+            session.rollback()
         except Exception:
             pass
-        try:
-            session.remove()
-            transaction.rollback()
-        except Exception:
-            pass
-        connection.close()
 
 @pytest.fixture
 def sample_tenant(db_session):

@@ -162,7 +162,7 @@ class TestUserModel:
             mock_profile = Mock()
             mock_profile.first_name = 'John'
             mock_profile.last_name = 'Doe'
-            user.profile = mock_profile
+            user.__dict__['profile'] = mock_profile
             
             assert user.get_full_name() == 'John Doe'
 

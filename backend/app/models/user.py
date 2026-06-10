@@ -3,6 +3,7 @@ import re
 import secrets
 from typing import Optional
 from app.extensions import db, bcrypt
+from app.models.security import LoginAttempt
 
 # Association table for many-to-many relationship between users and roles
 user_roles = db.Table('user_roles',
@@ -126,6 +127,59 @@ class User(db.Model):
             return membership.tenant_id
         return None
 
+    def update_last_login(self):
+        """Update last login timestamp."""
+        self.last_login = datetime.utcnow()
+        db.session.add(self)
+        db.session.commit()
+
+    def get_full_name(self):
+        """Get user's full name from profile or username."""
+        if self.profile and (getattr(self.profile, 'first_name', None) or getattr(self.profile, 'last_name', None)):
+            first = getattr(self.profile, 'first_name', '')
+            last = getattr(self.profile, 'last_name', '')
+            return f"{first} {last}".strip()
+        return self.username
+
+    def to_dict(self, include_sensitive=False):
+        """Convert user instance to dictionary."""
+        data = {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'role': self.role,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
+        if include_sensitive:
+            data['password_hash'] = self.password_hash
+        return data
+
+    @classmethod
+    def find_by_email(cls, email):
+        """Find a user by email."""
+        return cls.query.filter_by(email=email).first()
+
+    @classmethod
+    def find_by_username(cls, username):
+        """Find a user by username."""
+        return cls.query.filter_by(username=username).first()
+
+    def has_role(self, role_name):
+        """Check if user has a specific role."""
+        return any(r.name == role_name for r in self.roles)
+
+    def has_any_role(self, role_names):
+        """Check if user has any of the specified roles."""
+        return any(r.name in role_names for r in self.roles)
+
+    @property
+    def is_active(self):
+        """Check if user is active."""
+        return self.status == 'active'
+
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -138,6 +192,11 @@ class Role(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    @classmethod
+    def find_by_name(cls, name):
+        """Find a role by name."""
+        return cls.query.filter_by(name=name).first()
+
     def __repr__(self):
         return f'<Role {self.name}>'
 
@@ -162,3 +221,4 @@ class LoginHistory(db.Model):
     
     def __repr__(self):
         return f'<LoginHistory {self.user_id} {self.login_timestamp}>'
+

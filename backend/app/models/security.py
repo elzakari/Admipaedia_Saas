@@ -39,8 +39,50 @@ class LoginAttempt(db.Model):
     city = db.Column(db.String(100), nullable=True)
     is_suspicious = db.Column(db.Boolean, default=False)
     
+    @classmethod
+    def get_recent_attempts(cls, identifier, minutes=30, limit=100):
+        """Get recent login attempts for the identifier."""
+        time_limit = datetime.utcnow() - timedelta(minutes=minutes)
+        return cls.query.filter(
+            cls.identifier == identifier,
+            cls.attempted_at >= time_limit
+        ).order_by(cls.attempted_at.desc()).limit(limit).all()
+
+    @classmethod
+    def count_failed_attempts(cls, identifier, minutes=30):
+        """Count failed login attempts for the identifier within specified minutes."""
+        time_limit = datetime.utcnow() - timedelta(minutes=minutes)
+        return cls.query.filter(
+            cls.identifier == identifier,
+            cls.success == False,
+            cls.attempted_at >= time_limit
+        ).count()
+
+    @classmethod
+    def has_recent_success(cls, identifier, minutes=30):
+        """Check if the identifier has had a successful login recently."""
+        time_limit = datetime.utcnow() - timedelta(minutes=minutes)
+        attempt = cls.query.filter(
+            cls.identifier == identifier,
+            cls.success == True,
+            cls.attempted_at >= time_limit
+        ).first()
+        return attempt is not None
+
+    @classmethod
+    def cleanup_old_attempts(cls, days=30):
+        """Clean up login attempts older than specified days."""
+        time_limit = datetime.utcnow() - timedelta(days=days)
+        deleted = cls.query.filter(cls.attempted_at < time_limit).delete()
+        try:
+            from app.models.user import db as user_db
+            user_db.session.commit()
+        except ImportError:
+            db.session.commit()
+        return deleted
+
     def __repr__(self):
-        return f'<LoginAttempt {self.identifier} - {"Success" if self.success else "Failed"} at {self.attempted_at}>'
+        return f'<LoginAttempt {self.identifier} - {"Success" if self.success else "Failed"}>'
 
 class SecurityEvent(db.Model):
     """Log security events for monitoring and analysis"""

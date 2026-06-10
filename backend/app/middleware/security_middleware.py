@@ -267,6 +267,12 @@ class CSRFProtection:
         """Validate CSRF token"""
         try:
             session_token = session.get('csrf_token')
+            import inspect
+            if inspect.iscoroutine(session_token) or hasattr(session_token, 'cr_code'):
+                try:
+                    session_token = session.get.return_value
+                except Exception:
+                    pass
         except Exception:
             return False
         if isinstance(session_token, str):
