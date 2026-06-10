@@ -93,6 +93,25 @@ class NotificationFanoutService:
                 db.session.flush()
                 logger.info("Durable audience fanout flushed successfully", notification_count=len(notifications))
                 
+                try:
+                    from app.extensions import socketio
+                    for notif in notifications:
+                        try:
+                            notif_data = {
+                                'id': notif.id,
+                                'title': notif.title,
+                                'message': notif.message,
+                                'time': notif.time.isoformat() if getattr(notif, 'time', None) else (notif.created_at.isoformat() if getattr(notif, 'created_at', None) else ''),
+                                'read': notif.read,
+                                'type': notif.type,
+                                'priority': getattr(notif, 'priority', 'normal')
+                            }
+                            socketio.emit('new_notification', notif_data, room=f"user_{notif.recipient_id}", namespace='/notifications')
+                        except Exception as socket_err:
+                            logger.warning("Socket.IO notification emission failed for user", user_id=notif.recipient_id, error=str(socket_err))
+                except Exception as import_err:
+                    logger.warning("Failed to initialize Socket.IO broadcast for fanout", error=str(import_err))
+                
         except Exception as e:
             logger.error("Error in enqueue_class_fanout", error=str(e), class_id=class_id)
             raise e

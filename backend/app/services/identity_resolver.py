@@ -289,6 +289,13 @@ class IdentityResolver:
             # Parent permissions
             elif sender_role == 'parent':
                 if recipient_role != 'teacher':
+                    if recipient_role == 'student':
+                        from app.models.student import Student
+                        from app.models.parent import Parent
+                        parent_profile = Parent.query.filter_by(user_id=sender_user_id).first()
+                        student_profile = Student.query.filter_by(user_id=recipient_user_id).first()
+                        if student_profile and parent_profile and student_profile.parent_id == parent_profile.id:
+                            continue
                     return False
                 from app.models.student import Student
                 from app.models.parent import Parent
@@ -301,10 +308,17 @@ class IdentityResolver:
                 assigned_classes = IdentityResolver.resolve_teacher_class_ids(recipient_user_id)
                 if not any(cid in child_class_ids for cid in assigned_classes):
                     return False
-
+ 
             # Student permissions
             elif sender_role == 'student':
                 if recipient_role != 'teacher':
+                    if recipient_role == 'parent':
+                        from app.models.student import Student
+                        from app.models.parent import Parent
+                        student_profile = Student.query.filter_by(user_id=sender_user_id).first()
+                        parent_profile = Parent.query.filter_by(user_id=recipient_user_id).first()
+                        if student_profile and parent_profile and student_profile.parent_id == parent_profile.id:
+                            continue
                     return False
                 from app.models.student import Student
                 student_profile = Student.query.filter_by(user_id=sender_user_id).first()

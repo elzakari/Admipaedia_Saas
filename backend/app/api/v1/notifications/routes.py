@@ -83,16 +83,24 @@ def get_notifications():
             if not (matches_recipient or matches_role):
                 continue
                 
+            from app.models.attachment import Attachment
+            db_attachments = Attachment.query.filter_by(entity_type='notification', entity_id=str(n.id)).all()
+            
             serialized.append({
                 'id': n.id,
                 'title': n.title,
                 'message': n.message,
                 'type': n.type,
+                'priority': getattr(n, 'priority', 'normal'),
                 'read': n.read,
                 'is_read': n.read,
                 'time': n.time.isoformat() if getattr(n, 'time', None) else None,
-                'created_at': n.created_at.isoformat() if getattr(n, 'created_at', None) else None,
-                'scope': n_target_role
+                'created_at': n.created_at.isoformat() if getattr(n, 'created_at', None) else (n.time.isoformat() if getattr(n, 'time', None) else None),
+                'scope': n_target_role,
+                'related_entity_type': getattr(n, 'related_entity_type', None),
+                'related_entity_id': getattr(n, 'related_entity_id', None),
+                'action_url': getattr(n, 'action_url', None),
+                'attachments': [att.to_dict() for att in db_attachments]
             })
             
         return jsonify({

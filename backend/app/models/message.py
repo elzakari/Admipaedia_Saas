@@ -19,6 +19,8 @@ class Message(db.Model):
     attachments = Column(JSON)  # Store attachment file paths as JSON array
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    file_id = Column(String(255), nullable=True)
+    file_url = Column(String(512), nullable=True)
     
     # Relationships
     sender = relationship('User', foreign_keys=[sender_id], backref='sent_messages')

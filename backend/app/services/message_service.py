@@ -19,6 +19,10 @@ class MessageService:
         try:
             query = Message.query
             
+            # Schema Guard: exclude corrupt/bad rows where sender or recipient do not exist in users table
+            query = query.filter(Message.sender_id.in_(db.session.query(User.id)))
+            query = query.filter(Message.recipient_id.in_(db.session.query(User.id)))
+            
             if folder == 'inbox':
                 # Messages received by the user (not deleted by recipient)
                 query = query.filter(
@@ -46,6 +50,20 @@ class MessageService:
                         and_(
                             Message.recipient_id == user_id,
                             Message.is_deleted_by_recipient == True
+                        )
+                    )
+                )
+            elif folder == 'all':
+                # All active conversations (received or sent, not deleted by current user's perspective)
+                query = query.filter(
+                    or_(
+                        and_(
+                            Message.recipient_id == user_id,
+                            Message.is_deleted_by_recipient == False
+                        ),
+                        and_(
+                            Message.sender_id == user_id,
+                            Message.is_deleted_by_sender == False
                         )
                     )
                 )
@@ -91,7 +109,6 @@ class MessageService:
             raise
     
     @staticmethod
-    @staticmethod
     def create_message(data):
         """Create a new message"""
         try:
@@ -102,6 +119,8 @@ class MessageService:
             
             # Determine sender type based on user
             sender = User.query.get(data['sender_id'])
+            if not sender:
+                raise ValueError("Sender user does not exist in users table.")
             sender_type = MessageService._get_user_type(sender)
             
             # Extract recipient_ref if provided, or build from recipient_id and recipient_type
@@ -122,8 +141,11 @@ class MessageService:
             # Resolve the recipient ref
             resolved_recipients, r_type = MessageService.resolve_recipient_ref(recipient_ref)
             
-            # Validate permissions for each resolved recipient
+            # Validate permissions and existence for each resolved recipient
             for r_id, r_role in resolved_recipients:
+                rec_user = User.query.get(r_id)
+                if not rec_user:
+                    raise ValueError(f"Recipient user with ID {r_id} does not exist in users table.")
                 if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
                     raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
             
@@ -142,6 +164,31 @@ class MessageService:
                 created_messages.append(msg)
                 
             db.session.commit()
+            
+            # Save attachments metadata to the new attachments table
+            if attachment_paths:
+                from flask import g
+                from app.models.attachment import Attachment
+                tenant_id = getattr(g, 'tenant_id', None)
+                if not tenant_id and sender:
+                    from app.models.tenant import TenantMembership
+                    membership = TenantMembership.query.filter_by(user_id=sender.id).first()
+                    if membership:
+                        tenant_id = membership.tenant_id
+                
+                for file_path in attachment_paths:
+                    filename = os.path.basename(file_path).split('_', 1)[-1] if '_' in os.path.basename(file_path) else os.path.basename(file_path)
+                    for msg in created_messages:
+                        att = Attachment(
+                            filename=filename,
+                            file_path=file_path,
+                            uploader_id=data['sender_id'],
+                            tenant_id=tenant_id,
+                            entity_type='message',
+                            entity_id=str(msg.id)
+                        )
+                        db.session.add(att)
+                db.session.commit()
             
             # Emit socket events safely
             try:
@@ -179,6 +226,8 @@ class MessageService:
             
             # Determine sender type
             sender = User.query.get(data['sender_id'])
+            if not sender:
+                raise ValueError("Sender user does not exist in users table.")
             sender_type = MessageService._get_user_type(sender)
             
             recipient_refs = data.get('recipient_refs')
@@ -198,6 +247,9 @@ class MessageService:
             for ref in recipient_refs:
                 resolved_recipients, r_type = MessageService.resolve_recipient_ref(ref)
                 for r_id, r_role in resolved_recipients:
+                    rec_user = User.query.get(r_id)
+                    if not rec_user:
+                        raise ValueError(f"Recipient user with ID {r_id} does not exist in users table.")
                     if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
                         raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
                     
@@ -214,6 +266,31 @@ class MessageService:
             
             db.session.add_all(messages)
             db.session.commit()
+            
+            # Save attachments metadata to the new attachments table
+            if attachment_paths:
+                from flask import g
+                from app.models.attachment import Attachment
+                tenant_id = getattr(g, 'tenant_id', None)
+                if not tenant_id and sender:
+                    from app.models.tenant import TenantMembership
+                    membership = TenantMembership.query.filter_by(user_id=sender.id).first()
+                    if membership:
+                        tenant_id = membership.tenant_id
+                
+                for file_path in attachment_paths:
+                    filename = os.path.basename(file_path).split('_', 1)[-1] if '_' in os.path.basename(file_path) else os.path.basename(file_path)
+                    for msg in messages:
+                        att = Attachment(
+                            filename=filename,
+                            file_path=file_path,
+                            uploader_id=data['sender_id'],
+                            tenant_id=tenant_id,
+                            entity_type='message',
+                            entity_id=str(msg.id)
+                        )
+                        db.session.add(att)
+                db.session.commit()
             
             # Attempt Socket.IO emit inside try/except Exception
             try:

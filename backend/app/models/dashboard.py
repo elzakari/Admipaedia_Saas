@@ -61,6 +61,8 @@ class Notification(db.Model):
     scope = db.Column(db.String(50), nullable=True, default='all') # all, teachers, students, parents, admins
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    file_id = db.Column(db.String(255), nullable=True)
+    file_url = db.Column(db.String(512), nullable=True)
     
     user = db.relationship('User', backref=db.backref('notifications', lazy=True), foreign_keys=[user_id])
     recipient = db.relationship('User', backref=db.backref('received_notifications', lazy=True), foreign_keys=[recipient_id])

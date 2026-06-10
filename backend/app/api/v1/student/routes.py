@@ -614,57 +614,77 @@ def get_student_conversations():
         return jsonify({'success': False, 'message': 'Student profile not found'}), 404
 
     from app.models.message import Message
-    from app.models.teacher import Teacher
+    from app.models.user import User
+    from app.services.message_service import MessageService
     from sqlalchemy import or_, and_
-
-    teacher_ids = set()
-    if student.class_id:
-        cls = Class.query.get(student.class_id)
-        if cls and getattr(cls, 'class_teacher_id', None):
-            teacher_ids.add(cls.class_teacher_id)
-            
-        slots = TimetableSlot.query.filter_by(class_id=student.class_id).all()
-        for s in slots:
-            if s.teacher_id:
-                teacher_ids.add(s.teacher_id)
-
-    teachers = Teacher.query.filter(Teacher.id.in_(teacher_ids)).all() if teacher_ids else []
-    threads = []
     
-    for teacher in teachers:
-        t_user_id = teacher.user_id
-        
-        messages = Message.query.filter(
-            or_(
-                and_(Message.sender_id == int(user_id), Message.recipient_id == t_user_id),
-                and_(Message.sender_id == t_user_id, Message.recipient_id == int(user_id))
-            )
-        ).order_by(Message.created_at.desc()).all()
-        
-        unread_count = sum(1 for m in messages if m.recipient_id == int(user_id) and not m.is_read)
-        
-        messages_data = []
-        for m in reversed(messages):
-            messages_data.append({
-                'id': str(m.id),
-                'sender': 'You' if m.sender_id == int(user_id) else teacher.full_name,
-                'body': m.content,
-                'sentAt': m.created_at.isoformat() if hasattr(m, 'created_at') and m.created_at else ''
-            })
+    # Include student user ID and their parent user ID (if any)
+    user_ids = [int(user_id)]
+    if student.parent_id:
+        from app.models.parent import Parent
+        parent = Parent.query.get(student.parent_id)
+        if parent and parent.user_id:
+            user_ids.append(parent.user_id)
+    
+    # Query all valid messages involving either student or parent
+    query = Message.query.filter(Message.sender_id.in_(db.session.query(User.id)))
+    query = query.filter(Message.recipient_id.in_(db.session.query(User.id)))
+    query = query.filter(
+        or_(
+            and_(Message.recipient_id.in_(user_ids), Message.is_deleted_by_recipient == False),
+            and_(Message.sender_id.in_(user_ids), Message.is_deleted_by_sender == False)
+        )
+    ).order_by(Message.created_at.desc())
+    
+    messages = query.all()
+    
+    thread_map = {}
+    for msg in messages:
+        if msg.sender_id in user_ids:
+            other_id = msg.recipient_id
+            other_role = msg.recipient_type
+        else:
+            other_id = msg.sender_id
+            other_role = msg.sender_type
             
-        last_msg = messages[0].content if messages else ''
-        subject_name = teacher.subjects[0].name if getattr(teacher, 'subjects', None) and teacher.subjects else 'Class Teacher'
+        if not other_id:
+            continue
+            
+        if other_id not in thread_map:
+            other_user = User.query.get(other_id)
+            if not other_user:
+                continue
+            display_name = MessageService.get_user_display_name(other_user)
+            thread_map[other_id] = {
+                'id': f"thread_{other_id}",
+                'teacher_user_id': other_id,
+                'title': display_name,
+                'participants': f"{other_role.capitalize()}",
+                'unread': False,
+                'lastMessagePreview': '',
+                'messages': []
+            }
+            
+        sender_name = 'You' if msg.sender_id in user_ids else thread_map[other_id]['title']
         
-        threads.append({
-            'id': f"thread_{teacher.id}",
-            'teacher_user_id': t_user_id,
-            'title': teacher.full_name,
-            'participants': f"Teacher • {subject_name}",
-            'unread': unread_count > 0,
-            'lastMessagePreview': last_msg[:50] + '...' if len(last_msg) > 50 else last_msg,
-            'messages': messages_data
+        thread_map[other_id]['messages'].append({
+            'id': str(msg.id),
+            'sender': sender_name,
+            'body': msg.content,
+            'sentAt': msg.created_at.isoformat() if msg.created_at else ''
         })
         
+        if msg.recipient_id in user_ids and not msg.is_read:
+            thread_map[other_id]['unread'] = True
+
+    threads = list(thread_map.values())
+    for t in threads:
+        t['messages'].sort(key=lambda x: x['sentAt'])
+        if t['messages']:
+            t['lastMessagePreview'] = t['messages'][-1]['body']
+            if len(t['lastMessagePreview']) > 50:
+                t['lastMessagePreview'] = t['lastMessagePreview'][:50] + '...'
+                
     return jsonify({
         'success': True,
         'threads': threads
@@ -678,17 +698,37 @@ def send_student_message():
     user_id = get_jwt_identity()
     data = request.json or {}
     recipient_id = data.get('recipient_id')
+    recipient_type = data.get('recipient_type') or 'teacher'
     content = data.get('content')
     
     if not recipient_id or not content:
         return jsonify({'success': False, 'message': 'Missing recipient or content'}), 400
         
     from app.services.message_service import MessageService
+    from app.models.user import User
+    
+    recipient_user_id = int(recipient_id)
+    recipient_role = recipient_type
+    
+    # Resolve parent profiles to user_id
+    if recipient_type == 'parent':
+        from app.models.parent import Parent
+        parent = Parent.query.get(recipient_user_id)
+        if parent and parent.user_id:
+            recipient_user_id = parent.user_id
+            recipient_role = 'parent'
+            
+    recipient_user = User.query.get(recipient_user_id)
+    if not recipient_user:
+        return jsonify({'success': False, 'message': 'Recipient not found'}), 404
+        
+    recipient_role = MessageService._get_user_type(recipient_user)
+    
     try:
         msg = MessageService.create_message({
             'sender_id': int(user_id),
-            'recipient_id': recipient_id,
-            'recipient_type': 'teacher',
+            'recipient_id': recipient_user_id,
+            'recipient_type': recipient_role,
             'subject': 'Direct Message',
             'content': content
         })

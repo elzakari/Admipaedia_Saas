@@ -174,4 +174,5 @@ from app.models.service_tokens import (
 
 # Messaging Notifications
 from app.models.notification_log import NotificationLog
+from app.models.attachment import Attachment
 

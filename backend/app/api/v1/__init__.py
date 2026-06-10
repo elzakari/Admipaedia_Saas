@@ -110,7 +110,13 @@ api_v1_bp.register_blueprint(competencies_bp, url_prefix='/competencies')
 api_v1_bp.register_blueprint(curriculum_bp, url_prefix='/curriculum')
 
 # Register RBAC and messaging blueprints
+from .attachments.routes import attachments_bp
+from .admin_communication.routes import admin_comm_bp
+api_v1_bp.register_blueprint(attachments_bp, url_prefix='/attachments')
+api_v1_bp.register_blueprint(admin_comm_bp, url_prefix='/admin-communication')
 api_v1_bp.register_blueprint(messages_bp, url_prefix='/messages')
+
+
 api_v1_bp.register_blueprint(users_bp, url_prefix='/users')
 api_v1_bp.register_blueprint(rbac_bp, url_prefix='/rbac')
 api_v1_bp.register_blueprint(staff_bp, url_prefix='/staff')
