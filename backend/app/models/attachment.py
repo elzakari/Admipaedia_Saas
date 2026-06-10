@@ -4,6 +4,8 @@ from app.extensions import db
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
+from sqlalchemy.dialects.postgresql import UUID
+
 class Attachment(db.Model):
     __tablename__ = 'attachments'
     
@@ -13,7 +15,7 @@ class Attachment(db.Model):
     size = db.Column(db.Integer, nullable=True)
     mime_type = db.Column(db.String(100), nullable=True)
     uploader_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=True)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tenants.id'), nullable=True)
     entity_type = db.Column(db.String(50), nullable=True)  # 'message', 'notification', 'assignment', 'announcement'
     entity_id = db.Column(db.String(50), nullable=True)  # Associated entity's ID
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
