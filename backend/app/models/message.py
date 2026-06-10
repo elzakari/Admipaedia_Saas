@@ -63,6 +63,49 @@ class Message(db.Model):
         
         db.session.commit()
     
+    def recipient_user_ids(self):
+        """
+        Dynamically resolve recipient user IDs (useful if recipient is a group/class or
+        resolves parent/student IDs related to the message).
+        """
+        if self.recipient_type == 'class':
+            from app.models.student import Student
+            from app.models.parent import Parent
+            class_id = self.recipient_id
+            students = Student.query.filter_by(class_id=class_id).all()
+            recipients = set()
+            for s in students:
+                if s.user_id:
+                    recipients.add(s.user_id)
+                if s.parent_id:
+                    parent = Parent.query.get(s.parent_id)
+                    if parent and parent.user_id:
+                        recipients.add(parent.user_id)
+            return list(recipients)
+        elif self.recipient_type == 'student':
+            from app.models.student import Student
+            from app.models.parent import Parent
+            res = [self.recipient_id]
+            student = Student.query.filter_by(user_id=self.recipient_id).first()
+            if student and student.parent_id:
+                parent = Parent.query.get(student.parent_id)
+                if parent and parent.user_id:
+                    res.append(parent.user_id)
+            return list(set(res))
+        elif self.recipient_type == 'parent':
+            from app.models.parent import Parent
+            from app.models.student import Student
+            res = [self.recipient_id]
+            parent = Parent.query.filter_by(user_id=self.recipient_id).first()
+            if parent:
+                students = Student.query.filter_by(parent_id=parent.id).all()
+                for s in students:
+                    if s.user_id:
+                        res.append(s.user_id)
+            return list(set(res))
+        else:
+            return [self.recipient_id]
+
     def mark_as_read(self):
         """Mark message as read"""
         self.is_read = True
