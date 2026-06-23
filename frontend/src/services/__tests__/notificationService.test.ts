@@ -164,4 +164,29 @@ describe('notificationService', () => {
       })
     );
   });
+
+  it('calls the backend notification state routes for unread, star, archive, and delete', async () => {
+    mockApi.patch.mockResolvedValue({ data: { success: true } });
+    mockApi.delete.mockResolvedValue({ data: { success: true } });
+
+    await notificationService.markAsUnread(['10']);
+    await notificationService.markAsStarred(['10'], true);
+    await notificationService.archiveNotifications(['10']);
+    await notificationService.deleteNotifications(['10']);
+
+    expect(mockApi.patch).toHaveBeenCalledWith('/notifications/mark-unread', {
+      notification_ids: ['10'],
+    });
+    expect(mockApi.patch).toHaveBeenCalledWith('/notifications/star', {
+      notification_ids: ['10'],
+      starred: true,
+    });
+    expect(mockApi.patch).toHaveBeenCalledWith('/notifications/archive', {
+      notification_ids: ['10'],
+      archived: true,
+    });
+    expect(mockApi.delete).toHaveBeenCalledWith('/notifications/delete', {
+      data: { notification_ids: ['10'] },
+    });
+  });
 });

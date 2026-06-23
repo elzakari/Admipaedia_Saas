@@ -1553,7 +1553,7 @@ class TestADMIWorkflowAndRelationshipAudit:
 
     def test_notifications_mark_read_scoped_to_current_user(self, client, db_session, sample_tenant):
         from flask_jwt_extended import create_access_token
-        from app.models.dashboard import Notification
+        from app.models.dashboard import Notification, NotificationUserState
         
         user1 = User(username='notif_u1', email='notif_u1@example.com', role='student')
         user1.set_password('Password123!')
@@ -1588,6 +1588,10 @@ class TestADMIWorkflowAndRelationshipAudit:
         
         db_session.refresh(n2)
         assert n2.read is False
+        assert NotificationUserState.query.filter_by(
+            notification_id=n2.id,
+            user_id=user1.id
+        ).first() is None
         
         response = client.patch(
             '/api/v1/notifications/mark-read',
@@ -1598,12 +1602,16 @@ class TestADMIWorkflowAndRelationshipAudit:
         )
         assert response.status_code == 200
         assert response.get_json()['updated_count'] == 1
-        db_session.refresh(n1)
-        assert n1.read is True
+        state = NotificationUserState.query.filter_by(
+            notification_id=n1.id,
+            user_id=user1.id
+        ).first()
+        assert state is not None
+        assert state.is_read is True
 
     def test_notifications_mark_read_allows_role_scoped_notifications(self, client, db_session, sample_tenant):
         from flask_jwt_extended import create_access_token
-        from app.models.dashboard import Notification
+        from app.models.dashboard import Notification, NotificationUserState
 
         student_user = User(username='notif_student', email='notif_student@example.com', role='student')
         student_user.set_password('Password123!')
@@ -1645,10 +1653,17 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert response.status_code == 200
         assert response.get_json()['updated_count'] == 1
 
-        db_session.refresh(role_scoped)
-        db_session.refresh(other_scope)
-        assert role_scoped.read is True
-        assert other_scope.read is False
+        role_state = NotificationUserState.query.filter_by(
+            notification_id=role_scoped.id,
+            user_id=student_user.id
+        ).first()
+        other_state = NotificationUserState.query.filter_by(
+            notification_id=other_scope.id,
+            user_id=student_user.id
+        ).first()
+        assert role_state is not None
+        assert role_state.is_read is True
+        assert other_state is None
 
     def test_notifications_list_excludes_other_users_private_notifications(self, client, db_session, sample_tenant):
         from flask_jwt_extended import create_access_token
@@ -1698,6 +1713,79 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert 'Private U1' in titles
         assert 'Student Notice' in titles
         assert 'Private U2' not in titles
+
+    def test_notifications_user_state_actions_are_user_specific(self, client, db_session, sample_tenant):
+        from flask_jwt_extended import create_access_token
+        from app.models.dashboard import Notification
+
+        user1 = User(username='notif_state_u1', email='notif_state_u1@example.com', role='student')
+        user1.set_password('Password123!')
+        user2 = User(username='notif_state_u2', email='notif_state_u2@example.com', role='student')
+        user2.set_password('Password123!')
+        db_session.add_all([user1, user2])
+        db_session.flush()
+
+        shared_notification = Notification(
+            title='Shared Student Notice',
+            message='Visible to all students',
+            type='info',
+            scope='students'
+        )
+        db_session.add(shared_notification)
+        db_session.commit()
+
+        user1_headers = {
+            'Authorization': f'Bearer {create_access_token(identity=user1.id)}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+        user2_headers = {
+            'Authorization': f'Bearer {create_access_token(identity=user2.id)}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.patch(
+            '/api/v1/notifications/star',
+            headers=user1_headers,
+            json={'notification_ids': [shared_notification.id], 'starred': True}
+        )
+        assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 1
+
+        response = client.patch(
+            '/api/v1/notifications/archive',
+            headers=user1_headers,
+            json={'notification_ids': [shared_notification.id], 'archived': True}
+        )
+        assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 1
+
+        response = client.get('/api/v1/notifications?archived=true', headers=user1_headers)
+        assert response.status_code == 200
+        archived_items = response.get_json()['data']
+        assert len(archived_items) == 1
+        assert archived_items[0]['id'] == shared_notification.id
+        assert archived_items[0]['is_starred'] is True
+        assert archived_items[0]['is_archived'] is True
+
+        response = client.delete(
+            '/api/v1/notifications/delete',
+            headers=user1_headers,
+            json={'notification_ids': [shared_notification.id]}
+        )
+        assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 1
+
+        response = client.get('/api/v1/notifications', headers=user1_headers)
+        assert response.status_code == 200
+        assert response.get_json()['data'] == []
+
+        response = client.get('/api/v1/notifications', headers=user2_headers)
+        assert response.status_code == 200
+        visible_items = response.get_json()['data']
+        assert len(visible_items) == 1
+        assert visible_items[0]['id'] == shared_notification.id
+        assert visible_items[0]['is_starred'] is False
+        assert visible_items[0]['is_archived'] is False
 
     def test_socket_failure_does_not_rollback_db(self, db_session, sample_class, sample_teacher):
         from unittest.mock import patch

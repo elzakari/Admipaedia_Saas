@@ -11,7 +11,7 @@ import {
   Bell, BellRing, Search, Filter, Settings, 
   MessageSquare, Megaphone, AlertTriangle, 
   CheckCircle, Clock,
-  Volume2, VolumeX,
+  Volume2, VolumeX, Star, Archive, Trash2,
   Calendar, Users, BookOpen, DollarSign,
   TrendingUp, Activity, Zap, Shield
 } from 'lucide-react';
@@ -110,9 +110,11 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
 
   // Fetch notifications with advanced filtering
   const { data: notificationsData, isLoading, error } = useQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: ['notifications', user?.id, activeTab],
     queryFn: () => notificationService.getNotifications({
       user_id: user?.id,
+      archived: activeTab === 'archived' ? true : false,
+      starred: activeTab === 'starred' ? true : undefined,
     }),
     enabled: !!user?.id,
     refetchInterval: enableRealTime ? 30000 : 60000,
@@ -130,6 +132,39 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
   // Mutations for notification actions
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds: string[]) => notificationService.markAsRead(notificationIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+    }
+  });
+
+  const markAsUnreadMutation = useMutation({
+    mutationFn: (notificationIds: string[]) => notificationService.markAsUnread(notificationIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+    }
+  });
+
+  const markAsStarredMutation = useMutation({
+    mutationFn: ({ notificationIds, starred }: { notificationIds: string[]; starred: boolean }) =>
+      notificationService.markAsStarred(notificationIds, starred),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    }
+  });
+
+  const archiveNotificationsMutation = useMutation({
+    mutationFn: ({ notificationIds, archived }: { notificationIds: string[]; archived: boolean }) =>
+      notificationService.archiveNotifications(notificationIds, archived),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+    }
+  });
+
+  const deleteNotificationsMutation = useMutation({
+    mutationFn: (notificationIds: string[]) => notificationService.deleteNotifications(notificationIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
@@ -180,6 +215,14 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
 
     if (activeTab === 'unread') {
       filtered = filtered.filter((notif) => !notif.is_read);
+    }
+
+    if (activeTab === 'starred') {
+      filtered = filtered.filter((notif) => notif.is_starred);
+    }
+
+    if (activeTab === 'archived') {
+      filtered = filtered.filter((notif) => notif.is_archived);
     }
 
     if (filterCategory !== 'all') {
@@ -256,6 +299,24 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
     switch (action) {
       case 'mark_read':
         markAsReadMutation.mutate(selectedNotifications);
+        break;
+      case 'mark_unread':
+        markAsUnreadMutation.mutate(selectedNotifications);
+        break;
+      case 'star':
+        markAsStarredMutation.mutate({ notificationIds: selectedNotifications, starred: true });
+        break;
+      case 'unstar':
+        markAsStarredMutation.mutate({ notificationIds: selectedNotifications, starred: false });
+        break;
+      case 'archive':
+        archiveNotificationsMutation.mutate({ notificationIds: selectedNotifications, archived: true });
+        break;
+      case 'unarchive':
+        archiveNotificationsMutation.mutate({ notificationIds: selectedNotifications, archived: false });
+        break;
+      case 'delete':
+        deleteNotificationsMutation.mutate(selectedNotifications);
         break;
     }
     
@@ -365,7 +426,45 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
               <span className="text-xs text-gray-500">
                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
               </span>
-              
+
+              <div className="flex items-center space-x-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAsStarredMutation.mutate({
+                      notificationIds: [notification.id],
+                      starred: !notification.is_starred
+                    });
+                  }}
+                >
+                  <Star className={`w-3 h-3 ${notification.is_starred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    archiveNotificationsMutation.mutate({
+                      notificationIds: [notification.id],
+                      archived: !notification.is_archived
+                    });
+                  }}
+                >
+                  <Archive className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteNotificationsMutation.mutate([notification.id]);
+                  }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -523,10 +622,27 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
                 <span className="text-sm font-medium">
                   {selectedNotifications.length} notification(s) selected
                 </span>
-                <Button size="sm" onClick={() => handleBulkAction('mark_read')}>
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Mark Read
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => handleBulkAction('mark_read')}>
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Mark Read
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('mark_unread')}>
+                    Mark Unread
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('star')}>
+                    <Star className="w-4 h-4 mr-1" />
+                    Star
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('archive')}>
+                    <Archive className="w-4 h-4 mr-1" />
+                    Archive
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleBulkAction('delete')}>
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -534,9 +650,11 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
           {/* Notification tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
             <div className="px-6 border-b">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="unread">Unread</TabsTrigger>
+                <TabsTrigger value="starred">Starred</TabsTrigger>
+                <TabsTrigger value="archived">Archived</TabsTrigger>
               </TabsList>
             </div>
 
@@ -591,6 +709,40 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
                   <div className="text-center py-8">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
                     <p className="text-gray-600">All caught up! No unread notifications.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {filteredNotifications.map(renderNotificationItem)}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="starred" className="mt-0 h-full">
+              <div className="p-6" style={{ maxHeight: 'calc(100% - 200px)', overflowY: 'auto' }}>
+                {filteredNotifications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Star className="w-12 h-12 mx-auto mb-4 text-yellow-400" />
+                    <p className="text-gray-600">No starred notifications</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {filteredNotifications.map(renderNotificationItem)}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="archived" className="mt-0 h-full">
+              <div className="p-6" style={{ maxHeight: 'calc(100% - 200px)', overflowY: 'auto' }}>
+                {filteredNotifications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Archive className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-600">No archived notifications</p>
                   </div>
                 ) : (
                   <div className="space-y-3">

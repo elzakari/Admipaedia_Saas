@@ -91,7 +91,7 @@ const StudentCalendarPage: React.FC = () => {
                       </div>
                       {e.type && (
                         <div className="text-xs uppercase font-bold tracking-wider opacity-70">
-                          {t(`calendar.categories.${e.type}`, e.type)}
+                          {String(t(`calendar.categories.${e.type}`, e.type))}
                         </div>
                       )}
                     </div>

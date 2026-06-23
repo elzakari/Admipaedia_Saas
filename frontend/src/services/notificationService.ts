@@ -176,22 +176,42 @@ const notificationService = {
 
   // Mark notifications as unread
   markAsUnread: async (notificationIds: string[]): Promise<void> => {
-    console.warn('markAsUnread is not supported by the current backend notifications API.', notificationIds);
+    try {
+      await api.patch('/notifications/mark-unread', { notification_ids: notificationIds });
+    } catch (error) {
+      console.error('Failed to mark notifications as unread:', error);
+      throw error;
+    }
   },
 
   // Mark notifications as starred
   markAsStarred: async (notificationIds: string[], starred: boolean): Promise<void> => {
-    console.warn('markAsStarred is not supported by the current backend notifications API.', { notificationIds, starred });
+    try {
+      await api.patch('/notifications/star', { notification_ids: notificationIds, starred });
+    } catch (error) {
+      console.error('Failed to update starred notifications:', error);
+      throw error;
+    }
   },
 
   // Archive notifications
-  archiveNotifications: async (notificationIds: string[]): Promise<void> => {
-    console.warn('archiveNotifications is not supported by the current backend notifications API.', notificationIds);
+  archiveNotifications: async (notificationIds: string[], archived: boolean = true): Promise<void> => {
+    try {
+      await api.patch('/notifications/archive', { notification_ids: notificationIds, archived });
+    } catch (error) {
+      console.error('Failed to archive notifications:', error);
+      throw error;
+    }
   },
 
   // Delete notifications
   deleteNotifications: async (notificationIds: string[]): Promise<void> => {
-    console.warn('deleteNotifications is not supported by the current backend notifications API.', notificationIds);
+    try {
+      await api.delete('/notifications/delete', { data: { notification_ids: notificationIds } });
+    } catch (error) {
+      console.error('Failed to delete notifications:', error);
+      throw error;
+    }
   },
 
   // Get notification by ID

@@ -23,7 +23,7 @@ export default function AdministrationGate({ element }: AdministrationGateProps)
   }
 
   // Gracefully handle null tenant states when the user holds administrative credentials
-  const isUserAdmin = user?.role === 'superadmin' || user?.role === 'super_admin' || user?.role === 'school_admin';
+  const isUserAdmin = user?.role === 'super_admin' || user?.role === 'school_admin';
   if (!current && isUserAdmin) {
     return element;
   }

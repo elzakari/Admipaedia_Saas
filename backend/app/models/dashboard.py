@@ -66,3 +66,40 @@ class Notification(db.Model):
     
     user = db.relationship('User', backref=db.backref('notifications', lazy=True), foreign_keys=[user_id])
     recipient = db.relationship('User', backref=db.backref('received_notifications', lazy=True), foreign_keys=[recipient_id])
+
+
+class NotificationUserState(db.Model):
+    """Per-user state overlay for shared notification records."""
+    __tablename__ = 'notification_user_states'
+
+    id = db.Column(db.Integer, primary_key=True)
+    notification_id = db.Column(db.Integer, db.ForeignKey('notifications.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+    is_starred = db.Column(db.Boolean, default=False, nullable=False)
+    starred_at = db.Column(db.DateTime, nullable=True)
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    archived_at = db.Column(db.DateTime, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'notification_id',
+            'user_id',
+            name='uq_notification_user_states_notification_user'
+        ),
+    )
+
+    notification = db.relationship(
+        'Notification',
+        backref=db.backref('user_states', lazy='dynamic', cascade='all, delete-orphan')
+    )
+    user = db.relationship(
+        'User',
+        backref=db.backref('notification_states', lazy=True),
+        foreign_keys=[user_id]
+    )

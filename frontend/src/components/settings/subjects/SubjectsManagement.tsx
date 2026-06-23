@@ -15,6 +15,7 @@ import { Subject, SubjectFilters } from '../../../types/subject.types'
 import { Plus, Edit, Trash2, Eye, RefreshCw } from 'lucide-react'
 
 const PAGE_SIZES = [10, 25, 50, 100]
+type SubjectFormData = Partial<Subject> & { department_id?: number }
 
 export default function SubjectsManagement() {
   const { t } = useTranslation()
@@ -241,7 +242,7 @@ export default function SubjectsManagement() {
   )
 }
 
-function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Subject | null; onSubmit: (data: Partial<Subject>) => void; onCancel: () => void; submitting: boolean }) {
+function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Subject | null; onSubmit: (data: SubjectFormData) => void; onCancel: () => void; submitting: boolean }) {
   const { t } = useTranslation()
   const { data: disciplines = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['academic-structures', 'discipline'],
@@ -251,7 +252,7 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
     },
     staleTime: 5 * 60 * 1000,
   })
-  const [data, setData] = useState<Partial<Subject>>({
+  const [data, setData] = useState<SubjectFormData>({
     name: editing?.name || '',
     code: editing?.code || '',
     description: editing?.description || '',
