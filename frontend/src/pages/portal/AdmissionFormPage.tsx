@@ -30,6 +30,7 @@ import {
   DialogFooter,
   DialogDescription
 } from '../../components/ui/dialog';
+import { buildParentAdmissionSubmitPath, canManageAdmissions } from './admissionsRoles';
 
 // 🌟 Refined Frontend Preview Generator
 const formatPreviewUsername = (firstName: string, lastName: string, serialNum: number) => {
@@ -47,7 +48,7 @@ const AdmissionFormPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = canManageAdmissions(user?.role);
   const isParent = user?.role === 'parent';
   const [currentStep, setCurrentStep] = useState(1);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -111,7 +112,7 @@ const AdmissionFormPage: React.FC = () => {
   // Mutation to submit form
   const submitFormMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.patch(`/saas/admissions/${id}/status`, { status: 'submitted', form_data: data });
+      const response = await api.post(buildParentAdmissionSubmitPath(id as string), { form_data: data });
       return response.data;
     },
     onSuccess: () => {

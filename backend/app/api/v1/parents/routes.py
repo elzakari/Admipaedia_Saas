@@ -434,18 +434,18 @@ def get_child_grades(child_id):
         # Get grade records
         from app.services.grade_service import GradeService
         
-        grades, total = GradeService.get_student_grades(
+        paginated = GradeService.get_student_grades(
             child_id, page=page, per_page=per_page, subject_id=subject_id
         )
         
         return success_response(
             data={
-                'grades': grades_schema.dump(grades),
+                'grades': grades_schema.dump(paginated.items),
                 'pagination': {
                     'page': page,
                     'per_page': per_page,
-                    'total': total,
-                    'pages': (total + per_page - 1) // per_page
+                    'total': paginated.total,
+                    'pages': paginated.pages
                 }
             },
             message="Grade records retrieved successfully"

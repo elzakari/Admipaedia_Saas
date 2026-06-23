@@ -158,11 +158,14 @@ function DashboardTab({
     const childId = Number(currentChild?.id);
     if (!Number.isFinite(childId) || childId <= 0) return;
 
-    const unsubscribeNotification = subscribe('notification', (payload: any) => {
-      if (payload?.data?.studentId === childId) {
-        handleNotification(payload.data);
-      }
-    });
+    const handleSocketNotification = (payload: any) => {
+      const notification = payload?.data ?? payload;
+      if (!notification) return;
+      handleNotification(notification);
+    };
+
+    const unsubscribeNotificationCreated = subscribe('notification_created', handleSocketNotification);
+    const unsubscribeNewNotification = subscribe('new_notification', handleSocketNotification);
 
     const unsubscribeCallbacks = [
       subscribe('academic_update', () => refetch()),
@@ -174,7 +177,8 @@ function DashboardTab({
     ];
 
     return () => {
-      unsubscribeNotification();
+      unsubscribeNotificationCreated();
+      unsubscribeNewNotification();
       unsubscribeCallbacks.forEach(unsub => unsub());
     };
   }, [currentChild?.id, subscribe, refetch]);

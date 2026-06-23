@@ -4,15 +4,15 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import {
-  Bell, Search, Clock, Trash2, ArrowLeft, Paperclip, Download,
+  Bell, Search, Clock, ArrowLeft, Paperclip, Download,
   MessageSquare, Megaphone, AlertTriangle, CheckCircle,
   BookOpen, Calendar, Award, DollarSign, Cpu, History
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
-import { useWebSocket } from '../../hooks/useWebSocket';
-import { notificationService } from '../../services/notificationService';
-import { announcementService } from '../../services/announcementService';
+import { useWebSocket } from '../../services/websocketService';
+import notificationService, { NotificationItem } from '../../services/notificationService';
+import announcementService from '../../services/announcementService';
 import { toast } from 'sonner';
 
 interface AttachmentItem {
@@ -23,22 +23,15 @@ interface AttachmentItem {
   download_url: string;
 }
 
-interface Notification {
-  id: string | number;
-  title: string;
-  message: string;
-  type: string;
-  priority: string;
+type Notification = NotificationItem & {
   read: boolean;
-  is_read: boolean;
-  created_at: string;
   time?: string;
   scope?: string;
   related_entity_type?: string;
   related_entity_id?: string | number;
   action_url?: string;
   attachments?: AttachmentItem[];
-}
+};
 
 interface NotificationCenterProps {
   className?: string;
@@ -65,12 +58,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const isTeacher = user?.role === 'teacher';
 
   // WebSocket connection for real-time notifications
-  const { socket, isConnected } = useWebSocket('/notifications', {
-    onConnect: () => {
-      socket?.emit('join_notification_room', { user_id: user?.id });
-    },
+  const { isConnected } = useWebSocket('/notifications', {
     onMessage: (event, data) => {
-      if (event === 'new_notification') {
+      if (event === 'new_notification' || event === 'notification_created') {
         queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         toast.info(data.title || 'New Notification Received');
       }
@@ -81,8 +71,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const { data: notificationsData, isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
-      const response = await notificationService.getNotifications({ user_id: user?.id });
-      return response.data || response || [];
+      const response = await notificationService.getNotifications();
+      return response || [];
     },
     enabled: !!user?.id,
     refetchInterval: 30000
@@ -110,27 +100,22 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   });
 
-  // Delete notification mutation
-  const deleteNotificationMutation = useMutation({
-    mutationFn: async (id: string | number) => {
-      await notificationService.deleteNotifications([String(id)]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      setSelectedNotif(null);
-      setShowDetailOnMobile(false);
-      toast.success('Notification deleted');
-    }
-  });
-
   const rawNotifications = useMemo(() => {
-    if (Array.isArray(notificationsData)) {
-      return notificationsData;
-    }
-    if (notificationsData && Array.isArray((notificationsData as any).data)) {
-      return (notificationsData as any).data;
-    }
-    return [];
+    return (Array.isArray(notificationsData) ? notificationsData : []).map((notification) => ({
+      ...notification,
+      read: notification.is_read,
+      scope: String(notification.metadata?.scope || ''),
+      related_entity_type: typeof notification.metadata?.related_entity_type === 'string'
+        ? notification.metadata.related_entity_type
+        : undefined,
+      related_entity_id: typeof notification.metadata?.related_entity_id === 'string' || typeof notification.metadata?.related_entity_id === 'number'
+        ? notification.metadata.related_entity_id
+        : undefined,
+      action_url: typeof notification.metadata?.url === 'string' ? notification.metadata.url : undefined,
+      attachments: Array.isArray(notification.metadata?.attachments)
+        ? notification.metadata.attachments as AttachmentItem[]
+        : [],
+    }));
   }, [notificationsData]);
 
   // Dynamic grouping and type resolution logic
@@ -421,14 +406,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 {getPriorityBadge(selectedNotif.priority)}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteNotificationMutation.mutate(selectedNotif.id)}
-                  className="text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
               </div>
             </div>
 

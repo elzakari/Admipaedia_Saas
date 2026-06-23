@@ -16,8 +16,7 @@ const TeacherNotificationsPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await notificationService.getNotifications();
-      const list = (res as any)?.data || (res as any)?.notifications || [];
-      setNotifications(list);
+      setNotifications(Array.isArray(res) ? res : []);
     } catch (err: any) {
       setError(err.message || 'Failed to load notifications.');
     } finally {

@@ -1,11 +1,49 @@
 from flask_socketio import Namespace, emit, join_room, leave_room
-from flask import request
+from flask import current_app, request
 from flask_jwt_extended import decode_token
 import logging
-import os
-import jwt as pyjwt
+
+from app.models.session_token import SessionToken
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_socket_token(auth):
+    token = None
+    if isinstance(auth, dict):
+        token = auth.get('token')
+    if not token:
+        token = request.args.get('token')
+    if not token:
+        header = request.headers.get('Authorization')
+        if header and header.lower().startswith('bearer '):
+            token = header.split(' ', 1)[1].strip()
+
+    if isinstance(token, str) and token.lower().startswith('bearer '):
+        token = token.split(' ', 1)[1].strip()
+
+    return token
+
+
+def _resolve_socket_user_id(token):
+    if not token:
+        raise ValueError('Missing token')
+
+    payload = decode_token(token)
+    user_id = payload.get('sub')
+    if user_id is None:
+        raise ValueError('Missing token subject')
+
+    if not current_app.config.get('TESTING'):
+        jti = payload.get('jti')
+        if not jti:
+            raise ValueError('Missing token identifier')
+
+        session_token = SessionToken.find_by_jti(jti)
+        if session_token is None or not session_token.is_valid:
+            raise ValueError('Revoked or unknown session token')
+
+    return int(user_id)
 
 class NotificationsNamespace(Namespace):
     def __init__(self, namespace=None):
@@ -15,33 +53,12 @@ class NotificationsNamespace(Namespace):
     def on_connect(self, auth=None):
         """Handle client connection to notifications namespace"""
         try:
-            token = None
-            if isinstance(auth, dict):
-                token = auth.get('token')
-            if not token:
-                token = request.args.get('token')
-            if not token:
-                header = request.headers.get('Authorization')
-                if header and header.lower().startswith('bearer '):
-                    token = header.split(' ', 1)[1].strip()
-
+            token = _extract_socket_token(auth)
             if not token:
                 emit('error', {'message': 'Authentication failed'})
                 return False
 
-            if isinstance(token, str) and token.lower().startswith('bearer '):
-                token = token.split(' ', 1)[1].strip()
-
-            try:
-                payload = decode_token(token)
-            except Exception:
-                secret = os.environ.get('JWT_SECRET_KEY', 'dev-jwt-key-change-me')
-                payload = pyjwt.decode(token, secret, algorithms=['HS256'], options={"verify_aud": False})
-
-            user_id = payload.get('sub')
-            if user_id is None:
-                emit('error', {'message': 'Authentication failed'})
-                return False
+            user_id = _resolve_socket_user_id(token)
 
             try:
                 sid = request.sid
@@ -49,15 +66,15 @@ class NotificationsNamespace(Namespace):
                 sid = None
 
             if sid:
-                self._connected[sid] = int(user_id)
+                self._connected[sid] = user_id
             
             # Join user-specific room for targeted notifications
-            join_room(f"user_{int(user_id)}")
+            join_room(f"user_{user_id}")
             
             logger.info(f"User {user_id} connected to notifications")
             emit('connected', {
                 'message': 'Connected to notifications',
-                'user_id': int(user_id)
+                'user_id': user_id
             })
             
         except Exception as e:

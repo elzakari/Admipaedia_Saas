@@ -16,9 +16,10 @@ export interface Subject {
 
 export interface SubjectCreate {
   name: string;
-  code: string;
+  code?: string;
   description?: string;
   department?: string;
+  department_id?: number | null;
   credit_hours?: number;
   is_active?: boolean;
 }
@@ -28,6 +29,7 @@ export interface SubjectUpdate {
   code?: string;
   description?: string;
   department?: string;
+  department_id?: number | null;
   credit_hours?: number;
   is_active?: boolean;
 }

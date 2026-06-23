@@ -144,6 +144,7 @@ def get_recipients():
 
 @messages_bp.route('', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def get_messages():
     """Get messages with pagination and filtering"""
@@ -162,7 +163,8 @@ def get_messages():
             folder=folder,
             is_read=is_read,
             page=page,
-            per_page=per_page
+            per_page=per_page,
+            tenant_id=g.tenant_id,
         )
         
         return paginated_response(
@@ -178,13 +180,14 @@ def get_messages():
 
 @messages_bp.route('/<int:message_id>', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def get_message(message_id):
     """Get a specific message by ID"""
     try:
         current_user_id = get_jwt_identity()
         
-        message = MessageService.get_message_by_id(message_id, current_user_id)
+        message = MessageService.get_message_by_id(message_id, current_user_id, tenant_id=g.tenant_id)
         if not message:
             return error_response(message="Message not found", status_code=404)
         
@@ -203,6 +206,7 @@ def get_message(message_id):
 
 @messages_bp.route('', methods=['POST'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def create_message():
     """Create a new message"""
@@ -229,7 +233,7 @@ def create_message():
         validated_data['sender_id'] = current_user_id
         
         # Create message
-        message = MessageService.create_message(validated_data)
+        message = MessageService.create_message(validated_data, tenant_id=g.tenant_id)
         
         return success_response(
             data=message_schema.dump(message),
@@ -245,6 +249,7 @@ def create_message():
 
 @messages_bp.route('/send', methods=['POST'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def send_message_http():
     """Send a message via HTTP POST, committing to DB first and then emitting realtime event."""
@@ -271,7 +276,7 @@ def send_message_http():
         validated_data['sender_id'] = current_user_id
         
         # Create message (commits to DB inside MessageService.create_message)
-        message = MessageService.create_message(validated_data)
+        message = MessageService.create_message(validated_data, tenant_id=g.tenant_id)
         
         return success_response(
             data=message_schema.dump(message),
@@ -287,6 +292,7 @@ def send_message_http():
 
 @messages_bp.route('/bulk', methods=['POST'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def create_bulk_message():
     """Create bulk messages to multiple recipients"""
@@ -310,7 +316,7 @@ def create_bulk_message():
         data['sender_id'] = current_user_id
         
         # Create bulk messages
-        count = MessageService.create_bulk_message(data)
+        count = MessageService.create_bulk_message(data, tenant_id=g.tenant_id)
         
         return success_response(
             data={'count': count},
@@ -326,6 +332,7 @@ def create_bulk_message():
 
 @messages_bp.route('/<int:message_id>', methods=['PUT'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def update_message(message_id):
     """Update a message (mainly for marking as read/unread)"""
@@ -340,7 +347,7 @@ def update_message(message_id):
             return error_response(message="Validation error", errors=err.messages, status_code=400)
         
         # Update message
-        message = MessageService.update_message(message_id, current_user_id, validated_data)
+        message = MessageService.update_message(message_id, current_user_id, validated_data, tenant_id=g.tenant_id)
         if not message:
             return error_response(message="Message not found or access denied", status_code=404)
         
@@ -354,6 +361,7 @@ def update_message(message_id):
 
 @messages_bp.route('/<int:message_id>', methods=['DELETE'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def delete_message(message_id):
     """Delete a message (move to trash or permanent delete)"""
@@ -361,7 +369,7 @@ def delete_message(message_id):
         current_user_id = get_jwt_identity()
         permanent = request.args.get('permanent', 'false').lower() == 'true'
         
-        success = MessageService.delete_message(message_id, current_user_id, permanent)
+        success = MessageService.delete_message(message_id, current_user_id, permanent, tenant_id=g.tenant_id)
         if not success:
             return error_response(message="Message not found or access denied", status_code=404)
         
@@ -373,6 +381,7 @@ def delete_message(message_id):
 
 @messages_bp.route('/<int:message_id>/attachments/<attachment_name>', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_role(['admin', 'teacher', 'student', 'parent', 'user'])
 def download_attachment(message_id, attachment_name):
     """Download a message attachment"""
@@ -380,7 +389,7 @@ def download_attachment(message_id, attachment_name):
         current_user_id = get_jwt_identity()
         
         # Verify user has access to this message
-        message = MessageService.get_message_by_id(message_id, current_user_id)
+        message = MessageService.get_message_by_id(message_id, current_user_id, tenant_id=g.tenant_id)
         if not message:
             return error_response(message="Message not found or access denied", status_code=404)
         

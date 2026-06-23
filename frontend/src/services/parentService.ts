@@ -47,6 +47,14 @@ export interface ParentUpdate {
   status?: 'active' | 'inactive';
 }
 
+const unwrapParentCollection = <T>(responseData: any, key: string): T[] => {
+  return (
+    responseData?.data?.[key] ||
+    responseData?.[key] ||
+    []
+  ) as T[];
+};
+
 // Module: parentService object and helpers
 const parentService = {
   // Get all parents with pagination and filtering
@@ -264,9 +272,23 @@ const parentService = {
   }>> => {
     try {
       const response = await api.get(`/parents/children/${childId}/homework`);
-      return response.data.homework;
+      return unwrapParentCollection(response.data, 'homework');
     } catch (error) {
       console.error(`Error fetching homework data for child ${childId}:`, error);
+      throw error;
+    }
+  },
+
+  getChildGrades: async (childId: number, params?: {
+    page?: number;
+    per_page?: number;
+    subject_id?: number;
+  }): Promise<ParentChildGradeRecord[]> => {
+    try {
+      const response = await api.get(`/parents/children/${childId}/grades`, { params });
+      return unwrapParentCollection<ParentChildGradeRecord>(response.data, 'grades');
+    } catch (error) {
+      console.error(`Error fetching grade data for child ${childId}:`, error);
       throw error;
     }
   },
@@ -289,7 +311,7 @@ const parentService = {
   getParentMessages: async (parentId: number): Promise<MessageData[]> => {
     try {
       const response = await api.get(`/parents/${parentId}/messages`);
-      return response.data.messages;
+      return unwrapParentCollection<MessageData>(response.data, 'messages');
     } catch (error) {
       console.error(`Error fetching messages for parent ${parentId}:`, error);
       throw error;
@@ -302,7 +324,7 @@ const parentService = {
       const response = await api.get(`/parents/${parentId}/messages/recent`, {
         params: { teacherId }
       });
-      return response.data.messages;
+      return unwrapParentCollection<MessageData>(response.data, 'messages');
     } catch (error) {
       console.error(`Error fetching recent messages between parent ${parentId} and teacher ${teacherId}:`, error);
       throw error;
@@ -516,6 +538,25 @@ export interface SchoolEvent {
   date: string;
   type: 'academic' | 'sports' | 'cultural' | 'meeting';
   location?: string;
+}
+
+export interface ParentChildGradeRecord {
+  id: number;
+  exam_id: number;
+  marks_obtained: number;
+  percentage?: number;
+  grade_letter?: string;
+  exam?: {
+    id: number;
+    title: string;
+    exam_date?: string;
+    total_marks?: number;
+    subject?: {
+      id: number;
+      name: string;
+      code?: string;
+    };
+  };
 }
 
 export interface TeacherInfo {

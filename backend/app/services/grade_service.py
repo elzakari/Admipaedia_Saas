@@ -64,7 +64,7 @@ class GradeService:
         return grade
     
     @staticmethod
-    def get_student_grades(student_id, page, per_page):
+    def get_student_grades(student_id, page, per_page, subject_id=None):
         """Get all grades for a specific student."""
         from sqlalchemy.orm import joinedload
         
@@ -73,6 +73,10 @@ class GradeService:
             joinedload(Grade.exam).joinedload(Exam.subject),
             joinedload(Grade.exam).joinedload(Exam.class_)
         ).filter(Grade.student_id == student_id)
+
+        if subject_id is not None:
+            query = query.filter(Grade.subject_id == subject_id)
+
         query = query.join(Exam).order_by(Exam.exam_date.desc())
         return query.paginate(page=page, per_page=per_page, error_out=False)
     

@@ -6,6 +6,7 @@ import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+from sqlalchemy import or_
 from flask import current_app
 from app.extensions import db
 from app.models.notification_log import NotificationLog
@@ -314,3 +315,23 @@ class NotificationService:
                 logger.warning(f"Failed to emit WebSocket for bulk notifications: {str(e)}")
                 
         return notifications
+
+    @staticmethod
+    def mark_as_read(notification_id, user_id):
+        """Mark a single notification as read for the intended recipient."""
+        from app.models.dashboard import Notification
+
+        notification = Notification.query.filter(
+            Notification.id == notification_id,
+            or_(
+                Notification.recipient_id == int(user_id),
+                Notification.user_id == int(user_id),
+            )
+        ).first()
+
+        if not notification:
+            return False
+
+        notification.read = True
+        db.session.commit()
+        return True

@@ -147,6 +147,7 @@ class WebSocketService {
 
 // React hook for WebSocket
 export const useWebSocket = (namespace: string = '/', options?: {
+  enabled?: boolean;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onMessage?: (event: string, data: any) => void;
@@ -157,6 +158,12 @@ export const useWebSocket = (namespace: string = '/', options?: {
   const ws = WebSocketService.getInstance(namespace);
 
   useEffect(() => {
+    if (options?.enabled === false) {
+      setStatus('disconnected');
+      setIsConnected(false);
+      return;
+    }
+
     const unsubscribeStatus = ws.onStatusChange((newStatus) => {
       setStatus(newStatus);
       setIsConnected(newStatus === 'connected');
@@ -190,7 +197,7 @@ export const useWebSocket = (namespace: string = '/', options?: {
       // Note: We don't disconnect globally here as other components might use it
       // we only cleanup listeners.
     };
-  }, [namespace, options?.onConnect, options?.onDisconnect, options?.onMessage]);
+  }, [namespace, options?.enabled, options?.onConnect, options?.onDisconnect, options?.onMessage]);
 
   const subscribe = useCallback((event: string, handler: SubscriptionHandler) => {
     return ws.subscribe(event, handler);

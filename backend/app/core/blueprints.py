@@ -14,10 +14,8 @@ def register_blueprints(app):
     app.register_blueprint(saas_report_bp, url_prefix='/api/v1')
     
     # WebSocket Namespaces
-    from app.websockets import teachers_namespace, notifications_namespace
-    from app.extensions import socketio
-    socketio.on_namespace(teachers_namespace)
-    socketio.on_namespace(notifications_namespace)
+    from app.websockets import register_websocket_namespaces
+    register_websocket_namespaces()
     
     # Root endpoint
     @app.route('/')

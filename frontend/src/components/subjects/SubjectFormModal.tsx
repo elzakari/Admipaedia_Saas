@@ -14,6 +14,7 @@ import { FormValidationProvider } from '../common/FormValidationProvider';
 import { BookOpen, Hash, FileText, Building, Clock, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errorHandling';
 import { academicStructureService } from '@/services/departmentService';
+import type { SubjectCreate, SubjectUpdate } from '@/services/subjectService';
 import type { AcademicStructure } from '@/types/academic_structure.types';
 
 interface SubjectFormModalProps {
@@ -137,7 +138,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
     }
     setIsSubmitting(true);
     try {
-      const payload: Record<string, any> = {
+      const payload: SubjectCreate = {
         name:          formData.name,
         department_id: formData.department_id || null,
         description:   formData.description,
@@ -150,7 +151,8 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
       }
 
       if (subjectData) {
-        await updateSubject.mutateAsync({ id: subjectData.id, data: payload });
+        const updatePayload: SubjectUpdate = payload;
+        await updateSubject.mutateAsync({ id: subjectData.id, data: updatePayload });
         toast.success('Subject updated successfully');
       } else {
         await createSubject.mutateAsync(payload);

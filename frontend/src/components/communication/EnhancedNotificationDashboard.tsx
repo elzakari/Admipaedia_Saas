@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -10,8 +10,8 @@ import { Label } from '../ui/label';
 import {
   Bell, BellRing, Search, Filter, Settings, 
   MessageSquare, Megaphone, AlertTriangle, 
-  CheckCircle, Clock, Trash2, Archive,
-  Volume2, VolumeX, Eye, EyeOff, Star,
+  CheckCircle, Clock,
+  Volume2, VolumeX,
   Calendar, Users, BookOpen, DollarSign,
   TrendingUp, Activity, Zap, Shield
 } from 'lucide-react';
@@ -68,13 +68,7 @@ interface EnhancedNotificationDashboardProps {
   enableRealTime?: boolean;
 }
 
-// Mock WebSocket hook for now
-const useWebSocket = (endpoint: string, options: any) => {
-  return {
-    socket: null,
-    isConnected: false
-  };
-};
+import { useWebSocket } from '../../services/websocketService';
 
 export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboardProps> = ({
   className = '',
@@ -96,14 +90,12 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // WebSocket connection for real-time notifications
-  const { socket, isConnected } = useWebSocket('/notifications', {
+  const { isConnected } = useWebSocket('/notifications', {
     enabled: enableRealTime,
-    onConnect: () => {
-      socket?.emit('join_notification_room', { user_id: user?.id });
-    },
     onMessage: (event: string, data: any) => {
       switch (event) {
         case 'new_notification':
+        case 'notification_created':
           handleNewNotification(data);
           break;
         case 'notification_updated':
@@ -118,13 +110,9 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
 
   // Fetch notifications with advanced filtering
   const { data: notificationsData, isLoading, error } = useQuery({
-    queryKey: ['notifications', user?.id, activeTab, filterCategory, filterPriority],
+    queryKey: ['notifications', user?.id],
     queryFn: () => notificationService.getNotifications({
       user_id: user?.id,
-      category: filterCategory !== 'all' ? filterCategory : undefined,
-      priority: filterPriority !== 'all' ? filterPriority : undefined,
-      archived: activeTab === 'archived',
-      starred: activeTab === 'starred'
     }),
     enabled: !!user?.id,
     refetchInterval: enableRealTime ? 30000 : 60000,
@@ -148,41 +136,9 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
     }
   });
 
-  const markAsStarredMutation = useMutation({
-    mutationFn: ({ notificationIds, starred }: { notificationIds: string[]; starred: boolean }) =>
-      notificationService.markAsStarred(notificationIds, starred),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    }
-  });
-
-  const archiveNotificationsMutation = useMutation({
-    mutationFn: (notificationIds: string[]) => notificationService.archiveNotifications(notificationIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
-      setSelectedNotifications([]);
-    }
-  });
-
-  const deleteNotificationsMutation = useMutation({
-    mutationFn: (notificationIds: string[]) => notificationService.deleteNotifications(notificationIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
-      setSelectedNotifications([]);
-    }
-  });
-
   // Handle new notification from WebSocket
   const handleNewNotification = (notification: NotificationItem) => {
-    queryClient.setQueryData(['notifications'], (oldData: any) => {
-      if (!oldData) return { notifications: [notification] };
-      return {
-        ...oldData,
-        notifications: [notification, ...oldData.notifications]
-      };
-    });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
 
     // Play sound if enabled
     if (soundEnabled && notification.priority === 'urgent') {
@@ -202,30 +158,37 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
   const handleNotificationUpdate = (data: { id: string; updates: Partial<NotificationItem> }) => {
     queryClient.setQueryData(['notifications'], (oldData: any) => {
       if (!oldData) return oldData;
-      return {
-        ...oldData,
-        notifications: oldData.notifications.map((notif: NotificationItem) =>
-          notif.id === data.id ? { ...notif, ...data.updates } : notif
-        )
-      };
+      if (!Array.isArray(oldData)) return oldData;
+      return oldData.map((notif: NotificationItem) =>
+        notif.id === data.id ? { ...notif, ...data.updates } : notif
+      );
     });
   };
 
   const handleBulkNotification = (notifications: NotificationItem[]) => {
     queryClient.setQueryData(['notifications'], (oldData: any) => {
-      if (!oldData) return { notifications };
-      return {
-        ...oldData,
-        notifications: [...notifications, ...oldData.notifications]
-      };
+      if (!oldData) return notifications;
+      if (!Array.isArray(oldData)) return oldData;
+      return [...notifications, ...oldData];
     });
   };
 
   // Filter notifications based on current filters
   const filteredNotifications = useMemo(() => {
-    if (!notificationsData?.notifications) return [];
+    const notifications = Array.isArray(notificationsData) ? notificationsData : [];
+    let filtered = [...notifications];
 
-    let filtered = notificationsData.notifications;
+    if (activeTab === 'unread') {
+      filtered = filtered.filter((notif) => !notif.is_read);
+    }
+
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter((notif) => notif.category === filterCategory);
+    }
+
+    if (filterPriority !== 'all') {
+      filtered = filtered.filter((notif) => notif.priority === filterPriority);
+    }
 
     // Apply search filter
     if (searchQuery) {
@@ -241,7 +204,14 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
     }
 
     return filtered;
-  }, [notificationsData, searchQuery, showUnreadOnly]);
+  }, [
+    notificationsData,
+    activeTab,
+    filterCategory,
+    filterPriority,
+    searchQuery,
+    showUnreadOnly
+  ]);
 
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
@@ -286,21 +256,6 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
     switch (action) {
       case 'mark_read':
         markAsReadMutation.mutate(selectedNotifications);
-        break;
-      case 'mark_unread':
-        // Implementation for mark as unread
-        break;
-      case 'star':
-        markAsStarredMutation.mutate({ notificationIds: selectedNotifications, starred: true });
-        break;
-      case 'unstar':
-        markAsStarredMutation.mutate({ notificationIds: selectedNotifications, starred: false });
-        break;
-      case 'archive':
-        archiveNotificationsMutation.mutate(selectedNotifications);
-        break;
-      case 'delete':
-        deleteNotificationsMutation.mutate(selectedNotifications);
         break;
     }
     
@@ -411,35 +366,6 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
               </span>
               
-              {/* Action buttons */}
-              <div className="flex items-center space-x-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    markAsStarredMutation.mutate({
-                      notificationIds: [notification.id],
-                      starred: !notification.is_starred
-                    });
-                  }}
-                >
-                  <Star className={`w-3 h-3 ${
-                    notification.is_starred ? 'fill-yellow-400 text-yellow-400' : ''
-                  }`} />
-                </Button>
-                
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    archiveNotificationsMutation.mutate([notification.id]);
-                  }}
-                >
-                  <Archive className="w-3 h-3" />
-                </Button>
-              </div>
             </div>
           </div>
 
@@ -597,24 +523,10 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
                 <span className="text-sm font-medium">
                   {selectedNotifications.length} notification(s) selected
                 </span>
-                <div className="flex space-x-2">
-                  <Button size="sm" onClick={() => handleBulkAction('mark_read')}>
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Mark Read
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('star')}>
-                    <Star className="w-4 h-4 mr-1" />
-                    Star
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleBulkAction('archive')}>
-                    <Archive className="w-4 h-4 mr-1" />
-                    Archive
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleBulkAction('delete')}>
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => handleBulkAction('mark_read')}>
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  Mark Read
+                </Button>
               </div>
             )}
           </div>
@@ -622,11 +534,9 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
           {/* Notification tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
             <div className="px-6 border-b">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="unread">Unread</TabsTrigger>
-                <TabsTrigger value="starred">Starred</TabsTrigger>
-                <TabsTrigger value="archived">Archived</TabsTrigger>
               </TabsList>
             </div>
 
@@ -677,7 +587,7 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
 
             <TabsContent value="unread" className="mt-0 h-full">
               <div className="p-6" style={{ maxHeight: 'calc(100% - 200px)', overflowY: 'auto' }}>
-                {filteredNotifications.filter(n => !n.is_read).length === 0 ? (
+                {filteredNotifications.length === 0 ? (
                   <div className="text-center py-8">
                     <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
                     <p className="text-gray-600">All caught up! No unread notifications.</p>
@@ -685,47 +595,7 @@ export const EnhancedNotificationDashboard: React.FC<EnhancedNotificationDashboa
                 ) : (
                   <div className="space-y-3">
                     <AnimatePresence>
-                      {filteredNotifications
-                        .filter(n => !n.is_read)
-                        .map(renderNotificationItem)}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="starred" className="mt-0 h-full">
-              <div className="p-6" style={{ maxHeight: 'calc(100% - 200px)', overflowY: 'auto' }}>
-                {filteredNotifications.filter(n => n.is_starred).length === 0 ? (
-                  <div className="text-center py-8">
-                    <Star className="w-12 h-12 mx-auto mb-4 text-yellow-400" />
-                    <p className="text-gray-600">No starred notifications</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <AnimatePresence>
-                      {filteredNotifications
-                        .filter(n => n.is_starred)
-                        .map(renderNotificationItem)}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="archived" className="mt-0 h-full">
-              <div className="p-6" style={{ maxHeight: 'calc(100% - 200px)', overflowY: 'auto' }}>
-                {filteredNotifications.filter(n => n.is_archived).length === 0 ? (
-                  <div className="text-center py-8">
-                    <Archive className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-600">No archived notifications</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <AnimatePresence>
-                      {filteredNotifications
-                        .filter(n => n.is_archived)
-                        .map(renderNotificationItem)}
+                      {filteredNotifications.map(renderNotificationItem)}
                     </AnimatePresence>
                   </div>
                 )}

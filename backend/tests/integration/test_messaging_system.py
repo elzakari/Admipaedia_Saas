@@ -1584,6 +1584,7 @@ class TestADMIWorkflowAndRelationshipAudit:
             }
         )
         assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 0
         
         db_session.refresh(n2)
         assert n2.read is False
@@ -1596,8 +1597,107 @@ class TestADMIWorkflowAndRelationshipAudit:
             }
         )
         assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 1
         db_session.refresh(n1)
         assert n1.read is True
+
+    def test_notifications_mark_read_allows_role_scoped_notifications(self, client, db_session, sample_tenant):
+        from flask_jwt_extended import create_access_token
+        from app.models.dashboard import Notification
+
+        student_user = User(username='notif_student', email='notif_student@example.com', role='student')
+        student_user.set_password('Password123!')
+        db_session.add(student_user)
+
+        other_user = User(username='notif_parent', email='notif_parent@example.com', role='parent')
+        other_user.set_password('Password123!')
+        db_session.add(other_user)
+        db_session.flush()
+
+        role_scoped = Notification(
+            title='Student Scope',
+            message='Visible to all students',
+            type='info',
+            scope='students'
+        )
+        other_scope = Notification(
+            title='Parent Scope',
+            message='Visible to parents only',
+            type='info',
+            scope='parents'
+        )
+        db_session.add_all([role_scoped, other_scope])
+        db_session.commit()
+
+        token = create_access_token(identity=student_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.patch(
+            '/api/v1/notifications/mark-read',
+            headers=headers,
+            json={
+                'notification_ids': [role_scoped.id, other_scope.id]
+            }
+        )
+        assert response.status_code == 200
+        assert response.get_json()['updated_count'] == 1
+
+        db_session.refresh(role_scoped)
+        db_session.refresh(other_scope)
+        assert role_scoped.read is True
+        assert other_scope.read is False
+
+    def test_notifications_list_excludes_other_users_private_notifications(self, client, db_session, sample_tenant):
+        from flask_jwt_extended import create_access_token
+        from app.models.dashboard import Notification
+
+        user1 = User(username='notif_list_u1', email='notif_list_u1@example.com', role='student')
+        user1.set_password('Password123!')
+        user2 = User(username='notif_list_u2', email='notif_list_u2@example.com', role='student')
+        user2.set_password('Password123!')
+        db_session.add_all([user1, user2])
+        db_session.flush()
+
+        private_u1 = Notification(
+            title='Private U1',
+            message='Only user1 should see this',
+            type='info',
+            recipient_id=user1.id,
+            user_id=user1.id
+        )
+        private_u2 = Notification(
+            title='Private U2',
+            message='Only user2 should see this',
+            type='info',
+            recipient_id=user2.id,
+            user_id=user2.id
+        )
+        scoped_students = Notification(
+            title='Student Notice',
+            message='Visible to students',
+            type='info',
+            scope='students'
+        )
+        db_session.add_all([private_u1, private_u2, scoped_students])
+        db_session.commit()
+
+        token = create_access_token(identity=user1.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.get('/api/v1/notifications', headers=headers)
+        assert response.status_code == 200
+
+        payload = response.get_json()
+        titles = {item['title'] for item in payload['data']}
+        assert 'Private U1' in titles
+        assert 'Student Notice' in titles
+        assert 'Private U2' not in titles
 
     def test_socket_failure_does_not_rollback_db(self, db_session, sample_class, sample_teacher):
         from unittest.mock import patch

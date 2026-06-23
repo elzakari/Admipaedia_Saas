@@ -12,9 +12,45 @@ import logging
 logger = logging.getLogger(__name__)
 
 class MessageService:
+    @staticmethod
+    def _tenant_member_user_ids(tenant_id):
+        if tenant_id is None:
+            return None
+
+        from app.models.tenant import TenantMembership
+
+        return db.session.query(TenantMembership.user_id).filter_by(
+            tenant_id=tenant_id,
+            status='active',
+        )
+
+    @staticmethod
+    def _apply_tenant_scope(query, tenant_id):
+        if tenant_id is None:
+            return query
+
+        tenant_user_ids = MessageService._tenant_member_user_ids(tenant_id)
+        return query.filter(
+            Message.sender_id.in_(tenant_user_ids),
+            Message.recipient_id.in_(tenant_user_ids),
+        )
+
+    @staticmethod
+    def _user_has_tenant_membership(user_id, tenant_id):
+        if tenant_id is None:
+            return True
+
+        from app.models.tenant import TenantMembership
+
+        return TenantMembership.query.filter_by(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            status='active',
+        ).first() is not None
+
     
     @staticmethod
-    def get_user_messages(user_id, folder='inbox', is_read=None, page=1, per_page=20):
+    def get_user_messages(user_id, folder='inbox', is_read=None, page=1, per_page=20, tenant_id=None):
         """Get messages for a user with pagination and filtering"""
         try:
             query = Message.query
@@ -22,6 +58,7 @@ class MessageService:
             # Schema Guard: exclude corrupt/bad rows where sender or recipient do not exist in users table
             query = query.filter(Message.sender_id.in_(db.session.query(User.id)))
             query = query.filter(Message.recipient_id.in_(db.session.query(User.id)))
+            query = MessageService._apply_tenant_scope(query, tenant_id)
             
             if folder == 'inbox':
                 # Messages received by the user (not deleted by recipient)
@@ -89,7 +126,7 @@ class MessageService:
             raise
     
     @staticmethod
-    def get_message_by_id(message_id, user_id):
+    def get_message_by_id(message_id, user_id, tenant_id=None):
         """Get a specific message by ID if user has access"""
         try:
             message = Message.query.filter(
@@ -101,17 +138,26 @@ class MessageService:
                     )
                 )
             ).first()
-            
-            return message
+            if not message:
+                return None
+
+            scoped_query = MessageService._apply_tenant_scope(
+                Message.query.filter(Message.id == message_id),
+                tenant_id,
+            )
+            return scoped_query.first()
             
         except Exception as e:
             logger.error(f"Error getting message by ID: {str(e)}")
             raise
     
     @staticmethod
-    def create_message(data):
+    def create_message(data, tenant_id=None):
         """Create a new message"""
         try:
+            if not MessageService._user_has_tenant_membership(data['sender_id'], tenant_id):
+                raise ValueError("Sender does not have access to this tenant.")
+
             # Handle file attachments
             attachment_paths = []
             if 'attachments' in data and data['attachments']:
@@ -139,14 +185,14 @@ class MessageService:
                     recipient_ref = f"user:{recipient_id}"
             
             # Resolve the recipient ref
-            resolved_recipients, r_type = MessageService.resolve_recipient_ref(recipient_ref)
+            resolved_recipients, r_type = MessageService.resolve_recipient_ref(recipient_ref, tenant_id=tenant_id)
             
             # Validate permissions and existence for each resolved recipient
             for r_id, r_role in resolved_recipients:
                 rec_user = User.query.get(r_id)
                 if not rec_user:
                     raise ValueError(f"Recipient user with ID {r_id} does not exist in users table.")
-                if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
+                if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id, tenant_id=tenant_id):
                     raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
             
             created_messages = []
@@ -169,12 +215,12 @@ class MessageService:
             if attachment_paths:
                 from flask import g
                 from app.models.attachment import Attachment
-                tenant_id = getattr(g, 'tenant_id', None)
-                if not tenant_id and sender:
+                attachment_tenant_id = getattr(g, 'tenant_id', None) or tenant_id
+                if not attachment_tenant_id and sender:
                     from app.models.tenant import TenantMembership
                     membership = TenantMembership.query.filter_by(user_id=sender.id).first()
                     if membership:
-                        tenant_id = membership.tenant_id
+                        attachment_tenant_id = membership.tenant_id
                 
                 for file_path in attachment_paths:
                     filename = os.path.basename(file_path).split('_', 1)[-1] if '_' in os.path.basename(file_path) else os.path.basename(file_path)
@@ -183,7 +229,7 @@ class MessageService:
                             filename=filename,
                             file_path=file_path,
                             uploader_id=data['sender_id'],
-                            tenant_id=tenant_id,
+                            tenant_id=attachment_tenant_id,
                             entity_type='message',
                             entity_id=str(msg.id)
                         )
@@ -216,9 +262,12 @@ class MessageService:
             raise
 
     @staticmethod
-    def create_bulk_message(data):
+    def create_bulk_message(data, tenant_id=None):
         """Create messages to multiple recipients"""
         try:
+            if not MessageService._user_has_tenant_membership(data['sender_id'], tenant_id):
+                raise ValueError("Sender does not have access to this tenant.")
+
             # Handle file attachments
             attachment_paths = []
             if 'attachments' in data and data['attachments']:
@@ -245,12 +294,12 @@ class MessageService:
             
             messages = []
             for ref in recipient_refs:
-                resolved_recipients, r_type = MessageService.resolve_recipient_ref(ref)
+                resolved_recipients, r_type = MessageService.resolve_recipient_ref(ref, tenant_id=tenant_id)
                 for r_id, r_role in resolved_recipients:
                     rec_user = User.query.get(r_id)
                     if not rec_user:
                         raise ValueError(f"Recipient user with ID {r_id} does not exist in users table.")
-                    if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id):
+                    if not MessageService.validate_sender_recipient_relation(data['sender_id'], r_id, tenant_id=tenant_id):
                         raise ValueError(f"Messaging not allowed between sender and recipient {r_id}.")
                     
                     message = Message(
@@ -271,12 +320,12 @@ class MessageService:
             if attachment_paths:
                 from flask import g
                 from app.models.attachment import Attachment
-                tenant_id = getattr(g, 'tenant_id', None)
-                if not tenant_id and sender:
+                attachment_tenant_id = getattr(g, 'tenant_id', None) or tenant_id
+                if not attachment_tenant_id and sender:
                     from app.models.tenant import TenantMembership
                     membership = TenantMembership.query.filter_by(user_id=sender.id).first()
                     if membership:
-                        tenant_id = membership.tenant_id
+                        attachment_tenant_id = membership.tenant_id
                 
                 for file_path in attachment_paths:
                     filename = os.path.basename(file_path).split('_', 1)[-1] if '_' in os.path.basename(file_path) else os.path.basename(file_path)
@@ -285,7 +334,7 @@ class MessageService:
                             filename=filename,
                             file_path=file_path,
                             uploader_id=data['sender_id'],
-                            tenant_id=tenant_id,
+                            tenant_id=attachment_tenant_id,
                             entity_type='message',
                             entity_id=str(msg.id)
                         )
@@ -318,7 +367,7 @@ class MessageService:
             raise
 
     @staticmethod
-    def resolve_recipient_ref(recipient_ref):
+    def resolve_recipient_ref(recipient_ref, tenant_id=None):
         """
         Resolves a recipient_ref string into a list of tuples: (user_id, role)
         Supported ref formats:
@@ -351,7 +400,10 @@ class MessageService:
             from app.models.student import Student
             from app.models.parent import Parent
             
-            students = Student.query.filter_by(class_id=class_id).all()
+            class_query = Student.query.filter_by(class_id=class_id)
+            if tenant_id is not None:
+                class_query = class_query.filter_by(tenant_id=tenant_id)
+            students = class_query.all()
             recipients = []
             
             if audience in ('students', 'all'):
@@ -390,11 +442,16 @@ class MessageService:
                 
             if ref_type == 'parent':
                 from app.models.parent import Parent
-                parent = Parent.query.get(numeric_id)
+                parent_query = Parent.query.filter_by(id=numeric_id)
+                if tenant_id is not None:
+                    parent_query = parent_query.filter_by(tenant_id=tenant_id)
+                parent = parent_query.first()
                 if not parent:
                     # Fallback to User table
                     user = User.query.get(numeric_id)
                     if user and MessageService._get_user_type(user) == 'parent':
+                        if tenant_id is not None and not MessageService._user_has_tenant_membership(user.id, tenant_id):
+                            raise ValueError("Parent does not belong to the active tenant.")
                         return [(user.id, 'parent')], 'parent'
                     raise ValueError(f"Parent profile with ID {numeric_id} does not exist.")
                 
@@ -406,11 +463,16 @@ class MessageService:
                 
             elif ref_type == 'student':
                 from app.models.student import Student
-                student = Student.query.get(numeric_id)
+                student_query = Student.query.filter_by(id=numeric_id)
+                if tenant_id is not None:
+                    student_query = student_query.filter_by(tenant_id=tenant_id)
+                student = student_query.first()
                 if not student:
                     # Fallback to User table
                     user = User.query.get(numeric_id)
                     if user and MessageService._get_user_type(user) == 'student':
+                        if tenant_id is not None and not MessageService._user_has_tenant_membership(user.id, tenant_id):
+                            raise ValueError("Student does not belong to the active tenant.")
                         return [(user.id, 'student')], 'student'
                     raise ValueError(f"Student profile with ID {numeric_id} does not exist.")
                 
@@ -422,11 +484,16 @@ class MessageService:
                 
             elif ref_type == 'teacher':
                 from app.models.teacher import Teacher
-                teacher = Teacher.query.get(numeric_id)
+                teacher_query = Teacher.query.filter_by(id=numeric_id)
+                if tenant_id is not None:
+                    teacher_query = teacher_query.filter_by(tenant_id=tenant_id)
+                teacher = teacher_query.first()
                 if not teacher:
                     # Fallback to User table
                     user = User.query.get(numeric_id)
                     if user and MessageService._get_user_type(user) == 'teacher':
+                        if tenant_id is not None and not MessageService._user_has_tenant_membership(user.id, tenant_id):
+                            raise ValueError("Teacher does not belong to the active tenant.")
                         return [(user.id, 'teacher')], 'teacher'
                     raise ValueError(f"Teacher profile with ID {numeric_id} does not exist.")
                 
@@ -440,24 +507,31 @@ class MessageService:
                 user = User.query.get(numeric_id)
                 if not user:
                     raise ValueError(f"User with ID {numeric_id} does not exist.")
+                if tenant_id is not None and not MessageService._user_has_tenant_membership(user.id, tenant_id):
+                    raise ValueError("User does not belong to the active tenant.")
                 role = MessageService._get_user_type(user)
                 return [(user.id, role)], role
             else:
                 raise ValueError(f"Unknown recipient ref type: {ref_type}")
 
     @staticmethod
-    def validate_sender_recipient_relation(sender_id, recipient_user_id):
+    def validate_sender_recipient_relation(sender_id, recipient_user_id, tenant_id=None):
         """
         Validates whether a sender is allowed to message a recipient user.
         """
+        if tenant_id is not None:
+            if not MessageService._user_has_tenant_membership(sender_id, tenant_id):
+                return False
+            if not MessageService._user_has_tenant_membership(recipient_user_id, tenant_id):
+                return False
         from app.services.identity_resolver import IdentityResolver
         return IdentityResolver.can_user_message_recipient(sender_id, f"user:{recipient_user_id}")
     
     @staticmethod
-    def update_message(message_id, user_id, data):
+    def update_message(message_id, user_id, data, tenant_id=None):
         """Update a message (mainly for marking as read/unread)"""
         try:
-            message = MessageService.get_message_by_id(message_id, user_id)
+            message = MessageService.get_message_by_id(message_id, user_id, tenant_id=tenant_id)
             if not message:
                 return None
             
@@ -475,10 +549,10 @@ class MessageService:
             raise
     
     @staticmethod
-    def delete_message(message_id, user_id, permanent=False):
+    def delete_message(message_id, user_id, permanent=False, tenant_id=None):
         """Delete a message for a user"""
         try:
-            message = MessageService.get_message_by_id(message_id, user_id)
+            message = MessageService.get_message_by_id(message_id, user_id, tenant_id=tenant_id)
             if not message:
                 return False
             

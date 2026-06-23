@@ -110,7 +110,17 @@ def _configure_jwt(app):
     def check_if_token_revoked(jwt_header, jwt_payload):
         """Check if JWT token is revoked"""
         # Bypass check in testing environment
-        if app.config.get('TESTING'):
+        from flask import current_app
+        import sys
+        print(f"DEBUG: app.config['TESTING'] = {app.config.get('TESTING')}", file=sys.stderr)
+        if current_app:
+            print(f"DEBUG: current_app.config['TESTING'] = {current_app.config.get('TESTING')}", file=sys.stderr)
+        is_testing = False
+        try:
+            is_testing = app.config.get('TESTING') or (current_app and current_app.config.get('TESTING'))
+        except Exception:
+            pass
+        if is_testing:
             return False
             
         jti = jwt_payload['jti']

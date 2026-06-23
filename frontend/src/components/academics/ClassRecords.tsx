@@ -654,7 +654,7 @@ const ClassRecords: React.FC = () => {
             await Promise.all(Array.from(selectedSubjects).map(id => deleteSubjectMutation.mutateAsync({ id })));
             refetchSubjects();
           }
-          toast(t('admin_academic.bulk_deleted_success', { count: selectedItems.size, type: activeTab }, `${selectedItems.size} ${activeTab} deleted successfully`));
+          toast(t('admin_academic.bulk_deleted_success', `${selectedItems.size} ${activeTab} deleted successfully`, { count: selectedItems.size, type: activeTab }));
           setSelectedClasses(new Set());
           setSelectedSubjects(new Set());
         } catch (error) {
@@ -665,7 +665,7 @@ const ClassRecords: React.FC = () => {
       case 'activate':
       case 'deactivate':
         // Placeholder for status change functionality
-        toast(t('admin_academic.bulk_action_success', { count: selectedItems.size, type: activeTab, action }, `${selectedItems.size} ${activeTab} ${action}d successfully`));
+        toast(t('admin_academic.bulk_action_success', `${selectedItems.size} ${activeTab} ${action}d successfully`, { count: selectedItems.size, type: activeTab, action }));
         break;
     }
   }, [activeTab, selectedClasses, selectedSubjects, filteredClasses, filteredSubjects, deleteClassMutation, deleteSubjectMutation, refetchClasses, refetchSubjects, t]);
@@ -751,7 +751,7 @@ const ClassRecords: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                {t('admin_academic.selected_count', { count: selectedCount, type: activeTab }, `${selectedCount} ${activeTab} selected`)}
+                {t('admin_academic.selected_count', `${selectedCount} ${activeTab} selected`, { count: selectedCount, type: activeTab })}
               </span>
               <Button
                 variant="outline"
@@ -834,11 +834,11 @@ const ClassRecords: React.FC = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="classes">
             <GraduationCap className="h-4 w-4 mr-2" />
-            {t('admin_academic.classes_count', { count: classes.length }, `Classes (${classes.length})`)}
+            {t('admin_academic.classes_count', `Classes (${classes.length})`, { count: classes.length })}
           </TabsTrigger>
           <TabsTrigger value="subjects">
             <BookOpen className="h-4 w-4 mr-2" />
-            {t('admin_academic.subjects_count', { count: subjects.length }, `Subjects (${subjects.length})`)}
+            {t('admin_academic.subjects_count', `Subjects (${subjects.length})`, { count: subjects.length })}
           </TabsTrigger>
           <TabsTrigger value="timetable">
             <Calendar className="h-4 w-4 mr-2" />
@@ -1227,7 +1227,7 @@ const ClassRecords: React.FC = () => {
         }}
         onConfirm={confirmDelete}
         title={isForceDelete ? t('admin_academic.force_delete', 'Force Delete') + ` ${deleteData?.type}` : t('common.delete', 'Delete') + ` ${deleteData?.type || ''}`}
-        message={errorMessage || t('admin_academic.delete_confirm_msg', { type: deleteData?.type }, `Are you sure you want to delete this ${deleteData?.type}? This action cannot be undone.`)}
+        message={errorMessage || t('admin_academic.delete_confirm_msg', `Are you sure you want to delete this ${deleteData?.type}? This action cannot be undone.`, { type: deleteData?.type })}
         confirmText={isForceDelete ? t('admin_academic.force_delete_everything', 'Force Delete Everything') : t('common.delete', 'Delete')}
         isLoading={deleteClassMutation.isPending || deleteSubjectMutation.isPending}
       />

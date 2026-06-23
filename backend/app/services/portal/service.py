@@ -12,9 +12,13 @@ logger = structlog.get_logger()
 
 class ParentPortalService:
     @staticmethod
-    def get_parent_children(user_id):
+    def get_parent_children(user_id, tenant_id=None):
         """Get all children linked to a parent user."""
-        parent = Parent.query.filter_by(user_id=user_id).first()
+        parent_filters = {'user_id': user_id}
+        if tenant_id is not None:
+            parent_filters['tenant_id'] = tenant_id
+
+        parent = Parent.query.filter_by(**parent_filters).first()
         if not parent:
             return None, "Parent profile not found"
         
@@ -22,8 +26,40 @@ class ParentPortalService:
         # Assuming Parent has 'students' relationship or Student has 'parent_id'
         # Let's assume Student model has parent_id or many-to-many
         # For prototype, using simple query
-        children = Student.query.filter_by(parent_id=parent.id).all()
+        student_filters = {'parent_id': parent.id}
+        if tenant_id is not None:
+            student_filters['tenant_id'] = tenant_id
+
+        children = Student.query.filter_by(**student_filters).all()
         return children, None
+
+    @staticmethod
+    def get_authorized_child_dashboard(user_id, student_id, tenant_id=None):
+        """Aggregate dashboard data only when the requested student belongs to the parent."""
+        parent_filters = {'user_id': user_id}
+        if tenant_id is not None:
+            parent_filters['tenant_id'] = tenant_id
+
+        parent = Parent.query.filter_by(**parent_filters).first()
+        if not parent:
+            return None, "Parent profile not found", 404
+
+        student_filters = {'id': student_id}
+        if tenant_id is not None:
+            student_filters['tenant_id'] = tenant_id
+
+        student = Student.query.filter_by(**student_filters).first()
+        if not student:
+            return None, "Student not found", 404
+
+        if student.parent_id != parent.id:
+            return None, "You are not authorized to access this student's dashboard", 403
+
+        data, error = ParentPortalService.get_child_dashboard(student_id)
+        if error:
+            return None, error, 404
+
+        return data, None, 200
 
     @staticmethod
     def get_child_dashboard(student_id):
@@ -79,9 +115,13 @@ class ParentPortalService:
         }, None
 
     @staticmethod
-    def get_parent_setup_tasks(user_id):
+    def get_parent_setup_tasks(user_id, tenant_id=None):
         """Get setup tasks for a parent user."""
-        parent = Parent.query.filter_by(user_id=user_id).first()
+        parent_filters = {'user_id': user_id}
+        if tenant_id is not None:
+            parent_filters['tenant_id'] = tenant_id
+
+        parent = Parent.query.filter_by(**parent_filters).first()
         if not parent:
             return None, "Parent profile not found"
             
@@ -89,9 +129,13 @@ class ParentPortalService:
         return tasks, None
 
     @staticmethod
-    def complete_child_setup_task(user_id, task_id):
+    def complete_child_setup_task(user_id, task_id, tenant_id=None):
         """Mark a child setup task as completed for a parent user."""
-        parent = Parent.query.filter_by(user_id=user_id).first()
+        parent_filters = {'user_id': user_id}
+        if tenant_id is not None:
+            parent_filters['tenant_id'] = tenant_id
+
+        parent = Parent.query.filter_by(**parent_filters).first()
         if not parent:
             return None, "Parent profile not found"
             

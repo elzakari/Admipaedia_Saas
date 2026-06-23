@@ -291,7 +291,7 @@ const ExamManagement: React.FC = () => {
       // Check for conflicts
       const conflicts = await checkExamConflicts(formData);
       if (conflicts && conflicts.length > 0) {
-        toast.error(t('admin_exams.error_conflicts', { count: conflicts.length }, 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.'));
+        toast.error(t('admin_exams.error_conflicts', 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.', { count: conflicts.length }));
         return;
       }
       
@@ -326,7 +326,7 @@ const ExamManagement: React.FC = () => {
       // Check for conflicts when updating
       const conflicts = await checkExamConflicts(updateData, currentExam.id);
       if (conflicts && conflicts.length > 0) {
-        toast.error(t('admin_exams.error_conflicts', { count: conflicts.length }, 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.'));
+        toast.error(t('admin_exams.error_conflicts', 'Exam conflicts with {{count}} existing exam(s). Please choose a different time.', { count: conflicts.length }));
         return;
       }
       
@@ -363,7 +363,7 @@ const ExamManagement: React.FC = () => {
       switch (currentBulkAction.type) {
         case 'delete':
           await Promise.all(examIds.map(id => examService.deleteExam(id)));
-          toast.success(t('admin_exams.success_bulk_delete', { count: examIds.length }, '{{count}} exams deleted successfully'));
+          toast.success(t('admin_exams.success_bulk_delete', '{{count}} exams deleted successfully', { count: examIds.length }));
           break;
         case 'duplicate':
           {
@@ -371,7 +371,7 @@ const ExamManagement: React.FC = () => {
             const results = await Promise.allSettled(originals.map(async (e) => {
               const nextDate = addDays(new Date(e.exam_date), 7).toISOString();
               return examService.createExam({
-                title: t('admin_exams.duplicate_suffix', { title: e.title }, '{{title}} (Copy)'),
+                title: t('admin_exams.duplicate_suffix', '{{title}} (Copy)', { title: e.title }),
                 description: e.description || '',
                 exam_date: nextDate,
                 duration: e.duration,
@@ -385,13 +385,13 @@ const ExamManagement: React.FC = () => {
 
             const ok = results.filter(r => r.status === 'fulfilled').length;
             const fail = results.length - ok;
-            if (ok) toast.success(t('admin_exams.success_bulk_duplicate', { count: ok }, '{{count}} exams duplicated successfully'));
-            if (fail) toast.error(t('admin_exams.failed_bulk_duplicate', { count: fail }, '{{count}} exams failed to duplicate'));
+            if (ok) toast.success(t('admin_exams.success_bulk_duplicate', '{{count}} exams duplicated successfully', { count: ok }));
+            if (fail) toast.error(t('admin_exams.failed_bulk_duplicate', '{{count}} exams failed to duplicate', { count: fail }));
           }
           break;
         case 'archive':
           await Promise.all(examIds.map(id => examService.updateExam(id, { status: 'cancelled' })));
-          toast.success(t('admin_exams.success_bulk_archive', { count: examIds.length }, '{{count}} exams archived successfully'));
+          toast.success(t('admin_exams.success_bulk_archive', '{{count}} exams archived successfully', { count: examIds.length }));
           break;
         case 'export':
           {
@@ -564,7 +564,7 @@ const ExamManagement: React.FC = () => {
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline">
                       <MoreHorizontal className="h-4 w-4 mr-2" />
-                      {t('admin_exams.bulk_actions', { count: selectedExams.size }, 'Bulk Actions ({{count}})')}
+                      {t('admin_exams.bulk_actions', 'Bulk Actions ({{count}})', { count: selectedExams.size })}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -1030,7 +1030,7 @@ const ExamManagement: React.FC = () => {
               
               <div className="flex justify-between items-center mt-4">
                 <div className="text-sm text-gray-500">
-                  {t('admin_exams.showing_exams_count', { count: filteredAndSortedExams.length, total: exams.length }, 'Showing {{count}} of {{total}} exams')}
+                  {t('admin_exams.showing_exams_count', 'Showing {{count}} of {{total}} exams', { count: filteredAndSortedExams.length, total: exams.length })}
                 </div>
                 <Button
                   variant="outline"
@@ -1202,12 +1202,12 @@ const ExamManagement: React.FC = () => {
               {isForceDelete ? (
                 <div className="bg-red-50 p-3 rounded-md border border-red-200 text-red-700">
                   <p className="font-bold mb-2 uppercase text-xs">⚠️ {t('admin_exams.warning_critical', 'Warning: Critical Action')}</p>
-                  <p>{t('admin_exams.force_delete_confirm', { title: currentExam?.title }, 'Are you sure you want to FORCE DELETE "{{title}}"?')}</p>
+                  <p>{t('admin_exams.force_delete_confirm', 'Are you sure you want to FORCE DELETE "{{title}}"?', { title: currentExam?.title })}</p>
                   <p className="mt-2 text-sm">{t('admin_exams.force_delete_desc', 'This will permanently remove all associated student grades. This action cannot be reversed.')}</p>
                 </div>
               ) : (
                 <>
-                  {t('admin_exams.delete_confirm', { title: currentExam?.title }, 'Are you sure you want to delete "{{title}}"? This action cannot be undone and will also delete all associated grades.')}
+                  {t('admin_exams.delete_confirm', 'Are you sure you want to delete "{{title}}"? This action cannot be undone and will also delete all associated grades.', { title: currentExam?.title })}
                 </>
               )}
             </DialogDescription>
@@ -1268,7 +1268,7 @@ const ExamManagement: React.FC = () => {
               <span>{currentBulkAction?.label}</span>
             </DialogTitle>
             <DialogDescription>
-              {t('admin_exams.bulk_confirm_desc', { action: currentBulkAction?.type, count: selectedExams.size }, 'Are you sure you want to {{action}} {{count}} selected exam(s)?')}
+              {t('admin_exams.bulk_confirm_desc', 'Are you sure you want to {{action}} {{count}} selected exam(s)?', { action: currentBulkAction?.type, count: selectedExams.size })}
               {currentBulkAction?.type === 'delete' && ' ' + t('admin_exams.undone_warning', 'This action cannot be undone.')}
             </DialogDescription>
           </DialogHeader>

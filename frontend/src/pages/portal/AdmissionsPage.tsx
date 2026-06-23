@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../lib/utils';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { canManageAdmissions } from './admissionsRoles';
 
 interface AdmissionApplication {
   id: number;
@@ -43,7 +44,7 @@ const AdmissionsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = canManageAdmissions(user?.role);
   const [isBuyingForm, setIsBuyingForm] = useState(false);
   const [formData, setFormData] = useState({
     student_first_name: '',

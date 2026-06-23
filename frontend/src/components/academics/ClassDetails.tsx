@@ -266,7 +266,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{classData.current_enrollment}</div>
-                <p className="text-xs text-muted-foreground">{t('admin_academic.capacity_label', { capacity: classData.capacity }, `/{{capacity}} capacity`)}</p>
+                <p className="text-xs text-muted-foreground">{t('admin_academic.capacity_label', `/{{capacity}} capacity`, { capacity: classData.capacity })}</p>
               </CardContent>
             </Card>
             <Card>

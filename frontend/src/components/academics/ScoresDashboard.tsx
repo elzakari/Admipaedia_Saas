@@ -533,7 +533,7 @@ const ScoresDashboard = () => {
           id: 1,
           type: 'concern',
           subject: t('scores_dashboard.insight_attendance', 'Attendance'),
-          message: t('scores_dashboard.insight_attendance_low', { rate: attendanceRate }, `Attendance rate is {{rate}}%, which is below the recommended 75%.`),
+          message: t('scores_dashboard.insight_attendance_low', `Attendance rate is {{rate}}%, which is below the recommended 75%.`, { rate: attendanceRate }),
           recommendation: t('scores_dashboard.insight_attendance_recommendation', 'Schedule a meeting with parents to discuss attendance improvement strategies.')
         });
       } else if (attendanceRate > 95) {
@@ -541,7 +541,7 @@ const ScoresDashboard = () => {
           id: 2,
           type: 'strength',
           subject: t('scores_dashboard.insight_attendance', 'Attendance'),
-          message: t('scores_dashboard.insight_attendance_excellent', { rate: attendanceRate }, `Excellent attendance rate of {{rate}}%.`)
+          message: t('scores_dashboard.insight_attendance_excellent', `Excellent attendance rate of {{rate}}%.`, { rate: attendanceRate })
         });
       }
     }
@@ -554,7 +554,7 @@ const ScoresDashboard = () => {
             id: insights.length + 1,
             type: 'concern',
             subject: subject.name,
-            message: t('scores_dashboard.insight_perf_low', { subject: subject.name, score: subject.score }, `Low performance in {{subject}} with {{score}}% score.`),
+            message: t('scores_dashboard.insight_perf_low', `Low performance in {{subject}} with {{score}}% score.`, { subject: subject.name, score: subject.score }),
             recommendation: t('scores_dashboard.insight_perf_recommendation', 'Consider additional tutoring or remedial classes.')
           });
         } else if (subject.score > 85) {
@@ -562,7 +562,7 @@ const ScoresDashboard = () => {
             id: insights.length + 1,
             type: 'strength',
             subject: subject.name,
-            message: t('scores_dashboard.insight_perf_excellent', { subject: subject.name, score: subject.score }, `Excellent performance in {{subject}} with {{score}}% score.`)
+            message: t('scores_dashboard.insight_perf_excellent', `Excellent performance in {{subject}} with {{score}}% score.`, { subject: subject.name, score: subject.score })
           });
         }
       });
@@ -576,7 +576,7 @@ const ScoresDashboard = () => {
   const handleDownloadPDF = async () => {
     if (selectedStudentIds.length === 0) return;
     
-    const loadingToast = toast.loading(t('scores_dashboard.downloading_reports', { count: selectedStudentIds.length }, `Downloading {{count}} report card(s)...`));
+    const loadingToast = toast.loading(t('scores_dashboard.downloading_reports', `Downloading {{count}} report card(s)...`, { count: selectedStudentIds.length }));
     try {
       for (const studentId of selectedStudentIds) {
         await enhancedStudentScoresService.downloadReportPDF(studentId, selectedTerm);
@@ -601,7 +601,7 @@ const ScoresDashboard = () => {
     setIsSendingEmail(true);
     try {
       await enhancedStudentScoresService.sendReportEmail(selectedStudentId, recipientEmail, gradeReport);
-      toast.success(t('scores_dashboard.success_email', { email: recipientEmail }, `Report card sent to {{email}}`));
+      toast.success(t('scores_dashboard.success_email', `Report card sent to {{email}}`, { email: recipientEmail }));
     } catch (error) {
       toast.error(t('scores_dashboard.error_email', 'Failed to send report card via email'));
       console.error(error);
@@ -614,7 +614,7 @@ const ScoresDashboard = () => {
     try {
       await enhancedStudentScoresService.updateSettings({ report_card_theme: newTheme });
       queryClient.invalidateQueries({ queryKey: ['systemSettings'] });
-      toast.success(t('scores_dashboard.success_theme', { theme: newTheme }, `Theme updated to {{theme}}`));
+      toast.success(t('scores_dashboard.success_theme', `Theme updated to {{theme}}`, { theme: newTheme }));
     } catch (error) {
       toast.error(t('scores_dashboard.error_theme', 'Failed to update theme'));
     }
@@ -1009,7 +1009,7 @@ const ScoresDashboard = () => {
                           </div>
                           <div style={{ borderColor: themeColors.secondary }} className="border-[2.5px] rounded-xl bg-white text-center py-2.5 shadow-md ring-2 ring-black/5 transition-all hover:scale-[1.01]">
                             <div style={{ color: themeColors.secondary }} className="text-[22px] font-black tracking-tighter leading-none">
-                              {t('scores_dashboard.gpa_value', { gpa: gradeReport.gpa.toFixed(2) }, 'GPA: {{gpa}} / 4.00')}
+                              {t('scores_dashboard.gpa_value', 'GPA: {{gpa}} / 4.00', { gpa: gradeReport.gpa.toFixed(2) })}
                             </div>
                           </div>
                         </div>

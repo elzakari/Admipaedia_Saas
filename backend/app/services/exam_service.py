@@ -12,6 +12,16 @@ exam_schema = ExamSchema()
 
 class ExamService:
     @staticmethod
+    def _load_exam_model(exam_id):
+        from sqlalchemy.orm import joinedload
+
+        return Exam.query.options(
+            joinedload(Exam.class_),
+            joinedload(Exam.subject),
+            joinedload(Exam.creator)
+        ).get(exam_id)
+
+    @staticmethod
     def get_all_exams(page, per_page, class_id=None, subject_id=None, date_from=None, date_to=None, status=None):
         """Get all exams with optional filtering."""
         from sqlalchemy.orm import joinedload
@@ -43,25 +53,15 @@ class ExamService:
     @staticmethod
     def get_exam_by_id(exam_id):
         """Get a specific exam by ID."""
-        from sqlalchemy.orm import joinedload
-        
-        # Try to get DTO from cache first
+        exam = ExamService._load_exam_model(exam_id)
+        if not exam:
+            return None
+
         cache_key = f"exam:dto:{exam_id}"
         cached_exam = cache_service.get(cache_key)
-        if cached_exam:
-            return cached_exam
-        
-        # If not in cache, query database
-        exam = Exam.query.options(
-            joinedload(Exam.class_),
-            joinedload(Exam.subject),
-            joinedload(Exam.creator)
-        ).get(exam_id)
-        
-        # Cache the result if found (as DTO)
-        if exam:
+        if not cached_exam:
             cache_service.set(cache_key, exam_schema.dump(exam), ttl=cache_service.SHORT_TTL)
-        
+
         return exam
     
     @staticmethod

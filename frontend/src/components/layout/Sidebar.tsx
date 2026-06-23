@@ -283,7 +283,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
     if (item.path === '/admin/administration') {
       const tenant = current?.tenant;
       const currentUser = user;
-      const canAccessAdmin = tenant?.plan === 'pro' || tenant?.plan === 'enterprise' || tenant?.plan === 'ultimate' || currentUser?.role === 'superadmin' || currentUser?.role === 'super_admin';
+      const canAccessAdmin = tenant?.plan === 'pro' || tenant?.plan === 'enterprise' || tenant?.plan === 'ultimate' || currentUser?.role === 'super_admin';
       if (!canAccessAdmin) {
         return false;
       }

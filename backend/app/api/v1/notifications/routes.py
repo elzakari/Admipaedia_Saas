@@ -1,8 +1,54 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy import and_, or_
 from app.services.notification.service import NotificationService
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 notifications_bp = Blueprint('notifications', __name__)
+
+
+def _resolve_user_role(user):
+    user_role = getattr(user, 'role', '')
+    if not user_role and getattr(user, 'roles', None):
+        user_role = user.roles[0].name
+    return user_role
+
+
+def _build_notification_visibility_conditions(notification_model, user, user_role):
+    conditions = []
+    has_scope = hasattr(notification_model, 'scope')
+    has_target_role = hasattr(notification_model, 'target_role')
+    has_recipient_id = hasattr(notification_model, 'recipient_id')
+    has_user_id = hasattr(notification_model, 'user_id')
+
+    if has_recipient_id:
+        conditions.append(notification_model.recipient_id == user.id)
+    if has_user_id:
+        conditions.append(notification_model.user_id == user.id)
+
+    role_visibility_guards = []
+    if has_recipient_id:
+        role_visibility_guards.append(notification_model.recipient_id.is_(None))
+    if has_user_id:
+        role_visibility_guards.append(notification_model.user_id.is_(None))
+
+    def _guarded(condition):
+        if role_visibility_guards:
+            return and_(*role_visibility_guards, condition)
+        return condition
+
+    if has_target_role:
+        conditions.append(_guarded(notification_model.target_role == user_role))
+        conditions.append(_guarded(notification_model.target_role == 'all'))
+
+    if has_scope:
+        conditions.append(_guarded(notification_model.scope == user_role))
+        conditions.append(_guarded(notification_model.scope == f"{user_role}s"))
+        conditions.append(_guarded(notification_model.scope == 'all'))
+
+    if not conditions:
+        conditions.append(notification_model.user_id == user.id)
+
+    return conditions
 
 @notifications_bp.route('', methods=['GET'])
 @notifications_bp.route('/', methods=['GET'])
@@ -13,7 +59,6 @@ def get_notifications():
         from app.models.dashboard import Notification
         from app.extensions import db
         import structlog
-        from sqlalchemy import or_
         
         logger = structlog.get_logger()
         
@@ -25,34 +70,11 @@ def get_notifications():
         if not user:
             return jsonify({'success': False, 'message': 'User not found'}), 404
             
-        user_role = getattr(user, 'role', '')
-        if not user_role and user.roles:
-            user_role = user.roles[0].name
+        user_role = _resolve_user_role(user)
             
         # 2. Build secure database queries wrapped inside try/except block
         try:
-            # Check model column metadata dynamically to prevent any SQL property errors
-            has_scope = hasattr(Notification, 'scope')
-            has_target_role = hasattr(Notification, 'target_role')
-            has_recipient_id = hasattr(Notification, 'recipient_id')
-            
-            or_conditions = []
-            if has_recipient_id:
-                or_conditions.append(Notification.recipient_id == user.id)
-                or_conditions.append(Notification.user_id == user.id)
-                
-            if has_target_role:
-                or_conditions.append(Notification.target_role == user_role)
-                or_conditions.append(Notification.target_role == 'all')
-                
-            if has_scope:
-                or_conditions.append(Notification.scope == user_role)
-                or_conditions.append(Notification.scope == f"{user_role}s")
-                or_conditions.append(Notification.scope == 'all')
-                
-            if not or_conditions:
-                or_conditions.append(Notification.user_id == user.id)
-                
+            or_conditions = _build_notification_visibility_conditions(Notification, user, user_role)
             query = Notification.query.filter(or_(*or_conditions))
             
             if hasattr(Notification, 'time'):
@@ -78,7 +100,13 @@ def get_notifications():
             n_target_role = getattr(n, 'scope', None) or getattr(n, 'target_role', None) or 'all'
             
             matches_recipient = (n_recipient_id == user.id)
-            matches_role = (n_target_role == user_role or n_target_role == f"{user_role}s" or n_target_role == 'all')
+            matches_role = (
+                n_recipient_id is None and (
+                    n_target_role == user_role or
+                    n_target_role == f"{user_role}s" or
+                    n_target_role == 'all'
+                )
+            )
             
             if not (matches_recipient or matches_role):
                 continue
@@ -153,17 +181,29 @@ def test_send():
 def mark_read():
     from app.extensions import db
     from app.models.dashboard import Notification
+    from app.models.user import User
     
     user_id = int(get_jwt_identity())
     data = request.json or {}
     notification_ids = data.get('notification_ids', [])
     if not notification_ids:
         return jsonify({'success': False, 'message': 'No notification_ids provided'}), 400
-        
-    Notification.query.filter(
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    user_role = _resolve_user_role(user)
+    visibility_conditions = _build_notification_visibility_conditions(Notification, user, user_role)
+
+    updated_count = Notification.query.filter(
         Notification.id.in_(notification_ids),
-        Notification.recipient_id == user_id
+        or_(*visibility_conditions)
     ).update({'read': True}, synchronize_session=False)
     db.session.commit()
-    return jsonify({'success': True, 'message': 'Notifications marked as read'}), 200
+    return jsonify({
+        'success': True,
+        'message': 'Notifications marked as read',
+        'updated_count': updated_count
+    }), 200
 

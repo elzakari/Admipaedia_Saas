@@ -82,6 +82,53 @@ describe('Student Service', () => {
     });
   });
 
+  describe('assignment workflow helpers', () => {
+    it('finds a student assignment by id from the live assignments list', async () => {
+      (api.get as any).mockResolvedValue({
+        data: {
+          assignments: [
+            { id: 4, title: 'Essay', status: 'open' },
+            { id: 8, title: 'Math Worksheet', status: 'submitted' }
+          ]
+        }
+      });
+
+      const result = await studentService.getAssignmentById(8);
+
+      expect(api.get).toHaveBeenCalledWith('/student/assignments', { params: { status: undefined } });
+      expect(result).toEqual({ id: 8, title: 'Math Worksheet', status: 'submitted' });
+    });
+
+    it('submits a student assignment through the live API', async () => {
+      (api.post as any).mockResolvedValue({
+        data: {
+          submission: {
+            id: 91,
+            assignment_id: 8,
+            student_id: 3,
+            status: 'submitted'
+          }
+        }
+      });
+
+      const result = await studentService.submitAssignment(8, {
+        content: 'Please find my answer attached.',
+        file_path: 'worksheet.pdf'
+      });
+
+      expect(api.post).toHaveBeenCalledWith('/student/assignments/8/submit', {
+        content: 'Please find my answer attached.',
+        file_path: 'worksheet.pdf'
+      });
+      expect(result).toEqual({
+        id: 91,
+        assignment_id: 8,
+        student_id: 3,
+        status: 'submitted'
+      });
+    });
+  });
+
   describe('updateStudent', () => {
     it('updates an existing student', async () => {
       const studentId = 1;

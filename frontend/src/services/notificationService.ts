@@ -79,12 +79,74 @@ export interface AttendanceNotificationResult {
   notification_ids: string[];
 }
 
+type NotificationApiResponse = {
+  success?: boolean;
+  data?: any[];
+  notifications?: any[];
+};
+
+const normalizeNotification = (item: any): NotificationItem => ({
+  id: String(item.id),
+  title: item.title || 'Notification',
+  message: item.message || '',
+  type: item.type || 'info',
+  category: item.category || 'system',
+  priority: item.priority || 'medium',
+  created_at: item.created_at || item.time || new Date().toISOString(),
+  read_at: item.read || item.is_read ? (item.created_at || item.time || new Date().toISOString()) : undefined,
+  is_read: Boolean(item.is_read ?? item.read),
+  is_starred: Boolean(item.is_starred),
+  is_archived: Boolean(item.is_archived),
+  actions: item.actions,
+  metadata: {
+    ...(item.metadata || {}),
+    url: item.action_url || item.metadata?.url,
+    scope: item.scope || item.metadata?.scope,
+    related_entity_type: item.related_entity_type,
+    related_entity_id: item.related_entity_id,
+    attachments: item.attachments || [],
+  },
+});
+
+const extractNotifications = (payload: NotificationApiResponse | any): NotificationItem[] => {
+  const raw = Array.isArray(payload)
+    ? payload
+    : payload?.data || payload?.notifications || [];
+
+  return Array.isArray(raw) ? raw.map(normalizeNotification) : [];
+};
+
+const buildNotificationStats = (notifications: NotificationItem[]): NotificationStats => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(now);
+  weekAgo.setDate(now.getDate() - 7);
+
+  return notifications.reduce<NotificationStats>((stats, notification) => {
+    const createdAt = new Date(notification.created_at);
+    stats.total += 1;
+    if (!notification.is_read) stats.unread += 1;
+    if (createdAt >= startOfToday) stats.today += 1;
+    if (createdAt >= weekAgo) stats.this_week += 1;
+    stats.by_category[notification.category] = (stats.by_category[notification.category] || 0) + 1;
+    stats.by_priority[notification.priority] = (stats.by_priority[notification.priority] || 0) + 1;
+    return stats;
+  }, {
+    total: 0,
+    unread: 0,
+    today: 0,
+    this_week: 0,
+    by_category: {},
+    by_priority: {},
+  });
+};
+
 const notificationService = {
   // Get notifications with filtering
-  getNotifications: async (filters: NotificationFilters = {}): Promise<PaginatedResponse<NotificationItem>> => {
+  getNotifications: async (filters: NotificationFilters = {}): Promise<NotificationItem[]> => {
     try {
       const response = await api.get('/notifications', { params: filters });
-      return response.data;
+      return extractNotifications(response.data);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       throw error;
@@ -94,8 +156,8 @@ const notificationService = {
   // Get notification statistics
   getNotificationStats: async (userId: number): Promise<NotificationStats> => {
     try {
-      const response = await api.get(`/notifications/stats/${userId}`);
-      return response.data;
+      const notifications = await notificationService.getNotifications({ user_id: userId });
+      return buildNotificationStats(notifications);
     } catch (error) {
       console.error('Failed to fetch notification stats:', error);
       throw error;
@@ -114,52 +176,33 @@ const notificationService = {
 
   // Mark notifications as unread
   markAsUnread: async (notificationIds: string[]): Promise<void> => {
-    try {
-      await api.patch('/notifications/mark-unread', { notification_ids: notificationIds });
-    } catch (error) {
-      console.error('Failed to mark notifications as unread:', error);
-      throw error;
-    }
+    console.warn('markAsUnread is not supported by the current backend notifications API.', notificationIds);
   },
 
   // Mark notifications as starred
   markAsStarred: async (notificationIds: string[], starred: boolean): Promise<void> => {
-    try {
-      await api.patch('/notifications/star', { 
-        notification_ids: notificationIds,
-        starred 
-      });
-    } catch (error) {
-      console.error('Failed to update starred status:', error);
-      throw error;
-    }
+    console.warn('markAsStarred is not supported by the current backend notifications API.', { notificationIds, starred });
   },
 
   // Archive notifications
   archiveNotifications: async (notificationIds: string[]): Promise<void> => {
-    try {
-      await api.patch('/notifications/archive', { notification_ids: notificationIds });
-    } catch (error) {
-      console.error('Failed to archive notifications:', error);
-      throw error;
-    }
+    console.warn('archiveNotifications is not supported by the current backend notifications API.', notificationIds);
   },
 
   // Delete notifications
   deleteNotifications: async (notificationIds: string[]): Promise<void> => {
-    try {
-      await api.delete('/notifications', { data: { notification_ids: notificationIds } });
-    } catch (error) {
-      console.error('Failed to delete notifications:', error);
-      throw error;
-    }
+    console.warn('deleteNotifications is not supported by the current backend notifications API.', notificationIds);
   },
 
   // Get notification by ID
   getNotificationById: async (notificationId: string): Promise<NotificationItem> => {
     try {
-      const response = await api.get(`/notifications/${notificationId}`);
-      return response.data;
+      const notifications = await notificationService.getNotifications();
+      const notification = notifications.find((item) => item.id === notificationId);
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+      return notification;
     } catch (error) {
       console.error('Failed to fetch notification:', error);
       throw error;
@@ -168,13 +211,7 @@ const notificationService = {
 
   // Create notification
   createNotification: async (notification: Partial<NotificationItem>): Promise<NotificationItem> => {
-    try {
-      const response = await api.post('/notifications', notification);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to create notification:', error);
-      throw error;
-    }
+    throw new Error('Creating notifications is not supported by the current backend notifications API.');
   },
 
   // Update notification preferences
@@ -189,8 +226,8 @@ const notificationService = {
 
   getPreferences: async (userId: number): Promise<NotificationPreferences> => {
     try {
-      const response = await api.get(`/notifications/preferences/${userId}`);
-      return response.data;
+      const response = await api.get('/notifications/preferences', { params: { user_id: userId } });
+      return response.data?.data || response.data;
     } catch (error) {
       console.error('Failed to fetch notification preferences:', error);
       throw error;

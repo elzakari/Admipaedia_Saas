@@ -17,7 +17,7 @@ const TeacherMessagesPage: React.FC = () => {
   
   // Compose message state
   const [isComposing, setIsComposing] = useState(false);
-  const [composeRecipientRef, setComposeRecipientRef] = useState('');
+  const [composeRecipientId, setComposeRecipientId] = useState('');
   const [composeRecipientType, setComposeRecipientType] = useState<'admin' | 'teacher' | 'student' | 'parent' | 'class'>('student');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeContent, setComposeContent] = useState('');
@@ -182,11 +182,12 @@ const TeacherMessagesPage: React.FC = () => {
 
   const handleCreateNewThread = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composeRecipientRef || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
+    const recipientId = Number(composeRecipientId);
+    if (!Number.isFinite(recipientId) || recipientId <= 0 || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
     try {
       setComposeSending(true);
       const newMsg = await communicationService.createMessage({
-        recipient_ref: composeRecipientRef,
+        recipient_id: recipientId,
         recipient_type: composeRecipientType === 'class' ? 'class' : composeRecipientType,
         subject: composeSubject.trim(),
         content: composeContent.trim()
@@ -195,7 +196,7 @@ const TeacherMessagesPage: React.FC = () => {
         await loadData();
         setActiveId(composeSubject.trim().toLowerCase());
         setIsComposing(false);
-        setComposeRecipientRef('');
+        setComposeRecipientId('');
         setComposeSubject('');
         setComposeContent('');
       }
@@ -317,8 +318,8 @@ const TeacherMessagesPage: React.FC = () => {
                         )}
                       </div>
                       <select
-                        value={composeRecipientRef}
-                        onChange={(e) => setComposeRecipientRef(e.target.value)}
+                      value={composeRecipientId}
+                      onChange={(e) => setComposeRecipientId(e.target.value)}
                         required
                         className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                       >

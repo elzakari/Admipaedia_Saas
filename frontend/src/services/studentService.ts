@@ -94,6 +94,13 @@ export interface StudentAssignment {
   feedback: string | null;
 }
 
+export interface StudentAssignmentSubmission {
+  id: number;
+  assignment_id: number;
+  student_id: number;
+  status: string;
+}
+
 export interface StudentGrade {
   id: number;
   subject: {
@@ -164,6 +171,19 @@ const studentService = {
   getAssignments: async (status?: string): Promise<StudentAssignment[]> => {
     const response = await api.get('/student/assignments', { params: { status } });
     return (response.data?.assignments || response.data?.data?.assignments || response.data || []) as StudentAssignment[];
+  },
+
+  getAssignmentById: async (assignmentId: number): Promise<StudentAssignment | null> => {
+    const assignments = await studentService.getAssignments();
+    return assignments.find((assignment) => assignment.id === assignmentId) ?? null;
+  },
+
+  submitAssignment: async (
+    assignmentId: number,
+    payload: { content?: string; file_path?: string }
+  ): Promise<StudentAssignmentSubmission> => {
+    const response = await api.post(`/student/assignments/${assignmentId}/submit`, payload);
+    return (response.data?.submission || response.data?.data?.submission) as StudentAssignmentSubmission;
   },
 
   getOwnProfile: async (): Promise<StudentProfile> => {

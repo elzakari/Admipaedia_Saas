@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import parentService from '../../services/parentService'
 import timetableService from '../../services/timetableService'
-import examService from '../../services/examService'
 import calendarService from '../../services/calendarService'
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
@@ -71,17 +70,31 @@ const ParentSchedulePage: React.FC = () => {
     staleTime: 30_000
   })
 
-  const { data: examsResp, isLoading: examsLoading } = useQuery({
-    queryKey: ['parent-schedule', 'exams', classId],
-    queryFn: () => examService.getExams({ page: 1, per_page: 50, class_id: classId }),
-    enabled: Number.isFinite(classId) && classId > 0,
+  const { data: gradeRecords, isLoading: examsLoading } = useQuery({
+    queryKey: ['parent-schedule', 'child-grades', selectedChildId],
+    queryFn: () => parentService.getChildGrades(Number(selectedChildId), { page: 1, per_page: 50 }),
+    enabled: Number.isFinite(Number(selectedChildId)) && Number(selectedChildId) > 0,
     staleTime: 30_000
   })
 
   const exams = useMemo(() => {
-    const list = (examsResp as any)?.exams
-    return Array.isArray(list) ? list : []
-  }, [examsResp])
+    const records = Array.isArray(gradeRecords) ? gradeRecords : []
+    const seenExamIds = new Set<number>()
+
+    return records
+      .filter((record: any) => record?.exam?.id && !seenExamIds.has(Number(record.exam.id)))
+      .map((record: any) => {
+        seenExamIds.add(Number(record.exam.id))
+        return {
+          id: record.exam.id,
+          title: record.exam.title || `Exam ${record.exam.id}`,
+          exam_date: record.exam.exam_date,
+          subject_name: record.exam.subject?.name,
+          percentage: record.percentage,
+          grade_letter: record.grade_letter,
+        }
+      })
+  }, [gradeRecords])
 
   const monthStart = startOfMonth(calendarMonth)
   const monthEnd = endOfMonth(calendarMonth)
@@ -250,11 +263,16 @@ const ParentSchedulePage: React.FC = () => {
                       <div key={ex.id} className="rounded-lg border border-slate-200 p-3">
                         <div className="text-sm font-semibold text-slate-900">{ex.title}</div>
                         <div className="text-xs text-slate-600">{ex.exam_date ? new Date(ex.exam_date).toLocaleString(i18n.language) : ''}</div>
+                        <div className="text-xs text-slate-600">
+                          {ex.subject_name || t('schedule.subject_unknown', 'Subject unavailable')}
+                          {typeof ex.percentage === 'number' ? ` • ${ex.percentage}%` : ''}
+                          {ex.grade_letter ? ` • ${ex.grade_letter}` : ''}
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-600">{t('schedule.no_exams', 'No exams found.')}</div>
+                  <div className="text-sm text-slate-600">{t('schedule.no_exams', 'No exam records found.')}</div>
                 )}
               </TabsContent>
 
@@ -283,4 +301,3 @@ const ParentSchedulePage: React.FC = () => {
 }
 
 export default ParentSchedulePage
-
