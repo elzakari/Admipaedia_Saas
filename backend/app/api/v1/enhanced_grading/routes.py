@@ -145,7 +145,12 @@ def calculate_final_grade():
 def get_student_analytics(student_id):
     """Get comprehensive performance analytics for a student"""
     try:
-        academic_year = request.args.get('academic_year', required=True)
+        academic_year = request.args.get('academic_year')
+        if not academic_year:
+            return jsonify({
+                'success': False,
+                'message': 'academic_year is required'
+            }), 400
         term = request.args.get('term')
         
         analytics = EnhancedGradingService.get_student_performance_analytics(

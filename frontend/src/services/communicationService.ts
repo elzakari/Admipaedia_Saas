@@ -35,8 +35,9 @@ export interface Message {
 }
 
 export interface MessageCreate {
-  recipient_id: number;
-  recipient_type: 'admin' | 'teacher' | 'student' | 'parent' | 'class';
+  recipient_id?: number;
+  recipient_type?: 'admin' | 'teacher' | 'student' | 'parent' | 'class';
+  recipient_ref?: string;
   subject: string;
   content: string;
   reply_to?: number;
@@ -117,8 +118,16 @@ const communicationService = {
     try {
       if (messageData.attachments && messageData.attachments.length > 0) {
         const formData = new FormData();
-        formData.append('recipient_id', messageData.recipient_id.toString());
-        formData.append('recipient_type', messageData.recipient_type);
+        if (messageData.recipient_ref) {
+          formData.append('recipient_ref', messageData.recipient_ref);
+        } else {
+          if (typeof messageData.recipient_id === 'number') {
+            formData.append('recipient_id', messageData.recipient_id.toString());
+          }
+          if (messageData.recipient_type) {
+            formData.append('recipient_type', messageData.recipient_type);
+          }
+        }
         formData.append('subject', messageData.subject);
         formData.append('content', messageData.content);
         messageData.attachments.forEach((file) => formData.append('attachments', file));

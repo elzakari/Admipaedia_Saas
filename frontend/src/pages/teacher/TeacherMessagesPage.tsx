@@ -23,6 +23,17 @@ const getOtherParticipantDetails = (message: any, currentUserId: number | null) 
   };
 };
 
+const parseRecipientOption = (option: any) => {
+  const ref = typeof option?.ref === 'string' ? option.ref : '';
+  const fallbackValue = option?.id ?? option?.user_id ?? '';
+  return {
+    key: ref || String(fallbackValue),
+    value: ref || String(fallbackValue),
+    label: option?.label || 'Unknown recipient',
+    subtitle: option?.subtitle || option?.recipient_type || '',
+  };
+};
+
 const TeacherMessagesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'threads' | 'broadcasts'>('threads');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -195,13 +206,19 @@ const TeacherMessagesPage: React.FC = () => {
 
   const handleCreateNewThread = async (e: React.FormEvent) => {
     e.preventDefault();
-    const recipientId = Number(composeRecipientId);
-    if (!Number.isFinite(recipientId) || recipientId <= 0 || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
+    const selectedOption = recipientOptions.find((option) => parseRecipientOption(option).value === composeRecipientId);
+    const parsedOption = selectedOption ? parseRecipientOption(selectedOption) : null;
+    const numericRecipientId = Number(composeRecipientId);
+
+    if (!parsedOption || !composeSubject.trim() || !composeContent.trim() || composeSending) return;
     try {
       setComposeSending(true);
       const newMsg = await communicationService.createMessage({
-        recipient_id: recipientId,
-        recipient_type: composeRecipientType === 'class' ? 'class' : composeRecipientType,
+        recipient_ref: parsedOption.value.includes(':') ? parsedOption.value : undefined,
+        recipient_id: Number.isFinite(numericRecipientId) && numericRecipientId > 0 ? numericRecipientId : undefined,
+        recipient_type: parsedOption.value.includes(':')
+          ? undefined
+          : (composeRecipientType === 'class' ? 'class' : composeRecipientType),
         subject: composeSubject.trim(),
         content: composeContent.trim()
       });
@@ -337,11 +354,14 @@ const TeacherMessagesPage: React.FC = () => {
                         className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                       >
                         <option value="">Select recipient...</option>
-                        {recipientOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.label} ({opt.subtitle})
+                        {recipientOptions.map((opt) => {
+                          const parsed = parseRecipientOption(opt);
+                          return (
+                          <option key={parsed.key} value={parsed.value}>
+                            {parsed.label} ({parsed.subtitle})
                           </option>
-                        ))}
+                          );
+                        })}
                       </select>
                     </div>
                   </div>

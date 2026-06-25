@@ -31,7 +31,7 @@ from app.models.exam import Exam
 from app.models.grade import Grade
 from app.models.grading_system import GradingScheme, EnhancedGrade, FinalGrade
 from app.models.assessment_methods import AssessmentFramework, AssessmentTask, AssessmentSubmission
-from app.models.curriculum import Curriculum
+from app.models.curriculum import Curriculum, CurriculumStandard
 from app.models.stem_curriculum import STEMAssessment, STEMAssessmentResult
 from app.models.educational_level import EducationalLevel
 
@@ -226,9 +226,9 @@ class TestGradingSystem:
         assert data['success'] is True
         assert len(data['grades']) == 5
     
-    def test_grade_analytics(self, client, teacher_headers, test_class_with_grades):
+    def test_grade_analytics(self, client, teacher_headers, test_class_with_grades, test_subject):
         """Test grade analytics and statistics"""
-        response = client.get(f'/api/v1/grades/analytics/class/{test_class_with_grades.id}?subject_id=1&term=Term 2', 
+        response = client.get(f'/api/v1/grades/analytics/class/{test_class_with_grades.id}?subject_id={test_subject.id}&term=Term 2', 
                             headers=teacher_headers)
         
         assert response.status_code == 200
@@ -544,15 +544,16 @@ class TestAcademicIntegrationWorkflow:
         assert stats['total_students'] == 3
         assert stats['average_score'] > 0
     
-    def test_curriculum_to_assessment_workflow(self, client, admin_headers, teacher_headers):
+    def test_curriculum_to_assessment_workflow(self, client, admin_headers, teacher_headers, test_educational_level, test_subject):
         """Test workflow from curriculum creation to assessment implementation"""
         # Step 1: Create curriculum
         curriculum_data = {
             'title': 'Test Curriculum',
-            'educational_level_id': 1,
-            'subject_id': 1,
+            'educational_level_id': test_educational_level.id,
+            'subject_id': test_subject.id,
             'academic_year': '2023-2024',
-            'term': 'Term 2'
+            'term': 'Term 2',
+            'curriculum_standard': 'standards_based',
         }
         
         curriculum_response = client.post('/api/v1/curriculum/', 
@@ -564,8 +565,8 @@ class TestAcademicIntegrationWorkflow:
         # Step 2: Create assessment framework
         framework_data = {
             'name': 'Test Framework',
-            'educational_level_id': 1,
-            'subject_id': 1
+            'educational_level_id': test_educational_level.id,
+            'subject_id': test_subject.id
         }
         
         framework_response = client.post('/api/v1/assessment/frameworks', 
@@ -699,35 +700,40 @@ def test_educational_level(db_session):
     level = EducationalLevel(
         level_name='Junior High School',
         level_code='JHS',
-        key_phase='KS3',
-        age_range='12-15'
+        key_phase='key_phase_4',
+        min_age=12,
+        max_age=15,
     )
     db_session.add(level)
     db_session.commit()
     return level
 
 @pytest.fixture
-def test_subject(db_session):
+def test_subject(db_session, sample_tenant):
     """Create test subject"""
     subject = Subject(
         name='Mathematics',
         code='MATH',
-        description='Mathematics subject'
+        description='Mathematics subject',
+        tenant_id=sample_tenant.id,
     )
     db_session.add(subject)
     db_session.commit()
     return subject
 
 @pytest.fixture
-def test_exam(db_session, test_subject, test_class):
+def test_exam(db_session, test_subject, test_class, user_factory):
     """Create test exam"""
+    creator = user_factory('teacher')
     exam = Exam(
         title='Test Exam',
         subject_id=test_subject.id,
         class_id=test_class.id,
         exam_date=date.today() + timedelta(days=7),
+        duration=60,
         total_marks=100,
-        pass_marks=40
+        passing_marks=40,
+        created_by=creator.id,
     )
     db_session.add(exam)
     db_session.commit()
@@ -762,14 +768,95 @@ def test_assessment_framework(db_session, test_educational_level, test_subject):
     return framework
 
 @pytest.fixture
-def test_curriculum(db_session, test_educational_level, test_subject):
+def test_assessment_task(db_session, test_assessment_framework):
+    """Create test assessment task"""
+    task = AssessmentTask(
+        title='Fixture Assessment Task',
+        framework_id=test_assessment_framework.id,
+        assessment_type='formative',
+        assessment_mode='written',
+        scheduled_date=date.today() + timedelta(days=3),
+        total_marks=50,
+        pass_mark=25,
+    )
+    db_session.add(task)
+    db_session.commit()
+    return task
+
+@pytest.fixture
+def test_assessment_submission(db_session, test_assessment_task, student_factory, sample_tenant):
+    """Create test assessment submission"""
+    student = student_factory(tenant_id=sample_tenant.id)
+    submission = AssessmentSubmission(
+        task_id=test_assessment_task.id,
+        student_id=student.id,
+        submission_content='Fixture submission content',
+        file_attachments=['fixture.pdf'],
+        submitted_at=datetime.utcnow(),
+        is_submitted=True,
+        is_late=False,
+    )
+    db_session.add(submission)
+    db_session.commit()
+    return submission
+
+@pytest.fixture
+def test_class(sample_class):
+    """Alias the shared sample class for legacy academic tests."""
+    return sample_class
+
+
+@pytest.fixture
+def test_student(db_session, student_factory, sample_tenant, test_class):
+    """Create a dedicated student for legacy academic tests."""
+    student = student_factory(class_id=test_class.id, tenant_id=sample_tenant.id)
+    db_session.commit()
+    return student
+
+
+@pytest.fixture
+def test_students(db_session, student_factory, sample_tenant, test_class):
+    """Create a small set of students attached to the test class."""
+    students = []
+    for _ in range(3):
+        student = student_factory(class_id=test_class.id, tenant_id=sample_tenant.id)
+        students.append(student)
+    db_session.commit()
+    return students
+
+
+@pytest.fixture
+def test_class_with_grades(db_session, test_class, test_subject, test_students, test_exam):
+    """Create grades attached to the legacy test class for analytics coverage."""
+    for index, student in enumerate(test_students):
+        grade = Grade(
+            student_id=student.id,
+            exam_id=test_exam.id,
+            subject_id=test_subject.id,
+            percentage=72 + (index * 4),
+            marks_obtained=72 + (index * 4),
+            graded_by=test_exam.created_by,
+            class_id=test_class.id,
+            academic_year='2023-2024',
+            term='Term 2',
+        )
+        db_session.add(grade)
+    db_session.commit()
+    return test_class
+
+
+@pytest.fixture
+def test_curriculum(db_session, test_educational_level, test_subject, user_factory):
     """Create test curriculum"""
+    creator = user_factory('admin')
     curriculum = Curriculum(
         title='Test Curriculum',
         educational_level_id=test_educational_level.id,
         subject_id=test_subject.id,
+        curriculum_standard=CurriculumStandard.STANDARDS_BASED,
         academic_year='2023-2024',
-        term='Term 2'
+        term='Term 2',
+        created_by=creator.id,
     )
     db_session.add(curriculum)
     db_session.commit()

@@ -23,6 +23,7 @@ from .external_exams import external_exams_bp
 from app.api.v1.dashboard.enhanced_routes import enhanced_dashboard_bp
 from app.api.v1.analytics.ai_routes import ai_analytics_bp
 from app.api.v1.analytics.ml_routes import ml_bp
+from app.api.v1.analytics import analytics_bp
 
 # Import new Ghana Educational Service blueprints
 from app.api.v1.educational_levels import educational_levels_bp
@@ -93,6 +94,7 @@ api_v1_bp.register_blueprint(reports_bp, url_prefix='/reports')
 api_v1_bp.register_blueprint(external_exams_bp)
 
 # Register Analytics blueprints
+api_v1_bp.register_blueprint(analytics_bp, url_prefix='/analytics')
 api_v1_bp.register_blueprint(ai_analytics_bp, url_prefix='/ai-analytics')
 api_v1_bp.register_blueprint(ml_bp, url_prefix='/ml')
 

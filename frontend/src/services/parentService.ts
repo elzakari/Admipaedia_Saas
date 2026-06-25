@@ -55,6 +55,16 @@ const unwrapParentCollection = <T>(responseData: any, key: string): T[] => {
   ) as T[];
 };
 
+const normalizeParentMessage = (message: any): MessageData => ({
+  id: Number(message?.id ?? 0),
+  subject: String(message?.subject ?? ''),
+  message: String(message?.message ?? message?.content ?? ''),
+  sender: String(message?.sender?.display_name ?? message?.sender ?? ''),
+  recipient: String(message?.recipient?.display_name ?? message?.recipient ?? ''),
+  date: String(message?.date ?? message?.created_at ?? ''),
+  read: Boolean(message?.read ?? message?.is_read ?? false),
+});
+
 // Module: parentService object and helpers
 const parentService = {
   // Get all parents with pagination and filtering
@@ -311,7 +321,7 @@ const parentService = {
   getParentMessages: async (parentId: number): Promise<MessageData[]> => {
     try {
       const response = await api.get(`/parents/${parentId}/messages`);
-      return unwrapParentCollection<MessageData>(response.data, 'messages');
+      return unwrapParentCollection<any>(response.data, 'messages').map(normalizeParentMessage);
     } catch (error) {
       console.error(`Error fetching messages for parent ${parentId}:`, error);
       throw error;

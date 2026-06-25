@@ -25,6 +25,7 @@ from app.models.dashboard import Notification
 from app.models.message import Message
 from app.models.user import User
 from app.models.class_ import Class
+from app.models.educational_level import EducationalLevel
 from app.extensions import db, socketio
 from app.services.announcement_service import AnnouncementService
 from app.services.notification_service import NotificationService
@@ -1246,6 +1247,71 @@ def student_auth_headers(db_session, client, user_factory, sample_tenant):
     }
 
 @pytest.fixture
+def parent_auth_context(db_session, client, user_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    from tests.test_production_integration import create_test_parent, create_test_membership
+
+    user = user_factory('parent')
+    parent = create_test_parent(db_session, user, sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, user.id, 'parent')
+    db_session.commit()
+
+    token = create_access_token(identity=user.id)
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id)
+    }
+    return {
+        'user': user,
+        'parent': parent,
+        'headers': headers,
+    }
+
+
+@pytest.fixture
+def teacher_auth_context(db_session, client, user_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    from tests.test_production_integration import create_test_teacher, create_test_membership
+
+    user = user_factory('teacher')
+    teacher = create_test_teacher(db_session, user, sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, user.id, 'teacher')
+    db_session.commit()
+
+    token = create_access_token(identity=user.id)
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id)
+    }
+    return {
+        'user': user,
+        'teacher': teacher,
+        'headers': headers,
+    }
+
+
+@pytest.fixture
+def student_auth_context(db_session, client, user_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    from tests.test_production_integration import create_test_student, create_test_membership
+
+    user = user_factory('student')
+    student = create_test_student(db_session, user, sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, user.id, 'student')
+    db_session.commit()
+
+    token = create_access_token(identity=user.id)
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id)
+    }
+    return {
+        'user': user,
+        'student': student,
+        'headers': headers,
+    }
+
+@pytest.fixture
 def large_announcement_dataset(db_session, sample_class, sample_teacher):
     """Create large dataset of announcements for performance testing"""
     announcements = []
@@ -1610,6 +1676,355 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert payload['submissions'][0]['student_id'] == student.id
         assert payload['submissions'][0]['student_name'] is not None
         assert payload['submissions'][0]['file_path'] == '/uploads/lab-notes.pdf'
+
+    def test_teacher_can_create_school_based_assessment_from_legacy_payload(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_membership, create_test_student
+        from app.models.assessment_methods import SchoolBasedAssessment
+        from app.models.subject import Subject
+        from app.models.class_ import ClassTeacherMapping
+        from app.models.tenant import TenantMembership
+
+        teacher_user = sample_teacher.user
+        if not TenantMembership.query.filter_by(tenant_id=sample_tenant.id, user_id=teacher_user.id, status='active').first():
+            create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+
+        s_user = User(username='s_assess_sba', email='s_assess_sba@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        if not TenantMembership.query.filter_by(tenant_id=sample_tenant.id, user_id=s_user.id, status='active').first():
+            create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+
+        subject = Subject(name='Integrated Science', code='ISCI101', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+
+        if not ClassTeacherMapping.query.filter_by(class_id=sample_class.id, teacher_id=teacher_user.id).first():
+            db_session.add(ClassTeacherMapping(class_id=sample_class.id, teacher_id=teacher_user.id))
+            db_session.flush()
+
+        db_session.commit()
+
+        token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.post(
+            '/api/v1/assessment/sba',
+            headers=headers,
+            json={
+                'student_id': student.id,
+                'subject_id': subject.id,
+                'class_id': sample_class.id,
+                'assessment_date': '2026-06-25',
+                'term': 'Term 1',
+                'academic_year': '2025/2026',
+                'total_marks': 40,
+                'marking_scheme': {
+                    'class_exercises_score': 8,
+                    'homework_score': 6,
+                    'project_score': 7,
+                    'assignment_score': 5,
+                    'class_test_scores': [12, 14]
+                },
+                'core_competencies_score': {'critical_thinking': 4}
+            }
+        )
+
+        assert response.status_code == 201
+        payload = response.get_json()
+        assert payload['success'] is True
+
+        created = SchoolBasedAssessment.query.get(payload['data']['id'])
+        assert created is not None
+        assert created.teacher_id == sample_teacher.id
+        assert created.student_id == student.id
+        assert created.class_test_average == 13.0
+        assert created.total_sba_score == 39.0
+        assert created.sba_percentage == 97.5
+
+    def test_teacher_can_record_continuous_assessment_from_legacy_payload(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_membership, create_test_student
+        from app.models.assessment_methods import ContinuousAssessmentRecord
+        from app.models.subject import Subject
+        from app.models.class_ import ClassTeacherMapping
+        from app.models.tenant import TenantMembership
+
+        teacher_user = sample_teacher.user
+        if not TenantMembership.query.filter_by(tenant_id=sample_tenant.id, user_id=teacher_user.id, status='active').first():
+            create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+
+        s_user = User(username='s_assess_cont', email='s_assess_cont@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        if not TenantMembership.query.filter_by(tenant_id=sample_tenant.id, user_id=s_user.id, status='active').first():
+            create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+
+        subject = Subject(name='English Language', code='ENG101', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+
+        if not ClassTeacherMapping.query.filter_by(class_id=sample_class.id, teacher_id=teacher_user.id).first():
+            db_session.add(ClassTeacherMapping(class_id=sample_class.id, teacher_id=teacher_user.id))
+            db_session.flush()
+
+        db_session.commit()
+
+        token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.post(
+            f'/api/v1/assessment/continuous/{student.id}',
+            headers=headers,
+            json={
+                'subject_id': subject.id,
+                'assessment_date': '2026-06-25',
+                'assessment_type': 'quiz',
+                'score': 18,
+                'max_score': 20,
+                'feedback': 'Strong class participation and understanding.',
+                'term': 'Term 1',
+                'academic_year': '2025/2026',
+                'week_number': 3
+            }
+        )
+
+        assert response.status_code == 201
+        payload = response.get_json()
+        assert payload['success'] is True
+
+        created = ContinuousAssessmentRecord.query.get(payload['data']['id'])
+        assert created is not None
+        assert created.teacher_id == sample_teacher.id
+        assert created.student_id == student.id
+        assert created.class_id == sample_class.id
+        assert created.quiz_score == 18.0
+        assert created.class_score == 36.0
+        assert created.teacher_observations == 'Strong class participation and understanding.'
+
+    def test_create_assessment_framework_and_task_endpoints(self, client, db_session, sample_tenant, teacher_auth_context):
+        from app.models.assessment_methods import AssessmentFramework, AssessmentTask
+        from app.models.subject import Subject
+
+        headers = teacher_auth_context['headers']
+
+        level = EducationalLevel(
+            level_code='B2',
+            level_name='Basic 2',
+            key_phase='key_phase_2',
+        )
+        subject = Subject(name='Mathematics', code='MATH201', tenant_id=sample_tenant.id)
+        db_session.add_all([level, subject])
+        db_session.commit()
+
+        framework_response = client.post(
+            '/api/v1/assessment/frameworks',
+            headers=headers,
+            json={
+                'name': 'Mathematics Assessment Framework',
+                'description': 'Assessment framework for Basic 2 mathematics.',
+                'educational_level_id': level.id,
+                'subject_id': subject.id,
+                'formative_weight': 30.0,
+                'summative_weight': 40.0,
+                'school_based_weight': 20.0,
+                'project_weight': 10.0,
+            }
+        )
+
+        assert framework_response.status_code == 201
+        framework_payload = framework_response.get_json()
+        assert framework_payload['success'] is True
+        framework_id = framework_payload['framework']['id']
+
+        created_framework = AssessmentFramework.query.get(framework_id)
+        assert created_framework is not None
+        assert created_framework.name == 'Mathematics Assessment Framework'
+
+        task_response = client.post(
+            '/api/v1/assessment/tasks',
+            headers=headers,
+            json={
+                'title': 'Algebra Problem Solving',
+                'description': 'Assessment task for algebra problem solving skills',
+                'framework_id': framework_id,
+                'assessment_type': 'formative',
+                'assessment_mode': 'written',
+                'scheduled_date': '2026-06-30',
+                'duration_minutes': 60,
+                'total_marks': 50,
+                'pass_mark': 25,
+            }
+        )
+
+        assert task_response.status_code == 201
+        task_payload = task_response.get_json()
+        assert task_payload['success'] is True
+        assert task_payload['task']['title'] == 'Algebra Problem Solving'
+
+        created_task = AssessmentTask.query.get(task_payload['task']['id'])
+        assert created_task is not None
+        assert created_task.framework_id == framework_id
+        assert created_task.assessment_type.value == 'formative'
+        assert created_task.assessment_mode.value == 'written'
+
+    def test_student_can_submit_and_teacher_can_score_assessment(self, client, db_session, sample_tenant, sample_class, teacher_auth_context, student_auth_context):
+        from app.models.assessment_methods import AssessmentFramework, AssessmentTask, AssessmentSubmission, AssessmentScore
+        from app.models.subject import Subject
+
+        teacher = teacher_auth_context['teacher']
+        teacher_headers = teacher_auth_context['headers']
+        student = student_auth_context['student']
+        student_headers = student_auth_context['headers']
+
+        level = EducationalLevel(
+            level_code='B3',
+            level_name='Basic 3',
+            key_phase='key_phase_2',
+        )
+        subject = Subject(name='Science', code='SCI301', tenant_id=sample_tenant.id)
+        db_session.add_all([level, subject])
+        db_session.flush()
+
+        student.class_id = sample_class.id
+
+        framework = AssessmentFramework(
+            name='Science Framework',
+            educational_level_id=level.id,
+            subject_id=subject.id,
+        )
+        db_session.add(framework)
+        db_session.flush()
+
+        task = AssessmentTask(
+            title='Science Experiment Reflection',
+            framework_id=framework.id,
+            assessment_type='formative',
+            assessment_mode='written',
+            scheduled_date=datetime(2026, 6, 30).date(),
+            total_marks=50,
+            pass_mark=25,
+        )
+        db_session.add(task)
+        db_session.commit()
+
+        submission_response = client.post(
+            '/api/v1/assessment/submissions',
+            headers=student_headers,
+            json={
+                'task_id': task.id,
+                'submission_content': 'Student solution to the assessment task',
+                'submission_files': ['solution.pdf'],
+                'submitted_at': '2026-06-29T10:00:00',
+            }
+        )
+
+        assert submission_response.status_code == 201
+        submission_payload = submission_response.get_json()
+        assert submission_payload['success'] is True
+        assert submission_payload['submission']['task_id'] == task.id
+
+        created_submission = AssessmentSubmission.query.get(submission_payload['submission']['id'])
+        assert created_submission is not None
+        assert created_submission.student_id == student.id
+        assert created_submission.file_attachments == ['solution.pdf']
+        assert created_submission.is_submitted is True
+        assert created_submission.is_late is False
+
+        scoring_response = client.post(
+            '/api/v1/assessment/scores',
+            headers=teacher_headers,
+            json={
+                'submission_id': created_submission.id,
+                'raw_score': 42,
+                'written_feedback': 'Good work on problem solving approach',
+                'criterion_scores': {
+                    'understanding': 8,
+                    'method': 9,
+                    'accuracy': 7,
+                    'communication': 8,
+                }
+            }
+        )
+
+        assert scoring_response.status_code == 201
+        score_payload = scoring_response.get_json()
+        assert score_payload['success'] is True
+        assert score_payload['score']['raw_score'] == 42
+        assert score_payload['score']['percentage_score'] == 84.0
+        assert score_payload['score']['grade_level'] == 4
+
+        created_score = AssessmentScore.query.get(score_payload['score']['id'])
+        assert created_score is not None
+        assert created_score.teacher_id == teacher.id
+        assert created_score.submission_id == created_submission.id
+        assert created_score.criterion_scores['method'] == 9
+
+    def test_parent_can_list_own_messages(self, client, db_session, sample_tenant, parent_auth_context):
+        from tests.test_production_integration import create_test_membership
+
+        parent_user = parent_auth_context['user']
+        parent = parent_auth_context['parent']
+        headers = parent_auth_context['headers']
+
+        sender = User(
+            username='teacher_for_parent_messages',
+            email='teacher-parent-messages@example.com',
+            first_name='Teacher',
+            last_name='Sender',
+            role='teacher',
+            is_active=True
+        )
+        sender.set_password('testpassword')
+        db_session.add(sender)
+        db_session.flush()
+        create_test_membership(db_session, sample_tenant.id, sender.id, 'teacher')
+
+        inbound = Message(
+            sender_id=sender.id,
+            sender_type='teacher',
+            recipient_id=parent_user.id,
+            recipient_type='parent',
+            subject='Parent Workflow Update',
+            content='Your child has a new assignment submission update.'
+        )
+        outbound = Message(
+            sender_id=parent_user.id,
+            sender_type='parent',
+            recipient_id=sender.id,
+            recipient_type='teacher',
+            subject='Re: Parent Workflow Update',
+            content='Thanks for the update.'
+        )
+        db_session.add_all([inbound, outbound])
+        db_session.commit()
+
+        response = client.get(
+            f'/api/v1/parents/{parent.id}/messages',
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload['success'] is True
+        assert len(payload['data']['messages']) == 2
+        subjects = {message['subject'] for message in payload['data']['messages']}
+        assert 'Parent Workflow Update' in subjects
+        assert 'Re: Parent Workflow Update' in subjects
 
     def test_message_cannot_save_to_non_existent_recipient_id(self, db_session):
         from app.services.message_service import MessageService

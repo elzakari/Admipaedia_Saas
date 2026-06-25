@@ -7,7 +7,9 @@ from app.schemas.parent import ParentSchema, ParentCreateSchema, ParentUpdateSch
 from app.schemas.student import StudentSchema
 from app.schemas.attendance import AttendanceSchema
 from app.schemas.grade import GradeSchema
+from app.schemas.message import MessageSchema
 from app.schemas.notification import NotificationSchema
+from app.services.message_service import MessageService
 from app.utils.auth_utils import admin_required, teacher_required, parent_required
 from app.utils.tenant_context import tenant_required
 from app.utils.response import success_response, error_response, paginated_response
@@ -27,6 +29,7 @@ attendance_schema = AttendanceSchema()
 attendances_schema = AttendanceSchema(many=True)
 grade_schema = GradeSchema()
 grades_schema = GradeSchema(many=True)
+messages_schema = MessageSchema(many=True)
 notification_schema = NotificationSchema()
 notifications_schema = NotificationSchema(many=True)
 
@@ -738,6 +741,7 @@ def get_child_academic(child_id):
 @parents_bp.route('/<int:parent_id>/messages', methods=['GET'])
 @jwt_required()
 @parent_required
+@tenant_required
 def get_parent_messages(parent_id):
     """Get messages for a specific parent"""
     try:
@@ -747,22 +751,28 @@ def get_parent_messages(parent_id):
         if not parent or (parent.id != parent_id and getattr(parent, 'user_id', None) != parent_id):
             return error_response(message="Parent not found or access denied", status_code=403)
         
-        # Get messages
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
-        
-        # For now, return empty messages list - can be implemented later
-        messages = []
-        total = 0
+        folder = request.args.get('folder', 'all')
+        is_read = request.args.get('is_read', type=bool)
+
+        messages, total = MessageService.get_user_messages(
+            user_id=current_user_id,
+            folder=folder,
+            is_read=is_read,
+            page=page,
+            per_page=per_page,
+            tenant_id=getattr(g, 'tenant_id', None),
+        )
         
         return success_response(
             data={
-                'messages': messages,
+                'messages': messages_schema.dump(messages),
                 'pagination': {
                     'page': page,
                     'per_page': per_page,
                     'total': total,
-                    'pages': 0
+                    'pages': (total + per_page - 1) // per_page if per_page else 0
                 }
             },
             message="Messages retrieved successfully"

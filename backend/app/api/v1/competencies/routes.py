@@ -228,7 +228,8 @@ def get_student_competency_profile(student_id):
         
         return jsonify({
             'success': True,
-            'profile': profile_data
+            'profile': profile_data,
+            'competency_profile': profile_data
         }), 200
         
     except Exception as e:

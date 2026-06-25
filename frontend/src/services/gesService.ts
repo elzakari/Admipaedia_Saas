@@ -30,8 +30,9 @@ export interface GradingScheme {
 export const gesService = {
   getEducationalLevels: async (): Promise<EducationalLevel[]> => {
     try {
-      const response = await api.get('/academics/educational-levels');
-      return response.data.success ? response.data.levels : [];
+      const response = await api.get('/educational-levels');
+      const levels = response.data?.data || response.data?.levels || [];
+      return Array.isArray(levels) ? levels : [];
     } catch (error) {
       console.error('Error fetching educational levels:', error);
       return [];

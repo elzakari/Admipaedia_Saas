@@ -1280,7 +1280,7 @@ const ScoresDashboard = () => {
                             <p className="text-sm font-medium text-gray-600">{t('scores_dashboard.stat_perf_trend', 'Performance Trend')}</p>
                             <p className="text-2xl font-bold">
                               {summary?.trends && summary.trends.length > 0 ? 
-                                `${summary.trends[summary.trends.length - 1]?.average || 0}%` : 
+                                `${summary.trends[summary.trends.length - 1]?.average_score || 0}%` : 
                                 '0%'
                               }
                             </p>
@@ -1305,7 +1305,7 @@ const ScoresDashboard = () => {
                               <XAxis dataKey="subject" />
                               <YAxis domain={[0, 100]} />
                               <Tooltip />
-                              <Bar dataKey="average" fill={themeColors.secondary} radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="average_score" fill={themeColors.secondary} radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </CardContent>
@@ -1324,7 +1324,7 @@ const ScoresDashboard = () => {
                               <XAxis dataKey="date" />
                               <YAxis domain={[0, 100]} />
                               <Tooltip />
-                              <Line type="monotone" dataKey="average" stroke={themeColors.primary} strokeWidth={2} />
+                              <Line type="monotone" dataKey="average_score" stroke={themeColors.primary} strokeWidth={2} />
                             </LineChart>
                           </ResponsiveContainer>
                         </CardContent>

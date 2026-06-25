@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, BookOpen, Clock, Target } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import curriculumService, { Curriculum, CurriculumUnit, CurriculumCreate, CurriculumUnitCreate } from '../../services/curriculumService';
 import subjectService from '../../services/subjectService';
+import { gesService, EducationalLevel } from '../../services/gesService';
 import { useAdvancedSearch } from '../../hooks/useAdvancedSearch';
 import { AdvancedSearch } from '../ui/advanced-search';
 
@@ -20,6 +21,17 @@ interface Subject {
   name: string;
   code: string;
 }
+
+const defaultCurriculumForm = {
+  title: '',
+  description: '',
+  educational_level_id: '',
+  subject_id: '',
+  curriculum_standard: 'standards_based',
+  academic_year: '',
+  term: 'Term 1',
+  status: 'draft'
+};
 
 export function EnhancedCurriculumPlanner() {
   const { toast } = useToast();
@@ -32,18 +44,13 @@ export function EnhancedCurriculumPlanner() {
   const [curriculumForm, setCurriculumForm] = useState<{
     title: string;
     description: string;
-    grade_level: string;
+    educational_level_id: string;
     subject_id: string;
+    curriculum_standard: string;
     academic_year: string;
+    term: string;
     status: string;
-  }>({
-    title: '',
-    description: '',
-    grade_level: '',
-    subject_id: '',
-    academic_year: '',
-    status: 'draft'
-  });
+  }>(defaultCurriculumForm);
   
   // Form state for creating/editing curriculum units
   const [unitForm, setUnitForm] = useState<{
@@ -70,6 +77,11 @@ export function EnhancedCurriculumPlanner() {
     queryFn: () => subjectService.getSubjects(),
   });
 
+  const { data: educationalLevelsData, isLoading: isLoadingEducationalLevels } = useQuery({
+    queryKey: ['educational-levels'],
+    queryFn: () => gesService.getEducationalLevels(),
+  });
+
   // Fetch curricula
   const { data: curriculaData, isLoading: isLoadingCurricula } = useQuery({
     queryKey: ['curricula'],
@@ -85,6 +97,7 @@ export function EnhancedCurriculumPlanner() {
 
   // Prepare data for search
   const subjects = subjectsData?.subjects || [];
+  const educationalLevels = educationalLevelsData || [];
   const curricula = curriculaData || [];
   const curriculumUnits = curriculumUnitsData || [];
 
@@ -107,7 +120,7 @@ export function EnhancedCurriculumPlanner() {
 
   // Advanced search configuration for curricula
   const curriculaSearchConfig = {
-    searchableFields: ['title', 'description', 'subject_name', 'subject_code', 'grade_level', 'academic_year'],
+      searchableFields: ['title', 'description', 'subject_name', 'subject_code', 'grade_level', 'academic_year', 'term'],
     filterConfigs: [
       {
         key: 'subject_id',
@@ -117,16 +130,9 @@ export function EnhancedCurriculumPlanner() {
       },
       {
         key: 'grade_level',
-        label: 'Grade Level',
+        label: 'Educational Level',
         type: 'select' as const,
-        options: [
-          { value: 'Grade 7', label: 'Grade 7' },
-          { value: 'Grade 8', label: 'Grade 8' },
-          { value: 'Grade 9', label: 'Grade 9' },
-          { value: 'Grade 10', label: 'Grade 10' },
-          { value: 'Grade 11', label: 'Grade 11' },
-          { value: 'Grade 12', label: 'Grade 12' }
-        ]
+        options: educationalLevels.map((level: EducationalLevel) => ({ value: level.level_name, label: level.level_name }))
       },
       {
         key: 'academic_year',
@@ -202,14 +208,7 @@ export function EnhancedCurriculumPlanner() {
         id: ''
       });
       // Reset form
-      setCurriculumForm({
-        title: '',
-        description: '',
-        grade_level: '',
-        subject_id: '',
-        academic_year: '',
-        status: 'draft'
-      });
+      setCurriculumForm(defaultCurriculumForm);
       setSelectedCurriculum(null);
       setActiveTab('curricula');
     },
@@ -351,9 +350,11 @@ export function EnhancedCurriculumPlanner() {
     const formData: CurriculumCreate = {
       title: curriculumForm.title,
       description: curriculumForm.description,
-      grade_level: curriculumForm.grade_level,
+      educational_level_id: parseInt(curriculumForm.educational_level_id),
       subject_id: parseInt(curriculumForm.subject_id),
+      curriculum_standard: curriculumForm.curriculum_standard,
       academic_year: curriculumForm.academic_year,
+      term: curriculumForm.term,
       status: curriculumForm.status as 'draft' | 'published' | 'archived'
     };
     createCurriculumMutation.mutate(formData);
@@ -422,12 +423,7 @@ export function EnhancedCurriculumPlanner() {
               <Button onClick={() => {
                 setSelectedCurriculum(null);
                 setCurriculumForm({
-                  title: '',
-                  description: '',
-                  grade_level: '',
-                  subject_id: '',
-                  academic_year: '',
-                  status: 'draft'
+                  ...defaultCurriculumForm
                 });
                 setActiveTab('create');
               }}>
@@ -485,7 +481,7 @@ export function EnhancedCurriculumPlanner() {
                             <div className="text-sm text-muted-foreground">{curriculum.subject_code}</div>
                           </div>
                         </td>
-                        <td className="p-3">{typeof curriculum.grade_level === 'object' && curriculum.grade_level !== null ? (curriculum.grade_level as any).name : curriculum.grade_level}</td>
+                        <td className="p-3">{curriculum.grade_level}</td>
                         <td className="p-3">{curriculum.academic_year}</td>
                         <td className="p-3">
                           <Badge 
@@ -509,9 +505,11 @@ export function EnhancedCurriculumPlanner() {
                                 setCurriculumForm({
                                   title: curriculum.title,
                                   description: curriculum.description,
-                                  grade_level: curriculum.grade_level,
+                                  educational_level_id: curriculum.educational_level_id?.toString() || '',
                                   subject_id: curriculum.subject_id.toString(),
+                                  curriculum_standard: curriculum.curriculum_standard || 'standards_based',
                                   academic_year: curriculum.academic_year,
+                                  term: curriculum.term || 'Term 1',
                                   status: curriculum.status
                                 });
                                 setActiveTab('create');
@@ -617,24 +615,29 @@ export function EnhancedCurriculumPlanner() {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="grade-level" className="text-right">
-                    Grade Level
+                  <Label htmlFor="educational-level" className="text-right">
+                    Educational Level
                   </Label>
                   <Select 
-                    onValueChange={(value) => handleCurriculumSelectChange('grade_level', value)}
-                    value={curriculumForm.grade_level}
+                    onValueChange={(value) => handleCurriculumSelectChange('educational_level_id', value)}
+                    value={curriculumForm.educational_level_id}
                     required
                   >
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select grade level" />
+                      <SelectValue placeholder="Select educational level" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Grade 7">Grade 7</SelectItem>
-                      <SelectItem value="Grade 8">Grade 8</SelectItem>
-                      <SelectItem value="Grade 9">Grade 9</SelectItem>
-                      <SelectItem value="Grade 10">Grade 10</SelectItem>
-                      <SelectItem value="Grade 11">Grade 11</SelectItem>
-                      <SelectItem value="Grade 12">Grade 12</SelectItem>
+                      {isLoadingEducationalLevels ? (
+                        <SelectItem value="loading" disabled>Loading levels...</SelectItem>
+                      ) : educationalLevels.length === 0 ? (
+                        <SelectItem value="none" disabled>No levels available</SelectItem>
+                      ) : (
+                        educationalLevels.map((level: EducationalLevel) => (
+                          <SelectItem key={level.id} value={level.id.toString()}>
+                            {level.level_name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -668,6 +671,27 @@ export function EnhancedCurriculumPlanner() {
                 </div>
                 
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="curriculum-standard" className="text-right">
+                    Standard
+                  </Label>
+                  <Select 
+                    onValueChange={(value) => handleCurriculumSelectChange('curriculum_standard', value)}
+                    value={curriculumForm.curriculum_standard}
+                    required
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select curriculum standard" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standards_based">Standards Based</SelectItem>
+                      <SelectItem value="competency_based">Competency Based</SelectItem>
+                      <SelectItem value="stem_focused">STEM Focused</SelectItem>
+                      <SelectItem value="character_development">Character Development</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="academic-year" className="text-right">
                     Academic Year
                   </Label>
@@ -687,6 +711,26 @@ export function EnhancedCurriculumPlanner() {
                   </Select>
                 </div>
                 
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="term" className="text-right">
+                    Term
+                  </Label>
+                  <Select 
+                    onValueChange={(value) => handleCurriculumSelectChange('term', value)}
+                    value={curriculumForm.term}
+                    required
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select term" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Term 1">Term 1</SelectItem>
+                      <SelectItem value="Term 2">Term 2</SelectItem>
+                      <SelectItem value="Term 3">Term 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="status" className="text-right">
                     Status

@@ -84,6 +84,8 @@ def auth_headers(app, client):
     # Ensure test user exists and obtain JWT
     from app.models.user import User
     from app.extensions import bcrypt
+    from flask_jwt_extended import create_access_token
+    user_id = None
     with app.app_context():
         user = User.query.filter_by(email='test@example.com').first()
         if not user:
@@ -95,12 +97,17 @@ def auth_headers(app, client):
             )
             _db.session.add(user)
             _db.session.commit()
+        user_id = user.id
     resp = client.post('/api/v1/auth/login', json={'email': 'test@example.com', 'password': 'password'})
-    token = resp.json.get('access_token')
+    token = None
+    if getattr(resp, 'json', None):
+        token = resp.json.get('access_token')
+    if not token:
+        token = create_access_token(identity=user_id)
     return {'Authorization': f'Bearer {token}'}
 
 @pytest.fixture(scope='function')
-def sample_student(app):
+def sample_student(app, sample_tenant):
     from app.models.student import Student
     from app.models.user import User
     import uuid
@@ -111,6 +118,7 @@ def sample_student(app):
         _db.session.add(user)
         _db.session.flush()
         student = Student(
+            tenant_id=sample_tenant.id,
             admission_number=f'STU_TEST_{suffix}',
             first_name='Test',
             last_name='Student',
@@ -255,6 +263,36 @@ def admin_auth_headers(auth_headers):
 @pytest.fixture
 def admin_headers(auth_headers):
     return auth_headers
+
+@pytest.fixture
+def teacher_headers(db_session, client, teacher_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    from tests.test_production_integration import create_test_membership
+
+    teacher = teacher_factory(sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, teacher.user_id, 'teacher')
+    db_session.commit()
+
+    token = create_access_token(identity=teacher.user_id)
+    return {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id),
+    }
+
+@pytest.fixture
+def student_headers(db_session, client, student_factory, sample_tenant):
+    from flask_jwt_extended import create_access_token
+    from tests.test_production_integration import create_test_membership
+
+    student = student_factory(tenant_id=sample_tenant.id)
+    create_test_membership(db_session, sample_tenant.id, student.user_id, 'student')
+    db_session.commit()
+
+    token = create_access_token(identity=student.user_id)
+    return {
+        'Authorization': f'Bearer {token}',
+        'X-Tenant-ID': str(sample_tenant.id),
+    }
 
 @pytest.fixture
 def sample_class(db_session, teacher_factory, sample_tenant):

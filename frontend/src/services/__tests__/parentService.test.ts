@@ -45,7 +45,15 @@ describe('parentService portal workflow helpers', () => {
       data: {
         success: true,
         data: {
-          messages: [{ id: 7, subject: 'Teacher Update' }],
+          messages: [{
+            id: 7,
+            subject: 'Teacher Update',
+            content: 'Please review the latest assignment.',
+            sender: { display_name: 'Mr Mensah' },
+            recipient: { display_name: 'Parent User' },
+            created_at: '2026-06-25T10:00:00Z',
+            is_read: true,
+          }],
         },
       },
     });
@@ -53,7 +61,15 @@ describe('parentService portal workflow helpers', () => {
     const result = await parentService.getParentMessages(5);
 
     expect(mockApi.get).toHaveBeenCalledWith('/parents/5/messages');
-    expect(result).toEqual([{ id: 7, subject: 'Teacher Update' }]);
+    expect(result).toEqual([{
+      id: 7,
+      subject: 'Teacher Update',
+      message: 'Please review the latest assignment.',
+      sender: 'Mr Mensah',
+      recipient: 'Parent User',
+      date: '2026-06-25T10:00:00Z',
+      read: true,
+    }]);
   });
 
   it('unwraps child grades from success_response payloads', async () => {

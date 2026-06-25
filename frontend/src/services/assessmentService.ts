@@ -3,41 +3,73 @@ import api from '../lib/api';
 export interface AssessmentFramework {
     id: number;
     name: string;
+    subject_id?: number;
     framework_type: string;
     description?: string;
-    assessment_criteria: any;
-    scoring_rubric: any;
+    assessment_criteria: {
+        formative_weight?: number;
+        summative_weight?: number;
+        school_based_weight?: number;
+        project_weight?: number;
+        formative_frequency?: string;
+        summative_frequency?: string;
+    };
+    scoring_rubric: {
+        curriculum_standards?: any[];
+        competency_indicators?: any[];
+    };
 }
 
-export interface SchoolBasedAssessment {
-    id: number;
-    title: string;
-    subject_id: number;
-    class_id: number;
-    assessment_type: string;
-    description?: string;
-    total_marks: number;
-    duration_minutes?: number;
-    assessment_date: string;
-    instructions?: string;
-    marking_scheme?: any;
-    teacher_id: number;
-    term?: string;
-    academic_year?: string;
-}
-
-export interface ContinuousAssessmentRecord {
-    id: number;
+export interface SchoolBasedAssessmentPayload {
     student_id: number;
     subject_id: number;
+    class_id: number;
+    academic_year: string;
+    term: string;
     assessment_date: string;
-    assessment_type: string;
-    score: number;
-    max_score: number;
+    class_exercises_score?: number;
+    homework_score?: number;
+    project_score?: number;
+    assignment_score?: number;
+    class_test_scores?: number[];
+    class_test_average?: number;
+    total_sba_score?: number;
+    sba_percentage?: number;
+    core_competencies_score?: any;
+    subject_competencies_score?: any;
+    // Backward-compatible legacy fields still accepted by the backend route.
+    title?: string;
+    assessment_type?: string;
+    description?: string;
+    total_marks?: number;
+    duration_minutes?: number;
+    instructions?: string;
+    marking_scheme?: any;
+}
+
+export interface ContinuousAssessmentPayload {
+    subject_id: number;
+    class_id?: number;
+    academic_year: string;
+    term: string;
+    assessment_date: string;
+    assessment_type?: string;
+    assessment_focus?: string;
+    score?: number;
+    max_score?: number;
+    class_score?: number;
+    homework_score?: number;
+    participation_score?: number;
+    quiz_score?: number;
     feedback?: string;
-    teacher_id: number;
-    term?: string;
-    academic_year?: string;
+    teacher_observations?: string;
+    competencies_demonstrated?: any[];
+    competency_levels?: Record<string, any>;
+    learning_difficulties?: string;
+    strengths_noted?: string;
+    next_steps?: string;
+    support_needed?: string;
+    week_number?: number;
 }
 
 const assessmentService = {
@@ -51,7 +83,7 @@ const assessmentService = {
         }
     },
 
-    createSBA: async (sbaData: Omit<SchoolBasedAssessment, 'id' | 'teacher_id'>): Promise<{ id: number }> => {
+    createSBA: async (sbaData: SchoolBasedAssessmentPayload): Promise<{ id: number }> => {
         try {
             const response = await api.post('/assessment/sba', sbaData);
             return response.data.data;
@@ -61,7 +93,7 @@ const assessmentService = {
         }
     },
 
-    recordContinuousAssessment: async (studentId: number, recordData: Omit<ContinuousAssessmentRecord, 'id' | 'student_id' | 'teacher_id'>): Promise<{ id: number }> => {
+    recordContinuousAssessment: async (studentId: number, recordData: ContinuousAssessmentPayload): Promise<{ id: number }> => {
         try {
             const response = await api.post(`/assessment/continuous/${studentId}`, recordData);
             return response.data.data;

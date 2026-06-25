@@ -182,3 +182,78 @@ def get_broadsheet():
         return jsonify({'success': False, 'message': error}), 400
         
     return jsonify({'success': True, 'data': data}), 200
+
+
+@grades_bp.route('/analytics/class/<int:class_id>', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
+def get_class_grade_analytics(class_id):
+    """Legacy compatibility endpoint for class grade analytics."""
+    subject_id = request.args.get('subject_id', type=int)
+    term = request.args.get('term')
+    academic_year = request.args.get('academic_year')
+
+    query = Grade.query.filter(Grade.class_id == class_id)
+    if subject_id:
+        query = query.filter(Grade.subject_id == subject_id)
+    if term:
+        query = query.filter(Grade.term == term)
+    if academic_year:
+        query = query.filter(Grade.academic_year == academic_year)
+
+    grades = query.order_by(Grade.created_at.asc(), Grade.id.asc()).all()
+
+    if not grades:
+        analytics = {
+            'class_id': class_id,
+            'subject_id': subject_id,
+            'term': term,
+            'academic_year': academic_year,
+            'class_average': 0.0,
+            'grade_distribution': {},
+            'performance_trends': [],
+            'total_grades': 0,
+        }
+        return jsonify({'success': True, 'analytics': analytics}), 200
+
+    def _grade_symbol(percentage):
+        if percentage >= 90:
+            return 'A+'
+        if percentage >= 80:
+            return 'A'
+        if percentage >= 75:
+            return 'B+'
+        if percentage >= 70:
+            return 'B'
+        if percentage >= 65:
+            return 'C+'
+        if percentage >= 60:
+            return 'C'
+        return 'F'
+
+    distribution = {}
+    for grade in grades:
+        symbol = grade.grade_letter or _grade_symbol(float(grade.percentage or 0))
+        distribution[symbol] = distribution.get(symbol, 0) + 1
+
+    running_total = 0.0
+    trends = []
+    for index, grade in enumerate(grades, start=1):
+        running_total += float(grade.percentage or 0)
+        trends.append({
+            'assessment_index': index,
+            'average_score': round(running_total / index, 2),
+            'grade_id': grade.id,
+        })
+
+    analytics = {
+        'class_id': class_id,
+        'subject_id': subject_id,
+        'term': term,
+        'academic_year': academic_year,
+        'class_average': round(sum(float(grade.percentage or 0) for grade in grades) / len(grades), 2),
+        'grade_distribution': distribution,
+        'performance_trends': trends,
+        'total_grades': len(grades),
+    }
+    return jsonify({'success': True, 'analytics': analytics}), 200

@@ -510,7 +510,7 @@ def get_performance_comparison():
             )
         if class_id:
             external_query = external_query.join(Student).filter(
-                Student.current_class_id == class_id
+                Student.class_id == class_id
             )
         
         external_results = external_query.all()
@@ -547,7 +547,8 @@ def get_performance_comparison():
         
         return jsonify({
             'success': True,
-            'data': comparison_data
+            'data': comparison_data,
+            'comparison_data': comparison_data
         }), 200
         
     except Exception as e:
