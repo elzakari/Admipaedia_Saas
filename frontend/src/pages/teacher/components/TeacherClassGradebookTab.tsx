@@ -26,7 +26,8 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   const { t } = useTranslation();
   const [subjects, setSubjects] = useState<any[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | ''>('');
-  const [assessment, setAssessment] = useState<string>('');
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | ''>('');
+  const [customAssessmentTitle, setCustomAssessmentTitle] = useState<string>('');
   const [isCustomAssessment, setIsCustomAssessment] = useState<boolean>(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -120,10 +121,11 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           
           // Pre-select first assignment if available to reduce manual selection steps
           if (mapped.length > 0) {
-            setAssessment(mapped[0].title);
+            setSelectedAssessmentId(mapped[0].id);
             setIsCustomAssessment(false);
+            setCustomAssessmentTitle('');
           } else {
-            setAssessment('');
+            setSelectedAssessmentId('');
           }
         }
       } catch (err) {
@@ -146,11 +148,15 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
       return { grade: 'NA', remark: 'Non Acquis' };
     }
     const percentage = (scoreNum / maxScore) * 100;
-    if (percentage >= 80) return { grade: 'A', remark: 'Excellent' };
-    if (percentage >= 70) return { grade: 'B', remark: 'Very Good' };
-    if (percentage >= 60) return { grade: 'C', remark: 'Good' };
-    if (percentage >= 50) return { grade: 'D', remark: 'Credit' };
-    if (percentage >= 40) return { grade: 'E', remark: 'Pass' };
+    if (percentage >= 90) return { grade: 'A+', remark: 'Excellent' };
+    if (percentage >= 80) return { grade: 'A', remark: 'Very Good' };
+    if (percentage >= 75) return { grade: 'B+', remark: 'Very Good' };
+    if (percentage >= 70) return { grade: 'B', remark: 'Good' };
+    if (percentage >= 65) return { grade: 'C+', remark: 'Good' };
+    if (percentage >= 60) return { grade: 'C', remark: 'Satisfactory' };
+    if (percentage >= 55) return { grade: 'D+', remark: 'Credit' };
+    if (percentage >= 50) return { grade: 'D', remark: 'Pass' };
+    if (percentage >= 45) return { grade: 'E', remark: 'Pass' };
     return { grade: 'F', remark: 'Fail' };
   };
 
@@ -162,50 +168,8 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
     }
     setErrorMessage(null);
     setIsLoading(true);
-
-    // Flatten spacing, casing, and punctuation to prevent strict matching drops
-    const sanitizedInput = assessment.trim().toLowerCase().replace(/[\s_-]+/g, '');
-
-    if (!sanitizedInput) {
-      setErrorMessage("Please select or enter an assessment title to load.");
-      setIsLoading(false);
-      return;
-    }
-
-    // Scan pre-fetched assignments securely
-    const matchedAssignment = assignments.find(a => 
-      a.title.trim().toLowerCase().replace(/[\s_-]+/g, '') === sanitizedInput
-    );
-
-    if (!matchedAssignment) {
-      // Fallback: If not found in API, check local storage key
-      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}.${selectedSubjectId}`;
-      try {
-        const raw = localStorage.getItem(localKey);
-        if (raw) {
-          const parsed = JSON.parse(raw) as any[];
-          const filtered = parsed.filter(r => r.assessment.trim().toLowerCase().replace(/[\s_-]+/g, '') === sanitizedInput);
-          if (filtered.length > 0) {
-            const initialMatrix: Record<number, GradeEntry> = {};
-            activeRoster.forEach((student) => {
-              const savedRecord = filtered.find((g: any) => g.studentId === student.id);
-              initialMatrix[Number(student.id)] = {
-                student_id: Number(student.id),
-                score: savedRecord ? (savedRecord.score ?? '') : '',
-                grade: savedRecord ? (savedRecord.grade ?? '') : '',
-                remark: savedRecord ? (savedRecord.remark ?? '') : ''
-              };
-            });
-            setGradeMatrix(initialMatrix);
-            setIsLoading(false);
-            return;
-          }
-        }
-      } catch (localErr) {
-        console.warn("Failed to check local fallback:", localErr);
-      }
-
-      setErrorMessage(`No matching assessment named "${assessment}" found for this subject.`);
+    if (isCustomAssessment || !selectedAssessmentId) {
+      setErrorMessage("Please select an existing assessment to load.");
       setIsLoading(false);
       return;
     }
@@ -221,7 +185,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
       }));
       setStudents(mappedStudents);
 
-      const gradesResponse = await api.get(`/exams/${matchedAssignment.id}/grades`);
+      const gradesResponse = await api.get(`/exams/${selectedAssessmentId}/grades`);
       const existingGrades = gradesResponse.data?.grades || gradesResponse.data || [];
 
       const initialMatrix: Record<number, GradeEntry> = {};
@@ -250,35 +214,39 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
     }
     setErrorMessage(null);
     setIsLoading(true);
-
-    const sanitizedInput = assessment.trim().toLowerCase().replace(/[\s_-]+/g, '');
-    let matchedAssignment = assignments.find(a => 
-      a.title.trim().toLowerCase().replace(/[\s_-]+/g, '') === sanitizedInput
-    );
+    let matchedAssignment = assignments.find((a) => a.id === selectedAssessmentId);
 
     try {
       if (!matchedAssignment) {
+        if (!isCustomAssessment || !customAssessmentTitle.trim()) {
+          setErrorMessage("Please select an assessment or create a new one before saving.");
+          return;
+        }
+
+        const totalMarks = isApc ? 20 : 100;
+        const selectedCategory = assessmentCategories.find((c) => String(c.id) === String(selectedCategoryId));
         // Create new assignment/exam dynamically for the selected class + subject
         const createRes = await api.post('/exams', {
-          title: assessment,
-          exam_date: new Date().toISOString(),
+          title: customAssessmentTitle.trim(),
+          description: selectedCategory ? `Assessment Category: ${selectedCategory.name}` : undefined,
+          exam_date: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           duration: 60,
-          total_marks: 100,
-          passing_marks: 50,
+          total_marks: totalMarks,
+          passing_marks: isApc ? 10 : 50,
           class_id: Number(cls.id),
-          subject_id: Number(selectedSubjectId),
-          assessment_type: selectedCategoryId
+          subject_id: Number(selectedSubjectId)
         });
         const newExam = createRes.data?.exam;
         if (newExam) {
           matchedAssignment = {
             id: newExam.id,
             title: newExam.title,
-            max_score: newExam.total_marks || 100
+            max_score: newExam.total_marks || totalMarks
           };
           setAssignments(prev => [...prev, matchedAssignment!]);
-          setAssessment(newExam.title);
+          setSelectedAssessmentId(newExam.id);
           setIsCustomAssessment(false);
+          setCustomAssessmentTitle('');
         }
       }
 
@@ -286,7 +254,12 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
         const payload = {
           exam_id: matchedAssignment.id,
           grades: activeRoster.map((s) => {
-            const entry = gradeMatrix[Number(s.id)] ?? {};
+            const entry: GradeEntry = gradeMatrix[Number(s.id)] ?? {
+              student_id: Number(s.id),
+              score: '',
+              grade: '',
+              remark: '',
+            };
             return {
               student_id: Number(s.id),
               marks_obtained: entry.score !== undefined && entry.score !== '' ? Number(entry.score) : 0,
@@ -295,43 +268,18 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           })
         };
         await api.post('/grades/bulk', payload);
+        await handleLoadGradebook();
       }
     } catch (err) {
-      console.warn("API save failed, using local storage fallback:", err);
-    }
-
-    // Save to localStorage as fallback
-    try {
-      const localKey = `admipaedia.teacher.gradebook.v1.${cls.id}.${selectedSubjectId}`;
-      const existing: any[] = (() => {
-        try {
-          const raw = localStorage.getItem(localKey);
-          if (!raw) return [];
-          return JSON.parse(raw) as any[];
-        } catch {
-          return [];
-        }
-      })();
-
-      const withoutAssessment = existing.filter(r => r.assessment.trim().toLowerCase().replace(/[\s_-]+/g, '') !== sanitizedInput);
-      const next = activeRoster.map((s) => {
-        const entry = gradeMatrix[Number(s.id)] ?? {};
-        return {
-          studentId: s.id,
-          assessment: assessment,
-          score: entry.score !== '' ? Number(entry.score) : undefined,
-          grade: entry.grade || undefined,
-          remark: entry.remark || undefined
-        };
-      });
-
-      localStorage.setItem(localKey, JSON.stringify([...withoutAssessment, ...next]));
-    } catch (localErr) {
-      console.error("Local storage save failed:", localErr);
+      console.error("API save failed:", err);
+      setErrorMessage("Failed to save the gradebook. Please verify the selected assessment and scores.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const selectedAssignment = assignments.find((assignment) => assignment.id === selectedAssessmentId);
+  const selectedMaxScore = selectedAssignment?.max_score || (isApc ? 20 : 100);
 
   return (
     <div className="space-y-4">
@@ -363,8 +311,8 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
             {isCustomAssessment ? (
               <div className="flex gap-2 items-center">
                 <input
-                  value={assessment}
-                  onChange={(e) => setAssessment(e.target.value)}
+                  value={customAssessmentTitle}
+                  onChange={(e) => setCustomAssessmentTitle(e.target.value)}
                   className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder={t('teacher_portal.gradebook.assessment_placeholder')}
                   disabled={isLoading}
@@ -386,13 +334,15 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
               </div>
             ) : (
               <select
-                value={assessment}
+                value={selectedAssessmentId === '' ? '' : String(selectedAssessmentId)}
                 onChange={(e) => {
                   if (e.target.value === '__new__') {
                     setIsCustomAssessment(true);
-                    setAssessment('');
+                    setSelectedAssessmentId('');
+                    setCustomAssessmentTitle('');
                   } else {
-                    setAssessment(e.target.value);
+                    setSelectedAssessmentId(e.target.value === '' ? '' : Number(e.target.value));
+                    setIsCustomAssessment(false);
                   }
                 }}
                 className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[180px]"
@@ -400,7 +350,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
               >
                 <option value="">Select Assessment</option>
                 {assignments.map((a) => (
-                  <option key={a.id} value={a.title}>{a.title}</option>
+                  <option key={a.id} value={a.id}>{a.title}</option>
                 ))}
                 <option value="__new__">+ Create New...</option>
               </select>
@@ -408,10 +358,10 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl h-10" onClick={handleLoadGradebook} disabled={isLoading || !selectedSubjectId}>
+            <Button variant="outline" className="rounded-xl h-10" onClick={handleLoadGradebook} disabled={isLoading || !selectedSubjectId || isCustomAssessment || !selectedAssessmentId}>
               {isLoading ? "..." : t('teacher_portal.gradebook.load')}
             </Button>
-            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 h-10" onClick={handleSaveGradebook} disabled={isLoading || !selectedSubjectId || !assessment}>
+            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 h-10" onClick={handleSaveGradebook} disabled={isLoading || !selectedSubjectId || (isCustomAssessment ? !customAssessmentTitle.trim() : !selectedAssessmentId)}>
               {isLoading ? "..." : t('teacher_portal.gradebook.save')}
             </Button>
           </div>
@@ -460,13 +410,12 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
                 <input
                   type="number"
                   min={0}
-                  max={100}
+                  max={selectedMaxScore}
                   value={entry.score}
                   onChange={(e) => {
                     const val = e.target.value;
                     const score = val === '' ? '' : Number(val);
-                    const maxScore = 100;
-                    const { grade, remark } = score !== '' ? calculateGradeAndRemark(score, maxScore) : { grade: '', remark: '' };
+                    const { grade, remark } = score !== '' ? calculateGradeAndRemark(score, selectedMaxScore) : { grade: '', remark: '' };
                     setGradeMatrix((prev) => ({
                       ...prev,
                       [Number(s.id)]: { student_id: Number(s.id), score, grade, remark }

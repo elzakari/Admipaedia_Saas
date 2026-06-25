@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import communicationService, { Message, MessageCreate } from '../../services/communicationService';
+import communicationService, { Message, MessageCreate, MessageAttachment } from '../../services/communicationService';
 import { toast } from 'sonner';
 import { 
   MessageSquare, 
@@ -71,6 +71,39 @@ interface AttachmentFile {
   file?: File;
 }
 
+const getMessageParticipant = (message: Message, currentUserId?: number | null) => {
+  const isOutgoing = message.sender_id === currentUserId;
+  const participant = isOutgoing ? message.recipient : message.sender;
+  const fallbackType = isOutgoing ? message.recipient_type : message.sender_type;
+  const fallbackId = isOutgoing ? message.recipient_id : message.sender_id;
+
+  return {
+    participantId: fallbackId,
+    participantType: fallbackType,
+    participantName: participant?.display_name || `${fallbackType} ${fallbackId}`,
+  };
+};
+
+const getAttachmentMetadata = (attachment: string | MessageAttachment, index: number) => {
+  if (typeof attachment === 'string') {
+    const fileExtension = attachment.split('.').pop()?.toLowerCase() || 'file';
+    return {
+      id: `legacy-${index}-${attachment}`,
+      fileExtension,
+      fileName: attachment,
+      url: undefined,
+    };
+  }
+
+  const fileExtension = attachment.filename?.split('.').pop()?.toLowerCase() || attachment.mime_type?.split('/').pop() || 'file';
+  return {
+    id: attachment.id || `attachment-${index}`,
+    fileExtension,
+    fileName: attachment.filename || `attachment-${index}`,
+    url: attachment.download_url,
+  };
+};
+
 // AI suggestion templates
 const aiSuggestions = [
   "Thank you for reaching out. I'll review this and get back to you soon.",
@@ -137,7 +170,7 @@ export function MessagesPage() {
         const list: Message[] = (data as any).messages || (data as any).data || [];
         // Filter messages for the selected conversation on the client side
         const filteredMessages = list.filter(message => {
-          const participantId = filter === 'sent' ? message.recipient_id : message.sender_id;
+          const participantId = getMessageParticipant(message, user?.id).participantId;
           return participantId === selectedConversation.participant_id;
         });
         return filteredMessages;
@@ -159,13 +192,12 @@ export function MessagesPage() {
     if (!Array.isArray(list)) return [];
     
     const grouped = list.reduce((acc: any, message: Message) => {
-      const participantId = filter === 'sent' ? message.recipient_id : message.sender_id;
-      const participantType = filter === 'sent' ? message.recipient_type : message.sender_type;
+      const { participantId, participantType, participantName } = getMessageParticipant(message, user?.id);
       
       if (!acc[participantId]) {
         acc[participantId] = {
           participant_id: participantId,
-          participant_name: `${participantType} ${participantId}`, // You'll need user service to get names
+          participant_name: participantName,
           participant_type: participantType,
           messages: [],
           unread_count: 0
@@ -715,24 +747,28 @@ export function MessagesPage() {
                             {message.attachments && message.attachments.length > 0 && (
                               <div className="mt-2 space-y-1">
                                 {message.attachments.map((attachment, index) => {
-                                  const fileExtension =
-                                    typeof attachment === 'string'
-                                      ? attachment.split('.').pop()?.toLowerCase() || 'file'
-                                      : 'file';
-                                  const fileName =
-                                    typeof attachment === 'string' ? attachment : `attachment-${index}`;
+                                  const metadata = getAttachmentMetadata(attachment, index);
 
                                   return (
-                                    <div key={index} className="flex items-center space-x-2 text-xs">
-                                      {getAttachmentIcon(fileExtension)}
-                                      <span className="truncate">{fileName}</span>
-                                    </div>
+                                    <a
+                                      key={metadata.id}
+                                      className="flex items-center space-x-2 text-xs hover:underline"
+                                      href={metadata.url}
+                                      target={metadata.url ? '_blank' : undefined}
+                                      rel={metadata.url ? 'noreferrer' : undefined}
+                                    >
+                                      {getAttachmentIcon(metadata.fileExtension)}
+                                      <span className="truncate">{metadata.fileName}</span>
+                                    </a>
                                   );
                                 })}
                               </div>
                             )}
 
                             <div className="flex items-center justify-between mt-1">
+                              <span className="text-xs opacity-75">
+                                {isOutgoing ? 'You' : (message.sender?.display_name || selectedConversation.participant_name)}
+                              </span>
                               <span className="text-xs opacity-75">
                                 {formatMessageTime(message.created_at)}
                               </span>

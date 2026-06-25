@@ -3,6 +3,21 @@ import { StandardPaginatedResponse, StandardApiResponse } from '../types';
 import { ApiResponseStandardizer } from '../lib/apiResponseStandardizer';
 
 // Types for message data
+export interface MessageParticipant {
+  id: number;
+  username: string;
+  role: 'admin' | 'teacher' | 'student' | 'parent' | 'user' | 'class';
+  display_name: string;
+}
+
+export interface MessageAttachment {
+  id: string;
+  filename: string;
+  size?: number | null;
+  mime_type?: string | null;
+  download_url?: string;
+}
+
 export interface Message {
   id: number;
   sender_id: number;
@@ -12,7 +27,9 @@ export interface Message {
   subject: string;
   content: string;
   is_read: boolean;
-  attachments?: string[];
+  attachments?: Array<string | MessageAttachment>;
+  sender?: MessageParticipant | null;
+  recipient?: MessageParticipant | null;
   created_at: string;
   updated_at: string;
 }

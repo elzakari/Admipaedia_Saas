@@ -1,12 +1,14 @@
 from flask import Blueprint, request, jsonify
 from app.services.grading.service import GradingService
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.utils.rbac_decorators import require_permission
+from app.utils.rbac_decorators import require_permission, require_role
 from app.extensions import db
 from app.models.exam import Exam
 from app.models.grade import Grade
 from app.models.student import Student
+from app.models.user import User
 from app.schemas.grade import GradeSchema
+from app.services.identity_resolver import IdentityResolver
 
 grades_bp = Blueprint('grades', __name__)
 
@@ -16,7 +18,7 @@ grades_schema = GradeSchema(many=True)
 
 @grades_bp.route('/bulk', methods=['POST'])
 @jwt_required()
-@require_permission('grade.create')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def bulk_enter_exam_grades():
     user_id = get_jwt_identity()
     payload = request.get_json() or {}
@@ -29,6 +31,13 @@ def bulk_enter_exam_grades():
     exam = Exam.query.get(exam_id)
     if not exam:
         return jsonify({'success': False, 'message': 'Exam not found'}), 404
+
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, exam.class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
     saved = []
     for item in grades:

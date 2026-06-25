@@ -138,7 +138,6 @@ def get_student_dashboard():
 @students_bp.route('/', methods=['GET'])  # This will match /students/
 @jwt_required()
 @require_role(['admin', 'teacher'])
-@require_permission('student.read')
 @tenant_required
 def get_students():
     """Get all students with pagination and filtering."""

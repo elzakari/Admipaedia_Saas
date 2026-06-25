@@ -1540,6 +1540,77 @@ class TestADMIWorkflowAndRelationshipAudit:
         )
         assert response.status_code == 403
 
+    def test_teacher_can_list_visible_assignment_submissions(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import create_test_membership, create_test_student
+        from app.models.assignment import Assignment
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.models.subject import Subject
+        from app.models.class_ import ClassTeacherMapping
+
+        teacher_user = sample_teacher.user
+        create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+
+        s_user = User(username='s_visible_sub', email='visible_sub@example.com', role='student')
+        s_user.set_password('Password123!')
+        db_session.add(s_user)
+        db_session.flush()
+        student = create_test_student(db_session, s_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        create_test_membership(db_session, sample_tenant.id, s_user.id, 'student')
+
+        subject = Subject(name='Science', code='SCI101', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+
+        if not ClassTeacherMapping.query.filter_by(class_id=sample_class.id, teacher_id=teacher_user.id).first():
+            db_session.add(ClassTeacherMapping(class_id=sample_class.id, teacher_id=teacher_user.id))
+            db_session.flush()
+
+        assignment = Assignment(
+            title='Visible Homework',
+            description='Submit lab notes',
+            class_id=sample_class.id,
+            subject_id=subject.id,
+            teacher_id=sample_teacher.id,
+            due_date=datetime.utcnow() + timedelta(days=3),
+            total_points=100.0,
+            assignment_type='homework',
+            status='active'
+        )
+        db_session.add(assignment)
+        db_session.flush()
+
+        submission = AssignmentSubmission(
+            assignment_id=assignment.id,
+            student_id=student.id,
+            content='Attached my answers.',
+            file_path='/uploads/lab-notes.pdf',
+            status='submitted'
+        )
+        db_session.add(submission)
+        db_session.commit()
+
+        token = create_access_token(identity=teacher_user.id)
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(sample_tenant.id)
+        }
+
+        response = client.get(
+            f'/api/v1/classes/assignments/{assignment.id}/submissions',
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload['success'] is True
+        assert payload['assignment']['id'] == assignment.id
+        assert len(payload['submissions']) == 1
+        assert payload['submissions'][0]['student_id'] == student.id
+        assert payload['submissions'][0]['student_name'] is not None
+        assert payload['submissions'][0]['file_path'] == '/uploads/lab-notes.pdf'
+
     def test_message_cannot_save_to_non_existent_recipient_id(self, db_session):
         from app.services.message_service import MessageService
         

@@ -2,6 +2,7 @@ from flask import request, jsonify, g, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.v1.classes import classes_bp
 from app.services.class_service import ClassService
+from app.services.teacher_service import TeacherService
 from app.schemas.class_ import ClassSchema, ClassListSchema, ClassCreateSchema, ClassUpdateSchema
 from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.rbac_decorators import require_permission, require_role
@@ -610,9 +611,20 @@ def delete_class_resource(class_id, resource_id):
 # Subject routes
 @classes_bp.route('/<int:class_id>/subjects', methods=['GET'])
 @jwt_required()
-@require_permission('class.read')
+@require_role(['admin', 'teacher'])
 def get_class_subjects(class_id):
     """Get subjects for a specific class."""
+    user_id = int(get_jwt_identity())
+    from app.models.user import User
+    from app.services.identity_resolver import IdentityResolver
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    if user.role == 'teacher' and not IdentityResolver.can_user_access_class(user_id, class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     
@@ -801,6 +813,79 @@ def get_class_assignments(class_id):
         }), 200
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@classes_bp.route('/assignments/<int:assignment_id>/submissions', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'super_admin', 'teacher'])
+def get_assignment_submissions(assignment_id):
+    """Get submissions for an assignment visible to the current teacher/admin."""
+    try:
+        from sqlalchemy.orm import joinedload
+        from app.models.assignment import Assignment
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.models.user import User
+        from app.services.identity_resolver import IdentityResolver
+
+        user_id = int(get_jwt_identity())
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+
+        assignment = Assignment.query.get(assignment_id)
+        if not assignment:
+            return jsonify({'success': False, 'message': 'Assignment not found'}), 404
+
+        if user.role == 'teacher' and not IdentityResolver.can_user_access_class(user_id, assignment.class_id):
+            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
+        submissions = AssignmentSubmission.query.options(
+            joinedload(AssignmentSubmission.student)
+        ).filter(
+            AssignmentSubmission.assignment_id == assignment_id
+        ).order_by(
+            AssignmentSubmission.submission_date.desc(),
+            AssignmentSubmission.created_at.desc()
+        ).all()
+
+        submissions_data = []
+        for submission in submissions:
+            student = submission.student
+            student_name = None
+            if student:
+                student_name = (
+                    f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
+                    or getattr(student, 'name', None)
+                    or f"Student #{student.id}"
+                )
+
+            submissions_data.append({
+                'id': submission.id,
+                'assignment_id': submission.assignment_id,
+                'student_id': submission.student_id,
+                'student_name': student_name,
+                'content': submission.content,
+                'file_path': submission.file_path,
+                'submission_date': submission.submission_date.isoformat() if submission.submission_date else None,
+                'score': submission.score,
+                'feedback': submission.feedback,
+                'status': submission.status,
+                'graded_by': submission.graded_by,
+                'graded_at': submission.graded_at.isoformat() if submission.graded_at else None,
+            })
+
+        return jsonify({
+            'success': True,
+            'assignment': {
+                'id': assignment.id,
+                'title': assignment.title,
+                'class_id': assignment.class_id,
+            },
+            'submissions': submissions_data
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error fetching submissions for assignment {assignment_id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch submissions'}), 500
 
 
 @classes_bp.route('/<int:class_id>/teachers', methods=['GET'])

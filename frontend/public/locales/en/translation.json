@@ -304,7 +304,7 @@
     "login": {
       "title": "Super Admin Login",
       "subtitle": "Sign in to manage all users securely.",
-      "email_placeholder": "superadmin@admipaedia.com",
+      "email_placeholder": "elzakari@easymsdigit.com",
       "password_placeholder": "Your password",
       "init_dev_super_admin": "Initialize dev Super Admin",
       "errors": {

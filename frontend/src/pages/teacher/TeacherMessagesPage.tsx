@@ -7,6 +7,22 @@ import { profileService } from '../../services/profileService';
 import announcementService, { Announcement } from '../../services/announcementService';
 import communicationService from '../../services/communicationService';
 
+const getOtherParticipantDetails = (message: any, currentUserId: number | null) => {
+  const isOutgoing = message.sender_id === currentUserId;
+  const participant = isOutgoing ? message.recipient : message.sender;
+  const participantType = isOutgoing ? message.recipient_type : message.sender_type;
+  const participantId = isOutgoing ? message.recipient_id : message.sender_id;
+  const participantName = participant?.display_name
+    || participant?.username
+    || `${participantType.charAt(0).toUpperCase() + participantType.slice(1)} #${participantId}`;
+
+  return {
+    participantId,
+    participantType,
+    participantName,
+  };
+};
+
 const TeacherMessagesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'threads' | 'broadcasts'>('threads');
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -106,17 +122,14 @@ const TeacherMessagesPage: React.FC = () => {
       const subjectKey = (m.subject || 'No Subject').trim().toLowerCase();
       if (!compiled[subjectKey]) {
         // Determine other participant details
-        const isOutgoing = m.sender_id === currentUserId;
-        const otherId = isOutgoing ? m.recipient_id : m.sender_id;
-        const otherType = isOutgoing ? m.recipient_type : m.sender_type;
-        const otherLabel = `${otherType.charAt(0).toUpperCase() + otherType.slice(1)} #${otherId}`;
+        const other = getOtherParticipantDetails(m, currentUserId);
 
         compiled[subjectKey] = {
           id: subjectKey,
           subject: m.subject || 'No Subject',
-          otherParticipantId: otherId,
-          otherParticipantType: otherType,
-          otherParticipantName: otherLabel,
+          otherParticipantId: other.participantId,
+          otherParticipantType: other.participantType,
+          otherParticipantName: other.participantName,
           messages: []
         };
       }
@@ -136,7 +149,7 @@ const TeacherMessagesPage: React.FC = () => {
         otherParticipantType: t.otherParticipantType,
         messages: t.messages.map((msg: any) => ({
           id: msg.id.toString(),
-          sender: msg.sender_id === currentUserId ? 'You' : t.otherParticipantName,
+          sender: msg.sender_id === currentUserId ? 'You' : (msg.sender?.display_name || t.otherParticipantName),
           body: msg.content,
           sentAt: msg.created_at || msg.sentAt || ''
         }))
@@ -288,7 +301,7 @@ const TeacherMessagesPage: React.FC = () => {
                       value={composeRecipientType}
                       onChange={(e) => {
                         setComposeRecipientType(e.target.value as any);
-                        setComposeRecipientRef('');
+                        setComposeRecipientId('');
                         setComposeSearch('');
                       }}
                       className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
@@ -325,7 +338,7 @@ const TeacherMessagesPage: React.FC = () => {
                       >
                         <option value="">Select recipient...</option>
                         {recipientOptions.map((opt) => (
-                          <option key={opt.ref} value={opt.ref}>
+                          <option key={opt.id} value={opt.id}>
                             {opt.label} ({opt.subtitle})
                           </option>
                         ))}

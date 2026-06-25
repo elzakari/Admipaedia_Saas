@@ -331,7 +331,7 @@ def bootstrap_dev_accounts():
             "success": True,
             "seeded": {
                 "admin_email": "admin@admipaedia.com",
-                "super_admin_email": "superadmin@admipaedia.com"
+                "super_admin_email": "elzakari@easymsdigit.com"
             }
         }), 200
     except Exception as err:

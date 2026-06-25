@@ -48,9 +48,15 @@ def init_db():
     # Commit changes
     db.session.commit()
 
-    super_admin_email = 'superadmin@admipaedia.com'
+    super_admin_email = 'elzakari@easymsdigit.com'
     super_admin_seed_password = os.environ.get('SUPERADMIN_SEED_PASSWORD')
     super_admin_user = User.query.filter_by(email=super_admin_email).first()
+    if not super_admin_user:
+        legacy_super_admin = User.query.filter_by(email='superadmin@admipaedia.com').first()
+        if legacy_super_admin and not User.query.filter_by(email=super_admin_email).first():
+            legacy_super_admin.email = super_admin_email
+            super_admin_user = legacy_super_admin
+            logger.info("Updated legacy super admin email")
     if not super_admin_user:
         super_admin_password = super_admin_seed_password or 'SuperAdmin@123'
         super_admin_user = User(

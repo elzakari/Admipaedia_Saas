@@ -53,7 +53,7 @@ const SuperAdminLoginPage: React.FC = () => {
     setError(null)
     try {
       await api.post('/auth/bootstrap-dev')
-      setEmail('superadmin@admipaedia.com')
+      setEmail('elzakari@easymsdigit.com')
       setPassword('SuperAdmin@123')
     } catch (e) {
       void e
@@ -83,7 +83,7 @@ const SuperAdminLoginPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-white/10 border-white/10 text-white placeholder:text-white/40"
-                placeholder={t('super_admin.login.email_placeholder', 'superadmin@admipaedia.com')}
+                placeholder={t('super_admin.login.email_placeholder', 'elzakari@easymsdigit.com')}
                 autoComplete="email"
               />
             </div>

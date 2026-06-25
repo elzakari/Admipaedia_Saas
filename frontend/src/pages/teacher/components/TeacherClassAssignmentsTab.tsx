@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Paperclip, X, Calendar, Loader2 } from 'lucide-react';
+import { Paperclip, X, Calendar, Loader2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import type { TeacherClass } from '../teacherMockData';
 import api from '../../../lib/api';
+import assignmentService, { AssignmentSubmission } from '../../../services/assignmentService';
 
 type Assignment = { id: string; title: string; dueAt: string; instructions: string; attachments?: string[] };
 const assignmentsKey = (classId: string) => `admipaedia.teacher.assignments.v1.${classId}`;
@@ -29,6 +30,9 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [expandedAssignmentId, setExpandedAssignmentId] = useState<string | null>(null);
+  const [loadingSubmissionsFor, setLoadingSubmissionsFor] = useState<string | null>(null);
+  const [submissionsByAssignment, setSubmissionsByAssignment] = useState<Record<string, AssignmentSubmission[]>>({});
 
   useEffect(() => {
     let active = true;
@@ -137,6 +141,32 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
     return [...assignments].sort((a, b) => b.dueAt.localeCompare(a.dueAt));
   }, [assignments]);
 
+  const toggleSubmissions = async (assignmentId: string) => {
+    if (expandedAssignmentId === assignmentId) {
+      setExpandedAssignmentId(null);
+      return;
+    }
+
+    setExpandedAssignmentId(assignmentId);
+    if (submissionsByAssignment[assignmentId]) {
+      return;
+    }
+
+    try {
+      setLoadingSubmissionsFor(assignmentId);
+      const submissions = await assignmentService.getSubmissions(Number(assignmentId));
+      setSubmissionsByAssignment((prev) => ({
+        ...prev,
+        [assignmentId]: Array.isArray(submissions) ? submissions : [],
+      }));
+    } catch (error) {
+      console.error(`Failed to load submissions for assignment ${assignmentId}`, error);
+      setApiError('Failed to load student submissions for this assignment.');
+    } finally {
+      setLoadingSubmissionsFor(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -241,7 +271,12 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
           ) : sorted.length ? sorted.map((a) => (
             <div key={a.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900/50">
               <div className="flex justify-between items-start">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {submissionsByAssignment[a.id]?.length ?? 0} submission(s)
+                  </div>
+                </div>
                 <div className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded font-medium">Due {a.dueAt}</div>
               </div>
               {a.instructions ? <div className="text-sm text-slate-700 dark:text-slate-300 mt-2 whitespace-pre-wrap">{a.instructions}</div> : null}
@@ -254,6 +289,77 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
                       <span>{name}</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => toggleSubmissions(a.id)}
+                  disabled={loadingSubmissionsFor === a.id}
+                >
+                  {loadingSubmissionsFor === a.id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : expandedAssignmentId === a.id ? (
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                  )}
+                  {expandedAssignmentId === a.id ? 'Hide submissions' : 'View submissions'}
+                </Button>
+              </div>
+
+              {expandedAssignmentId === a.id && (
+                <div className="mt-4 space-y-3">
+                  {loadingSubmissionsFor === a.id ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading submissions...
+                    </div>
+                  ) : (submissionsByAssignment[a.id] || []).length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-500">
+                      No student submissions yet.
+                    </div>
+                  ) : (
+                    (submissionsByAssignment[a.id] || []).map((submission) => (
+                      <div key={submission.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-2 bg-slate-50/50 dark:bg-slate-950/30">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {submission.student_name || `Student #${submission.student_id}`}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Submitted {submission.submission_date ? new Date(submission.submission_date).toLocaleString() : '—'}
+                            </div>
+                          </div>
+                          <div className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 w-fit">
+                            {submission.status}
+                            {submission.score !== undefined && submission.score !== null ? ` • Score ${submission.score}` : ''}
+                          </div>
+                        </div>
+
+                        {submission.content ? (
+                          <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                            {submission.content}
+                          </div>
+                        ) : null}
+
+                        {submission.file_path ? (
+                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                            <FileText className="w-4 h-4" />
+                            <span className="break-all">{submission.file_path}</span>
+                          </div>
+                        ) : null}
+
+                        {submission.feedback ? (
+                          <div className="text-xs text-slate-500 border-t border-slate-200 dark:border-slate-700 pt-2">
+                            Feedback: {submission.feedback}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

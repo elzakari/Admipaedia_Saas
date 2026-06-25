@@ -40,7 +40,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   };
 
   const useSeedSuperAdmin = () => {
-    setEmail('superadmin@admipaedia.com');
+    setEmail('elzakari@easymsdigit.com');
     setPassword('SuperAdmin@123');
   };
 

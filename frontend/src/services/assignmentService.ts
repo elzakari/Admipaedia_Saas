@@ -45,12 +45,16 @@ export interface Submission {
   id: number;
   assignment_id: number;
   student_id: number;
+  student_name?: string;
   content: string;
   attachments?: string[];
+  file_path?: string;
+  submission_date: string;
   submitted_at: string;
+  score?: number;
   grade?: number;
   feedback?: string;
-  status: 'submitted' | 'graded' | 'late';
+  status: 'submitted' | 'graded' | 'late' | 'missing';
 }
 
 export type AssignmentSubmission = Submission;
@@ -144,8 +148,25 @@ const assignmentService = {
 
   getSubmissions: async (assignmentId: number): Promise<AssignmentSubmission[]> => {
     try {
-      const response = await api.get(`/assignments/${assignmentId}/submissions`);
-      return (response.data?.data || response.data?.submissions || response.data || []) as AssignmentSubmission[];
+      const response = await api.get(`/classes/assignments/${assignmentId}/submissions`);
+      const rawSubmissions = (response.data?.data || response.data?.submissions || response.data || []) as any[];
+      return rawSubmissions.map((submission) => {
+        const submittedAt = submission.submission_date || submission.submitted_at || '';
+        const attachments = Array.isArray(submission.attachments)
+          ? submission.attachments
+          : submission.file_path
+            ? [submission.file_path]
+            : [];
+
+        return {
+          ...submission,
+          attachments,
+          submission_date: submittedAt,
+          submitted_at: submittedAt,
+          score: submission.score ?? submission.grade,
+          grade: submission.grade ?? submission.score,
+        } as AssignmentSubmission;
+      });
     } catch (error) {
       console.error(`Error fetching submissions for assignment ${assignmentId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
@@ -154,7 +175,7 @@ const assignmentService = {
 
   gradeSubmission: async (submissionId: number, data: SubmissionGrade): Promise<StandardApiResponse<AssignmentSubmission>> => {
     try {
-      const response = await api.post(`/assignments/submissions/${submissionId}/grade`, data);
+      const response = await api.post(`/classes/submissions/${submissionId}/grade`, data);
       return ApiResponseStandardizer.standardizeSingleResponse<AssignmentSubmission>(response, 'submission');
     } catch (error) {
       console.error(`Error grading submission ${submissionId}:`, error);

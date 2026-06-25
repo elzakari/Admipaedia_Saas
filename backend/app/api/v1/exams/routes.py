@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.exam_service import ExamService
 from app.services.enhanced_exam_service import EnhancedExamService
 from app.services.grade_service import GradeService
+from app.services.identity_resolver import IdentityResolver
 from app.schemas.exam import ExamSchema, ExamCreateSchema, ExamUpdateSchema
 from app.schemas.grade import GradeSchema
 from app.models.user import User
@@ -35,7 +36,7 @@ def handle_exams_options_slash():
 @exams_bp.route('', methods=['GET'])
 @exams_bp.route('/', methods=['GET'])
 @jwt_required()
-@require_permission('exam.read')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def get_exams():
     """Get all exams with optional filtering and enhanced conflict detection."""
     try:
@@ -62,6 +63,14 @@ def get_exams():
             except ValueError:
                 return jsonify({'success': False, 'message': 'Invalid date_to format'}), 400
         
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({'success': False, 'message': 'User not found'}), 404
+
+        if current_user.role == 'teacher' and class_id and not IdentityResolver.can_user_access_class(current_user.id, class_id):
+            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
         # Get paginated exams
         paginated_exams = ExamService.get_all_exams(
             page, per_page, class_id, subject_id, date_from, date_to, status
@@ -139,7 +148,7 @@ def get_exam(exam_id):
 @exams_bp.route('', methods=['POST'])
 @exams_bp.route('/', methods=['POST'])
 @jwt_required()
-@require_permission('exam.manage')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def create_exam():
     """Create a new exam with conflict detection."""
     try:
@@ -156,6 +165,9 @@ def create_exam():
         if errors:
             return jsonify({'success': False, 'message': 'Validation failed', 'errors': errors}), 400
         
+        if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, data['class_id']):
+            return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+
         # Add created_by field
         data['created_by'] = current_user_id
         
@@ -344,13 +356,21 @@ def get_upcoming_exams():
 
 @exams_bp.route('/<int:exam_id>/grades', methods=['GET'])
 @jwt_required()
-@require_permission('grade.read')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def get_exam_grades(exam_id):
     """Get all grades for a specific exam."""
     # Verify exam exists
     exam = ExamService.get_exam_by_id(exam_id)
     if not exam:
         return jsonify({'success': False, 'message': 'Exam not found'}), 404
+
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, exam.class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
     
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
