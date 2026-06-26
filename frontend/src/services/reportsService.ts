@@ -4,6 +4,7 @@ import { Pagination } from '../types';
 import { analyticsService } from './analyticsService';
 import gradeService from './gradeService';
 import { ApiResponseStandardizer } from '../lib/apiResponseStandardizer';
+import enhancedReportsService from './enhancedReportsService';
 
 // Report Filter Interface
 export interface ReportFilter {
@@ -17,7 +18,7 @@ export interface ReportFilter {
   term?: string;
   report_type?: 'academic' | 'attendance' | 'financial' | 'behavioral';
   // Add missing properties
-  reportType?: 'grades' | 'progress' | 'transcripts' | 'class-performance';
+  reportType?: 'grades' | 'progress' | 'transcripts' | 'class-performance' | 'staff' | 'enrollment' | 'facilities' | 'compliance';
   dateRange?: {
     start?: string;
     end?: string;
@@ -26,6 +27,7 @@ export interface ReportFilter {
   };
   classFilter?: number | number[] | string;
   subjectFilter?: number[] | string;
+  studentFilter?: number | string;
 }
 
 // Base report data interface
@@ -146,6 +148,34 @@ export interface SubjectOption {
 }
 
 class ReportsService {
+  private getResolvedDateRange(filters: ReportFilter) {
+    return {
+      from: filters.dateRange?.from || (filters.dateRange as any)?.start,
+      to: filters.dateRange?.to || (filters.dateRange as any)?.end
+    };
+  }
+
+  private getResolvedClassId(filters: ReportFilter) {
+    const classId = Array.isArray(filters.classFilter) ? filters.classFilter[0] : filters.classFilter;
+    return classId && classId !== 'all' ? Number(classId) : undefined;
+  }
+
+  private getResolvedStudentId(filters: ReportFilter) {
+    const studentId = filters.student_id ?? filters.studentFilter;
+    if (!studentId || studentId === 'all') {
+      return undefined;
+    }
+    return Number(studentId);
+  }
+
+  private getResolvedTerm(filters: ReportFilter) {
+    return filters.term || 'Term 1';
+  }
+
+  private getResolvedAcademicYear(filters: ReportFilter) {
+    return filters.academic_year || '2024/2025';
+  }
+
   private toExportReportData(reportData: any): any {
     if (reportData && typeof reportData === 'object') {
       if (reportData.config && Array.isArray(reportData.sections)) return reportData;
@@ -210,15 +240,125 @@ class ReportsService {
   async generateAcademicReport(filters: ReportFilter): Promise<ReportData> {
     try {
       const reportType = filters.reportType || 'grades';
-      const dateFrom = filters.dateRange?.from || (filters.dateRange as any)?.start;
-      const dateTo = filters.dateRange?.to || (filters.dateRange as any)?.end;
-      const classId = Array.isArray(filters.classFilter) ? filters.classFilter[0] : filters.classFilter;
+      const { from: dateFrom, to: dateTo } = this.getResolvedDateRange(filters);
+      const classId = this.getResolvedClassId(filters);
+      const studentId = this.getResolvedStudentId(filters);
+      const academicYear = this.getResolvedAcademicYear(filters);
+      const term = this.getResolvedTerm(filters);
+
+      if (reportType === 'progress') {
+        if (!studentId) {
+          throw new Error('Select a student to generate a report card.');
+        }
+
+        const reportCard = await enhancedReportsService.generateReportCard(studentId, term, academicYear, 'json');
+        const distribution = reportCard.academic_performance.subjects.reduce<Record<string, number>>((acc, subject) => {
+          const gradeKey = subject.grade || 'N/A';
+          acc[gradeKey] = (acc[gradeKey] || 0) + 1;
+          return acc;
+        }, {});
+
+        return {
+          id: `progress_${studentId}_${Date.now()}`,
+          title: 'Student Progress Report',
+          type: 'academic',
+          generatedAt: new Date().toISOString(),
+          data: {
+            performance: {
+              average: reportCard.academic_performance.overall_gpa || 0,
+              distribution
+            },
+            subjects: reportCard.academic_performance.subjects.map((subject) => ({
+              name: subject.name,
+              average: subject.score
+            })),
+            reportCard
+          },
+          report_data: reportCard,
+          metadata: {
+            totalRecords: reportCard.academic_performance.subjects.length,
+            filters,
+            exportFormats: ['pdf', 'excel', 'csv']
+          }
+        };
+      }
+
+      if (reportType === 'transcripts') {
+        if (!studentId) {
+          throw new Error('Select a student to generate a transcript.');
+        }
+
+        const transcript = await enhancedReportsService.generateTranscript(studentId, 'json');
+        const allSubjects = transcript.academic_record.flatMap((year) => year.subjects || []);
+        const averageScore = allSubjects.length > 0
+          ? allSubjects.reduce((sum, subject) => sum + Number(subject.score || 0), 0) / allSubjects.length
+          : 0;
+
+        return {
+          id: `transcript_${studentId}_${Date.now()}`,
+          title: 'Student Transcript',
+          type: 'academic',
+          generatedAt: new Date().toISOString(),
+          data: {
+            performance: {
+              average: averageScore,
+              distribution: {}
+            },
+            subjects: allSubjects.map((subject) => ({
+              name: subject.name,
+              average: subject.score
+            })),
+            transcript
+          },
+          report_data: transcript,
+          metadata: {
+            totalRecords: transcript.academic_record.length,
+            filters,
+            exportFormats: ['pdf', 'excel', 'csv']
+          }
+        };
+      }
+
+      if (reportType === 'class-performance') {
+        if (!classId) {
+          throw new Error('Select a class to generate class performance.');
+        }
+
+        const summary = await enhancedReportsService.generateClassPerformanceSummary(classId, term, academicYear);
+        const averageScore = summary.subject_performance.length > 0
+          ? summary.subject_performance.reduce((sum, subject) => sum + Number(subject.class_average || 0), 0) / summary.subject_performance.length
+          : 0;
+
+        return {
+          id: `class_performance_${classId}_${Date.now()}`,
+          title: 'Class Performance Report',
+          type: 'academic',
+          generatedAt: new Date().toISOString(),
+          data: {
+            performance: {
+              average: averageScore,
+              distribution: {}
+            },
+            subjects: summary.subject_performance.map((subject) => ({
+              name: subject.subject,
+              average: subject.class_average
+            })),
+            summary
+          },
+          report_data: summary,
+          metadata: {
+            totalRecords: summary.subject_performance.length,
+            filters,
+            exportFormats: ['pdf', 'excel', 'csv']
+          }
+        };
+      }
 
       const customConfig = {
         type: 'academic',
         dateRange: { from: dateFrom, to: dateTo },
         filters: {
-          classes: classId && classId !== 'all' ? [Number(classId)] : []
+          classes: classId ? [classId] : []
         },
         visualizations: {
           metrics: ['average_grade'],
@@ -267,17 +407,11 @@ class ReportsService {
   // Generate Attendance Reports
   async generateAttendanceReport(filters: ReportFilter): Promise<ReportData> {
     try {
-      // Handle classFilter conversion
-      const classId = Array.isArray(filters.classFilter)
-        ? filters.classFilter[0]
-        : filters.classFilter;
-
-      // Handle dateRange with proper null checks
-      const dateFrom = filters.dateRange?.from || filters.dateRange?.start;
-      const dateTo = filters.dateRange?.to || filters.dateRange?.end;
+      const classId = this.getResolvedClassId(filters);
+      const { from: dateFrom, to: dateTo } = this.getResolvedDateRange(filters);
 
       const response = await analyticsService.getAdvancedAttendanceAnalytics(
-        classId && classId !== 'all' ? Number(classId) : undefined,
+        classId,
         dateFrom,
         dateTo
       );
@@ -338,8 +472,7 @@ class ReportsService {
   // Generate Financial Reports
   async generateFinancialReport(filters: ReportFilter): Promise<ReportData> {
     try {
-      const dateFrom = filters.dateRange?.from || (filters.dateRange as any)?.start;
-      const dateTo = filters.dateRange?.to || (filters.dateRange as any)?.end;
+      const { from: dateFrom, to: dateTo } = this.getResolvedDateRange(filters);
 
       const response = await api.get('/reports/financial', { params: { date_from: dateFrom, date_to: dateTo } });
 
@@ -366,14 +499,13 @@ class ReportsService {
   // Generate Administrative Reports
   async generateAdministrativeReport(filters: ReportFilter): Promise<ReportData> {
     try {
-      const dateFrom = filters.dateRange?.from || filters.dateRange?.start;
-      const dateTo = filters.dateRange?.to || filters.dateRange?.end;
+      const { from: dateFrom, to: dateTo } = this.getResolvedDateRange(filters);
 
       const response = await api.get('/reports/administrative', {
         params: {
           date_from: dateFrom,
           date_to: dateTo,
-          report_type: filters.report_type
+          report_type: filters.report_type || filters.reportType
         }
       });
 

@@ -104,6 +104,8 @@ class AttendanceService:
             class_ = Class.query.get(attendance_data['class_id'])
             if not class_:
                 return None, "Class not found"
+            if getattr(student, 'class_id', None) != getattr(class_, 'id', None):
+                return None, "Student is not assigned to the selected class"
             
             subject_id = attendance_data.get('subject_id')
             if subject_id:
@@ -220,6 +222,8 @@ class AttendanceService:
                 student = Student.query.get(attendance_data['student_id'])
                 if not student:
                     continue  # Skip this record if student doesn't exist
+                if getattr(student, 'class_id', None) != getattr(class_, 'id', None):
+                    continue
                 
                 # Check if attendance record already exists
                 existing = AttendanceService.get_attendance_by_student_date(

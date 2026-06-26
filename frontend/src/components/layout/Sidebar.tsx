@@ -50,6 +50,7 @@ import {
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { log } from '../../utils/logger';
+import { canAccessAdministration } from '@/lib/administrationAccess';
 
 // Update the SidebarProps interface
 interface SidebarProps {
@@ -279,12 +280,14 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
 
   const baseNavItems: NavItem[] = navItemsByRole[userRole] ?? navItemsByRole.user ?? [];
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
-    // Plan Check for Administration
     if (item.path === '/admin/administration') {
-      const tenant = current?.tenant;
-      const currentUser = user;
-      const canAccessAdmin = tenant?.plan === 'pro' || tenant?.plan === 'enterprise' || tenant?.plan === 'ultimate' || currentUser?.role === 'super_admin';
-      if (!canAccessAdmin) {
+      const hasAdministrationAccess = canAccessAdministration({
+        role: user?.role,
+        planSlug: current?.tenant?.plan || null,
+        enabledFeatures: current?.tenant?.enabled_features || [],
+      });
+
+      if (!hasAdministrationAccess) {
         return false;
       }
     }

@@ -1,194 +1,333 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useClass } from '../../hooks/useClasses';
 import { useSubmitClassAttendance } from '../../hooks/useClassAttendance';
 import { useStudents } from '../../hooks/useStudents';
+import attendanceService, { Attendance } from '../../services/attendanceService';
+import subjectService from '../../services/subjectService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
-import { Calendar } from '../ui/calendar';
+import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { toast } from 'sonner';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { format } from 'date-fns';
-import { CalendarIcon, CheckCircle, XCircle, Clock, Calendar as CalendarIcon2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { AlertCircle, CalendarIcon, CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 
 interface ClassAttendanceProps {
   classId: number;
 }
 
+type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+
 interface Student {
   id: number;
   first_name: string;
   last_name: string;
-  status?: 'present' | 'absent' | 'late' | 'excused';
+  status?: AttendanceStatus;
+  attendance_id?: number;
 }
 
+const ATTENDANCE_STATUSES: Array<{ value: AttendanceStatus; label: string }> = [
+  { value: 'present', label: 'Present' },
+  { value: 'absent', label: 'Absent' },
+  { value: 'late', label: 'Late' },
+  { value: 'excused', label: 'Excused' },
+];
+
 export function ClassAttendance({ classId }: ClassAttendanceProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [studentsWithStatus, setStudentsWithStatus] = useState<Student[]>([]);
   
   const { data: classData } = useClass(classId);
   const submitAttendance = useSubmitClassAttendance();
   
-  // Fetch students for this class using the useStudents hook
-  const { data: studentsData, isLoading } = useStudents({ class_id: classId });
-  
-  // Update studentsWithStatus when studentsData changes
-  React.useEffect(() => {
-    if (studentsData?.students) {
-      const formattedStudents = studentsData.students.map(student => ({
-        id: student.id,
-        first_name: student.first_name,
-        last_name: student.last_name,
-        status: undefined
-      }));
-      setStudentsWithStatus(formattedStudents);
+  const { data: studentsData, isLoading: isLoadingStudents } = useStudents({
+    class_id: classId,
+    page: 1,
+    per_page: 500
+  });
+
+  const students = useMemo(() => {
+    if (Array.isArray((studentsData as any)?.data)) {
+      return (studentsData as any).data;
     }
+
+    if (Array.isArray((studentsData as any)?.students)) {
+      return (studentsData as any).students;
+    }
+
+    return [];
   }, [studentsData]);
-  
-  // Handle attendance status change
-  const handleStatusChange = (studentId: number, status: 'present' | 'absent' | 'late' | 'excused') => {
-    setStudentsWithStatus(studentsWithStatus.map(student => 
+
+  const { data: subjectsResponse, isLoading: isLoadingSubjects } = useQuery({
+    queryKey: ['attendance-subjects', classId],
+    queryFn: async () => {
+      try {
+        return await subjectService.getSubjectsByClass(classId);
+      } catch (_error) {
+        return subjectService.getSubjects({ page: 1, per_page: 200, is_active: true });
+      }
+    },
+    enabled: !!classId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const subjects = useMemo(() => subjectsResponse?.subjects || [], [subjectsResponse]);
+  const resolvedSubjectId = selectedSubjectId ? Number(selectedSubjectId) : undefined;
+
+  React.useEffect(() => {
+    if (subjects.length === 1 && !selectedSubjectId) {
+      setSelectedSubjectId(String(subjects[0].id));
+    }
+  }, [selectedSubjectId, subjects]);
+
+  const {
+    data: existingAttendances = [],
+    isLoading: isLoadingAttendance,
+    isFetching: isFetchingAttendance
+  } = useQuery<Attendance[]>({
+    queryKey: ['class-attendance-day', classId, selectedDate, resolvedSubjectId ?? 'all'],
+    queryFn: () => attendanceService.getClassAttendance(classId, selectedDate, resolvedSubjectId),
+    enabled: !!classId && !!selectedDate && (!subjects.length || !!resolvedSubjectId),
+    staleTime: 30 * 1000,
+  });
+
+  const existingAttendanceByStudent = useMemo(() => {
+    const recordMap = new Map<number, Attendance>();
+    existingAttendances.forEach((attendance) => {
+      recordMap.set(attendance.student_id, attendance);
+    });
+    return recordMap;
+  }, [existingAttendances]);
+
+  React.useEffect(() => {
+    if (students.length > 0) {
+      const formattedStudents = students.map((student: any) => {
+        const existingAttendance = existingAttendanceByStudent.get(student.id);
+        return {
+          id: student.id,
+          first_name: student.first_name,
+          last_name: student.last_name,
+          status: existingAttendance?.status,
+          attendance_id: existingAttendance?.id
+        };
+      });
+      setStudentsWithStatus(formattedStudents);
+      return;
+    }
+
+    setStudentsWithStatus([]);
+  }, [existingAttendanceByStudent, students]);
+
+  const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
+    setStudentsWithStatus((currentStudents) => currentStudents.map(student => 
       student.id === studentId ? { ...student, status } : student
     ));
   };
-  
-  // Handle bulk actions
-  const markAllPresent = () => {
-    setStudentsWithStatus(studentsWithStatus.map(student => ({
+
+  const applyBulkStatus = (status: AttendanceStatus) => {
+    setStudentsWithStatus((currentStudents) => currentStudents.map(student => ({
       ...student,
-      status: 'present'
+      status
     })));
   };
 
-  const markAllAbsent = () => {
-    setStudentsWithStatus(studentsWithStatus.map(student => ({
-      ...student,
-      status: 'absent'
-    })));
-  };
+  const markAllPresent = () => applyBulkStatus('present');
+  const markAllAbsent = () => applyBulkStatus('absent');
+  const markAllLate = () => applyBulkStatus('late');
+  const markAllExcused = () => applyBulkStatus('excused');
 
-  const markAllLate = () => {
-    setStudentsWithStatus(studentsWithStatus.map(student => ({
-      ...student,
-      status: 'late'
-    })));
-  };
+  const stats = useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let excused = 0;
+    let unmarked = 0;
 
-  const markAllExcused = () => {
-    setStudentsWithStatus(studentsWithStatus.map(student => ({
-      ...student,
-      status: 'excused'
-    })));
-  };
-  
-  // Handle attendance submission
+    studentsWithStatus.forEach(student => {
+      if (student.status === 'present') present++;
+      else if (student.status === 'absent') absent++;
+      else if (student.status === 'late') late++;
+      else if (student.status === 'excused') excused++;
+      else unmarked++;
+    });
+
+    const total = studentsWithStatus.length;
+    const marked = total - unmarked;
+
+    return {
+      present,
+      absent,
+      late,
+      excused,
+      unmarked,
+      total,
+      marked,
+      completionRate: total > 0 ? Math.round((marked / total) * 100) : 0
+    };
+  }, [studentsWithStatus]);
+
   const handleSubmitAttendance = async () => {
     if (!classId) return;
+
+    if (subjects.length > 0 && !resolvedSubjectId) {
+      toast.error('Select a subject before saving attendance');
+      return;
+    }
+
+    if (stats.unmarked > 0) {
+      toast.error('Mark every student before submitting attendance');
+      return;
+    }
     
     try {
-      // Prepare data for submission
       const attendanceData = {
         class_id: classId,
-        date: format(selectedDate, 'yyyy-MM-dd'),
+        subject_id: resolvedSubjectId ?? null,
+        date: selectedDate,
         attendances: studentsWithStatus.map(student => ({
           student_id: student.id,
-          status: student.status || 'absent', // Default to absent if not marked
+          status: student.status as AttendanceStatus,
           remarks: ''
         }))
       };
       
-      // Use the mutation hook to submit attendance
       await submitAttendance.mutateAsync(attendanceData);
-      toast.success('Attendance submitted successfully');
+      toast.success(existingAttendances.length > 0 ? 'Attendance updated successfully' : 'Attendance submitted successfully');
     } catch (error) {
       console.error('Error submitting attendance:', error);
       toast.error('Failed to submit attendance');
     }
   };
 
-  // Calculate attendance statistics
-  const calculateStats = () => {
-    let present = 0, absent = 0, late = 0, excused = 0;
-    studentsWithStatus.forEach(student => {
-      if (student.status === 'present') present++;
-      else if (student.status === 'absent') absent++;
-      else if (student.status === 'late') late++;
-      else if (student.status === 'excused') excused++;
-    });
-    const total = studentsWithStatus.length;
-    return { present, absent, late, excused, total };
-  };
-
-  const stats = calculateStats();
+  const isBusy = isLoadingStudents || isLoadingSubjects || isLoadingAttendance;
   
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Class Attendance</CardTitle>
-        <CardDescription>
-          {classData?.name ? `Taking attendance for ${classData.name}` : 'Mark attendance for your class'}
-        </CardDescription>
-        <div className="flex items-center space-x-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-[240px] justify-start text-left font-normal"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialDate={selectedDate}
-                onEventClick={(event) => {
-                  // Create a new date based on the event day
-                  if (event && typeof event.day === 'number') {
-                    const newDate = new Date(selectedDate);
-                    newDate.setDate(event.day);
-                    setSelectedDate(newDate);
-                  }
-                }}
+      <CardHeader className="space-y-4">
+        <div>
+          <CardTitle>Daily Attendance Workflow</CardTitle>
+          <CardDescription>
+            {classData?.name ? `Review ${classData.name} by date and subject, then save the completed register.` : 'Review attendance by date and subject before saving.'}
+          </CardDescription>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Attendance Date</label>
+            <div className="relative">
+              <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                className="pl-10"
               />
-            </PopoverContent>
-          </Popover>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Subject</label>
+            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={subjects.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={subjects.length === 0 ? 'No subjects available' : 'Select subject'} />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject.id} value={String(subject.id)}>
+                    {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Completion</label>
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span>{stats.marked}/{stats.total} students marked</span>
+                <span className="font-medium">{stats.completionRate}%</span>
+              </div>
+              <Progress value={stats.completionRate} />
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="text-center py-4">Loading students...</div>
+        {isBusy ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Loading attendance workflow...</span>
+          </div>
         ) : studentsWithStatus.length === 0 ? (
-          <div className="text-center py-4">No students found in this class.</div>
+          <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            No students found in this class.
+          </div>
         ) : (
           <>
-            <div className="mb-4 flex space-x-2">
+            <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-lg border p-3">
+                <div className="text-sm text-muted-foreground">Present</div>
+                <div className="text-2xl font-semibold text-green-600">{stats.present}</div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-sm text-muted-foreground">Absent</div>
+                <div className="text-2xl font-semibold text-red-600">{stats.absent}</div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-sm text-muted-foreground">Late</div>
+                <div className="text-2xl font-semibold text-yellow-600">{stats.late}</div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-sm text-muted-foreground">Excused</div>
+                <div className="text-2xl font-semibold text-blue-600">{stats.excused}</div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-sm text-muted-foreground">Pending</div>
+                <div className="text-2xl font-semibold text-slate-700">{stats.unmarked}</div>
+              </div>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
               <Button variant="outline" onClick={markAllPresent}>
-                <CheckCircle className="h-4 w-4 mr-1" />
+                <CheckCircle className="mr-1 h-4 w-4" />
                 Mark All Present
               </Button>
               <Button variant="outline" onClick={markAllAbsent}>
-                <XCircle className="h-4 w-4 mr-1" />
+                <XCircle className="mr-1 h-4 w-4" />
                 Mark All Absent
               </Button>
               <Button variant="outline" onClick={markAllLate}>
-                <Clock className="h-4 w-4 mr-1" />
+                <Clock className="mr-1 h-4 w-4" />
                 Mark All Late
               </Button>
               <Button variant="outline" onClick={markAllExcused}>
-                <CalendarIcon2 className="h-4 w-4 mr-1" />
+                <AlertCircle className="mr-1 h-4 w-4" />
                 Mark All Excused
               </Button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant={existingAttendances.length > 0 ? 'default' : 'outline'}>
+                {existingAttendances.length > 0 ? 'Existing register loaded' : 'New register'}
+              </Badge>
+              {isFetchingAttendance ? <span>Refreshing saved records...</span> : null}
+              {subjects.length > 0 && !resolvedSubjectId ? (
+                <span>Select a subject to load or save attendance for this date.</span>
+              ) : null}
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>Current Status</TableHead>
+                  <TableHead>Mark Attendance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -205,43 +344,21 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
                           {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">Not marked</Badge>
+                        <Badge variant="outline">Pending</Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant={student.status === 'present' ? 'default' : 'outline'}
-                          onClick={() => handleStatusChange(student.id, 'present')}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Present
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === 'absent' ? 'default' : 'outline'}
-                          onClick={() => handleStatusChange(student.id, 'absent')}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Absent
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === 'late' ? 'default' : 'outline'}
-                          onClick={() => handleStatusChange(student.id, 'late')}
-                        >
-                          <Clock className="h-4 w-4 mr-1" />
-                          Late
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={student.status === 'excused' ? 'default' : 'outline'}
-                          onClick={() => handleStatusChange(student.id, 'excused')}
-                        >
-                          <CalendarIcon2 className="h-4 w-4 mr-1" />
-                          Excused
-                        </Button>
+                      <div className="flex flex-wrap gap-2">
+                        {ATTENDANCE_STATUSES.map((statusOption) => (
+                          <Button
+                            key={statusOption.value}
+                            size="sm"
+                            variant={student.status === statusOption.value ? 'default' : 'outline'}
+                            onClick={() => handleStatusChange(student.id, statusOption.value)}
+                          >
+                            {statusOption.label}
+                          </Button>
+                        ))}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -249,33 +366,19 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
               </TableBody>
             </Table>
 
-            <div className="mt-6 flex justify-between items-center">
-              <div className="flex space-x-4">
-                <div className="flex items-center">
-                  <div className="h-3 w-3 bg-green-500 rounded-full mr-2"></div>
-                  <span className="text-sm">Present: {stats.present}</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-3 w-3 bg-red-500 rounded-full mr-2"></div>
-                  <span className="text-sm">Absent: {stats.absent}</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-3 w-3 bg-yellow-500 rounded-full mr-2"></div>
-                  <span className="text-sm">Late: {stats.late}</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-3 w-3 bg-blue-500 rounded-full mr-2"></div>
-                  <span className="text-sm">Excused: {stats.excused}</span>
+            <div className="mt-6 flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="font-medium">Ready to save</div>
+                <div className="text-sm text-muted-foreground">
+                  Attendance saves for {selectedDate}{resolvedSubjectId ? ' with the selected subject context' : ''}.
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
-                <Button 
-                  onClick={handleSubmitAttendance} 
-                  disabled={submitAttendance.isPending}
-                >
-                  {submitAttendance.isPending ? 'Submitting...' : 'Submit Attendance'}
-                </Button>
-              </div>
+              <Button 
+                onClick={handleSubmitAttendance} 
+                disabled={submitAttendance.isPending || stats.total === 0}
+              >
+                {submitAttendance.isPending ? 'Saving...' : existingAttendances.length > 0 ? 'Update Attendance' : 'Submit Attendance'}
+              </Button>
             </div>
           </>
         )}

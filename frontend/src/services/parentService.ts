@@ -55,6 +55,64 @@ const unwrapParentCollection = <T>(responseData: any, key: string): T[] => {
   ) as T[];
 };
 
+const unwrapParentEntity = (responseData: any) => {
+  return responseData?.data || responseData?.parent || responseData;
+};
+
+const splitName = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { firstName: '', lastName: '' };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
+};
+
+const resolveParentName = (backendParent: any) => {
+  const explicitFirstName =
+    backendParent?.firstName ??
+    backendParent?.first_name ??
+    backendParent?.user?.first_name ??
+    backendParent?.user?.profile?.first_name ??
+    '';
+
+  const explicitLastName =
+    backendParent?.lastName ??
+    backendParent?.last_name ??
+    backendParent?.surname ??
+    backendParent?.user?.last_name ??
+    backendParent?.user?.profile?.last_name ??
+    '';
+
+  if (String(explicitFirstName).trim() || String(explicitLastName).trim()) {
+    return {
+      firstName: String(explicitFirstName).trim(),
+      lastName: String(explicitLastName).trim(),
+    };
+  }
+
+  const compositeName =
+    backendParent?.display_name ??
+    backendParent?.full_name ??
+    backendParent?.name ??
+    backendParent?.user?.full_name ??
+    backendParent?.user?.display_name ??
+    backendParent?.user?.username ??
+    backendParent?.email ??
+    backendParent?.user?.email ??
+    '';
+
+  return splitName(String(compositeName));
+};
+
 const normalizeParentMessage = (message: any): MessageData => ({
   id: Number(message?.id ?? 0),
   subject: String(message?.subject ?? ''),
@@ -97,7 +155,7 @@ const parentService = {
   getParentById: async (parentId: number): Promise<Parent> => {
     try {
       const response = await api.get(`/parents/${parentId}`);
-      const backendParent = response.data.parent;
+      const backendParent = unwrapParentEntity(response.data);
       return parentService.transformBackendParent(backendParent);
     } catch (error) {
       console.error(`Error fetching parent ${parentId}:`, error);
@@ -109,7 +167,7 @@ const parentService = {
   createParent: async (parentData: ParentCreate): Promise<Parent> => {
     try {
       const response = await api.post('/parents', parentData);
-      const backendParent = response.data.parent;
+      const backendParent = unwrapParentEntity(response.data);
       return parentService.transformBackendParent(backendParent);
     } catch (error) {
       console.error('Error creating parent:', error);
@@ -121,7 +179,7 @@ const parentService = {
   updateParent: async (parentId: number, parentData: ParentUpdate): Promise<Parent> => {
     try {
       const response = await api.put(`/parents/${parentId}`, parentData);
-      const backendParent = response.data.parent;
+      const backendParent = unwrapParentEntity(response.data);
       return parentService.transformBackendParent(backendParent);
     } catch (error) {
       console.error(`Error updating parent ${parentId}:`, error);
@@ -376,16 +434,7 @@ const parentService = {
 
   // Transform a backend parent into frontend Parent
   transformBackendParent: (backendParent: any): Parent => {
-    const firstName =
-      backendParent?.firstName ??
-      backendParent?.first_name ??
-      backendParent?.name ??
-      '';
-    const lastName =
-      backendParent?.lastName ??
-      backendParent?.last_name ??
-      backendParent?.surname ??
-      '';
+    const { firstName, lastName } = resolveParentName(backendParent);
 
     const childrenArray = Array.isArray(backendParent?.children)
       ? backendParent.children.map(parentService.transformBackendChild)
@@ -395,10 +444,18 @@ const parentService = {
       id: Number(backendParent?.id ?? backendParent?.parent_id ?? 0),
       firstName: String(firstName).trim(),
       lastName: String(lastName).trim(),
-      email: String(backendParent?.email ?? backendParent?.email_address ?? ''),
+      email: String(
+        backendParent?.email ??
+        backendParent?.email_address ??
+        backendParent?.user?.email ??
+        ''
+      ),
       phone:
         backendParent?.phone ??
+        backendParent?.emergency_contact ??
         backendParent?.phone_number ??
+        backendParent?.user?.phone ??
+        backendParent?.user?.telephone ??
         backendParent?.telephone ??
         undefined,
       address:
@@ -406,7 +463,7 @@ const parentService = {
           ? backendParent.address
           : undefined,
       children: childrenArray,
-      status: (backendParent?.status ?? 'active') as 'active' | 'inactive',
+      status: (backendParent?.status ?? backendParent?.user?.status ?? 'active') as 'active' | 'inactive',
       profileImage:
         backendParent?.profileImage ?? backendParent?.profile_image ?? undefined,
       createdAt:
@@ -418,16 +475,21 @@ const parentService = {
 
   // Transform a backend child record into ParentChild
   transformBackendChild: (backendChild: any): ParentChild => {
+    const childDisplayName =
+      backendChild?.display_name ??
+      backendChild?.full_name ??
+      backendChild?.name ??
+      '';
+    const childName = splitName(String(childDisplayName));
     const firstName =
       backendChild?.firstName ??
       backendChild?.first_name ??
-      backendChild?.name ??
-      '';
+      childName.firstName;
     const lastName =
       backendChild?.lastName ??
       backendChild?.last_name ??
       backendChild?.surname ??
-      '';
+      childName.lastName;
 
     return {
       id: Number(backendChild?.id ?? backendChild?.student_id ?? 0),

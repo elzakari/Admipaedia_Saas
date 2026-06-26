@@ -23,6 +23,13 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
   // Return null if not open to avoid any rendering overhead when hidden
   if (!isOpen || !parent) return null;
 
+  const parentDisplayName = `${parent.firstName || ''} ${parent.lastName || ''}`.trim() || parent.email || `Parent #${parent.id}`;
+  const parentInitials = (
+    `${(parent.firstName ?? '').charAt(0)}${(parent.lastName ?? '').charAt(0)}`.trim() ||
+    (parent.email ?? '').charAt(0).toUpperCase() ||
+    'P'
+  );
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800 border-green-200';
@@ -39,14 +46,14 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
         <DialogHeader className="border-b pb-4 mb-4">
           <div className="flex items-center gap-4 text-left">
             <Avatar className="h-16 w-16 border-2 border-indigo-100 shrink-0">
-              <AvatarImage src={parent.profileImage} alt={`${parent.firstName} ${parent.lastName}`} />
+              <AvatarImage src={parent.profileImage} alt={parentDisplayName} />
               <AvatarFallback className="bg-indigo-50 text-indigo-700 text-xl font-bold">
-                {`${(parent.firstName ?? '').charAt(0)}${(parent.lastName ?? '').charAt(0)}`}
+                {parentInitials}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <DialogTitle className="text-2xl font-bold text-gray-900 truncate">
-                {parent.firstName} {parent.lastName}
+                {parentDisplayName}
               </DialogTitle>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <Badge variant="outline" className={getStatusColor(parent.status)}>
@@ -57,7 +64,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
             </div>
           </div>
           <DialogDescription className="sr-only">
-            Detailed information for parent {parent.firstName} {parent.lastName}
+            Detailed information for parent {parentDisplayName}
           </DialogDescription>
         </DialogHeader>
 

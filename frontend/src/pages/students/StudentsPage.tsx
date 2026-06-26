@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
   Users,
@@ -16,7 +16,8 @@ import {
   Printer,
   Share2,
   Pencil,
-  Trash
+  Trash,
+  RefreshCw
 } from "lucide-react";
 import { VirtualizedTable } from '../../components/common/VirtualizedTable';
 import { LazyImage } from '../../components/common/LazyImage';
@@ -54,6 +55,7 @@ import {
   useDeleteStudent,
   useStudentAnalyticsSummary
 } from "../../hooks/useStudents";
+import { useClasses } from "../../hooks/useClasses";
 import { Student as ServiceStudent, TransformedStudent } from "../../types/student";
 import type { Student as ApiStudent } from "../../types/student.types";
 import StudentFormModal from "../../components/students/StudentFormModal";
@@ -78,7 +80,7 @@ export function StudentsPage() {
   
   // === State Management ===
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedGrade, setSelectedGrade] = useState("All");
+  const [selectedGrade, setSelectedGrade] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortBy] = useState("name");
   const [sortOrder] = useState("asc");
@@ -106,9 +108,9 @@ export function StudentsPage() {
   } = useStudents({
     page: currentPage,
     per_page: itemsPerPage,
-    ...(selectedGrade !== 'All'
+    ...(selectedGrade !== 'all'
       ? (() => {
-          const classId = Number((selectedGrade.match(/\d+/) || [])[0]);
+          const classId = Number(selectedGrade);
           return Number.isFinite(classId) ? { class_id: classId } : {};
         })()
       : {}),
@@ -123,6 +125,7 @@ export function StudentsPage() {
   });
 
   const { data: analyticsSummary } = useStudentAnalyticsSummary();
+  const { data: classesResponse } = useClasses({ page: 1, per_page: 200 });
 
   // Mutations
   const { mutate: deleteStudent, isPending: isDeletingStudent } = useDeleteStudent();
@@ -139,6 +142,7 @@ export function StudentsPage() {
   // Transform API student data to match component expectations
   const transformStudentData = (apiStudents: ApiStudent[]): TransformedStudent[] => {
     return apiStudents.map(student => ({
+      classId: student.class_id,
       id: student.id.toString(),
       // Include all name fields from the API
       first_name: student.first_name,
@@ -148,7 +152,7 @@ export function StudentsPage() {
       full_name: student.full_name,
       name: student.display_name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || "Unknown Student",
       studentId: student.admission_number,
-      grade: getNormalizedGradeLevel(student),
+      grade: student.class_name || getNormalizedGradeLevel(student) || "Unassigned",
       // Use real contact data with proper fallbacks
       email: student.email || "No email provided",
       phone: student.phone || student.telephone || "No phone provided",
@@ -158,18 +162,34 @@ export function StudentsPage() {
       attendance: student.attendance_percentage || 0,
       performance: student.performance_average || 0,
       status: student.status || "active",
-      lastActive: "Recently",
-      profileImage: student.gender ? `https://randomuser.me/api/portraits/${student.gender === 'female' ? 'women' : 'men'}/${student.id % 100}.jpg` : "",
+      lastActive: (((student as any).updatedAt || (student as any).updated_at))
+        ? `Updated ${new Date((student as any).updatedAt || (student as any).updated_at).toLocaleDateString()}`
+        : student.created_at
+          ? `Enrolled ${new Date(student.created_at).toLocaleDateString()}`
+          : "No recent activity",
+      updatedAt: (student as any).updatedAt || (student as any).updated_at || student.created_at,
+      profileImage: student.profile_image || student.profileImage || "",
       recentGrades: [],
       subjects: [],
-      pendingAssignments: 0,
-      completedAssignments: 0,
+      pendingAssignments: Number((student as any).pending_assignments_count || 0),
+      completedAssignments: Number((student as any).completed_assignments_count || 0),
       enrollmentDate: student.created_at ? new Date(student.created_at).toLocaleDateString() : "Unknown",
       parentInfo: {
-        name: student.father_name || student.mother_name || "No parent name provided",
-        email: student.father_email || student.mother_email || "No parent email provided",
-        phone: student.father_contact || student.mother_contact || "No parent phone provided"
+        name: String(student.parent_name || student.father_name || student.mother_name || "").trim() || "No linked parent",
+        email: String(student.parent_email || student.father_email || student.mother_email || "").trim() || "No parent email provided",
+        phone: String(student.parent_phone || student.father_contact || student.mother_contact || "").trim() || "No parent phone provided"
       },
+      parentLinked: Boolean(student.parent_id || student.parent_name || student.parent_email || student.parent_phone),
+      riskLevel:
+        (student.status && student.status !== 'active') ||
+        (student.attendance_percentage || 0) < 70 ||
+        (student.performance_average || 0) < 45
+          ? 'urgent'
+          : (student.attendance_percentage || 0) < 80 ||
+              (student.performance_average || 0) < 60 ||
+              !(student.parent_id || student.parent_name || student.parent_email || student.parent_phone)
+            ? 'monitor'
+            : 'on-track',
       achievements: [],
       attendanceHistory: [],
       performanceHistory: [],
@@ -179,7 +199,34 @@ export function StudentsPage() {
   };
 
   // Transform the API data to the format expected by components
-  const students: TransformedStudent[] = studentsData?.data ? transformStudentData(studentsData.data) : [];
+  const students: TransformedStudent[] = useMemo(
+    () => (studentsData?.data ? transformStudentData(studentsData.data) : []),
+    [studentsData?.data]
+  );
+
+  const classOptions = useMemo(() => {
+    const classes = classesResponse?.data || [];
+    return classes.map((classRecord) => ({
+      value: String(classRecord.id),
+      label: classRecord.name || [classRecord.grade_level, classRecord.section].filter(Boolean).join(' ')
+    }));
+  }, [classesResponse?.data]);
+
+  const studentManagementSummary = useMemo(() => {
+    const linkedParents = students.filter((student) => student.parentLinked).length;
+    const urgentAttention = students.filter((student) => student.riskLevel === 'urgent').length;
+    const missingContacts = students.filter(
+      (student) => student.email === "No email provided" || student.phone === "No phone provided"
+    ).length;
+    const unassignedClasses = students.filter((student) => !student.classId).length;
+
+    return {
+      linkedParents,
+      urgentAttention,
+      missingContacts,
+      unassignedClasses
+    };
+  }, [students]);
   
   // Calculate student statistics
   const calculateStudentStats = () => {
@@ -204,7 +251,7 @@ export function StudentsPage() {
         student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         student.studentId.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGrade = selectedGrade === "All" || student.grade === selectedGrade;
+      const matchesGrade = selectedGrade === "all" || String(student.classId ?? '') === selectedGrade;
       const matchesStatus = selectedStatus === "All" || student.status === selectedStatus;
       const matchesTab = activeTab === "all" || student.status === activeTab;
       return matchesSearch && matchesGrade && matchesStatus && matchesTab;
@@ -562,13 +609,12 @@ export function StudentsPage() {
           className="px-3 py-2 border rounded-md"
           data-testid="grade-filter"
         >
-          <option value="All">{t('students_page.all_grades', 'All Grades')}</option>
-          <option value="Grade 1">Grade 1</option>
-          <option value="Grade 2">Grade 2</option>
-          <option value="Grade 3">Grade 3</option>
-          <option value="Grade 4">Grade 4</option>
-          <option value="Grade 5">Grade 5</option>
-          <option value="Grade 6">Grade 6</option>
+          <option value="all">{t('students_page.all_grades', 'All Classes')}</option>
+          {classOptions.map((classOption) => (
+            <option key={classOption.value} value={classOption.value}>
+              {classOption.label}
+            </option>
+          ))}
         </select>
         <select
           value={selectedStatus}
@@ -581,8 +627,58 @@ export function StudentsPage() {
           <option value="inactive">{t('common.inactive', 'Inactive')}</option>
           <option value="graduated">{t('common.graduated', 'Graduated')}</option>
         </select>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSearchQuery('');
+            setSelectedGrade('all');
+            setSelectedStatus('All');
+            setActiveTab('all');
+          }}
+        >
+          {t('common.reset', 'Reset')}
+        </Button>
       </div>
     </div>
+  );
+
+  const renderManagementOverview = () => (
+    <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+      <CardContent className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {t('students_page.management_overview', 'Student Management Overview')}
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {t('students_page.management_desc', 'Track linked guardians, contact readiness, and students who need follow-up.')}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {t('common.refresh', 'Refresh')}
+          </Button>
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+            <p className="text-sm font-medium text-emerald-700">Linked Parents</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-900">{studentManagementSummary.linkedParents}</p>
+          </div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-700">Needs Follow-up</p>
+            <p className="mt-1 text-2xl font-bold text-amber-900">{studentManagementSummary.urgentAttention}</p>
+          </div>
+          <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
+            <p className="text-sm font-medium text-rose-700">Missing Contact Data</p>
+            <p className="mt-1 text-2xl font-bold text-rose-900">{studentManagementSummary.missingContacts}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-medium text-slate-700">Unassigned Classes</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{studentManagementSummary.unassignedClasses}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   const renderViewModeToggle = () => (
@@ -682,7 +778,7 @@ export function StudentsPage() {
                 <Progress value={selectedStudentData.attendance} className="h-3" />
               </div>
               <div className="text-sm text-gray-600">
-                Last Active: {selectedStudentData.lastActive}
+                {selectedStudentData.lastActive}
               </div>
             </TabsContent>
             
@@ -702,6 +798,8 @@ export function StudentsPage() {
                     <div>Name: {selectedStudentData.parentInfo.name}</div>
                     <div>Email: {selectedStudentData.parentInfo.email}</div>
                     <div>Phone: {selectedStudentData.parentInfo.phone}</div>
+                    <div>Link Status: {selectedStudentData.parentLinked ? 'Linked to parent record' : 'Legacy contact only'}</div>
+                    <div>Attention Level: {selectedStudentData.riskLevel}</div>
                   </div>
                 </div>
               </div>
@@ -806,6 +904,7 @@ export function StudentsPage() {
 
         {/* Search and Filters */}
         {renderSearchAndFilters()}
+        {renderManagementOverview()}
 
         {/* Main Content */}
         <Card>

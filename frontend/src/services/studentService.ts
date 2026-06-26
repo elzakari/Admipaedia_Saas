@@ -409,7 +409,9 @@ const studentService = {
           format: 'csv',
           class_id: (filters as any)?.class_id,
           status: (filters as any)?.status,
-          fields: (filters as any)?.fields
+          fields: Array.isArray((filters as any)?.fields)
+            ? (filters as any).fields.join(',')
+            : (filters as any)?.fields
         }
       });
 

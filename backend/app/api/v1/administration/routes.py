@@ -1,5 +1,7 @@
+from functools import wraps
+
 from flask import request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt_identity
 from app.api.v1.administration import administration_bp
 from app.services.administration_service import AdministrationService
 from app.schemas.administration import (
@@ -14,7 +16,9 @@ from app.schemas.administration import (
     FacilitySchema, MaintenanceRequestSchema, AssetSchema,
     InfrastructureSummarySchema, SystemSettingSchema
 )
-from app.utils.auth_utils import admin_required, teacher_required
+from app.utils.entitlements import require_any_feature
+from app.utils.rbac_decorators import require_role
+from app.utils.tenant_context import tenant_required
 from marshmallow import ValidationError
 from app.extensions import db
 from datetime import datetime, date
@@ -70,6 +74,25 @@ infrastructure_summary_schema = InfrastructureSummarySchema()
 # Initialize service
 administration_service = AdministrationService(db.session)
 
+ADMINISTRATION_ALLOWED_ROLES = ['admin', 'school_admin', 'super_admin', 'super_manager']
+ADMINISTRATION_FEATURE_KEYS = ['roles.basic', 'finance.basic', 'fees.basic']
+ADMINISTRATION_FALLBACK_PLANS = ['trial', 'basic', 'pro', 'enterprise', 'ultimate']
+
+
+def administration_access_required(fn):
+    @wraps(fn)
+    @tenant_required
+    @require_role(ADMINISTRATION_ALLOWED_ROLES)
+    @require_any_feature(
+        ADMINISTRATION_FEATURE_KEYS,
+        allow_if_unconfigured=True,
+        fallback_plan_slugs=ADMINISTRATION_FALLBACK_PLANS,
+    )
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+
+    return wrapper
+
 
 def _serialize_fee_template_group(group_rows, category_by_id):
     first = group_rows[0]
@@ -111,8 +134,7 @@ def _parse_group_id(group_id: str):
 
 @administration_bp.route('/fee-structures', methods=['GET'])
 @administration_bp.route('/fee-structures/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_fee_structure_groups():
     try:
         academic_year = request.args.get('academic_year', type=str)
@@ -180,8 +202,7 @@ def get_fee_structure_groups():
 
 @administration_bp.route('/fee-structures', methods=['POST'])
 @administration_bp.route('/fee-structures/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_fee_structure_group():
     try:
         data = request.get_json() or {}
@@ -257,8 +278,7 @@ def create_fee_structure_group():
 
 
 @administration_bp.route('/fee-structures/<group_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def update_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)
     if not parsed:
@@ -273,8 +293,7 @@ def update_fee_structure_group(group_id):
 
 
 @administration_bp.route('/fee-structures/<group_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def delete_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)
     if not parsed:
@@ -295,8 +314,7 @@ def delete_fee_structure_group(group_id):
 
 
 @administration_bp.route('/fee-structures/<group_id>/assign', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def assign_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)
     if not parsed:
@@ -351,8 +369,7 @@ def assign_fee_structure_group(group_id):
 
 
 @administration_bp.route('/fee-records/<int:fee_record_id>/payments', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_fee_record_payments(fee_record_id):
     try:
         fee = StudentFee.query.get(fee_record_id)
@@ -389,8 +406,7 @@ def get_fee_record_payments(fee_record_id):
 
 @administration_bp.route('/fee-payments', methods=['GET'])
 @administration_bp.route('/fee-payments/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def list_fee_payments():
     try:
         page = request.args.get('page', 1, type=int)
@@ -440,8 +456,7 @@ def list_fee_payments():
 
 @administration_bp.route('/fee-payments', methods=['POST'])
 @administration_bp.route('/fee-payments/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_fee_payment_v2():
     try:
         data = request.get_json() or {}
@@ -513,8 +528,7 @@ def create_fee_payment_v2():
 
 @administration_bp.route('/overdue-fees', methods=['GET'])
 @administration_bp.route('/overdue-fees/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_overdue_fees_v2():
     try:
         page = request.args.get('page', 1, type=int)
@@ -565,8 +579,7 @@ def get_overdue_fees_v2():
 
 @administration_bp.route('/fee-reminders/send', methods=['POST'])
 @administration_bp.route('/fee-reminders/send/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def send_fee_reminders():
     try:
         data = request.get_json() or {}
@@ -598,8 +611,7 @@ def send_fee_reminders():
 # Budget Management Routes
 @administration_bp.route('/budgets', methods=['GET'])
 @administration_bp.route('/budgets/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_budgets():
     """Get all budgets with pagination and filtering."""
     try:
@@ -629,8 +641,7 @@ def get_budgets():
         }), 500
 
 @administration_bp.route('/budgets/<int:budget_id>', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_budget(budget_id):
     """Get a specific budget by ID."""
     try:
@@ -652,8 +663,7 @@ def get_budget(budget_id):
 
 @administration_bp.route('/budgets', methods=['POST'])
 @administration_bp.route('/budgets/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_budget():
     """Create a new budget."""
     try:
@@ -685,8 +695,7 @@ def create_budget():
         }), 500
 
 @administration_bp.route('/budgets/<int:budget_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def update_budget(budget_id):
     """Update a budget."""
     try:
@@ -716,8 +725,7 @@ def update_budget(budget_id):
         }), 500
 
 @administration_bp.route('/budgets/<int:budget_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def delete_budget(budget_id):
     """Delete a budget."""
     try:
@@ -741,8 +749,7 @@ def delete_budget(budget_id):
 # Transaction Management Routes
 @administration_bp.route('/transactions', methods=['GET'])
 @administration_bp.route('/transactions/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_transactions():
     """Get all transactions with pagination and filtering."""
     try:
@@ -784,8 +791,7 @@ def get_transactions():
         }), 500
 
 @administration_bp.route('/transactions/<int:transaction_id>', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_transaction(transaction_id):
     """Get a specific transaction by ID."""
     try:
@@ -807,8 +813,7 @@ def get_transaction(transaction_id):
 
 @administration_bp.route('/transactions', methods=['POST'])
 @administration_bp.route('/transactions/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_transaction():
     """Create a new transaction."""
     try:
@@ -843,8 +848,7 @@ def create_transaction():
 
 @administration_bp.route('/fee-records', methods=['GET'])
 @administration_bp.route('/fee-records/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_fee_records():
     """Get all fee records (admin)."""
     try:
@@ -914,7 +918,7 @@ def get_fee_records():
 
 
 @administration_bp.route('/students/<int:student_id>/fee-records', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_student_fee_records(student_id):
     """Get fee records for a specific student."""
     try:
@@ -955,8 +959,7 @@ def get_student_fee_records(student_id):
 
 @administration_bp.route('/fee-records', methods=['POST'])
 @administration_bp.route('/fee-records/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_fee_record():
     """Create a new fee record for a student."""
     try:
@@ -1012,8 +1015,7 @@ def create_fee_record():
 # Financial Reports and Analytics Routes
 @administration_bp.route('/financial-summary', methods=['GET'])
 @administration_bp.route('/financial-summary/', methods=['GET'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def get_financial_summary():
     """Get comprehensive financial summary."""
     try:
@@ -1039,7 +1041,7 @@ def get_financial_summary():
 # Facility Management Routes
 @administration_bp.route('/facilities', methods=['GET'])
 @administration_bp.route('/facilities/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_facilities():
     """Get all facilities with pagination and filtering."""
     try:
@@ -1072,7 +1074,7 @@ def get_facilities():
         }), 500
 
 @administration_bp.route('/facilities/<int:facility_id>', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_facility(facility_id):
     """Get a specific facility by ID."""
     try:
@@ -1094,8 +1096,7 @@ def get_facility(facility_id):
 
 @administration_bp.route('/facilities', methods=['POST'])
 @administration_bp.route('/facilities/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_facility():
     """Create a new facility."""
     try:
@@ -1127,8 +1128,7 @@ def create_facility():
         }), 500
 
 @administration_bp.route('/facilities/<int:facility_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def update_facility(facility_id):
     """Update an existing facility."""
     try:
@@ -1160,8 +1160,7 @@ def update_facility(facility_id):
         }), 500
 
 @administration_bp.route('/facilities/<int:facility_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def delete_facility(facility_id):
     """Delete a facility."""
     try:
@@ -1185,7 +1184,7 @@ def delete_facility(facility_id):
 # Maintenance Request Management Routes
 @administration_bp.route('/maintenance-requests', methods=['GET'])
 @administration_bp.route('/maintenance-requests/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_maintenance_requests():
     """Get all maintenance requests with pagination and filtering."""
     try:
@@ -1219,7 +1218,7 @@ def get_maintenance_requests():
         }), 500
 
 @administration_bp.route('/maintenance-requests/<int:request_id>', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_maintenance_request(request_id):
     """Get a specific maintenance request by ID."""
     try:
@@ -1241,7 +1240,7 @@ def get_maintenance_request(request_id):
 
 @administration_bp.route('/maintenance-requests', methods=['POST'])
 @administration_bp.route('/maintenance-requests/', methods=['POST'])
-@jwt_required()
+@administration_access_required
 def create_maintenance_request():
     """Create a new maintenance request."""
     try:
@@ -1279,7 +1278,7 @@ def create_maintenance_request():
         }), 500
 
 @administration_bp.route('/maintenance-requests/<int:request_id>', methods=['PUT'])
-@jwt_required()
+@administration_access_required
 def update_maintenance_request(request_id):
     """Update an existing maintenance request."""
     try:
@@ -1311,8 +1310,7 @@ def update_maintenance_request(request_id):
         }), 500
 
 @administration_bp.route('/maintenance-requests/<int:request_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def delete_maintenance_request(request_id):
     """Delete a maintenance request."""
     try:
@@ -1336,7 +1334,7 @@ def delete_maintenance_request(request_id):
 # Asset Management Routes
 @administration_bp.route('/assets', methods=['GET'])
 @administration_bp.route('/assets/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_assets():
     """Get all assets with pagination and filtering."""
     try:
@@ -1370,7 +1368,7 @@ def get_assets():
         }), 500
 
 @administration_bp.route('/assets/<int:asset_id>', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_asset(asset_id):
     """Get a specific asset by ID."""
     try:
@@ -1392,8 +1390,7 @@ def get_asset(asset_id):
 
 @administration_bp.route('/assets', methods=['POST'])
 @administration_bp.route('/assets/', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def create_asset():
     """Create a new asset."""
     try:
@@ -1427,8 +1424,7 @@ def create_asset():
         }), 500
 
 @administration_bp.route('/assets/<int:asset_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def update_asset(asset_id):
     """Update an existing asset."""
     try:
@@ -1460,8 +1456,7 @@ def update_asset(asset_id):
         }), 500
 
 @administration_bp.route('/assets/<int:asset_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def delete_asset(asset_id):
     """Delete an asset."""
     try:
@@ -1485,7 +1480,7 @@ def delete_asset(asset_id):
 # Infrastructure Analytics and Reports Routes
 @administration_bp.route('/infrastructure-summary', methods=['GET'])
 @administration_bp.route('/infrastructure-summary/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_infrastructure_summary():
     """Get comprehensive infrastructure summary."""
     try:
@@ -1504,7 +1499,7 @@ def get_infrastructure_summary():
 
 @administration_bp.route('/maintenance-requests/overdue', methods=['GET'])
 @administration_bp.route('/maintenance-requests/overdue/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_overdue_maintenance_requests():
     """Get all overdue maintenance requests."""
     try:
@@ -1523,7 +1518,7 @@ def get_overdue_maintenance_requests():
 
 @administration_bp.route('/assets/service-due', methods=['GET'])
 @administration_bp.route('/assets/service-due/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_assets_needing_service():
     """Get all assets that need service."""
     try:
@@ -1542,7 +1537,7 @@ def get_assets_needing_service():
 
 @administration_bp.route('/assets/warranty-expired', methods=['GET'])
 @administration_bp.route('/assets/warranty-expired/', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_assets_with_expired_warranty():
     """Get all assets with expired warranty."""
     try:
@@ -1561,7 +1556,7 @@ def get_assets_with_expired_warranty():
 
 # System Settings Routes
 @administration_bp.route('/settings', methods=['GET'])
-@jwt_required()
+@administration_access_required
 def get_system_settings():
     """Get all system settings."""
     try:
@@ -1583,8 +1578,7 @@ def get_system_settings():
         }), 500
 
 @administration_bp.route('/settings', methods=['POST'])
-@jwt_required()
-@admin_required
+@administration_access_required
 def update_system_settings():
     """Update system settings."""
     try:

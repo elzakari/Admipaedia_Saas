@@ -59,7 +59,7 @@ import { useClasses } from '../../hooks/useClasses';
 import { useSubjects } from '../../hooks/useSubjects';
 import { useAuth } from '../../contexts/AuthContext';
 import { addDays, format, isAfter, isBefore, parseISO } from 'date-fns';
-import examService from '../../services/examService';
+import examService, { DEFAULT_EXAM_VALUES, extractExamRows } from '../../services/examService';
 import { ExamCreate, ExamUpdate, Exam } from '../../types/academics.types';
 import { toast } from 'react-hot-toast';
 import GradeEntry from './GradeEntry';
@@ -103,11 +103,12 @@ const ExamManagement: React.FC = () => {
     title: '',
     description: '',
     exam_date: '',
-    duration: 60,
-    total_marks: 100,
-    passing_marks: 40,
+    duration: DEFAULT_EXAM_VALUES.duration,
+    total_marks: DEFAULT_EXAM_VALUES.total_marks,
+    passing_marks: DEFAULT_EXAM_VALUES.passing_marks,
     class_id: 0,
     subject_id: 0,
+    status: DEFAULT_EXAM_VALUES.status,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'class' | 'subject'>('date');
@@ -256,7 +257,7 @@ const ExamManagement: React.FC = () => {
         date_to: examDate.split('T')[0]
       });
       
-      const examsForDay = examsResponse.data || [];
+      const examsForDay = extractExamRows(examsResponse);
       const otherExams = examId ? examsForDay.filter(exam => exam.id !== examId) : examsForDay;
       
       const examDateTime = new Date(examDate);
@@ -432,11 +433,12 @@ const ExamManagement: React.FC = () => {
       title: '',
       description: '',
       exam_date: '',
-      duration: 60,
-      total_marks: 100,
-      passing_marks: 40,
+      duration: DEFAULT_EXAM_VALUES.duration,
+      total_marks: DEFAULT_EXAM_VALUES.total_marks,
+      passing_marks: DEFAULT_EXAM_VALUES.passing_marks,
       class_id: 0,
       subject_id: 0,
+      status: DEFAULT_EXAM_VALUES.status,
     });
     setCurrentExam(null);
   };

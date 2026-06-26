@@ -14,6 +14,7 @@ from app.models.assignment import Assignment
 from app.models.assignment_submission import AssignmentSubmission
 from app.models.tenant import Tenant
 from app.models.department import Department
+from app.models.class_ import Class
 from app.models.session_token import SessionToken
 from app.models.user import User
 from app.utils.tenant_context import tenant_required
@@ -483,39 +484,23 @@ def get_admin_dashboard_metrics():
                         'count': count,
                         'percentage': round((count / total_grades * 100), 1)
                     })
-            else:
-                grade_distribution = [
-                    { "grade": "A+", "count": 45, "percentage": 12 },
-                    { "grade": "A", "count": 78, "percentage": 21 },
-                    { "grade": "B+", "count": 92, "percentage": 25 },
-                    { "grade": "B", "count": 85, "percentage": 23 },
-                    { "grade": "C+", "count": 48, "percentage": 13 },
-                    { "grade": "C", "count": 22, "percentage": 6 }
-                ]
 
             avg_grade_val = db.session.query(func.avg(Grade.percentage))\
                 .join(Student, Grade.student_id == Student.id)\
                 .filter(Student.tenant_id == tenant_id).scalar()
-            average_grade = round(float(avg_grade_val), 1) if avg_grade_val is not None else 82.5
+            average_grade = round(float(avg_grade_val), 1) if avg_grade_val is not None else 0.0
 
             passing_grades_count = db.session.query(func.count(Grade.id))\
                 .join(Student, Grade.student_id == Student.id)\
                 .filter(Student.tenant_id == tenant_id)\
                 .filter(Grade.percentage >= 40.0).scalar() or 0
 
-            pass_rate = round((passing_grades_count / total_grades * 100), 1) if total_grades > 0 else 89.2
+            pass_rate = round((passing_grades_count / total_grades * 100), 1) if total_grades > 0 else 0.0
         except Exception as e:
             logger.error(f"Error calculating grades in get_admin_dashboard_metrics: {str(e)}")
-            average_grade = 82.5
-            pass_rate = 89.2
-            grade_distribution = [
-                { "grade": "A+", "count": 45, "percentage": 12 },
-                { "grade": "A", "count": 78, "percentage": 21 },
-                { "grade": "B+", "count": 92, "percentage": 25 },
-                { "grade": "B", "count": 85, "percentage": 23 },
-                { "grade": "C+", "count": 48, "percentage": 13 },
-                { "grade": "C", "count": 22, "percentage": 6 }
-            ]
+            average_grade = 0.0
+            pass_rate = 0.0
+            grade_distribution = []
 
         # 2. Daily Avg Attendance
         try:
@@ -526,10 +511,10 @@ def get_admin_dashboard_metrics():
             total_attendance = db.session.query(func.count(Attendance.id))\
                 .join(Student, Attendance.student_id == Student.id)\
                 .filter(Student.tenant_id == tenant_id).scalar() or 0
-            attendance_rate = round((present_count / total_attendance * 100), 1) if total_attendance > 0 else 91.8
+            attendance_rate = round((present_count / total_attendance * 100), 1) if total_attendance > 0 else 0.0
         except Exception as e:
             logger.error(f"Error calculating attendance in get_admin_dashboard_metrics: {str(e)}")
-            attendance_rate = 91.8
+            attendance_rate = 0.0
 
         # 3. Homework tracking completion rate
         try:
@@ -540,36 +525,26 @@ def get_admin_dashboard_metrics():
             total_submissions = db.session.query(func.count(AssignmentSubmission.id))\
                 .join(Student, AssignmentSubmission.student_id == Student.id)\
                 .filter(Student.tenant_id == tenant_id).scalar() or 0
-            assignment_completion_rate = round((submitted_count / total_submissions * 100), 1) if total_submissions > 0 else 87.3
+            assignment_completion_rate = round((submitted_count / total_submissions * 100), 1) if total_submissions > 0 else 0.0
         except Exception as e:
             logger.error(f"Error calculating homework completion in get_admin_dashboard_metrics: {str(e)}")
-            assignment_completion_rate = 87.3
+            assignment_completion_rate = 0.0
 
         # 4. System Monitor Stats: Active Parents + Students, Online Teachers
         try:
             student_count = db.session.query(func.count(Student.id)).filter(Student.tenant_id == tenant_id).scalar() or 0
             parent_count = db.session.query(func.count(Parent.id)).filter(Parent.tenant_id == tenant_id).scalar() or 0
             active_parents_students = student_count + parent_count
-            active_parents_students = active_parents_students if active_parents_students > 0 else 212
 
             teacher_count = db.session.query(func.count(Teacher.id)).filter(Teacher.tenant_id == tenant_id).scalar() or 0
-            online_staff_count = teacher_count if teacher_count > 0 else 43
+            online_staff_count = teacher_count
         except Exception as e:
             logger.error(f"Error calculating system stats in get_admin_dashboard_metrics: {str(e)}")
-            active_parents_students = 212
-            online_staff_count = 43
+            active_parents_students = 0
+            online_staff_count = 0
 
         # 5. Monthly Trends
         try:
-            default_trends = [
-                { "month": "Jan", "performance": 78, "attendance": 89, "assignments": 95 },
-                { "month": "Feb", "performance": 80, "attendance": 87, "assignments": 92 },
-                { "month": "Mar", "performance": 82, "attendance": 91, "assignments": 88 },
-                { "month": "Apr", "performance": 84, "attendance": 93, "assignments": 90 },
-                { "month": "May", "performance": 83, "attendance": 90, "assignments": 94 },
-                { "month": "Jun", "performance": 85, "attendance": 92, "assignments": 96 }
-            ]
-
             today = datetime.utcnow()
             months_list = []
             for i in range(5, -1, -1):
@@ -615,16 +590,16 @@ def get_admin_dashboard_metrics():
                     has_trends_data = True
                     monthly_trends.append({
                         'month': name,
-                        'performance': round(float(m_grades), 1) if m_grades is not None else 80.0,
-                        'attendance': round(float(m_att_rate), 1) if m_att_rate is not None else 90.0,
-                        'assignments': round(float(m_sub_rate), 1) if m_sub_rate is not None else 85.0
+                        'performance': round(float(m_grades), 1) if m_grades is not None else 0.0,
+                        'attendance': round(float(m_att_rate), 1) if m_att_rate is not None else 0.0,
+                        'assignments': round(float(m_sub_rate), 1) if m_sub_rate is not None else 0.0
                     })
 
             if not has_trends_data:
-                monthly_trends = default_trends
+                monthly_trends = []
         except Exception as e:
             logger.error(f"Error calculating monthly trends in get_admin_dashboard_metrics: {str(e)}")
-            monthly_trends = default_trends
+            monthly_trends = []
 
         # Fetch configured school currency symbol
         currency_symbol = '$'
@@ -638,43 +613,23 @@ def get_admin_dashboard_metrics():
         # Query active user access token sessions
         active_sessions_total = 0
         try:
+            from app.models.tenant import TenantMembership
             active_sessions_total = db.session.query(func.count(SessionToken.id))\
-                .join(User, SessionToken.user_id == User.id)\
-                .filter(User.tenant_id == tenant_id)\
+                .join(TenantMembership, TenantMembership.user_id == SessionToken.user_id)\
+                .filter(TenantMembership.tenant_id == tenant_id)\
+                .filter(TenantMembership.status == 'active')\
                 .filter(SessionToken.is_revoked == False)\
                 .filter(SessionToken.token_type == 'access')\
                 .filter(SessionToken.expires_at > datetime.utcnow()).scalar() or 0
-            if active_sessions_total == 0:
-                active_sessions_total = max(int(active_parents_students * 0.15), 8)
         except Exception as e:
             logger.error(f"Error querying active sessions: {str(e)}")
-            active_sessions_total = max(int(active_parents_students * 0.15), 8)
+            active_sessions_total = 0
 
         # Query dynamic departments lists
         departments_data = []
         try:
             depts = Department.query.filter_by(tenant_id=tenant_id, is_active=True).all()
-            
-            # If no departments exist, we seed default departments dynamically in memory to ensure UI looks premium
-            if not depts:
-                default_names = ["Mathematics", "Science", "Languages", "Social Studies", "Arts"]
-                for i, name in enumerate(default_names):
-                    code = name[:3].upper()
-                    # Calculate dynamic seed parameters
-                    teachers_seed = 10 - i
-                    students_seed = 340 - (i * 30)
-                    budgets_map = {'science': 45000.0, 'mathematics': 38000.0, 'languages': 42000.0, 'social studies': 35000.0, 'arts': 28000.0}
-                    budget_seed = budgets_map.get(name.lower(), 15000.0)
-                    perf_seed = 88.0 - (i * 3.0)
-                    
-                    departments_data.append({
-                        'department': name,
-                        'performance': perf_seed,
-                        'teachers': teachers_seed,
-                        'students': students_seed,
-                        'budget': budget_seed
-                    })
-            else:
+            if depts:
                 for dept in depts:
                     # Count teachers in this department
                     teachers_count = Teacher.query.filter_by(tenant_id=tenant_id, department_id=dept.id).count()
@@ -688,43 +643,34 @@ def get_admin_dashboard_metrics():
                     
                     # Retrieve allocated budget
                     budget = dept.allocated_budget or 0.0
-                    if budget == 0.0:
-                        budgets_map = {'science': 45000.0, 'mathematics': 38000.0, 'languages': 42000.0, 'social studies': 35000.0, 'arts': 28000.0}
-                        budget = budgets_map.get(dept.name.lower(), 15000.0)
-                        
-                    # Calculate dynamic performance index
+
                     dept_avg_grade = db.session.query(func.avg(Grade.percentage))\
                         .join(Student, Grade.student_id == Student.id)\
                         .join(Class, Student.class_id == Class.id)\
                         .join(Teacher, Class.teacher_id == Teacher.id)\
                         .filter(Teacher.department_id == dept.id)\
                         .filter(Student.tenant_id == tenant_id).scalar()
-                    
-                    fallback_perf = 82.0
-                    if 'math' in dept.name.lower(): fallback_perf = 88.0
-                    elif 'science' in dept.name.lower(): fallback_perf = 85.0
-                    elif 'lang' in dept.name.lower(): fallback_perf = 82.0
-                    elif 'social' in dept.name.lower(): fallback_perf = 79.0
-                    elif 'art' in dept.name.lower(): fallback_perf = 86.0
-                    
-                    performance = round(float(dept_avg_grade), 1) if dept_avg_grade is not None else fallback_perf
+                    performance = round(float(dept_avg_grade), 1) if dept_avg_grade is not None else 0.0
                     
                     departments_data.append({
                         'department': dept.name,
                         'performance': performance,
-                        'teachers': teachers_count if teachers_count > 0 else 5,
-                        'students': students_count if students_count > 0 else 120,
+                        'teachers': teachers_count,
+                        'students': students_count,
                         'budget': budget
                     })
         except Exception as e:
             logger.error(f"Error compiling dynamic department metrics: {str(e)}")
-            departments_data = [
-                { 'department': 'Science', 'performance': 85.0, 'teachers': 12, 'students': 340, 'budget': 45000.0 },
-                { 'department': 'Mathematics', 'performance': 88.0, 'teachers': 10, 'students': 320, 'budget': 38000.0 },
-                { 'department': 'Languages', 'performance': 82.0, 'teachers': 15, 'students': 380, 'budget': 42000.0 },
-                { 'department': 'Social Studies', 'performance': 79.0, 'teachers': 8, 'students': 280, 'budget': 35000.0 },
-                { 'department': 'Arts', 'performance': 86.0, 'teachers': 6, 'students': 220, 'budget': 28000.0 }
-            ]
+            departments_data = []
+
+        if not departments_data:
+            departments_data = [{
+                'department': 'School-wide',
+                'performance': average_grade,
+                'teachers': online_staff_count,
+                'students': student_count if 'student_count' in locals() else 0,
+                'budget': 0.0
+            }]
 
         return jsonify({
             'success': True,
@@ -769,17 +715,7 @@ def get_admin_dashboard_analytics():
         
         subject_performance = []
         
-        # If there are no subjects, create standard fallback subjects
-        if not subjects:
-            default_subjects = [
-                { 'subject': 'Mathematics', 'average_score': 85.0, 'student_count': 120, 'teacher_count': 3, 'improvement': 5.0, 'difficulty': 'Hard' },
-                { 'subject': 'Science', 'average_score': 78.0, 'student_count': 115, 'teacher_count': 4, 'improvement': -2.0, 'difficulty': 'Medium' },
-                { 'subject': 'Languages', 'average_score': 82.0, 'student_count': 125, 'teacher_count': 5, 'improvement': 3.0, 'difficulty': 'Medium' },
-                { 'subject': 'Social Studies', 'average_score': 76.0, 'student_count': 110, 'teacher_count': 2, 'improvement': 1.0, 'difficulty': 'Easy' },
-                { 'subject': 'Arts', 'average_score': 80.0, 'student_count': 105, 'teacher_count': 2, 'improvement': 4.0, 'difficulty': 'Easy' }
-            ]
-            subject_performance = default_subjects
-        else:
+        if subjects:
             for index, subj in enumerate(subjects):
                 # Calculate average grade score for this subject
                 avg_query = db.session.query(func.avg(Grade.percentage))\
@@ -790,9 +726,7 @@ def get_admin_dashboard_analytics():
                     avg_query = avg_query.filter(Student.branch_id == branch_id)
                 avg_score_val = avg_query.scalar()
                 
-                fallbacks = [85.0, 78.0, 82.0, 76.0, 80.0]
-                fallback_avg = fallbacks[index % len(fallbacks)]
-                average_score = round(float(avg_score_val), 1) if avg_score_val is not None else fallback_avg
+                average_score = round(float(avg_score_val), 1) if avg_score_val is not None else 0.0
 
                 # Count unique students linked via class_subjects and Student.class_id
                 student_query = db.session.query(func.count(Student.id))\
@@ -803,8 +737,6 @@ def get_admin_dashboard_analytics():
                 if branch_id:
                     student_query = student_query.filter(Student.branch_id == branch_id)
                 student_count = student_query.scalar() or 0
-                if student_count == 0:
-                    student_count = 120 - (index * 5)
 
                 # Count unique teachers assigned to this subject
                 teacher_query = db.session.query(func.count(func.distinct(teacher_subjects.c.teacher_id)))\
@@ -814,14 +746,8 @@ def get_admin_dashboard_analytics():
                 if branch_id:
                     teacher_query = teacher_query.filter(Teacher.branch_id == branch_id)
                 teacher_count = teacher_query.scalar() or 0
-                if teacher_count == 0:
-                    teacher_count = max(2, (index % 3) + 2)
-
-                diffs = ['Hard', 'Medium', 'Medium', 'Easy', 'Easy']
-                difficulty = diffs[index % len(diffs)]
-
-                imps = [5.0, -2.0, 3.0, 1.0, 4.0]
-                improvement = imps[index % len(imps)]
+                difficulty = 'Hard' if average_score < 50 else 'Medium' if average_score < 75 else 'Easy'
+                improvement = 0.0
 
                 subject_performance.append({
                     'subject': subj.name,
@@ -832,22 +758,12 @@ def get_admin_dashboard_analytics():
                     'difficulty': difficulty
                 })
 
-        # Calculate average score mapping for radar chart
-        skills_assessment = {
-            "Problem Solving": { "current": 85, "target": 90 },
-            "Critical Thinking": { "current": 78, "target": 85 },
-            "Communication": { "current": 82, "target": 88 },
-            "Collaboration": { "current": 88, "target": 92 },
-            "Creativity": { "current": 75, "target": 80 },
-            "Leadership": { "current": 70, "target": 78 }
-        }
-
-        # System Monitor Stats (Telemetries)
+        skills_assessment = {}
         system_monitor = {
-            "cpu_usage": 24.5,
-            "memory_usage": 62.8,
-            "disk_usage": 45.2,
-            "network_latency": 15.0
+            "cpu_usage": 0.0,
+            "memory_usage": 0.0,
+            "disk_usage": 0.0,
+            "network_latency": 0.0
         }
 
         return jsonify({

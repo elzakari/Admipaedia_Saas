@@ -1,5 +1,4 @@
 import { api } from '../lib/api';
-import { reportsService } from './reportsService';
 
 // Ghana Education Service specific interfaces
 export interface GESReportCard {

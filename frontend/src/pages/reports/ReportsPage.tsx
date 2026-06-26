@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -19,6 +19,7 @@ import {
 import PageHeader from '../../components/common/PageHeader';
 import { reportsService, ReportData, ReportFilter } from '../../services/reportsService';
 import { useToast } from '../../hooks/useToast';
+import { useStudents } from '../../hooks/useStudents';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -29,6 +30,7 @@ const ReportsPage: React.FC = () => {
   const [dateRange, setDateRange] = useState('current');
   const [classFilter, setClassFilter] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('all');
+  const [studentFilter, setStudentFilter] = useState('all');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   
@@ -39,10 +41,52 @@ const ReportsPage: React.FC = () => {
   const [availableSubjects, setAvailableSubjects] = useState<Array<{ id: string; name: string }>>([]);
   
   const { toast } = useToast();
+  const reportOptionsByTab = useMemo<Record<string, Array<NonNullable<ReportFilter['reportType']>>>>(() => ({
+    academic: ['grades', 'progress', 'transcripts', 'class-performance'],
+    administrative: ['staff', 'enrollment', 'facilities', 'compliance'],
+    attendance: [],
+    financial: [],
+  }), []);
+
+  const { data: studentsResponse } = useStudents({
+    page: 1,
+    per_page: 200,
+    class_id: classFilter !== 'all' ? Number(classFilter) : undefined,
+  });
+
+  const availableStudents = useMemo(
+    () => (studentsResponse?.data || []).map((student) => ({
+      id: String(student.id),
+      name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.admission_number || `Student #${student.id}`
+    })),
+    [studentsResponse]
+  );
 
   useEffect(() => {
     loadFilterOptions();
   }, []);
+
+  useEffect(() => {
+    const validOptions = reportOptionsByTab[activeTab] || [];
+    if (validOptions.length === 0) {
+      return;
+    }
+
+    if (!validOptions.includes(selectedReport)) {
+      setSelectedReport(validOptions[0]);
+    }
+  }, [activeTab, reportOptionsByTab, selectedReport]);
+
+  useEffect(() => {
+    if (studentFilter === 'all') {
+      return;
+    }
+
+    const studentStillAvailable = availableStudents.some((student) => student.id === studentFilter);
+    if (!studentStillAvailable) {
+      setStudentFilter('all');
+    }
+  }, [availableStudents, studentFilter]);
 
   const loadFilterOptions = async () => {
     try {
@@ -98,11 +142,22 @@ const ReportsPage: React.FC = () => {
   const generateReport = async () => {
     setIsLoading(true);
     try {
+      if (activeTab === 'academic' && selectedReport === 'class-performance' && classFilter === 'all') {
+        throw new Error('Select a class to generate class performance.');
+      }
+
+      if (activeTab === 'academic' && ['progress', 'transcripts'].includes(selectedReport) && studentFilter === 'all') {
+        throw new Error('Select a student to generate this report.');
+      }
+
       const filters: ReportFilter = {
         reportType: selectedReport,
         dateRange: getDateRange(),
         classFilter: classFilter !== 'all' ? Number(classFilter) : undefined,
-        subjectFilter: subjectFilter !== 'all' ? [Number(subjectFilter)] : undefined
+        subjectFilter: subjectFilter !== 'all' ? [Number(subjectFilter)] : undefined,
+        student_id: studentFilter !== 'all' ? Number(studentFilter) : undefined,
+        studentFilter: studentFilter !== 'all' ? Number(studentFilter) : undefined,
+        report_type: activeTab === 'administrative' ? selectedReport : undefined
       };
 
       let report: ReportData;
@@ -131,9 +186,12 @@ const ReportsPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Error generating report:', error);
+      const description = error instanceof Error
+        ? error.message
+        : 'Failed to generate report. Please try again.';
       toast({
         title: 'Error',
-        description: 'Failed to generate report. Please try again.',
+        description,
         variant: 'destructive'
       });
     } finally {
@@ -617,8 +675,8 @@ const ReportsPage: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="grades">{t('admin_reports.grade_reports', 'Grade Reports')}</SelectItem>
-                      <SelectItem value="progress">{t('admin_reports.progress_reports', 'Progress Reports')}</SelectItem>
-                      <SelectItem value="transcripts">{t('admin_reports.transcripts', 'Transcripts')}</SelectItem>
+                      <SelectItem value="progress">{t('admin_reports.progress_reports', 'Student Report Card')}</SelectItem>
+                      <SelectItem value="transcripts">{t('admin_reports.transcripts', 'Student Transcript')}</SelectItem>
                       <SelectItem value="class-performance">{t('admin_reports.class_performance', 'Class Performance')}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -664,6 +722,29 @@ const ReportsPage: React.FC = () => {
                       <SelectItem value="all">{t('admin_reports.all_subjects', 'All Subjects')}</SelectItem>
                       {availableSubjects.map((subject) => (
                         <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="w-full md:w-1/5">
+                  <label className="block text-sm font-medium mb-1">{t('admin_reports.student', 'Student')}</label>
+                  <Select
+                    value={studentFilter}
+                    onValueChange={setStudentFilter}
+                    disabled={!['progress', 'transcripts'].includes(selectedReport)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('admin_reports.select_student', 'Select student')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {['progress', 'transcripts'].includes(selectedReport)
+                          ? t('admin_reports.select_student', 'Select student')
+                          : t('admin_reports.all_students', 'All Students')}
+                      </SelectItem>
+                      {availableStudents.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>{student.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

@@ -2,6 +2,112 @@ from marshmallow import Schema, fields, validate, validates, ValidationError, pr
 from datetime import datetime
 from app.schemas.educational_level import GradeLevelMinimalSchema
 
+
+def _extract_parent_name_parts_from_user(user):
+    profile = getattr(user, 'profile', None) if user else None
+    first_name = (
+        getattr(profile, 'first_name', None)
+        or getattr(user, 'first_name', None)
+        or ''
+    )
+    last_name = (
+        getattr(profile, 'last_name', None)
+        or getattr(user, 'last_name', None)
+        or ''
+    )
+
+    if first_name or last_name:
+        return str(first_name).strip(), str(last_name).strip()
+
+    full_name = ''
+    if user and hasattr(user, 'get_full_name'):
+        full_name = (user.get_full_name() or '').strip()
+    if not full_name and user:
+        full_name = (getattr(user, 'username', '') or '').strip()
+    if not full_name:
+        return '', ''
+
+    parts = [part for part in full_name.split() if part]
+    if len(parts) == 1:
+        return parts[0], ''
+    return parts[0], ' '.join(parts[1:])
+
+
+def _resolve_student_parent_identity(obj):
+    if isinstance(obj, dict):
+        return {
+            'name': (
+                obj.get('parent_name')
+                or obj.get('guardian_name')
+                or obj.get('father_name')
+                or obj.get('mother_name')
+                or ''
+            ),
+            'email': (
+                obj.get('parent_email')
+                or obj.get('father_email')
+                or obj.get('mother_email')
+            ),
+            'phone': (
+                obj.get('parent_phone')
+                or obj.get('guardian_contact')
+                or obj.get('father_contact')
+                or obj.get('mother_contact')
+            ),
+        }
+
+    parent = getattr(obj, 'parent', None)
+    if parent:
+        user = getattr(parent, 'user', None)
+        first_name, last_name = _extract_parent_name_parts_from_user(user)
+        full_name = ' '.join(part for part in [first_name, last_name] if part).strip()
+        if not full_name:
+            full_name = (
+                getattr(parent, 'display_name', None)
+                or getattr(parent, 'full_name', None)
+                or ''
+            )
+
+        parent_email = getattr(user, 'email', None) if user else None
+        parent_phone = getattr(parent, 'emergency_contact', None)
+        if not parent_phone and user:
+            parent_phone = (
+                getattr(user, 'phone', None)
+                or getattr(user, 'telephone', None)
+            )
+
+        if full_name or parent_email or parent_phone:
+            return {
+                'name': full_name,
+                'email': parent_email,
+                'phone': parent_phone,
+            }
+
+    return {
+        'name': getattr(obj, 'guardian_name', None)
+        or getattr(obj, 'father_name', None)
+        or getattr(obj, 'mother_name', None)
+        or '',
+        'email': getattr(obj, 'father_email', None) or getattr(obj, 'mother_email', None),
+        'phone': getattr(obj, 'guardian_contact', None)
+        or getattr(obj, 'father_contact', None)
+        or getattr(obj, 'mother_contact', None),
+    }
+
+
+def _resolve_student_class_name(obj):
+    if isinstance(obj, dict):
+        return (
+            obj.get('class_name')
+            or obj.get('grade_level_name')
+            or ''
+        )
+
+    class_record = getattr(obj, 'class_', None)
+    if class_record and getattr(class_record, 'name', None):
+        return class_record.name
+    return getattr(obj, 'grade_level_name', None) or ''
+
 # Add these fields to StudentSchema, StudentCreateSchema, and StudentUpdateSchema
 # Example for StudentSchema:
 
@@ -82,6 +188,10 @@ class StudentSchema(Schema):
     parent_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+    class_name = fields.Method("get_class_name", dump_only=True)
+    parent_name = fields.Method("get_parent_name", dump_only=True)
+    parent_email = fields.Method("get_parent_email", dump_only=True)
+    parent_phone = fields.Method("get_parent_phone", dump_only=True)
     
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level", dump_only=True)
@@ -160,6 +270,18 @@ class StudentSchema(Schema):
                 "code": None
             }
         return None
+
+    def get_class_name(self, obj):
+        return _resolve_student_class_name(obj)
+
+    def get_parent_name(self, obj):
+        return _resolve_student_parent_identity(obj).get('name')
+
+    def get_parent_email(self, obj):
+        return _resolve_student_parent_identity(obj).get('email')
+
+    def get_parent_phone(self, obj):
+        return _resolve_student_parent_identity(obj).get('phone')
 
 class StudentCreateSchema(Schema):
     """Schema for creating new students"""
@@ -390,6 +512,10 @@ class StudentListSchema(Schema):
     email = fields.Email(allow_none=True)
     phone = fields.String(allow_none=True)
     status = fields.String()
+    class_name = fields.Method("get_class_name", dump_only=True)
+    parent_name = fields.Method("get_parent_name", dump_only=True)
+    parent_email = fields.Method("get_parent_email", dump_only=True)
+    parent_phone = fields.Method("get_parent_phone", dump_only=True)
     
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level", dump_only=True)
@@ -459,3 +585,15 @@ class StudentListSchema(Schema):
         
         total_percentage = sum(grade.percentage for grade in obj.grades)
         return round(total_percentage / len(obj.grades), 1)
+
+    def get_class_name(self, obj):
+        return _resolve_student_class_name(obj)
+
+    def get_parent_name(self, obj):
+        return _resolve_student_parent_identity(obj).get('name')
+
+    def get_parent_email(self, obj):
+        return _resolve_student_parent_identity(obj).get('email')
+
+    def get_parent_phone(self, obj):
+        return _resolve_student_parent_identity(obj).get('phone')

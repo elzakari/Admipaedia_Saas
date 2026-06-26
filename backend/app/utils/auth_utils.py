@@ -3,15 +3,24 @@ from flask import jsonify, current_app
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from app.models.user import User
 
+ADMIN_COMPATIBLE_ROLES = {
+    'admin',
+    'school_admin',
+    'super_admin',
+    'superadmin',
+    'super_manager',
+}
+
+
 def admin_required(fn):
-    """Decorator to check if the current user has admin role."""
+    """Decorator to check if the current user has an admin-capable role."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
-        if not user or user.role != 'admin':
+        if not user or user.role not in ADMIN_COMPATIBLE_ROLES:
             return jsonify({
                 'success': False,
                 'message': 'Admin privileges required'
@@ -28,7 +37,7 @@ def teacher_required(fn):
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
-        if not user or user.role not in ('teacher', 'admin', 'super_admin', 'superadmin', 'super_manager'):
+        if not user or user.role not in ('teacher', 'admin', 'school_admin', 'super_admin', 'superadmin', 'super_manager'):
             return jsonify({
                 'success': False,
                 'message': 'Teacher privileges required'

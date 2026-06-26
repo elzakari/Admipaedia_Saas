@@ -343,9 +343,30 @@ const enhancedStudentScoresService = {
 
   // Send Report via Email
   sendReportEmail: async (studentId: number, email: string, reportData: any) => {
+    const normalizedReportData = reportData?.student_info
+      ? reportData
+      : {
+          student_info: {
+            id: reportData?.student?.id ?? studentId,
+            name: reportData?.student?.name ?? '',
+            admission_number: reportData?.student?.admission_number ?? '',
+            class_name: reportData?.student?.class ?? '',
+            term: reportData?.term ?? '',
+            academic_year: reportData?.session ?? '',
+          },
+          academic_performance: {
+            subjects: Array.isArray(reportData?.subjects) ? reportData.subjects : [],
+            overall_gpa: Number(reportData?.gpa ?? 0),
+            teacher_remarks: reportData?.teacher_remarks ?? '',
+            principal_remarks: reportData?.principal_remarks ?? '',
+          },
+          attendance: reportData?.attendance ?? undefined,
+          core_competencies: reportData?.core_competencies ?? [],
+        };
+
     const response = await api.post(`/reports/student/${studentId}/send-report`, {
       email,
-      report_data: reportData
+      report_data: normalizedReportData
     });
     return response.data;
   },

@@ -26,6 +26,11 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
   const { user } = useAuth();
   const { isMobile } = useResponsive();
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const canViewStudents = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'teacher' || user?.role === 'super_admin';
+  const canViewAcademics = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'super_admin';
+  const canManageAttendance = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'teacher' || user?.role === 'super_admin';
+  const canManageTemplates = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'super_admin';
+  const canSendNotifications = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'teacher' || user?.role === 'super_admin';
 
   // Dynamic Dashboard path based on user role context
   const getDashboardPath = () => {
@@ -90,20 +95,24 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
           </Link>
 
           {/* Index 1: Students */}
-          <Link
-            to="/students"
-            className={cn(
-              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
-              isActive('/students')
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-            )}
-          >
-            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/students') && 'scale-110')}>
-              <GraduationCap size={20} />
-            </div>
-            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.students', 'Students')}</span>
-          </Link>
+          {canViewStudents ? (
+            <Link
+              to="/students"
+              className={cn(
+                'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+                isActive('/students')
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              )}
+            >
+              <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/students') && 'scale-110')}>
+                <GraduationCap size={20} />
+              </div>
+              <span className="text-[10px] font-semibold tracking-tight">{t('navigation.students', 'Students')}</span>
+            </Link>
+          ) : (
+            <div className="flex-1" aria-hidden="true" />
+          )}
 
           {/* Index 2: Primary '+' Action Trigger */}
           <div className="flex-1 flex justify-center relative -mt-5">
@@ -117,20 +126,24 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
           </div>
 
           {/* Index 3: Academics */}
-          <Link
-            to="/academics"
-            className={cn(
-              'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
-              isActive('/academics')
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-            )}
-          >
-            <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/academics') && 'scale-110')}>
-              <BookOpen size={20} />
-            </div>
-            <span className="text-[10px] font-semibold tracking-tight">{t('navigation.academics', 'Academics')}</span>
-          </Link>
+          {canViewAcademics ? (
+            <Link
+              to="/academics"
+              className={cn(
+                'flex flex-col items-center justify-center min-w-0 flex-1 py-1 rounded-xl transition-all duration-200',
+                isActive('/academics')
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              )}
+            >
+              <div className={cn('flex items-center justify-center w-6 h-6 mb-1 transition-transform', isActive('/academics') && 'scale-110')}>
+                <BookOpen size={20} />
+              </div>
+              <span className="text-[10px] font-semibold tracking-tight">{t('navigation.academics', 'Academics')}</span>
+            </Link>
+          ) : (
+            <div className="flex-1" aria-hidden="true" />
+          )}
 
           {/* Index 4: Settings */}
           <Link
@@ -187,61 +200,65 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
 
               {/* Grid actions */}
               <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => {
-                    console.log('Attendance');
-                    setIsActionsOpen(false);
-                    window.location.href = '/attendance';
-                  }}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-green-500/20">
-                    <UserCheck className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Mark Attendance</span>
-                </button>
+                {canManageAttendance && (
+                  <button
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      window.location.href = '/attendance';
+                    }}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-green-500/20">
+                      <UserCheck className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Mark Attendance</span>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => {
-                    console.log('Grade');
-                    setIsActionsOpen(false);
-                    window.location.href = '/academics';
-                  }}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50 dark:hover:bg-blue-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-blue-500/20">
-                    <GraduationCap className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Add Grade</span>
-                </button>
+                {canViewAcademics && (
+                  <button
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      window.location.href = '/academics';
+                    }}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50 dark:hover:bg-blue-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-blue-500/20">
+                      <GraduationCap className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Add Grade</span>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => {
-                    console.log('Template');
-                    setIsActionsOpen(false);
-                    window.location.href = '/settings';
-                  }}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-orange-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-orange-500/20">
-                    <FileEdit className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">New Template</span>
-                </button>
+                {canManageTemplates && (
+                  <button
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      window.location.href = '/settings';
+                    }}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-orange-50 dark:hover:bg-orange-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-orange-500/20">
+                      <FileEdit className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-850 dark:text-slate-200">New Template</span>
+                  </button>
+                )}
 
-                <button
-                  onClick={() => {
-                    console.log('Notify');
-                    setIsActionsOpen(false);
-                    window.location.href = '/notifications';
-                  }}
-                  className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-purple-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-purple-500/20">
-                    <Bell className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Send Notification</span>
-                </button>
+                {canSendNotifications && (
+                  <button
+                    onClick={() => {
+                      setIsActionsOpen(false);
+                      window.location.href = '/notifications';
+                    }}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/20 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-purple-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md shadow-purple-500/20">
+                      <Bell className="h-6 w-6 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-850 dark:text-slate-200">Send Notification</span>
+                  </button>
+                )}
               </div>
             </motion.div>
           </>

@@ -3,6 +3,28 @@ import { Exam, ExamCreate, ExamUpdate, Grade, GradeCreate, GradeUpdate, GradeBul
 import { PaginatedResponse } from '../types';
 import { queueDataForSync, STORES } from '../utils/offline';
 
+export const DEFAULT_EXAM_VALUES = {
+  duration: 60,
+  total_marks: 100,
+  passing_marks: 40,
+  status: 'scheduled' as const,
+};
+
+export function extractExamRows(payload: unknown): Exam[] {
+  if (Array.isArray(payload)) {
+    return payload as Exam[];
+  }
+
+  if (payload && typeof payload === 'object') {
+    const rows = (payload as any).exams ?? (payload as any).data;
+    if (Array.isArray(rows)) {
+      return rows as Exam[];
+    }
+  }
+
+  return [];
+}
+
 const examService = {
   // Exam-related API calls
   getExams: async (params?: {

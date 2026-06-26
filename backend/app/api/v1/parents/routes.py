@@ -43,9 +43,16 @@ def get_parents():
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 10, type=int), 100)
         search = request.args.get('search', '')
+        status = request.args.get('status')
         
         tenant_id = getattr(g, 'tenant_id', None)
-        parents, total = ParentService.get_all_parents(page=page, per_page=per_page, search=search, tenant_id=tenant_id)
+        parents, total = ParentService.get_all_parents(
+            page=page,
+            per_page=per_page,
+            search=search,
+            status=status,
+            tenant_id=tenant_id,
+        )
         
         if not parents:
             return jsonify({

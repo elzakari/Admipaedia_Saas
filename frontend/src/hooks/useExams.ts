@@ -1,46 +1,42 @@
 import useSWR from 'swr';
-import { API_BASE_URL } from '../config/constants';
 import { Exam, Grade } from '../types/academics.types';
-import examService from '../services/examService';
+import api from '../lib/api';
+import { extractExamRows } from '../services/examService';
 
-const fetcher = async (url: string) => {
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch data');
-  }
-
-  return response.json();
+const fetcher = async ([path, params]: [string, Record<string, string | number | boolean>]) => {
+  const response = await api.get(path, { params });
+  return response.data;
 };
 
 export function useExams(params?: {
   page?: number;
   per_page?: number;
   class_id?: number;
+  classId?: number;
   subject_id?: number;
+  subjectId?: number;
   date_from?: string;
+  dateFrom?: string;
   date_to?: string;
+  dateTo?: string;
   status?: string;
   include_conflicts?: boolean;
+  searchTerm?: string;
 }) {
-  const queryParams = new URLSearchParams();
+  const normalizedParams: Record<string, string | number | boolean> = {};
   if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) {
-        queryParams.append(key, value.toString());
-      }
-    });
+    if (params.page !== undefined) normalizedParams.page = params.page;
+    if (params.per_page !== undefined) normalizedParams.per_page = params.per_page;
+    if (params.class_id !== undefined || params.classId !== undefined) normalizedParams.class_id = params.class_id ?? params.classId!;
+    if (params.subject_id !== undefined || params.subjectId !== undefined) normalizedParams.subject_id = params.subject_id ?? params.subjectId!;
+    if (params.date_from !== undefined || params.dateFrom !== undefined) normalizedParams.date_from = params.date_from ?? params.dateFrom!;
+    if (params.date_to !== undefined || params.dateTo !== undefined) normalizedParams.date_to = params.date_to ?? params.dateTo!;
+    if (params.status !== undefined) normalizedParams.status = params.status;
+    if (params.include_conflicts !== undefined) normalizedParams.include_conflicts = params.include_conflicts;
   }
 
-  const qs = queryParams.toString();
-  const url = `${API_BASE_URL}/api/v1/exams${qs ? `?${qs}` : ''}`;
-
-  const { data, error, mutate } = useSWR<{ exams: Exam[]; pagination: any }>(
-    url,
+  const { data, error, mutate } = useSWR<any>(
+    ['/exams', normalizedParams],
     fetcher,
     {
       revalidateOnFocus: true,
@@ -50,8 +46,8 @@ export function useExams(params?: {
   );
 
   return {
-    exams: data?.exams || [],
-    pagination: data?.pagination,
+    exams: extractExamRows(data),
+    pagination: data?.pagination || data?.data?.pagination,
     isLoading: !error && !data,
     isError: error,
     mutate,
@@ -59,8 +55,8 @@ export function useExams(params?: {
 }
 
 export function useExam(examId: number | null) {
-  const { data, error, mutate } = useSWR<{ exam: Exam }>(
-    examId ? `${API_BASE_URL}/api/v1/exams/${examId}` : null,
+  const { data, error, mutate } = useSWR<any>(
+    examId ? [`/exams/${examId}`, {}] : null,
     fetcher,
     {
       revalidateOnFocus: true,
@@ -69,7 +65,7 @@ export function useExam(examId: number | null) {
   );
 
   return {
-    exam: data?.exam,
+    exam: data?.exam || data?.data?.exam,
     isLoading: !error && !data,
     isError: error,
     mutate,
@@ -80,17 +76,17 @@ export function useGradesByExam(examId: number | null, params?: {
   page?: number;
   per_page?: number;
 }) {
-  const queryParams = new URLSearchParams();
+  const normalizedParams: Record<string, string | number> = {};
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
-        queryParams.append(key, value.toString());
+        normalizedParams[key] = value;
       }
     });
   }
 
-  const { data, error, mutate } = useSWR<{ grades: Grade[]; pagination: any }>(
-    examId ? `${API_BASE_URL}/api/v1/exams/${examId}/grades?${queryParams.toString()}` : null,
+  const { data, error, mutate } = useSWR<any>(
+    examId ? [`/exams/${examId}/grades`, normalizedParams] : null,
     fetcher,
     {
       revalidateOnFocus: true,
@@ -99,8 +95,8 @@ export function useGradesByExam(examId: number | null, params?: {
   );
 
   return {
-    grades: data?.grades || [],
-    pagination: data?.pagination,
+    grades: data?.grades || data?.data?.grades || [],
+    pagination: data?.pagination || data?.data?.pagination,
     isLoading: !error && !data,
     isError: error,
     mutate,
@@ -113,17 +109,17 @@ export function useGradesByStudent(studentId: number | null, params?: {
   subject_id?: number;
   class_id?: number;
 }) {
-  const queryParams = new URLSearchParams();
+  const normalizedParams: Record<string, string | number> = {};
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
-        queryParams.append(key, value.toString());
+        normalizedParams[key] = value;
       }
     });
   }
 
-  const { data, error, mutate } = useSWR<{ grades: Grade[]; pagination: any }>(
-    studentId ? `${API_BASE_URL}/api/v1/students/${studentId}/grades?${queryParams.toString()}` : null,
+  const { data, error, mutate } = useSWR<any>(
+    studentId ? [`/students/${studentId}/grades`, normalizedParams] : null,
     fetcher,
     {
       revalidateOnFocus: true,
@@ -132,8 +128,8 @@ export function useGradesByStudent(studentId: number | null, params?: {
   );
 
   return {
-    grades: data?.grades || [],
-    pagination: data?.pagination,
+    grades: data?.grades || data?.data?.grades || [],
+    pagination: data?.pagination || data?.data?.pagination,
     isLoading: !error && !data,
     isError: error,
     mutate,
@@ -142,7 +138,7 @@ export function useGradesByStudent(studentId: number | null, params?: {
 
 export function useGradingScheme() {
   const { data, error } = useSWR(
-    `${API_BASE_URL}/api/v1/academics/grading-scheme`,
+    ['/academics/grading-scheme', {}],
     fetcher,
     {
       fallbackData: {

@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 import {
   Activity, Users,
   AlertTriangle, CheckCircle, XCircle,
@@ -40,7 +39,6 @@ interface Alert {
   type: 'info' | 'warning' | 'error';
   message: string;
   timestamp: Date;
-  resolved: boolean;
 }
 
 interface EnhancedRealTimeWidgetProps {
@@ -73,7 +71,6 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     lastUpdated: new Date()
   });
 
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const { isConnected, subscribe } = useWebSocket('/dashboard');
   const [connectionQuality, setConnectionQuality] = useState<'excellent' | 'good' | 'poor'>('excellent');
 
@@ -113,234 +110,153 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
     }
   ]);
 
-  // Synchronize state with liveTelemetry when it arrives or changes
-  useEffect(() => {
-    if (liveTelemetry?.data || liveTelemetry) {
-      const telemetry = liveTelemetry.data || liveTelemetry;
-      const sys = telemetry.system_monitor;
-      if (sys) {
-        const newData: RealTimeData = {
-          activeUsers: sys.active_users ?? (telemetry.academic_metrics?.students_count || 0),
-          onlineTeachers: sys.online_teachers ?? 0,
-          currentClasses: telemetry.academic_metrics?.classes_count ?? 0,
-          systemLoad: sys.cpu_usage ?? 0,
-          memoryUsage: sys.memory_usage ?? 0,
-          diskUsage: sys.disk_usage ?? 0,
-          networkLatency: sys.network_latency ?? 0,
-          databaseConnections: sys.database_connections ?? 0,
-          lastUpdated: new Date()
-        };
-
-        setData(newData);
-
-        // Update system metrics with history
-        setSystemMetrics(prev => prev.map(metric => {
-          let newValue: number;
-          let status: 'healthy' | 'warning' | 'critical';
-
-          switch (metric.name) {
-            case 'CPU Usage':
-              newValue = newData.systemLoad;
-              status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
-              break;
-            case 'Memory':
-              newValue = newData.memoryUsage;
-              status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
-              break;
-            case 'Disk I/O':
-              newValue = newData.diskUsage;
-              status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
-              break;
-            case 'Network':
-              newValue = newData.networkLatency;
-              status = newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
-              break;
-            default:
-              newValue = metric.value;
-              status = metric.status;
-          }
-
-          const trend = newValue > metric.value ? 'up' : newValue < metric.value ? 'down' : 'stable';
-          const currentTime = new Date().toLocaleTimeString();
-
-          return {
-            ...metric,
-            value: newValue,
-            status,
-            trend,
-            history: [...metric.history.slice(-9), { time: currentTime, value: newValue }]
-          };
-        }));
-      }
-    }
-  }, [liveTelemetry]);
-
-  // Synchronize state with liveMetrics when they arrive or change
-  useEffect(() => {
-    if (liveMetrics && !liveTelemetry) {
-      setData(prev => ({
-        ...prev,
-        activeUsers: liveMetrics.active_sessions_total || liveMetrics.active_parents_students,
-        onlineTeachers: liveMetrics.online_staff_count,
+  const applySnapshot = useCallback((snapshot: Partial<RealTimeData>) => {
+    setData((prev) => {
+      const nextData: RealTimeData = {
+        activeUsers: Number(snapshot.activeUsers ?? prev.activeUsers ?? 0),
+        onlineTeachers: Number(snapshot.onlineTeachers ?? prev.onlineTeachers ?? 0),
+        currentClasses: Number(snapshot.currentClasses ?? prev.currentClasses ?? 0),
+        systemLoad: Number(snapshot.systemLoad ?? prev.systemLoad ?? 0),
+        memoryUsage: Number(snapshot.memoryUsage ?? prev.memoryUsage ?? 0),
+        diskUsage: Number(snapshot.diskUsage ?? prev.diskUsage ?? 0),
+        networkLatency: Number(snapshot.networkLatency ?? prev.networkLatency ?? 0),
+        databaseConnections: Number(snapshot.databaseConnections ?? prev.databaseConnections ?? 0),
         lastUpdated: new Date()
-      }));
-    }
-  }, [liveMetrics, liveTelemetry]);
-
-  // Simulate real-time data updates
-  const updateData = useCallback(() => {
-    const activeUsersVal = liveMetrics ? (liveMetrics.active_sessions_total || liveMetrics.active_parents_students) : (Math.floor(Math.random() * 100) + 200);
-    const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (Math.floor(Math.random() * 20) + 30);
-
-    const cpu = liveAnalytics?.system_monitor?.cpu_usage ?? (Math.floor(Math.random() * 30) + 20);
-    const mem = liveAnalytics?.system_monitor?.memory_usage ?? (Math.floor(Math.random() * 40) + 40);
-    const disk = liveAnalytics?.system_monitor?.disk_usage ?? (Math.floor(Math.random() * 20) + 60);
-    const net = liveAnalytics?.system_monitor?.network_latency ?? (Math.floor(Math.random() * 50) + 10);
-
-    const newData: RealTimeData = {
-      activeUsers: activeUsersVal,
-      onlineTeachers: onlineTeachersVal,
-      currentClasses: Math.floor(Math.random() * 15) + 10,
-      systemLoad: cpu,
-      memoryUsage: mem,
-      diskUsage: disk,
-      networkLatency: net,
-      databaseConnections: Math.floor(Math.random() * 20) + 15,
-      lastUpdated: new Date()
-    };
-
-    setData(newData);
-
-    // Update system metrics with history
-    setSystemMetrics(prev => prev.map(metric => {
-      let newValue: number;
-      let status: 'healthy' | 'warning' | 'critical';
-
-      switch (metric.unit) {
-        case '%':
-          if (metric.name.toLowerCase().includes('cpu') || metric.name.toLowerCase().includes('load')) {
-            newValue = newData.systemLoad;
-            status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
-          } else {
-            newValue = newData.memoryUsage;
-            status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
-          }
-          break;
-        case 'MB/s':
-          newValue = newData.diskUsage;
-          status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
-          break;
-        case 'ms':
-          newValue = newData.networkLatency;
-          status = newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
-          break;
-        default:
-          newValue = metric.value;
-          status = metric.status;
-      }
-
-      const trend = newValue > metric.value ? 'up' : newValue < metric.value ? 'down' : 'stable';
-      const currentTime = new Date().toLocaleTimeString();
-
-      return {
-        ...metric,
-        value: newValue,
-        status,
-        trend,
-        history: [...metric.history.slice(-9), { time: currentTime, value: newValue }]
-      };
-    }));
-
-    // Generate random alerts
-    if (Math.random() > 0.95) {
-      const alertTypes = ['info', 'warning', 'error'] as const;
-      const messages = [
-        'High memory usage detected',
-        'Database connection pool nearly full',
-        'Network latency spike observed',
-        'System backup completed successfully',
-        'New user registration peak'
-      ];
-
-      const newAlert: Alert = {
-        id: Date.now().toString(),
-        type: alertTypes[Math.floor(Math.random() * alertTypes.length)] as 'info' | 'warning' | 'error',
-        message: messages[Math.floor(Math.random() * messages.length)] as string,
-        timestamp: new Date(),
-        resolved: false
       };
 
-      setAlerts(prev => [newAlert, ...prev.slice(0, 4)]);
-    }
-
-    // Update connection quality
-    const quality = newData.networkLatency < 30 ? 'excellent' :
-      newData.networkLatency < 60 ? 'good' : 'poor';
-    setConnectionQuality(quality);
-  }, [liveMetrics]);
-
-  // Listen for real-time updates from WebSocket
-  useEffect(() => {
-    const unsubscribe = subscribe('system_update', (update: any) => {
-      setData(prev => {
-        const activeUsersVal = liveMetrics ? liveMetrics.active_parents_students : (update.activeUsers ?? prev.activeUsers);
-        const onlineTeachersVal = liveMetrics ? liveMetrics.online_staff_count : (update.onlineTeachers ?? prev.onlineTeachers);
-        return {
-          ...prev,
-          ...update,
-          activeUsers: activeUsersVal,
-          onlineTeachers: onlineTeachersVal,
-          lastUpdated: new Date()
-        };
-      });
-
-      if (typeof update.networkLatency === 'number') {
-        const quality = update.networkLatency < 30 ? 'excellent' : update.networkLatency < 60 ? 'good' : 'poor';
-        setConnectionQuality(quality);
-      }
-
-      setSystemMetrics(prev => prev.map(metric => {
+      setSystemMetrics((existing) => existing.map((metric) => {
         let newValue = metric.value;
-        if (typeof update.systemLoad === 'number' && metric.name === 'CPU Usage') newValue = update.systemLoad;
-        if (typeof update.memoryUsage === 'number' && metric.name === 'Memory') newValue = update.memoryUsage;
-        if (typeof update.diskIO === 'number' && metric.name === 'Disk I/O') newValue = update.diskIO;
-        if (typeof update.networkLatency === 'number' && metric.name === 'Network') newValue = update.networkLatency;
+        let status: 'healthy' | 'warning' | 'critical' = metric.status;
 
-        const status: 'healthy' | 'warning' | 'critical' = (() => {
-          if (metric.name === 'Network') return newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
-          if (metric.name === 'Disk I/O') return newValue > 200 ? 'critical' : newValue > 150 ? 'warning' : 'healthy';
-          if (metric.name === 'Memory') return newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
-          return newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
-        })();
-        const trend = newValue > metric.value ? 'up' : newValue < metric.value ? 'down' : 'stable';
+        switch (metric.name) {
+          case 'CPU Usage':
+            newValue = nextData.systemLoad;
+            status = newValue > 80 ? 'critical' : newValue > 60 ? 'warning' : 'healthy';
+            break;
+          case 'Memory':
+            newValue = nextData.memoryUsage;
+            status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
+            break;
+          case 'Disk I/O':
+            newValue = nextData.diskUsage;
+            status = newValue > 85 ? 'critical' : newValue > 70 ? 'warning' : 'healthy';
+            break;
+          case 'Network':
+            newValue = nextData.networkLatency;
+            status = newValue > 100 ? 'critical' : newValue > 50 ? 'warning' : 'healthy';
+            break;
+          default:
+            break;
+        }
 
         return {
           ...metric,
           value: newValue,
           status,
-          trend,
+          trend: newValue > metric.value ? 'up' : newValue < metric.value ? 'down' : 'stable',
           history: [...metric.history.slice(-9), { time: new Date().toLocaleTimeString(), value: newValue }]
         };
       }));
+
+      const quality = nextData.networkLatency < 30 ? 'excellent' : nextData.networkLatency < 60 ? 'good' : 'poor';
+      setConnectionQuality(quality);
+      return nextData;
+    });
+  }, []);
+
+  useEffect(() => {
+    const telemetry = liveTelemetry?.data || liveTelemetry;
+    const systemMonitor = telemetry?.system_monitor || liveAnalytics?.system_monitor || {};
+
+    if (telemetry || liveMetrics || liveAnalytics) {
+      applySnapshot({
+        activeUsers: systemMonitor?.active_users ?? liveMetrics?.active_sessions_total ?? liveMetrics?.active_parents_students ?? 0,
+        onlineTeachers: systemMonitor?.online_teachers ?? liveMetrics?.online_staff_count ?? 0,
+        currentClasses: telemetry?.academic_metrics?.classes_count ?? 0,
+        systemLoad: systemMonitor?.cpu_usage ?? 0,
+        memoryUsage: systemMonitor?.memory_usage ?? 0,
+        diskUsage: systemMonitor?.disk_usage ?? 0,
+        networkLatency: systemMonitor?.network_latency ?? 0,
+        databaseConnections: systemMonitor?.database_connections ?? 0
+      });
+    }
+  }, [applySnapshot, liveAnalytics, liveMetrics, liveTelemetry]);
+
+  // Listen for real-time updates from WebSocket
+  useEffect(() => {
+    const unsubscribe = subscribe('system_update', (update: any) => {
+      applySnapshot({
+        activeUsers: update.activeUsers ?? update.active_users ?? liveMetrics?.active_parents_students,
+        onlineTeachers: update.onlineTeachers ?? update.online_teachers ?? liveMetrics?.online_staff_count,
+        currentClasses: update.currentClasses ?? update.current_classes,
+        systemLoad: update.systemLoad ?? update.system_load,
+        memoryUsage: update.memoryUsage ?? update.memory_usage,
+        diskUsage: update.diskIO ?? update.disk_usage,
+        networkLatency: update.networkLatency ?? update.network_latency,
+        databaseConnections: update.databaseConnections ?? update.database_connections
+      });
     });
 
     return () => unsubscribe();
-  }, [subscribe, liveMetrics]);
+  }, [applySnapshot, subscribe, liveMetrics]);
 
   useEffect(() => {
-    // Only use local simulation if not connected and no live telemetry is provided
-    if (!isConnected && !liveTelemetry) {
-      if (import.meta.env.DEV) {
-        setConnectionQuality('poor');
-        return undefined;
-      }
-
-      updateData();
-      const interval = setInterval(updateData, refreshInterval);
-      return () => clearInterval(interval);
+    if (!isConnected && !(liveTelemetry?.data || liveTelemetry) && !liveMetrics) {
+      setConnectionQuality('poor');
     }
     return undefined;
-  }, [updateData, refreshInterval, isConnected, liveTelemetry]);
+  }, [isConnected, liveMetrics, liveTelemetry, refreshInterval]);
+
+  const alerts = useMemo<Alert[]>(() => {
+    const derivedAlerts: Alert[] = [];
+
+    if (!isConnected && !(liveTelemetry?.data || liveTelemetry)) {
+      derivedAlerts.push({
+        id: 'connection',
+        type: 'warning',
+        message: 'Live dashboard connection unavailable',
+        timestamp: data.lastUpdated
+      });
+    }
+
+    if (data.systemLoad > 80) {
+      derivedAlerts.push({
+        id: 'cpu',
+        type: 'error',
+        message: 'High CPU usage detected',
+        timestamp: data.lastUpdated
+      });
+    }
+
+    if (data.memoryUsage > 85) {
+      derivedAlerts.push({
+        id: 'memory',
+        type: 'error',
+        message: 'Memory usage is above safe threshold',
+        timestamp: data.lastUpdated
+      });
+    }
+
+    if (data.networkLatency > 60) {
+      derivedAlerts.push({
+        id: 'latency',
+        type: data.networkLatency > 100 ? 'error' : 'warning',
+        message: 'Network latency is affecting live responsiveness',
+        timestamp: data.lastUpdated
+      });
+    }
+
+    if (derivedAlerts.length === 0 && (liveMetrics || liveTelemetry || isConnected)) {
+      derivedAlerts.push({
+        id: 'healthy',
+        type: 'info',
+        message: 'All monitored systems are within expected thresholds',
+        timestamp: data.lastUpdated
+      });
+    }
+
+    return derivedAlerts;
+  }, [data, isConnected, liveMetrics, liveTelemetry]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -373,12 +289,6 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
       case 'down': return <TrendingDown className="h-3 w-3 text-green-500" />;
       default: return null;
     }
-  };
-
-  const resolveAlert = (alertId: string) => {
-    setAlerts(prev => prev.map(alert =>
-      alert.id === alertId ? { ...alert, resolved: true } : alert
-    ));
   };
 
   if (isLoading) {
@@ -529,9 +439,9 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
           <CardTitle className="text-lg flex items-center space-x-2">
             <Bell className="h-5 w-5" />
             <span>{t('System Alerts')}</span>
-            {alerts.filter(a => !a.resolved).length > 0 && (
+            {alerts.length > 0 && (
               <Badge variant="destructive">
-                {alerts.filter(a => !a.resolved).length}
+                {alerts.filter((alert) => alert.type !== 'info').length}
               </Badge>
             )}
           </CardTitle>
@@ -551,31 +461,19 @@ const EnhancedRealTimeWidget: React.FC<EnhancedRealTimeWidgetProps> = ({
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className={`p-3 rounded-lg border-l-4 ${alert.resolved ? 'bg-gray-50 opacity-60' :
+                    className={`p-3 rounded-lg border-l-4 ${
                       alert.type === 'error' ? 'bg-red-50 border-red-400' :
                         alert.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
                           'bg-blue-50 border-blue-400'
-                      }`}
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {alert.type === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
-                          alert.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-yellow-500" /> :
-                            <CheckCircle className="h-4 w-4 text-blue-500" />}
-                        <p className={`text-sm ${alert.resolved ? 'line-through' : ''}`}>
-                          {t(alert.message)}
-                        </p>
-                      </div>
-                      {!alert.resolved && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => resolveAlert(alert.id)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          {t('Resolve')}
-                        </Button>
-                      )}
+                    <div className="flex items-center space-x-2">
+                      {alert.type === 'error' ? <XCircle className="h-4 w-4 text-red-500" /> :
+                        alert.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-yellow-500" /> :
+                          <CheckCircle className="h-4 w-4 text-blue-500" />}
+                      <p className="text-sm">
+                        {t(alert.message)}
+                      </p>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
                       {alert.timestamp.toLocaleTimeString()}

@@ -16,6 +16,32 @@ interface ParentListProps {
 }
 
 const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onView, isLoading = false }) => {
+  const getDisplayName = (parent: Parent) => {
+    const fullName = `${parent.firstName ?? ''} ${parent.lastName ?? ''}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+    return parent.email || `Parent #${parent.id}`;
+  };
+
+  const getInitials = (parent: Parent) => {
+    const name = getDisplayName(parent);
+    return name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('') || '?';
+  };
+
+  const getContactHealth = (parent: Parent) => {
+    const hasEmail = Boolean(parent.email);
+    const hasPhone = Boolean(parent.phone);
+    if (hasEmail && hasPhone) return 'complete';
+    if (hasEmail || hasPhone) return 'partial';
+    return 'missing';
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -64,14 +90,17 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={parent.profileImage} />
                     <AvatarFallback>
-                      {`${(parent.firstName ?? '').charAt(0)}${(parent.lastName ?? '').charAt(0)}` || '?'}
+                      {getInitials(parent)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="font-medium text-gray-900">
-                      {parent.firstName} {parent.lastName}
+                      {getDisplayName(parent)}
                     </div>
-                    <div className="text-sm text-gray-500 break-all">ID: {parent.id}</div>
+                    <div className="text-sm text-gray-500 break-all">
+                      ID: {parent.id}
+                      {parent.children?.length ? ` • ${parent.children.length} linked student${parent.children.length > 1 ? 's' : ''}` : ' • No linked students'}
+                    </div>
                   </div>
                 </div>
               </TableCell>
@@ -86,6 +115,9 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                       <Phone className="w-4 h-4 mr-2" />
                       {parent.phone}
                     </div>
+                  )}
+                  {!parent.email && !parent.phone && (
+                    <div className="text-sm text-amber-600">No direct contact details</div>
                   )}
                 </div>
               </TableCell>
@@ -106,7 +138,12 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                 )}
               </TableCell>
               <TableCell>
-                <Badge className={getStatusColor(parent.status)}>{parent.status}</Badge>
+                <div className="space-y-2">
+                  <Badge className={getStatusColor(parent.status)}>{parent.status}</Badge>
+                  <div className="text-xs text-gray-500">
+                    Contact: {getContactHealth(parent)}
+                  </div>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="text-sm text-gray-600">

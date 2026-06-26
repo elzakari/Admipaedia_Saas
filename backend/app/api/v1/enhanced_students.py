@@ -19,6 +19,7 @@ enhanced_students_bp = Blueprint('enhanced_students', __name__, url_prefix='/enh
 @enhanced_students_bp.route('/create-with-user', methods=['POST'])
 @jwt_required()
 @role_required(['admin', 'teacher'])
+@tenant_required
 def create_student_with_user():
     """Create a new student with integrated user account."""
     try:
@@ -35,7 +36,11 @@ def create_student_with_user():
         except Exception as e:
             return error_response(f"Invalid student data: {str(e)}", 400)
 
-        student, error = EnhancedStudentService.create_student_with_user(student_data, user_data)
+        student, error = EnhancedStudentService.create_student_with_user(
+            student_data,
+            user_data,
+            tenant_id=getattr(g, 'tenant_id', None),
+        )
         if error:
             return error_response(error, 400)
 
@@ -76,6 +81,7 @@ def upload_profile_picture(student_id):
 @enhanced_students_bp.route('/export', methods=['GET'])
 @jwt_required()
 @role_required(['admin', 'teacher'])
+@tenant_required
 def export_students():
     """Export students to CSV or Excel file with filtering."""
     try:
@@ -93,14 +99,16 @@ def export_students():
                 class_id=class_id, 
                 grade_level=grade_level, 
                 status=status,
-                fields=fields
+                fields=fields,
+                tenant_id=getattr(g, 'tenant_id', None),
             )
         elif export_format.lower() == 'excel':
             file_path, error = EnhancedStudentService.export_students_to_excel(
                 class_id=class_id, 
                 grade_level=grade_level, 
                 status=status,
-                fields=fields
+                fields=fields,
+                tenant_id=getattr(g, 'tenant_id', None),
             )
         else:
             return error_response("Unsupported export format. Use 'csv' or 'excel'.", 400)
@@ -121,6 +129,7 @@ def export_students():
 @enhanced_students_bp.route('/bulk-import', methods=['POST'])
 @jwt_required()
 @role_required(['admin'])
+@tenant_required
 def bulk_import_students():
     """Bulk import students from CSV/Excel file with option to update existing records."""
     try:
@@ -145,7 +154,8 @@ def bulk_import_students():
             result, error = EnhancedStudentService.bulk_import_students(
                 temp_path, 
                 create_users=create_users,
-                update_existing=update_existing
+                update_existing=update_existing,
+                tenant_id=getattr(g, 'tenant_id', None),
             )
             if error:
                 return error_response(error, 400)

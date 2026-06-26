@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Search, Filter, Download, Upload, Users, UserCheck, UserX, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, Users, UserCheck, Link2, Phone, AlertCircle, Loader2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import ParentList from '../../components/parents/ParentList';
 import ErrorBoundary from '../../components/shared/ErrorBoundary';
 import ParentFormModal from '../../components/parents/ParentFormModal';
@@ -66,7 +66,8 @@ function ParentManagementPage() {
   // Memoize summary stats
   const stats = useMemo(() => {
     const active = parents.filter((p: Parent) => p.status === 'active').length;
-    const inactive = parents.filter((p: Parent) => p.status === 'inactive').length;
+    const linkedStudents = parents.reduce((count, parent) => count + (parent.children?.length || 0), 0);
+    const contactReady = parents.filter((parent) => Boolean(parent.email || parent.phone)).length;
     
     const now = new Date();
     const newThisMonth = parents.filter((p: Parent) => {
@@ -75,7 +76,7 @@ function ParentManagementPage() {
       return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
     }).length;
 
-    return { active, inactive, newThisMonth };
+    return { active, linkedStudents, contactReady, newThisMonth };
   }, [parents]);
 
   // Ensure mutations are defined
@@ -209,6 +210,10 @@ function ParentManagementPage() {
           <p className="text-gray-600 mt-1">{t('admin_parents.subtitle', 'Manage parent accounts and relationships')}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {t('common.refresh', 'Refresh')}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleImport}>
             <Upload className="w-4 h-4 mr-2" />
             {t('admin_parents.import', 'Import')}
@@ -253,10 +258,10 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">{t('admin_parents.inactive_parents', 'Inactive Parents')}</p>
-                <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.linked_students', 'Linked Students')}</p>
+                <p className="text-2xl font-bold text-indigo-600">{stats.linkedStudents}</p>
               </div>
-              <UserX className="w-8 h-8 text-red-500" />
+              <Link2 className="w-8 h-8 text-indigo-500" />
             </div>
           </CardContent>
         </Card>
@@ -265,16 +270,34 @@ function ParentManagementPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">{t('admin_parents.new_this_month', 'New This Month')}</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_parents.contact_ready', 'Contact Ready')}</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {stats.newThisMonth}
+                  {stats.contactReady}
                 </p>
               </div>
-              <Plus className="w-8 h-8 text-purple-500" />
+              <Phone className="w-8 h-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border border-slate-200 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {t('admin_parents.workflow_title', 'Parent Workflow Overview')}
+              </h2>
+              <p className="text-sm text-slate-600">
+                {t('admin_parents.workflow_desc', 'Use this page to keep parent identity, contact readiness, and student links clean across the school admin workflow.')}
+              </p>
+            </div>
+            <Badge variant="secondary">
+              {stats.newThisMonth} {t('admin_parents.new_this_month', 'new this month')}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-6">

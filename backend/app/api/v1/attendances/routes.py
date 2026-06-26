@@ -5,6 +5,7 @@ from app.services.attendance_service import AttendanceService
 from app.schemas.attendance import AttendanceSchema, AttendanceCreateSchema, AttendanceUpdateSchema, AttendanceBulkCreateSchema
 from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.rbac_decorators import require_permission, require_role
+from app.utils.tenant_context import tenant_required
 from marshmallow import ValidationError
 from datetime import datetime
 
@@ -17,6 +18,7 @@ attendance_bulk_create_schema = AttendanceBulkCreateSchema()
 
 @attendances_bp.route('/', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_permission('attendance.read')
 def get_attendances():
     """Get all attendances with pagination and filtering."""
@@ -61,6 +63,7 @@ def get_attendances():
 
 @attendances_bp.route('/<int:attendance_id>', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_permission('attendance.read')
 def get_attendance(attendance_id):
     """Get a specific attendance record by ID."""
@@ -76,7 +79,8 @@ def get_attendance(attendance_id):
 
 @attendances_bp.route('/', methods=['POST'])
 @jwt_required()
-@teacher_required
+@tenant_required
+@require_role(['teacher', 'admin', 'school_admin', 'super_admin', 'super_manager'])
 @require_permission('attendance.create')
 def create_attendance():
     """Create a new attendance record."""
@@ -102,7 +106,8 @@ def create_attendance():
 
 @attendances_bp.route('/<int:attendance_id>', methods=['PUT'])
 @jwt_required()
-@teacher_required
+@tenant_required
+@require_role(['teacher', 'admin', 'school_admin', 'super_admin', 'super_manager'])
 @require_permission('attendance.update')
 def update_attendance(attendance_id):
     """Update an existing attendance record."""
@@ -128,7 +133,8 @@ def update_attendance(attendance_id):
 
 @attendances_bp.route('/<int:attendance_id>', methods=['DELETE'])
 @jwt_required()
-@admin_required
+@tenant_required
+@require_role(['admin', 'school_admin', 'super_admin', 'super_manager'])
 @require_permission('attendance.delete')
 def delete_attendance(attendance_id):
     """Delete an attendance record."""
@@ -144,7 +150,8 @@ def delete_attendance(attendance_id):
 
 @attendances_bp.route('/bulk', methods=['POST'])
 @jwt_required()
-@teacher_required
+@tenant_required
+@require_role(['teacher', 'admin', 'school_admin', 'super_admin', 'super_manager'])
 @require_permission('attendance.create')
 def bulk_create_attendance():
     """Create multiple attendance records at once."""
@@ -170,6 +177,7 @@ def bulk_create_attendance():
 
 @attendances_bp.route('/stats', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_permission('attendance.reports')
 def get_attendance_stats():
     """Get attendance statistics."""
@@ -204,6 +212,7 @@ def get_attendance_stats():
 
 @attendances_bp.route('/analytics/trends', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_permission('attendance.reports')
 def get_attendance_trends():
     """Get attendance trends over time."""
@@ -226,6 +235,7 @@ def get_attendance_trends():
 
 @attendances_bp.route('/analytics/at-risk', methods=['GET'])
 @jwt_required()
+@tenant_required
 @require_permission('attendance.reports')
 def get_at_risk_students():
     """Get students with low attendance."""
@@ -241,7 +251,8 @@ def get_at_risk_students():
 
 @attendances_bp.route('/sync', methods=['POST'])
 @jwt_required()
-@teacher_required
+@tenant_required
+@require_role(['teacher', 'admin', 'school_admin', 'super_admin', 'super_manager'])
 def sync_offline_attendance():
     """Sync attendance data collected offline."""
     data = request.json

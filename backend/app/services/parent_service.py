@@ -1,6 +1,7 @@
 from app.models.parent import Parent
 from app.models.student import Student
 from app.models.user import User
+from app.models.user_profile import UserProfile
 from app.extensions import db
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import or_, func
@@ -13,7 +14,7 @@ cache_service = get_cache_service()
 
 class ParentService:
     @staticmethod
-    def get_all_parents(page=1, per_page=10, search='', tenant_id=None):
+    def get_all_parents(page=1, per_page=10, search='', status=None, tenant_id=None):
         """Get all parents with pagination and search"""
         try:
             from sqlalchemy.orm import joinedload
@@ -25,15 +26,24 @@ class ParentService:
 
             if tenant_id is not None and hasattr(Parent, 'tenant_id'):
                 query = query.filter(Parent.tenant_id == tenant_id)
+
+            if status or search:
+                query = query.join(Parent.user)
+
+            if status:
+                query = query.filter(User.status == status)
             
             if search:
                 # Join with User table to search by name and email
-                query = query.join(Parent.user).filter(
+                search_term = f'%{search}%'
+                query = query.outerjoin(UserProfile, UserProfile.user_id == User.id).filter(
                     or_(
-                        User.username.ilike(f'%{search}%'),
-                        User.email.ilike(f'%{search}%'),
-                        Parent.emergency_contact.ilike(f'%{search}%'),
-                        Parent.address.ilike(f'%{search}%')
+                        User.username.ilike(search_term),
+                        User.email.ilike(search_term),
+                        func.coalesce(UserProfile.display_name, '').ilike(search_term),
+                        func.coalesce(UserProfile.legal_name, '').ilike(search_term),
+                        Parent.emergency_contact.ilike(search_term),
+                        Parent.address.ilike(search_term)
                     )
                 )
             
@@ -85,20 +95,70 @@ class ParentService:
     def create_parent(data, tenant_id=None):
         """Create a new parent"""
         try:
-            if 'user_id' in data and data['user_id'] is not None:
-                user = User.query.get(data['user_id'])
+            payload = dict(data or {})
+            user_id = payload.pop('user_id', None)
+            first_name = str(payload.pop('first_name', '') or '').strip()
+            last_name = str(payload.pop('last_name', '') or '').strip()
+            email = str(payload.pop('email', '') or '').strip() or None
+            phone = str(payload.pop('phone', '') or '').strip() or None
+            password = payload.pop('password', None)
+            status = str(payload.pop('status', 'active') or 'active').strip().lower()
+            display_name = ' '.join(part for part in [first_name, last_name] if part).strip()
+
+            if user_id is not None:
+                user = User.query.get(user_id)
                 if not user:
                     raise ValueError("Associated user not found")
             else:
-                # If user_id is missing and not intentionally pending, raise error
-                # We can check if email is provided in the parent payload or parent user data
-                # (unless intentionally pending, which we represent by passing no user_id explicitly)
-                pass
+                if not email:
+                    raise ValueError("Email is required when no linked user is provided")
 
-            if tenant_id is not None and 'tenant_id' not in data and hasattr(Parent, 'tenant_id'):
-                data = dict(data)
-                data['tenant_id'] = tenant_id
-            parent = Parent(**data)
+                user = User.query.filter_by(email=email).first()
+                if user and Parent.query.filter_by(user_id=user.id).first():
+                    raise ValueError("A parent profile already exists for this email")
+
+                if not user:
+                    username_seed = display_name or email.split('@')[0]
+                    user = User(
+                        username=username_seed,
+                        email=email,
+                        role='parent',
+                        status=status or 'active',
+                    )
+                    user.set_password(password or 'Password123!')
+                    db.session.add(user)
+                    db.session.flush()
+
+            user.role = 'parent'
+            if email:
+                user.email = email
+            if status:
+                user.status = status
+
+            if phone and not payload.get('emergency_contact'):
+                payload['emergency_contact'] = phone
+
+            profile = getattr(user, 'profile', None)
+            if not profile:
+                profile = UserProfile(
+                    user_id=user.id,
+                    display_name=display_name or user.get_full_name() or user.username,
+                )
+                db.session.add(profile)
+
+            if display_name:
+                profile.display_name = display_name
+                profile.legal_name = display_name
+            elif not profile.display_name:
+                profile.display_name = user.get_full_name() or user.username
+            if phone:
+                profile.phone = phone
+
+            payload['user_id'] = user.id
+            if tenant_id is not None and 'tenant_id' not in payload and hasattr(Parent, 'tenant_id'):
+                payload['tenant_id'] = tenant_id
+
+            parent = Parent(**payload)
             db.session.add(parent)
             try:
                 from app.models.tenant import TenantMembership
@@ -130,7 +190,42 @@ class ParentService:
             if not parent:
                 return None
             
-            for key, value in data.items():
+            payload = dict(data or {})
+            first_name = str(payload.pop('first_name', '') or '').strip()
+            last_name = str(payload.pop('last_name', '') or '').strip()
+            email = str(payload.pop('email', '') or '').strip() or None
+            phone = str(payload.pop('phone', '') or '').strip() or None
+            status = str(payload.pop('status', '') or '').strip().lower() or None
+            display_name = ' '.join(part for part in [first_name, last_name] if part).strip()
+
+            user = getattr(parent, 'user', None)
+            if user:
+                user.role = 'parent'
+                if email:
+                    user.email = email
+                if status:
+                    user.status = status
+
+                profile = getattr(user, 'profile', None)
+                if not profile:
+                    profile = UserProfile(
+                        user_id=user.id,
+                        display_name=display_name or user.get_full_name() or user.username,
+                    )
+                    db.session.add(profile)
+
+                if display_name:
+                    profile.display_name = display_name
+                    profile.legal_name = display_name
+                elif not profile.display_name:
+                    profile.display_name = user.get_full_name() or user.username
+                if phone:
+                    profile.phone = phone
+
+            if phone and not payload.get('emergency_contact'):
+                payload['emergency_contact'] = phone
+
+            for key, value in payload.items():
                 setattr(parent, key, value)
             
             db.session.commit()

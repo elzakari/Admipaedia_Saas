@@ -31,7 +31,7 @@ class EnhancedStudentService(StudentService):
                filename.rsplit('.', 1)[1].lower() in EnhancedStudentService.ALLOWED_EXTENSIONS
     
     @staticmethod
-    def create_student_with_user(student_data, user_data=None):
+    def create_student_with_user(student_data, user_data=None, tenant_id=None):
         """Create a new student with integrated user creation."""
         try:
             # If user_data is provided, create a new user first
@@ -58,7 +58,7 @@ class EnhancedStudentService(StudentService):
                 student_data['user_id'] = user.id
             
             # Create student profile
-            student, error = StudentService.create_student(student_data)
+            student, error = StudentService(db.session).create_student(student_data, tenant_id=tenant_id)
             
             if error:
                 # Rollback user creation if student creation fails
@@ -115,7 +115,7 @@ class EnhancedStudentService(StudentService):
             return None, f"Failed to upload profile picture: {str(e)}"
     
     @staticmethod
-    def bulk_import_students(file_path, create_users=False, update_existing=False):
+    def bulk_import_students(file_path, create_users=False, update_existing=False, tenant_id=None):
         """Import students from CSV/Excel file with option to update existing records."""
         try:
             # Read file based on extension
@@ -147,7 +147,10 @@ class EnhancedStudentService(StudentService):
                 for index, row in batch_df.iterrows():
                     try:
                         # Check if student already exists
-                        existing_student = Student.query.filter_by(admission_number=str(row['admission_number'])).first()
+                        existing_student_query = Student.query.filter_by(admission_number=str(row['admission_number']))
+                        if tenant_id is not None and hasattr(Student, 'tenant_id'):
+                            existing_student_query = existing_student_query.filter(Student.tenant_id == tenant_id)
+                        existing_student = existing_student_query.first()
                         
                         if existing_student and update_existing:
                             # Update existing student
@@ -203,13 +206,17 @@ class EnhancedStudentService(StudentService):
                                 'password': str(row.get('password', 'DefaultPass123!'))
                             }
                             
-                            student, error = EnhancedStudentService.create_student_with_user(student_data, user_data)
+                            student, error = EnhancedStudentService.create_student_with_user(
+                                student_data,
+                                user_data,
+                                tenant_id=tenant_id,
+                            )
                         else:
                             # Use existing user_id if provided
                             if 'user_id' in df.columns and pd.notna(row['user_id']):
                                 student_data['user_id'] = int(row['user_id'])
                             
-                            student, error = StudentService.create_student(student_data)
+                            student, error = StudentService(db.session).create_student(student_data, tenant_id=tenant_id)
                         
                         if error:
                             failed_imports.append({
@@ -571,11 +578,14 @@ class EnhancedStudentService(StudentService):
             return None, f"Failed to generate report: {str(e)}"
     
     @staticmethod
-    def export_students_to_csv(class_id=None, grade_level=None, status=None, fields=None):
+    def export_students_to_csv(class_id=None, grade_level=None, status=None, fields=None, tenant_id=None):
         """Export students to CSV file with optional filtering and field selection."""
         try:
             # Build query with filters
             query = Student.query
+
+            if tenant_id is not None and hasattr(Student, 'tenant_id'):
+                query = query.filter(Student.tenant_id == tenant_id)
             
             if class_id:
                 query = query.filter(Student.class_id == class_id)
@@ -634,12 +644,15 @@ class EnhancedStudentService(StudentService):
             return None, f"Failed to export students: {str(e)}"
 
     @staticmethod
-    def export_students_to_excel(class_id=None, grade_level=None, status=None, fields=None):
+    def export_students_to_excel(class_id=None, grade_level=None, status=None, fields=None, tenant_id=None):
         """Export students to Excel file with optional filtering and field selection."""
         try:
             # Similar to CSV export but with Excel output
             # Build query with filters
             query = Student.query
+
+            if tenant_id is not None and hasattr(Student, 'tenant_id'):
+                query = query.filter(Student.tenant_id == tenant_id)
             
             if class_id:
                 query = query.filter(Student.class_id == class_id)

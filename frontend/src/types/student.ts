@@ -117,6 +117,7 @@ export interface GradeRecord {
 // Add transformed student interface for frontend components
 export interface TransformedStudent {
   id: string;
+  classId?: number;
   first_name: string;
   last_name: string;
   middle_name?: string;
@@ -132,6 +133,7 @@ export interface TransformedStudent {
   performance: number;
   status: string;
   lastActive: string;
+  updatedAt?: string;
   profileImage: string;
   recentGrades: Array<{
     subject: string;
@@ -147,6 +149,8 @@ export interface TransformedStudent {
     email: string;
     phone: string;
   };
+  parentLinked?: boolean;
+  riskLevel?: 'on-track' | 'monitor' | 'urgent';
   achievements: string[];
   attendanceHistory: Array<{
     date: string;

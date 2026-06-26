@@ -17,7 +17,7 @@ classes_schema = ClassListSchema(many=True)
 
 @classes_bp.route('', methods=['GET'])  # Remove the trailing slash
 @jwt_required()
-@require_role(['admin', 'teacher', 'parent', 'student'])
+@require_role(['admin', 'school_admin', 'teacher', 'parent', 'student', 'super_admin', 'super_manager'])
 @tenant_required
 def get_classes():
     """Get all classes with pagination and filtering."""
@@ -43,7 +43,7 @@ def get_classes():
 
 @classes_bp.route('/<int:class_id>', methods=['GET'])
 @jwt_required()
-@require_role(['admin', 'teacher', 'parent', 'student'])
+@require_role(['admin', 'school_admin', 'teacher', 'parent', 'student', 'super_admin', 'super_manager'])
 @tenant_required
 def get_class(class_id):
     """Get a specific class by ID."""

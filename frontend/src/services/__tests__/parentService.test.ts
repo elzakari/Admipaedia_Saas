@@ -108,4 +108,68 @@ describe('parentService portal workflow helpers', () => {
       }),
     ]);
   });
+
+  it('unwraps create parent responses from success_response payloads', async () => {
+    mockApi.post.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 9,
+          first_name: 'Ama',
+          last_name: 'Mensah',
+          email: 'ama@example.com',
+          phone: '+233200000000',
+          status: 'inactive',
+          children: [],
+        },
+      },
+    });
+
+    const result = await parentService.createParent({
+      firstName: 'Ama',
+      lastName: 'Mensah',
+      email: 'ama@example.com',
+      phone: '+233200000000',
+      status: 'inactive',
+    });
+
+    expect(mockApi.post).toHaveBeenCalledWith('/parents', {
+      firstName: 'Ama',
+      lastName: 'Mensah',
+      email: 'ama@example.com',
+      phone: '+233200000000',
+      status: 'inactive',
+    });
+    expect(result).toEqual(expect.objectContaining({
+      id: 9,
+      firstName: 'Ama',
+      lastName: 'Mensah',
+      email: 'ama@example.com',
+      status: 'inactive',
+    }));
+  });
+
+  it('unwraps parent detail responses from success_response payloads', async () => {
+    mockApi.get.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 4,
+          display_name: 'Kofi Annan',
+          email: 'kofi@example.com',
+          children: [],
+        },
+      },
+    });
+
+    const result = await parentService.getParentById(4);
+
+    expect(mockApi.get).toHaveBeenCalledWith('/parents/4');
+    expect(result).toEqual(expect.objectContaining({
+      id: 4,
+      firstName: 'Kofi',
+      lastName: 'Annan',
+      email: 'kofi@example.com',
+    }));
+  });
 });

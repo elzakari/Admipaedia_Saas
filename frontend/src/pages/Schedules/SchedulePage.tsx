@@ -23,7 +23,7 @@ import { Badge } from '../../components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Textarea } from '../../components/ui/textarea'
 import calendarService from '../../services/calendarService'
-import examService from '../../services/examService'
+import examService, { DEFAULT_EXAM_VALUES, extractExamRows } from '../../services/examService'
 
 type Period = {
   id: number
@@ -102,9 +102,9 @@ const SchedulePage: React.FC = () => {
     title: '',
     description: '',
     exam_date: '',
-    duration: '120',
-    total_marks: '100',
-    passing_marks: '50',
+    duration: String(DEFAULT_EXAM_VALUES.duration),
+    total_marks: String(DEFAULT_EXAM_VALUES.total_marks),
+    passing_marks: String(DEFAULT_EXAM_VALUES.passing_marks),
     subject_id: ''
   })
 
@@ -194,9 +194,30 @@ const SchedulePage: React.FC = () => {
   })
 
   const exams = useMemo(() => {
-    const list = (examsResp as any)?.exams
-    return Array.isArray(list) ? list : []
+    return extractExamRows(examsResp)
   }, [examsResp])
+
+  const checkExamConflicts = async () => {
+    if (!selectedClassId || !examForm.exam_date) {
+      return []
+    }
+
+    const examsResponse = await examService.getExams({
+      class_id: selectedClassId,
+      date_from: examForm.exam_date.split('T')[0],
+      date_to: examForm.exam_date.split('T')[0]
+    })
+
+    const sameDayExams = extractExamRows(examsResponse)
+    const examStart = new Date(examForm.exam_date)
+    const examEnd = new Date(examStart.getTime() + Number(examForm.duration || DEFAULT_EXAM_VALUES.duration) * 60000)
+
+    return sameDayExams.filter((exam) => {
+      const existingStart = new Date(exam.exam_date)
+      const existingEnd = new Date(existingStart.getTime() + Number(exam.duration || DEFAULT_EXAM_VALUES.duration) * 60000)
+      return examStart < existingEnd && examEnd > existingStart
+    })
+  }
 
   const monthStart = startOfMonth(calendarMonth)
   const monthEnd = endOfMonth(calendarMonth)
@@ -260,16 +281,22 @@ const SchedulePage: React.FC = () => {
       if (!subject_id) throw new Error('Select a subject')
       if (!examForm.title.trim()) throw new Error('Title is required')
       if (!examForm.exam_date) throw new Error('Exam date is required')
+
+      const conflicts = await checkExamConflicts()
+      if (conflicts.length > 0) {
+        throw new Error('Exam conflicts with an existing class exam on the same time window')
+      }
+
       const payload: any = {
         title: examForm.title.trim(),
         description: examForm.description.trim() || undefined,
         exam_date: new Date(examForm.exam_date).toISOString(),
-        duration: Number(examForm.duration),
-        total_marks: Number(examForm.total_marks),
-        passing_marks: Number(examForm.passing_marks),
+        duration: Number(examForm.duration || DEFAULT_EXAM_VALUES.duration),
+        total_marks: Number(examForm.total_marks || DEFAULT_EXAM_VALUES.total_marks),
+        passing_marks: Number(examForm.passing_marks || DEFAULT_EXAM_VALUES.passing_marks),
         class_id: selectedClassId,
         subject_id,
-        status: 'scheduled'
+        status: DEFAULT_EXAM_VALUES.status
       }
       return examService.createExam(payload)
     },
@@ -325,7 +352,15 @@ const SchedulePage: React.FC = () => {
   }
 
   const openExam = () => {
-    setExamForm({ title: '', description: '', exam_date: '', duration: '120', total_marks: '100', passing_marks: '50', subject_id: '' })
+    setExamForm({
+      title: '',
+      description: '',
+      exam_date: '',
+      duration: String(DEFAULT_EXAM_VALUES.duration),
+      total_marks: String(DEFAULT_EXAM_VALUES.total_marks),
+      passing_marks: String(DEFAULT_EXAM_VALUES.passing_marks),
+      subject_id: ''
+    })
     setExamOpen(true)
   }
 

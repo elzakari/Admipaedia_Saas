@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -7,14 +7,13 @@ import { AdminDashboardMetrics } from '../../services/saasService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Target, Award, Users, BookOpen,
-  Calendar, Clock, Filter, Download, RefreshCw, Zap,
-  BarChart3, PieChart as PieChartIcon, Activity
+  Download, BarChart3
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -77,192 +76,87 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('6m');
-  const [selectedClass, setSelectedClass] = useState('all');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-
-  // Sample data if none provided
   const performanceData: PerformanceData = useMemo(() => {
-    if (liveTelemetry?.data || liveTelemetry) {
-      const telemetry = liveTelemetry.data || liveTelemetry;
-      return {
-        overallMetrics: {
-          averageGrade: telemetry.academic_metrics?.average_grade ?? 82.5,
-          passRate: telemetry.academic_metrics?.pass_rate ?? 89.2,
-          attendanceRate: telemetry.academic_metrics?.attendance_rate ?? 91.8,
-          completionRate: telemetry.academic_metrics?.assignment_completion_rate ?? 87.3,
-          improvement: 4.2
-        },
-        subjectPerformance: telemetry.subject_performance?.map((s: any) => ({
-          subject: t(s.subject),
-          average: s.average_score,
-          students: s.student_count,
-          improvement: s.improvement,
-          difficulty: s.difficulty
-        })) ?? [],
-        gradeDistribution: telemetry.grade_distribution && telemetry.grade_distribution.length > 0
-          ? telemetry.grade_distribution
-          : [
-              { grade: 'A+', count: 45, percentage: 12 },
-              { grade: 'A', count: 78, percentage: 21 },
-              { grade: 'B+', count: 92, percentage: 25 },
-              { grade: 'B', count: 85, percentage: 23 },
-              { grade: 'C+', count: 48, percentage: 13 },
-              { grade: 'C', count: 22, percentage: 6 }
-            ],
-        monthlyTrends: telemetry.monthly_trends && telemetry.monthly_trends.length > 0
-          ? telemetry.monthly_trends
-          : [
-              { month: t('Jan'), performance: 78, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 2.8), assignments: 95 },
-              { month: t('Feb'), performance: 80, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 4.8), assignments: 92 },
-              { month: t('Mar'), performance: 82, attendance: Math.min(100, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 0.8), assignments: 88 },
-              { month: t('Apr'), performance: 84, attendance: Math.min(100, (telemetry.academic_metrics?.attendance_rate ?? 91.8) + 1.2), assignments: 90 },
-              { month: t('May'), performance: 83, attendance: Math.max(50, (telemetry.academic_metrics?.attendance_rate ?? 91.8) - 1.8), assignments: 94 },
-              { month: t('Jun'), attendance: telemetry.academic_metrics?.attendance_rate ?? 92, performance: telemetry.academic_metrics?.average_grade ?? 85, assignments: 96 }
-            ],
-        classComparison: [
-          { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
-          { class: '10B', performance: 82, students: 30, teacher: 'Mr. Smith' },
-          { class: '10C', performance: 85, students: 31, teacher: 'Dr. Brown' },
-          { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
-          { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
-        ],
-        skillsRadar: telemetry.skills_assessment
-          ? Object.entries(telemetry.skills_assessment).map(([skill, val]: [string, any]) => ({
-              skill: t(skill),
-              current: val.current,
-              target: val.target
-            }))
-          : [
-              { skill: t('Problem Solving'), current: 85, target: 90 },
-              { skill: t('Critical Thinking'), current: 78, target: 85 },
-              { skill: t('Communication'), current: 82, target: 88 },
-              { skill: t('Collaboration'), current: 88, target: 92 },
-              { skill: t('Creativity'), current: 75, target: 80 },
-              { skill: t('Leadership'), current: 70, target: 78 }
-            ]
-      };
-    }
+    const telemetry = liveTelemetry?.data || liveTelemetry;
+    const metricsSource = telemetry?.academic_metrics || liveMetrics || {};
+    const sourceData = data;
 
-    if (liveMetrics) {
-      return {
-        overallMetrics: {
-          averageGrade: liveMetrics.average_grade,
-          passRate: liveMetrics.pass_rate,
-          attendanceRate: liveMetrics.attendance_rate,
-          completionRate: liveMetrics.assignment_completion_rate,
-          improvement: 4.2
-        },
-        subjectPerformance: liveAnalytics?.subject_performance
-          ? liveAnalytics.subject_performance.map((s: any) => ({
-              subject: t(s.subject),
-              average: s.average_score,
-              students: s.student_count,
-              improvement: s.improvement,
-              difficulty: s.difficulty
-            }))
-          : [
-              { subject: t('Mathematics'), average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
-              { subject: t('Science'), average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
-              { subject: t('English'), average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
-              { subject: t('History'), average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
-              { subject: t('Geography'), average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
-            ],
-        gradeDistribution: liveMetrics.grade_distribution && liveMetrics.grade_distribution.length > 0
-          ? liveMetrics.grade_distribution
-          : [
-              { grade: 'A+', count: 45, percentage: 12 },
-              { grade: 'A', count: 78, percentage: 21 },
-              { grade: 'B+', count: 92, percentage: 25 },
-              { grade: 'B', count: 85, percentage: 23 },
-              { grade: 'C+', count: 48, percentage: 13 },
-              { grade: 'C', count: 22, percentage: 6 }
-            ],
-        monthlyTrends: liveMetrics.monthly_trends && liveMetrics.monthly_trends.length > 0
-          ? liveMetrics.monthly_trends
-          : [
-              { month: t('Jan'), performance: 78, attendance: 89, assignments: 95 },
-              { month: t('Feb'), performance: 80, attendance: 87, assignments: 92 },
-              { month: t('Mar'), performance: 82, attendance: 91, assignments: 88 },
-              { month: t('Apr'), performance: 84, attendance: 93, assignments: 90 },
-              { month: t('May'), performance: 83, attendance: 90, assignments: 94 },
-              { month: t('Jun'), performance: 85, attendance: 92, assignments: 96 }
-            ],
-        classComparison: [
-          { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
-          { class: '10B', performance: 82, students: 30, teacher: 'Mr. Smith' },
-          { class: '10C', performance: 85, students: 31, teacher: 'Dr. Brown' },
-          { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
-          { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
-        ],
-        skillsRadar: liveAnalytics?.skills_assessment
-          ? Object.entries(liveAnalytics.skills_assessment).map(([skill, val]: [string, any]) => ({
-              skill: t(skill),
-              current: val.current,
-              target: val.target
-            }))
-          : [
-              { skill: t('Problem Solving'), current: 85, target: 90 },
-              { skill: t('Critical Thinking'), current: 78, target: 85 },
-              { skill: t('Communication'), current: 82, target: 88 },
-              { skill: t('Collaboration'), current: 88, target: 92 },
-              { skill: t('Creativity'), current: 75, target: 80 },
-              { skill: t('Leadership'), current: 70, target: 78 }
-            ]
-      };
-    }
+    const monthlyTrends = (
+      telemetry?.monthly_trends ||
+      liveMetrics?.monthly_trends ||
+      sourceData?.monthlyTrends ||
+      []
+    ).map((entry: any) => ({
+      month: String(entry?.month ?? ''),
+      performance: Number(entry?.performance ?? 0),
+      attendance: Number(entry?.attendance ?? 0),
+      assignments: Number(entry?.assignments ?? 0)
+    }));
 
-    if (data) return data;
-    
+    const subjectPerformance = (
+      telemetry?.subject_performance ||
+      liveAnalytics?.subject_performance ||
+      sourceData?.subjectPerformance ||
+      []
+    ).map((subject: any) => ({
+      subject: String(subject?.subject ?? t('Unknown Subject')),
+      average: Number(subject?.average ?? subject?.average_score ?? 0),
+      students: Number(subject?.students ?? subject?.student_count ?? 0),
+      improvement: Number(subject?.improvement ?? 0),
+      difficulty: (subject?.difficulty ?? (Number(subject?.average ?? subject?.average_score ?? 0) < 50 ? 'Hard' : Number(subject?.average ?? subject?.average_score ?? 0) < 75 ? 'Medium' : 'Easy')) as 'Easy' | 'Medium' | 'Hard'
+    }));
+
+    const gradeDistribution = (
+      telemetry?.grade_distribution ||
+      liveMetrics?.grade_distribution ||
+      sourceData?.gradeDistribution ||
+      []
+    ).map((grade: any) => ({
+      grade: String(grade?.grade ?? 'N/A'),
+      count: Number(grade?.count ?? 0),
+      percentage: Number(grade?.percentage ?? 0)
+    }));
+
+    const skillsObject = telemetry?.skills_assessment || liveAnalytics?.skills_assessment;
+    const skillsRadar = skillsObject
+      ? Object.entries(skillsObject).map(([skill, value]: [string, any]) => ({
+          skill: t(skill),
+          current: Number(value?.current ?? 0),
+          target: Number(value?.target ?? 0)
+        }))
+      : (sourceData?.skillsRadar || []);
+
+    const improvement = monthlyTrends.length >= 2
+      ? Number((monthlyTrends[monthlyTrends.length - 1]?.performance || 0) - (monthlyTrends[0]?.performance || 0))
+      : Number(sourceData?.overallMetrics?.improvement ?? 0);
+
     return {
       overallMetrics: {
-        averageGrade: 82.5,
-        passRate: 89.2,
-        attendanceRate: 91.8,
-        completionRate: 87.3,
-        improvement: 4.2
+        averageGrade: Number(metricsSource?.average_grade ?? sourceData?.overallMetrics?.averageGrade ?? 0),
+        passRate: Number(metricsSource?.pass_rate ?? sourceData?.overallMetrics?.passRate ?? 0),
+        attendanceRate: Number(metricsSource?.attendance_rate ?? sourceData?.overallMetrics?.attendanceRate ?? 0),
+        completionRate: Number(metricsSource?.assignment_completion_rate ?? sourceData?.overallMetrics?.completionRate ?? 0),
+        improvement
       },
-      subjectPerformance: [
-        { subject: t('Mathematics'), average: 85, students: 120, improvement: 5, difficulty: 'Hard' },
-        { subject: t('Science'), average: 78, students: 115, improvement: -2, difficulty: 'Medium' },
-        { subject: t('English'), average: 82, students: 125, improvement: 3, difficulty: 'Medium' },
-        { subject: t('History'), average: 76, students: 110, improvement: 1, difficulty: 'Easy' },
-        { subject: t('Geography'), average: 80, students: 105, improvement: 4, difficulty: 'Easy' }
-      ],
-      gradeDistribution: [
-        { grade: 'A+', count: 45, percentage: 12 },
-        { grade: 'A', count: 78, percentage: 21 },
-        { grade: 'B+', count: 92, percentage: 25 },
-        { grade: 'B', count: 85, percentage: 23 },
-        { grade: 'C+', count: 48, percentage: 13 },
-        { grade: 'C', count: 22, percentage: 6 }
-      ],
-      monthlyTrends: [
-        { month: t('Jan'), performance: 78, attendance: 89, assignments: 95 },
-        { month: t('Feb'), performance: 80, attendance: 87, assignments: 92 },
-        { month: t('Mar'), performance: 82, attendance: 91, assignments: 88 },
-        { month: t('Apr'), performance: 84, attendance: 93, assignments: 90 },
-        { month: t('May'), performance: 83, attendance: 90, assignments: 94 },
-        { month: t('Jun'), performance: 85, attendance: 92, assignments: 96 }
-      ],
-      classComparison: [
-        { class: '10A', performance: 87, students: 32, teacher: 'Ms. Johnson' },
-        { class: '10B', performance: 82, students: 30, teacher: 'Mr. Smith' },
-        { class: '10C', performance: 85, students: 31, teacher: 'Dr. Brown' },
-        { class: '11A', performance: 89, students: 28, teacher: 'Ms. Davis' },
-        { class: '11B', performance: 84, students: 29, teacher: 'Mr. Wilson' }
-      ],
-      skillsRadar: [
-        { skill: t('Problem Solving'), current: 85, target: 90 },
-        { skill: t('Critical Thinking'), current: 78, target: 85 },
-        { skill: t('Communication'), current: 82, target: 88 },
-        { skill: t('Collaboration'), current: 88, target: 92 },
-        { skill: t('Creativity'), current: 75, target: 80 },
-        { skill: t('Leadership'), current: 70, target: 78 }
-      ]
+      subjectPerformance,
+      gradeDistribution,
+      monthlyTrends,
+      classComparison: sourceData?.classComparison || [],
+      skillsRadar
     };
-  }, [data, liveMetrics, liveAnalytics, liveTelemetry, t]);
+  }, [data, liveAnalytics?.subject_performance, liveAnalytics?.skills_assessment, liveMetrics, liveTelemetry, t]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+  const hasTrendData = performanceData.monthlyTrends.length > 0;
+  const hasGradeDistribution = performanceData.gradeDistribution.length > 0;
+  const hasSubjectPerformance = performanceData.subjectPerformance.length > 0;
+  const hasSkillsData = performanceData.skillsRadar.length > 0;
+
+  const renderEmptyState = (message: string) => (
+    <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+      {message}
+    </div>
+  );
 
   // Loading skeleton state
   if (isLoading) {
@@ -296,8 +190,14 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
                   <p className="text-sm font-medium text-gray-600">{t('Average Grade')}</p>
                   <p className="text-2xl font-bold text-blue-600">{performanceData.overallMetrics.averageGrade}%</p>
                   <div className="flex items-center mt-1">
-                    <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
-                    <span className="text-xs text-green-600">+{performanceData.overallMetrics.improvement}%</span>
+                    {performanceData.overallMetrics.improvement >= 0 ? (
+                      <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-500 mr-1" />
+                    )}
+                    <span className={`text-xs ${performanceData.overallMetrics.improvement >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {performanceData.overallMetrics.improvement >= 0 ? '+' : ''}{performanceData.overallMetrics.improvement}%
+                    </span>
                   </div>
                 </div>
                 <div className="p-3 bg-blue-50 rounded-full">
@@ -377,18 +277,20 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={performanceData.monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="performance" stroke="#3b82f6" strokeWidth={3} name={t('Performance')} />
-                  <Line type="monotone" dataKey="attendance" stroke="#10b981" strokeWidth={2} name={t('Attendance')} />
-                  <Line type="monotone" dataKey="assignments" stroke="#f59e0b" strokeWidth={2} name={t('Assignments')} />
-                </LineChart>
-              </ResponsiveContainer>
+              {hasTrendData ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={performanceData.monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="performance" stroke="#3b82f6" strokeWidth={3} name={t('Performance')} />
+                    <Line type="monotone" dataKey="attendance" stroke="#10b981" strokeWidth={2} name={t('Attendance')} />
+                    <Line type="monotone" dataKey="assignments" stroke="#f59e0b" strokeWidth={2} name={t('Assignments')} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : renderEmptyState(t('No live trend data available yet'))}
             </div>
           </CardContent>
         </Card>
@@ -399,25 +301,27 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={performanceData.gradeDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ grade, percentage }) => `${grade} (${percentage}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {performanceData.gradeDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {hasGradeDistribution ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={performanceData.gradeDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ grade, percentage }) => `${grade} (${percentage}%)`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {performanceData.gradeDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : renderEmptyState(t('No grade distribution available yet'))}
             </div>
           </CardContent>
         </Card>
@@ -434,16 +338,18 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         </CardHeader>
         <CardContent>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData.subjectPerformance}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="subject" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="average" fill="#3b82f6" name={t('Average Score')} />
-              </BarChart>
-            </ResponsiveContainer>
+            {hasSubjectPerformance ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={performanceData.subjectPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="subject" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="average" fill="#3b82f6" name={t('Average Score')} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : renderEmptyState(t('No subject performance data available yet'))}
           </div>
         </CardContent>
       </Card>
@@ -487,6 +393,13 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             </Card>
           </motion.div>
         ))}
+        {!hasSubjectPerformance && (
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="p-8 text-center text-sm text-slate-500">
+              {t('Subject cards will appear when live performance data is available.')}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
@@ -500,17 +413,19 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
         </CardHeader>
         <CardContent>
           <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={performanceData.skillsRadar}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="skill" />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar name={t('Current')} dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                <Radar name={t('Target')} dataKey="target" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
-                <Legend />
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
+            {hasSkillsData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={performanceData.skillsRadar}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="skill" />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                  <Radar name={t('Current')} dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                  <Radar name={t('Target')} dataKey="target" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
+                  <Legend />
+                  <Tooltip />
+                </RadarChart>
+              </ResponsiveContainer>
+            ) : renderEmptyState(t('No skills assessment data available yet'))}
           </div>
         </CardContent>
       </Card>
@@ -547,6 +462,13 @@ const PerformanceDashboardWidget: React.FC<PerformanceDashboardWidgetProps> = ({
             </CardContent>
           </Card>
         ))}
+        {!hasSkillsData && (
+          <Card className="md:col-span-2">
+            <CardContent className="p-8 text-center text-sm text-slate-500">
+              {t('Skill targets will populate here once live academic telemetry is available.')}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,8 @@ import structlog
 
 logger = structlog.get_logger()
 
+ADMIN_EQUIVALENT_ROLES = {'school_admin', 'super_admin', 'superadmin', 'super_manager'}
+
 def validate_schema(schema_class):
     """
     Decorator to validate request data against a schema.
@@ -55,10 +57,16 @@ def role_required(roles):
                 logger.warning("user_not_found", user_id=user_id)
                 return jsonify({"error": "User not found"}), 404
                 
-            if user.role not in roles:
-                if not (user.role == 'super_manager' and 'super_admin' in roles):
+            normalized_roles = set(roles)
+            if 'admin' in normalized_roles:
+                normalized_roles.update(ADMIN_EQUIVALENT_ROLES)
+            if 'super_admin' in normalized_roles:
+                normalized_roles.add('super_manager')
+
+            if user.role not in normalized_roles:
+                if not (user.role == 'super_manager' and 'super_admin' in normalized_roles):
                     logger.warning("unauthorized_access", 
-                                  required_roles=roles, 
+                                  required_roles=list(normalized_roles), 
                                   user_role=user.role)
                     return jsonify({"error": "Unauthorized access"}), 403
             
