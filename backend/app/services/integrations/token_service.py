@@ -250,6 +250,57 @@ class ServiceTokenService:
         return TokenStatus(tenant_id=str(tid_uuid), service_type=service_type, allowance=allowance, unlimited=unlimited, used=used)
 
     @staticmethod
+    def get_status_map(tenant_id: str, service_types: tuple[str, ...] = SERVICE_TYPES) -> dict[str, TokenStatus]:
+        tid_uuid = _as_uuid(tenant_id)
+        tid_db = _as_db_tenant_id(tenant_id)
+        year, month = current_period_ym()
+
+        tokens = (
+            TenantServiceToken.query
+            .filter(
+                TenantServiceToken.tenant_id == tid_db,
+                TenantServiceToken.service_type.in_(service_types)
+            )
+            .all()
+        )
+        usage_rows = (
+            TenantServiceTokenUsage.query
+            .filter(
+                TenantServiceTokenUsage.tenant_id == tid_db,
+                TenantServiceTokenUsage.service_type.in_(service_types),
+                TenantServiceTokenUsage.year == year,
+                TenantServiceTokenUsage.month == month,
+            )
+            .all()
+        )
+
+        token_map = {str(row.service_type): row for row in tokens}
+        usage_map = {str(row.service_type): int(getattr(row, 'used_count', 0) or 0) for row in usage_rows}
+
+        result: dict[str, TokenStatus] = {}
+        for service_type in service_types:
+            token = token_map.get(service_type)
+            if not token or token.status != 'active':
+                result[service_type] = TokenStatus(
+                    tenant_id=str(tid_uuid),
+                    service_type=service_type,
+                    allowance=0,
+                    unlimited=False,
+                    used=0,
+                )
+                continue
+
+            allowance, unlimited = _parse_allowance(token.monthly_allowance)
+            result[service_type] = TokenStatus(
+                tenant_id=str(tid_uuid),
+                service_type=service_type,
+                allowance=allowance,
+                unlimited=unlimited,
+                used=usage_map.get(service_type, 0),
+            )
+        return result
+
+    @staticmethod
     def validate_token(plain_token: str, service_type: str, tenant_id_hint: Optional[str] = None) -> tuple[Optional[TenantServiceToken], Optional[str]]:
         if service_type not in SERVICE_TYPES:
             return None, 'Invalid service type'

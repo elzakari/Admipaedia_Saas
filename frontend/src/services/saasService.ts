@@ -406,7 +406,10 @@ const saasService = {
   },
 
   async getDashboardTelemetry(tenantId?: string) {
-    const res = await api.get('/saas/dashboard/telemetry', { params: { tenantId } })
+    const res = await api.get('/saas/dashboard/telemetry', {
+      params: tenantId ? { tenant_id: tenantId } : undefined,
+      headers: tenantId ? { 'X-Tenant-ID': tenantId } : undefined
+    })
     return res.data as {
       success: boolean;
       data: {

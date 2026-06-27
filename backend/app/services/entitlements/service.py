@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy import and_
+from sqlalchemy.orm import joinedload
 
 from app.extensions import db
 from app.models.billing import Plan, PlanFeature, PlanLimit, SchoolFeatureOverride, SchoolLimitOverride, SchoolPlanSubscription, StudentTermRegistration
@@ -74,31 +75,7 @@ def _parse_limit(value: Any, value_type: str) -> Any:
 
 class EntitlementService:
     @staticmethod
-    def getSchoolActivePlan(schoolId) -> Tuple[Optional[ActivePlan], Optional[str]]:
-        try:
-            sid = _as_uuid(schoolId)
-        except Exception:
-            return None, 'School not found'
-
-        today = date.today()
-        q = SchoolPlanSubscription.query.filter_by(school_id=sid, status='active')
-        q = q.filter(SchoolPlanSubscription.starts_at <= today)
-        q = q.filter((SchoolPlanSubscription.ends_at.is_(None)) | (SchoolPlanSubscription.ends_at >= today))
-        sub = q.order_by(SchoolPlanSubscription.starts_at.desc()).first()
-        if not sub:
-            return None, 'School has no active plan'
-
-        plan = Plan.query.get(sub.plan_id)
-        if not plan:
-            return None, 'Active plan not found'
-        return ActivePlan(subscription=sub, plan=plan), None
-
-    @staticmethod
-    def getSchoolFeatures(schoolId) -> Tuple[Optional[Dict[str, bool]], Optional[str]]:
-        active, err = EntitlementService.getSchoolActivePlan(schoolId)
-        if err or not active:
-            return None, err
-
+    def _build_features(schoolId, active: ActivePlan) -> Dict[str, bool]:
         base: Dict[str, bool] = {}
         snap = getattr(active.subscription, 'features_snapshot', None)
         if isinstance(snap, dict):
@@ -112,14 +89,10 @@ class EntitlementService:
         overrides = SchoolFeatureOverride.query.filter_by(school_id=_as_uuid(schoolId)).all()
         for o in overrides:
             base[o.feature_key] = bool(o.is_enabled)
-        return base, None
+        return base
 
     @staticmethod
-    def getSchoolLimits(schoolId) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-        active, err = EntitlementService.getSchoolActivePlan(schoolId)
-        if err or not active:
-            return None, err
-
+    def _build_limits(schoolId, active: ActivePlan) -> Dict[str, Any]:
         base: Dict[str, Any] = {}
         snap = getattr(active.subscription, 'limits_snapshot', None)
         if isinstance(snap, dict):
@@ -132,7 +105,51 @@ class EntitlementService:
         overrides = SchoolLimitOverride.query.filter_by(school_id=_as_uuid(schoolId)).all()
         for o in overrides:
             base[o.limit_key] = _parse_limit(o.limit_value, o.value_type)
-        return base, None
+        return base
+
+    @staticmethod
+    def getSchoolActivePlan(schoolId) -> Tuple[Optional[ActivePlan], Optional[str]]:
+        try:
+            sid = _as_uuid(schoolId)
+        except Exception:
+            return None, 'School not found'
+
+        today = date.today()
+        q = SchoolPlanSubscription.query.options(joinedload(SchoolPlanSubscription.plan)).filter_by(school_id=sid, status='active')
+        q = q.filter(SchoolPlanSubscription.starts_at <= today)
+        q = q.filter((SchoolPlanSubscription.ends_at.is_(None)) | (SchoolPlanSubscription.ends_at >= today))
+        sub = q.order_by(SchoolPlanSubscription.starts_at.desc()).first()
+        if not sub:
+            return None, 'School has no active plan'
+
+        plan = sub.plan
+        if not plan:
+            return None, 'Active plan not found'
+        return ActivePlan(subscription=sub, plan=plan), None
+
+    @staticmethod
+    def getSchoolFeatures(schoolId) -> Tuple[Optional[Dict[str, bool]], Optional[str]]:
+        active, err = EntitlementService.getSchoolActivePlan(schoolId)
+        if err or not active:
+            return None, err
+        return EntitlementService._build_features(schoolId, active), None
+
+    @staticmethod
+    def getSchoolLimits(schoolId) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        active, err = EntitlementService.getSchoolActivePlan(schoolId)
+        if err or not active:
+            return None, err
+        return EntitlementService._build_limits(schoolId, active), None
+
+    @staticmethod
+    def getSchoolPlanContext(schoolId) -> tuple[Optional[ActivePlan], Optional[Dict[str, bool]], Optional[Dict[str, Any]], Optional[str]]:
+        active, err = EntitlementService.getSchoolActivePlan(schoolId)
+        if err or not active:
+            return None, None, None, err
+
+        features = EntitlementService._build_features(schoolId, active)
+        limits = EntitlementService._build_limits(schoolId, active)
+        return active, features, limits, None
 
     @staticmethod
     def hasFeature(schoolId, featureKey: str) -> bool:

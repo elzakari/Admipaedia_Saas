@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 from flask import g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from sqlalchemy.orm import load_only, noload
 
 from app.models.user import User
 from app.models.tenant import Tenant, TenantMembership, Branch
@@ -53,10 +54,27 @@ def _get_requested_tenant_id() -> Optional[uuid.UUID]:
     return None
 
 
-def resolve_tenant_for_request(require_explicit: bool = True) -> Tuple[Optional[uuid.UUID], Optional[User], Optional[str]]:
+def _load_request_user(user_id, *, load_full_user: bool = True) -> Optional[User]:
+    if user_id is None:
+        return None
+    if load_full_user:
+        return User.query.get(user_id)
+    return (
+        User.query
+        .options(
+            load_only(User.id, User.role),
+            noload(User.roles),
+            noload(User.profile),
+        )
+        .filter(User.id == user_id)
+        .first()
+    )
+
+
+def resolve_tenant_for_request(require_explicit: bool = True, *, load_full_user: bool = True) -> Tuple[Optional[uuid.UUID], Optional[User], Optional[str]]:
     verify_jwt_in_request()
     user_id = get_jwt_identity()
-    user = User.query.get(user_id) if user_id is not None else None
+    user = _load_request_user(user_id, load_full_user=load_full_user)
     if not user:
         return None, None, 'Authentication required'
 
@@ -120,23 +138,29 @@ def resolve_branch_for_request(tenant_id: uuid.UUID, user: Optional[User]) -> Op
     return fallback_branch.id if fallback_branch else None
 
 
-def tenant_required(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if Tenant.query.first() is None:
-            g.tenant_id = None
-            g.current_user = None
-            g.branch_id = None
-            return fn(*args, **kwargs)
+def tenant_required(fn=None, *, resolve_branch: bool = True, load_full_user: bool = True):
+    def decorator(inner_fn):
+        @wraps(inner_fn)
+        def wrapper(*args, **kwargs):
+            tenant_id, user, err = resolve_tenant_for_request(require_explicit=True, load_full_user=load_full_user)
+            if err:
+                if err == 'Tenant context required':
+                    tenant_exists = Tenant.query.with_entities(Tenant.id).first() is not None
+                    if not tenant_exists:
+                        g.tenant_id = None
+                        g.current_user = None
+                        g.branch_id = None
+                        return inner_fn(*args, **kwargs)
+                return jsonify({'success': False, 'message': err}), 400 if err == 'Tenant context required' else 403
 
-        tenant_id, user, err = resolve_tenant_for_request(require_explicit=True)
-        if err:
-            return jsonify({'success': False, 'message': err}), 400 if err == 'Tenant context required' else 403
-        g.tenant_id = tenant_id
-        g.current_user = user
+            g.tenant_id = tenant_id
+            g.current_user = user
+            g.branch_id = resolve_branch_for_request(tenant_id, user) if resolve_branch and tenant_id else None
 
-        g.branch_id = resolve_branch_for_request(tenant_id, user)
+            return inner_fn(*args, **kwargs)
 
-        return fn(*args, **kwargs)
+        return wrapper
 
-    return wrapper
+    if fn is None:
+        return decorator
+    return decorator(fn)

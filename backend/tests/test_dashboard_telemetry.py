@@ -277,3 +277,44 @@ def test_dashboard_telemetry_defaults_to_active_tenant_branch_when_header_missin
     assert metrics["students_count"] == 1
     assert metrics["classes_count"] == 1
     assert metrics["average_grade"] == 95.0
+
+
+@patch('psutil.cpu_percent')
+@patch('psutil.virtual_memory')
+@patch('psutil.disk_usage')
+def test_dashboard_telemetry_falls_back_to_tenant_scope_without_branch(mock_disk, mock_mem, mock_cpu, client, db):
+    mock_cpu.return_value = 19.2
+
+    mock_mem_value = MagicMock()
+    mock_mem_value.percent = 44.1
+    mock_mem.return_value = mock_mem_value
+
+    mock_disk_value = MagicMock()
+    mock_disk_value.percent = 58.7
+    mock_disk.return_value = mock_disk_value
+
+    user = _make_user(db, 'school_admin', 'telemetry-nobranch@example.com')
+    tenant = _make_tenant(db, 'telemetry-no-branch', 'enterprise')
+    _link_membership(db, tenant.id, user.id)
+
+    token = _login(client, 'telemetry-nobranch@example.com', 'password')
+    response = client.get(
+        '/api/v1/saas/dashboard/telemetry',
+        headers={
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(tenant.id),
+        }
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+
+    metrics = payload["data"]["academic_metrics"]
+    assert metrics["students_count"] == 0
+    assert metrics["classes_count"] == 0
+
+    system_monitor = payload["data"]["system_monitor"]
+    assert system_monitor["cpu_usage"] == 19.2
+    assert system_monitor["memory_usage"] == 44.1
+    assert system_monitor["disk_usage"] == 58.7

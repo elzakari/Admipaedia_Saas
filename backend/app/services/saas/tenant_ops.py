@@ -92,14 +92,16 @@ def create_tenant(creator_user_id: int, name: str, slug: str, country_code: str,
 
 
 def get_user_tenants(user_id: int):
-    memberships = TenantMembership.query.filter_by(user_id=int(user_id)).all()
-    tenant_ids = [m.tenant_id for m in memberships]
-    tenants = Tenant.query.filter(Tenant.id.in_(tenant_ids)).all() if tenant_ids else []
+    rows = (
+        db.session.query(TenantMembership, Tenant)
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .filter(TenantMembership.user_id == int(user_id))
+        .order_by(TenantMembership.status.asc(), Tenant.name.asc(), Tenant.created_at.desc())
+        .all()
+    )
 
-    membership_map = {str(m.tenant_id): m for m in memberships}
     result = []
-    for t in tenants:
-        m = membership_map.get(str(t.id))
+    for m, t in rows:
         result.append({
             'tenant': serialize_tenant(t),
             'membership': {

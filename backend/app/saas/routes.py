@@ -773,8 +773,6 @@ def get_dashboard_telemetry():
         return jsonify({"success": False, "message": "Tenant context not found."}), 400
         
     branch_id = getattr(g, 'branch_id', None)
-    if not branch_id:
-        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
         
     try:
         data = DashboardTelemetryService.get_live_telemetry(tenant_id, branch_id)
@@ -834,7 +832,6 @@ def get_saas_grade_levels():
     except Exception as e:
         logger.error(f"Error retrieving standard grade levels in saas: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 
 

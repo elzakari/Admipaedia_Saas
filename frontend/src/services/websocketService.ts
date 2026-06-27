@@ -101,15 +101,14 @@ class WebSocketService {
   }
 
   subscribe(event: string, handler: SubscriptionHandler): () => void {
-    // If socket is already initialized, register immediately
-    // If not, we might lose it if we don't store it?
-    // But connect() creates the socket.
-    // Ideally subscribe should be called after connect or we should store pending handlers.
-    // For simplicity, we assume connect has been called.
+    if (!this.socket && this.namespace && this.namespace !== '/') {
+      this.connect();
+    }
+
     if (this.socket) {
       this.socket.on(event, handler);
     } else {
-      console.warn('Socket not initialized when subscribing to', event);
+      console.warn(`Socket subscription skipped for unsupported namespace ${this.namespace}:`, event);
     }
 
     return () => {

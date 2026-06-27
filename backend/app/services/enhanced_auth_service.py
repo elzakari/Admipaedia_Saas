@@ -508,6 +508,7 @@ class EnhancedAuthService:
             user_agent=request.headers.get('User-Agent') if request else None,
             device_fingerprint=device_fingerprint
         )
+        session_token.last_used_at = datetime.utcnow()
         
         db.session.add(session_token)
         db.session.flush() # Ensure ID is generated

@@ -133,6 +133,27 @@ class TestUserLogin:
         user = User.query.filter_by(email='login@example.com').first()
         session_tokens = SessionToken.query.filter_by(user_id=user.id).all()
         assert len(session_tokens) >= 1
+
+    def test_login_seeds_access_session_last_used_at(self, client, db):
+        """Ensure the first /auth/me request does not need to write session activity."""
+        client.post('/api/v1/auth/register', json={
+            'username': 'sessionuser',
+            'email': 'session@example.com',
+            'password': 'SecurePass123!',
+            'role': 'teacher'
+        })
+
+        response = client.post('/api/v1/auth/login', json={
+            'email': 'session@example.com',
+            'password': 'SecurePass123!'
+        })
+
+        assert response.status_code == 200
+        user = User.query.filter_by(email='session@example.com').first()
+        access_session = SessionToken.query.filter_by(user_id=user.id, token_type='access').order_by(SessionToken.id.desc()).first()
+
+        assert access_session is not None
+        assert access_session.last_used_at is not None
     
     def test_login_invalid_credentials(self, client, db):
         """Test login with invalid credentials"""

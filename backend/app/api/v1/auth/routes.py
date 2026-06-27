@@ -20,6 +20,7 @@ from app.models.system_setting import SystemSetting
 from app.utils.url_helpers import get_frontend_base_url
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime, timedelta
+from sqlalchemy.orm import joinedload
 import secrets
 import structlog
 
@@ -443,23 +444,27 @@ def get_current_user():
         current_jti = get_jwt()['jti']
         
         # Validate session is still active
-        session_token = SessionToken.query.filter_by(
-            jti=current_jti,
-            is_revoked=False
-        ).first()
+        session_token = (
+            SessionToken.query.options(joinedload(SessionToken.user))
+            .filter_by(jti=current_jti, is_revoked=False)
+            .first()
+        )
         
         if not session_token:
             log_security_event('invalid_session_access', {'user_id': user_id, 'jti': current_jti})
             return jsonify({"success": False, "error": "Session invalid"}), 401
         
-        # Update last activity
-        session_token.last_activity = datetime.utcnow()
-        
-        user = User.query.get(user_id)
+        user = session_token.user
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
-        
-        db.session.commit()
+
+        now = datetime.utcnow()
+        last_activity = getattr(session_token, 'last_activity', None) or getattr(session_token, 'last_used_at', None)
+        if last_activity is None or (now - last_activity) >= timedelta(minutes=5):
+            if hasattr(session_token, 'last_activity'):
+                session_token.last_activity = now
+            session_token.last_used_at = now
+            db.session.commit()
         
         return jsonify({
             "success": True,
@@ -508,6 +513,7 @@ def refresh():
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
+        new_session.last_used_at = datetime.utcnow()
         db.session.add(new_session)
         db.session.commit()
 
