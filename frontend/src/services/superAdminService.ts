@@ -3,6 +3,16 @@ import api from '@/lib/api'
 export type SuperAdminUserRole = 'super_admin' | 'super_manager' | 'admin' | 'teacher' | 'student' | 'parent' | 'user'
 export type SuperAdminUserStatus = 'active' | 'inactive'
 
+export type SuperAdminSchoolMembership = {
+  membership_id: string
+  tenant_id: string
+  tenant_name: string | null
+  tenant_slug: string | null
+  role: string
+  status: string
+  created_at?: string | null
+}
+
 export type SuperAdminUser = {
   id: number
   username: string
@@ -12,6 +22,16 @@ export type SuperAdminUser = {
   created_at?: string | null
   updated_at?: string | null
   last_login?: string | null
+  school_memberships?: SuperAdminSchoolMembership[]
+  school_memberships_count?: number
+  active_school_memberships_count?: number
+  primary_school?: {
+    tenant_id: string
+    tenant_name: string | null
+    tenant_slug: string | null
+    role: string
+    status: string
+  } | null
 }
 
 export type SuperAdminUsersResponse = {
@@ -151,6 +171,8 @@ export const superAdminService = {
     q?: string
     role?: string
     status?: string
+    tenant_id?: string
+    membership_status?: string
   }): Promise<SuperAdminUsersResponse> => {
     const res = await api.get('/super-admin/users', { params })
     return res.data
@@ -212,6 +234,11 @@ export const superAdminService = {
     to?: string
   }): Promise<SuperAdminAuditLogsResponse> => {
     const res = await api.get('/super-admin/audit-logs', { params })
+    return res.data
+  },
+
+  listAuditLogEventTypes: async (): Promise<{ success: boolean; event_types: string[] }> => {
+    const res = await api.get('/super-admin/audit-logs/event-types')
     return res.data
   },
 

@@ -55,13 +55,41 @@ def test_tenant_kv_settings_school_admin_only(db_session, client, user_factory):
     resp = client.get('/api/v1/settings/', headers=school_admin_headers)
     assert resp.status_code == 200
     assert resp.json.get('success') is True
-    assert isinstance(resp.json.get('data'), dict)
 
-    resp = client.post('/api/v1/settings/update', headers=school_admin_headers, json={
-        'key': 'admission_form_price',
-        'value': '200.00',
+
+def test_platform_settings_validation_and_audit(db_session, client, user_factory):
+    from app.models.security import SecurityEvent
+
+    super_admin = user_factory('super_admin')
+    headers = _login_and_headers(client, super_admin.email, 'Password123!')
+
+    invalid_email = client.post('/api/v1/platform/settings/update', headers=headers, json={
+        'key': 'platform_support_email',
+        'value': 'not-an-email',
         'setting_type': 'string'
     })
-    assert resp.status_code == 200
-    assert resp.json.get('success') is True
+    assert invalid_email.status_code == 400
+    assert invalid_email.json.get('success') is False
+
+    invalid_url = client.post('/api/v1/platform/settings/update', headers=headers, json={
+        'key': 'platform_terms_url',
+        'value': 'javascript:alert(1)',
+        'setting_type': 'string'
+    })
+    assert invalid_url.status_code == 400
+    assert invalid_url.json.get('success') is False
+
+    valid = client.post('/api/v1/platform/settings/update', headers=headers, json={
+        'key': 'platform_support_email',
+        'value': 'support@example.com',
+        'setting_type': 'string'
+    })
+    assert valid.status_code == 200
+    assert valid.json.get('success') is True
+    assert valid.json.get('data') == {'platform_support_email': 'support@example.com'}
+
+    event = SecurityEvent.query.filter_by(event_type='super_admin.platform_setting_updated').order_by(SecurityEvent.id.desc()).first()
+    assert event is not None
+    assert event.details['key'] == 'platform_support_email'
+    assert event.details['setting_type'] == 'string'
 

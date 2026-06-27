@@ -179,3 +179,61 @@ def test_list_providers_decryption_failure(client, db):
         assert broken_prov['warning'] == "Provider settings cannot be decrypted. Please re-save this provider."
         assert broken_prov['config'] == {}
 
+
+def test_platform_email_provider_save_validates_and_audits(client, db):
+    from app.models.security import SecurityEvent
+
+    _make_user(db, 'super_admin', 'super_provider@example.com')
+    token = _login(client, 'super_provider@example.com', 'password')
+    headers = {'Authorization': f'Bearer {token}'}
+
+    bad = client.post('/api/v1/platform/integrations/providers', json={
+        'scope': 'platform',
+        'service_type': 'email',
+        'provider_key': 'smtp',
+        'display_name': 'Broken SMTP',
+        'priority': 10,
+        'is_active': True,
+        'config': {
+            'smtpHost': '',
+            'smtpPort': 587,
+            'smtpUsername': 'mailer@example.com',
+            'smtpPassword': 'secret-pass',
+            'fromEmail': 'support@example.com',
+        }
+    }, headers=headers)
+    assert bad.status_code == 400
+    assert bad.json['success'] is False
+
+    good = client.post('/api/v1/platform/integrations/providers', json={
+        'scope': 'platform',
+        'service_type': 'email',
+        'provider_key': 'smtp',
+        'display_name': 'Working SMTP',
+        'priority': 10,
+        'is_active': 'false',
+        'config': {
+            'smtpHost': 'https://smtp.example.com/login',
+            'smtpPort': 587,
+            'smtpUsername': 'mailer@example.com',
+            'smtpPassword': 'secret-pass',
+            'smtpEncryption': 'tls',
+            'fromEmail': 'support@example.com',
+            'fromName': 'ADMIPAEDIA Support',
+        }
+    }, headers=headers)
+    assert good.status_code == 200
+    assert good.json['success'] is True
+
+    from app.models.service_tokens import PlatformServiceProviderConfig
+    row = PlatformServiceProviderConfig.query.filter_by(service_type='email', provider_key='smtp').first()
+    assert row is not None
+    assert row.is_active is False
+    cfg = row.get_config() or {}
+    assert cfg['smtpHost'] == 'smtp.example.com'
+
+    event = SecurityEvent.query.filter_by(event_type='super_admin.integration_provider_saved').order_by(SecurityEvent.id.desc()).first()
+    assert event is not None
+    assert event.details['service_type'] == 'email'
+    assert event.details['provider_key'] == 'smtp'
+

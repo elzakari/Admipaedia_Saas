@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/services/authService';
 import { getJwtExpirationMs } from '@/utils/jwt';
@@ -8,6 +8,15 @@ import ErrorBoundary from '../components/shared/ErrorBoundary';
 import LazyLoadingWrapper from '../components/performance/LazyLoadingWrapper';
 import AdministrationGate from '../components/onboarding/AdministrationGate';
 import EnterpriseGate from '../components/onboarding/EnterpriseGate';
+import {
+  SAAS_BILLING_INVOICES_ROUTE,
+  SAAS_BILLING_PAYMENTS_ROUTE,
+  SAAS_BILLING_PLAN_ROUTE,
+  SAAS_SCHOOL_DASHBOARD_ROUTE,
+  SAAS_SCHOOL_PROFILE_ROUTE,
+  SAAS_TEAM_ROUTE,
+  normalizeSaasPathname,
+} from '@/lib/saasRoutes';
 
 type UserRole = User['role'];
 
@@ -244,6 +253,18 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
   );
 }
 
+function CanonicalSaasRouteRedirect() {
+  const location = useLocation()
+  const canonicalPathname = normalizeSaasPathname(location.pathname)
+  const canonicalUrl = `${canonicalPathname}${location.search}${location.hash}`
+
+  if (canonicalUrl === `${location.pathname}${location.search}${location.hash}`) {
+    return <Navigate to={canonicalPathname} replace />
+  }
+
+  return <Navigate to={canonicalUrl} replace />
+}
+
 export default function AppRoutes() {
   const { user } = useAuth();
 
@@ -309,32 +330,37 @@ export default function AppRoutes() {
       />
 
       <Route
+        caseSensitive
+        path="/App/*"
+        element={<CanonicalSaasRouteRedirect />}
+      />
+      <Route
         path="/app/onboarding"
         element={<BareProtectedRoute element={<SaasOnboardingPage />} allowedRoles={['super_admin', 'super_manager']} componentName="School Onboarding" />}
       />
       <Route
-        path="/app"
-        element={<BareProtectedRoute element={<SchoolPortalDashboardPage />} componentName="School Portal" />}
+        path={SAAS_SCHOOL_DASHBOARD_ROUTE}
+        element={<BareProtectedRoute element={<SchoolPortalDashboardPage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="School Portal" />}
       />
       <Route
-        path="/app/school"
-        element={<BareProtectedRoute element={<SchoolProfilePage />} componentName="School Profile" />}
+        path={SAAS_SCHOOL_PROFILE_ROUTE}
+        element={<BareProtectedRoute element={<SchoolProfilePage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="School Profile" />}
       />
       <Route
-        path="/app/team"
-        element={<BareProtectedRoute element={<TeamRolesPage />} componentName="Team & Roles" />}
+        path={SAAS_TEAM_ROUTE}
+        element={<BareProtectedRoute element={<TeamRolesPage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="Team & Roles" />}
       />
       <Route
-        path="/app/billing/plan"
-        element={<BareProtectedRoute element={<BillingPlanPage />} componentName="Plan" />}
+        path={SAAS_BILLING_PLAN_ROUTE}
+        element={<BareProtectedRoute element={<BillingPlanPage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="Plan" />}
       />
       <Route
-        path="/app/billing/invoices"
-        element={<BareProtectedRoute element={<BillingInvoicesPage />} componentName="Invoices" />}
+        path={SAAS_BILLING_INVOICES_ROUTE}
+        element={<BareProtectedRoute element={<BillingInvoicesPage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="Invoices" />}
       />
       <Route
-        path="/app/billing/payments"
-        element={<BareProtectedRoute element={<BillingPaymentsPage />} componentName="Payments" />}
+        path={SAAS_BILLING_PAYMENTS_ROUTE}
+        element={<BareProtectedRoute element={<BillingPaymentsPage />} allowedRoles={['admin', 'school_admin', 'super_admin', 'super_manager']} componentName="Payments" />}
       />
 
       <Route

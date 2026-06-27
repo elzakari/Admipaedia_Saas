@@ -9,7 +9,7 @@ export function PlatformFinancialBySchoolTab({
   items,
   loading
 }: {
-  items: Array<{ tenant_id: string; tenant_name: string; invoice_total: number; payment_total: number }>
+  items: Array<{ tenant_id: string; tenant_name: string; invoice_total: number; payment_total: number; outstanding_total?: number }>
   loading: boolean
 }) {
   return (
@@ -23,7 +23,10 @@ export function PlatformFinancialBySchoolTab({
               items.map((t) => ({
                 school: t.tenant_name,
                 invoiced: t.invoice_total,
-                paid: t.payment_total
+                paid: t.payment_total,
+                outstanding: typeof t.outstanding_total === 'number'
+                  ? t.outstanding_total
+                  : Math.max(0, t.invoice_total - t.payment_total),
               }))
             )
           }}
@@ -40,6 +43,7 @@ export function PlatformFinancialBySchoolTab({
             <TableHead>School</TableHead>
             <TableHead className="text-right">Invoiced</TableHead>
             <TableHead className="text-right">Paid</TableHead>
+            <TableHead className="text-right">Outstanding</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -48,11 +52,12 @@ export function PlatformFinancialBySchoolTab({
               <TableCell className="font-medium">{t.tenant_name}</TableCell>
               <TableCell className="text-right">{t.invoice_total.toFixed(2)}</TableCell>
               <TableCell className="text-right">{t.payment_total.toFixed(2)}</TableCell>
+              <TableCell className="text-right">{(typeof t.outstanding_total === 'number' ? t.outstanding_total : Math.max(0, t.invoice_total - t.payment_total)).toFixed(2)}</TableCell>
             </TableRow>
           ))}
           {!loading && items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={3} className="text-sm text-muted-foreground">No data yet.</TableCell>
+              <TableCell colSpan={4} className="text-sm text-muted-foreground">No data yet.</TableCell>
             </TableRow>
           )}
         </TableBody>

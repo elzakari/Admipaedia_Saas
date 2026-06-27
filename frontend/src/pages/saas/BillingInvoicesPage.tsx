@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Receipt } from 'lucide-react'
 import type { AxiosError } from 'axios'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +12,12 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
 import billingService, { BillingInvoice } from '@/services/billingService'
+import {
+  SAAS_BILLING_INVOICES_ROUTE,
+  SAAS_BILLING_PAYMENTS_ROUTE,
+  SAAS_BILLING_PLAN_ROUTE,
+  buildSaasReturnUrl,
+} from '@/lib/saasRoutes'
 
 export default function BillingInvoicesPage() {
   const { toast } = useToast()
@@ -59,6 +65,11 @@ export default function BillingInvoicesPage() {
   }, [currentTenantId])
 
   const total = useMemo(() => (invoices || []).reduce((sum, i) => sum + (i.total_amount || 0), 0), [invoices])
+  const outstanding = useMemo(() => (invoices || []).reduce((sum, i) => sum + (i.balance_due || 0), 0), [invoices])
+  const unpaidCount = useMemo(
+    () => (invoices || []).filter((invoice) => String(invoice.payment_status || '').toLowerCase() !== 'paid' && (invoice.balance_due || 0) > 0).length,
+    [invoices]
+  )
 
   const statusVariant = (status?: string | null): 'success' | 'warning' | 'destructive' | 'secondary' | 'outline' => {
     const s = (status || '').toLowerCase()
@@ -74,12 +85,12 @@ export default function BillingInvoicesPage() {
     try {
       const selected = (channelByInvoice[invoice.id] || channels?.[0] || 'mobile_money').toLowerCase()
       if (selected === 'manual') {
-        navigate(`/app/billing/payments?invoiceId=${invoice.id}`)
+        navigate(`${SAAS_BILLING_PAYMENTS_ROUTE}?invoiceId=${invoice.id}`)
         return
       }
       const res = await billingService.initializeInvoicePayment(invoice.id, {
         payment_channel: selected,
-        return_url: window.location.origin + '/app/billing/invoices'
+        return_url: buildSaasReturnUrl(SAAS_BILLING_INVOICES_ROUTE)
       })
       toast({ title: 'Payment initialized', description: res.payment.gateway_name })
       if (res.payment.payment_link) {
@@ -99,10 +110,56 @@ export default function BillingInvoicesPage() {
   return (
     <SaasShell title="Invoices" nav={schoolNav} showTenantSwitcher>
       <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Total billed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : total.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Outstanding balance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : outstanding.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Invoices awaiting payment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : unpaidCount}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="rounded-2xl border-primary/20 bg-primary/5">
+          <CardContent className="flex flex-col gap-3 py-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-foreground">Billing workflow</div>
+              <div className="text-sm text-muted-foreground">
+                Pay online from an invoice, or switch to manual payment to upload proof and continue from the payments page.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link to={SAAS_BILLING_PLAN_ROUTE}>Review plans</Link>
+              </Button>
+              <Button asChild>
+                <Link to={SAAS_BILLING_PAYMENTS_ROUTE}>Manual payments</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Invoices</CardTitle>
-            <div className="text-sm text-muted-foreground tabular-nums">Total: {loading ? 'Loading…' : total.toFixed(2)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums">Outstanding: {loading ? 'Loading…' : outstanding.toFixed(2)}</div>
           </CardHeader>
           <CardContent>
             <Table>

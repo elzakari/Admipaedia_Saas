@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import billingService, { PaymentGateway } from '@/services/billingService'
 
 const gatewayNames = ['paystack', 'cinetpay', 'flutterwave', 'manual'] as const
+const commonChannels = ['card', 'mobile_money', 'bank_transfer', 'wallet', 'ussd', 'manual'] as const
 
 export default function SuperAdminPaymentSettingsPage() {
   const { t } = useTranslation()
@@ -57,6 +58,20 @@ export default function SuperAdminPaymentSettingsPage() {
   }, [])
 
   const rows = useMemo(() => gateways || [], [gateways])
+  const activeCount = useMemo(() => rows.filter((gateway) => gateway.is_active).length, [rows])
+  const defaultCount = useMemo(() => rows.filter((gateway) => gateway.is_default).length, [rows])
+  const liveCount = useMemo(() => rows.filter((gateway) => gateway.environment === 'live').length, [rows])
+  const parsedChannels = useMemo(
+    () => supportedChannels.split(',').map((channel) => channel.trim().toLowerCase()).filter(Boolean),
+    [supportedChannels]
+  )
+  const duplicateSignature = useMemo(() => {
+    const signature = `${name}|${countryCode.trim().toUpperCase() || 'GLOBAL'}|${currency.trim().toUpperCase() || 'ANY'}|${environment}`
+    return rows.some((gateway) => (
+      gateway.id !== editingId
+      && `${gateway.name}|${gateway.country_code || 'GLOBAL'}|${gateway.currency || 'ANY'}|${gateway.environment}` === signature
+    ))
+  }, [countryCode, currency, editingId, environment, name, rows])
 
   const resetForm = () => {
     setEditingId(null)
@@ -94,6 +109,13 @@ export default function SuperAdminPaymentSettingsPage() {
     setOpen(true)
   }
 
+  const toggleChannel = (channel: string) => {
+    const next = parsedChannels.includes(channel)
+      ? parsedChannels.filter((item) => item !== channel)
+      : [...parsedChannels, channel]
+    setSupportedChannels(next.join(','))
+  }
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -102,6 +124,14 @@ export default function SuperAdminPaymentSettingsPage() {
         .split(',')
         .map((c) => c.trim())
         .filter(Boolean)
+      if (duplicateSignature) {
+        toast({
+          variant: 'destructive',
+          title: t('super_admin.payment_settings.errors.duplicate', 'Duplicate gateway configuration'),
+          description: t('super_admin.payment_settings.errors.duplicate_desc', 'Use a different country, currency, environment, or edit the existing gateway instead.')
+        })
+        return
+      }
       const payload = {
         name,
         display_name: displayName || undefined,
@@ -190,6 +220,22 @@ export default function SuperAdminPaymentSettingsPage() {
               <div className="space-y-2">
                 <Label>{t('super_admin.payment_settings.form.supported_channels', 'Supported channels')}</Label>
                 <Input value={supportedChannels} onChange={(e) => setSupportedChannels(e.target.value)} placeholder={t('super_admin.payment_settings.form.supported_channels_placeholder', 'mobile_money,card,bank_transfer,wallet,manual')} />
+                <div className="flex flex-wrap gap-2">
+                  {commonChannels.map((channel) => (
+                    <Button
+                      key={channel}
+                      type="button"
+                      variant={parsedChannels.includes(channel) ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => toggleChannel(channel)}
+                    >
+                      {channel}
+                    </Button>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {t('super_admin.payment_settings.form.supported_channels_hint', 'Preset buttons help you build a clean channel list; you can still type additional normalized channels manually.')}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>{t('super_admin.payment_settings.form.environment', 'Environment')}</Label>
@@ -213,6 +259,11 @@ export default function SuperAdminPaymentSettingsPage() {
                   {t('super_admin.payment_settings.form.default', 'Default')}
                 </label>
               </div>
+              <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-muted-foreground">
+                {duplicateSignature
+                  ? t('super_admin.payment_settings.form.duplicate_warning', 'A gateway with this name, country, currency, and environment already exists.')
+                  : t('super_admin.payment_settings.form.duplicate_hint', 'Gateway combinations are unique by provider, country, currency, and environment.')}
+              </div>
               <DialogFooter className="md:col-span-2">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
                 <Button type="submit" disabled={saving}>{saving ? t('super_admin.payment_settings.saving', 'Saving...') : t('common.save', 'Save')}</Button>
@@ -221,6 +272,42 @@ export default function SuperAdminPaymentSettingsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payment_settings.summary.total', 'Configured')}</div>
+            <div className="mt-2 text-2xl font-semibold">{rows.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('common.active', 'Active')}</div>
+            <div className="mt-2 text-2xl font-semibold">{activeCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payment_settings.summary.defaults', 'Default routes')}</div>
+            <div className="mt-2 text-2xl font-semibold">{defaultCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payment_settings.summary.live', 'Live gateways')}</div>
+            <div className="mt-2 text-2xl font-semibold">{liveCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="py-5 text-sm text-muted-foreground">
+          {t(
+            'super_admin.payment_settings.workflow_hint',
+            'Gateway create and update actions are now audited. Configure one default route per gateway, country, currency, and environment combination to keep payment selection deterministic.'
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -251,6 +338,8 @@ export default function SuperAdminPaymentSettingsPage() {
                   <TableCell className="space-x-2">
                     <Badge variant={g.is_active ? 'success' : 'secondary'}>{g.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</Badge>
                     {g.is_default && <Badge variant="outline">{t('super_admin.payment_settings.badges.default', 'default')}</Badge>}
+                    {g.secret_key_set && <Badge variant="outline">{t('super_admin.payment_settings.badges.secret', 'secret set')}</Badge>}
+                    {g.webhook_secret_set && <Badge variant="outline">{t('super_admin.payment_settings.badges.webhook', 'webhook set')}</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => openEdit(g)}>{t('common.edit', 'Edit')}</Button>

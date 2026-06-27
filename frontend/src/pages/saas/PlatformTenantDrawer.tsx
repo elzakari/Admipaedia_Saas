@@ -34,11 +34,13 @@ function formatIsoDate(iso: string | null | undefined) {
 export function PlatformTenantDrawer({
   open,
   tenantId,
+  planOptions,
   onOpenChange,
   onChanged
 }: {
   open: boolean
   tenantId: string | null
+  planOptions: Array<{ value: string; label: string }>
   onOpenChange: (next: boolean) => void
   onChanged: () => Promise<void>
 }) {
@@ -370,10 +372,9 @@ export function PlatformTenantDrawer({
                         <Select value={nextPlan} onValueChange={setNextPlan}>
                           <SelectTrigger className="bg-white"><SelectValue placeholder="Select" /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="trial">trial</SelectItem>
-                            <SelectItem value="basic">basic</SelectItem>
-                            <SelectItem value="pro">pro</SelectItem>
-                            <SelectItem value="enterprise">enterprise</SelectItem>
+                            {planOptions.map((plan) => (
+                              <SelectItem key={plan.value} value={plan.value}>{plan.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -386,7 +387,7 @@ export function PlatformTenantDrawer({
                         disabled={saving || !tenantId || nextStatus === 'active'}
                         onClick={() => setNextStatus('active')}
                       >
-                        Approve
+                        Activate school
                       </Button>
                       <Button
                         variant="outline"
@@ -681,6 +682,35 @@ export function PlatformTenantDrawer({
                         )}
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-800">Billing totals</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                      Totals below blend legacy platform billing with the active school subscription billing service. Recent invoice and payment tables remain legacy records for now.
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Legacy platform invoiced</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.legacy_invoice_total || 0, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Legacy platform paid</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.legacy_payment_total || 0, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">School subscription invoiced</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.school_billing_invoice_total || 0, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">School subscription paid</div>
+                        <div className="text-lg font-black text-slate-900">{detail ? formatMoney(detail.school_billing_payment_total || 0, tenant?.currency || 'USD') : '—'}</div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
-import { BarChart3, RefreshCcw } from 'lucide-react'
+import { BarChart3, CreditCard, Landmark, RefreshCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -18,7 +19,14 @@ export default function SuperAdminFinancialInsightsPage() {
   const [summary, setSummary] = useState<PlatformFinancialSummary | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const byTenant = useMemo(() => summary?.by_tenant || [], [summary])
+  const byTenant = useMemo(
+    () => [...(summary?.by_tenant || [])].sort((a, b) => Number(b.outstanding_total || 0) - Number(a.outstanding_total || 0)),
+    [summary]
+  )
+  const legacyPlatformInvoiceTotal = summary?.platform_invoice_total || 0
+  const legacyPlatformPaymentTotal = summary?.platform_payment_total || 0
+  const schoolBillingInvoiceTotal = summary?.school_billing_invoice_total || 0
+  const schoolBillingPaymentTotal = summary?.school_billing_payment_total || 0
 
   async function load() {
     setLoading(true)
@@ -95,6 +103,70 @@ export default function SuperAdminFinancialInsightsPage() {
         </Card>
       </div>
 
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="flex flex-col gap-3 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-foreground">{t('super_admin.financial.workflow.title', 'How to read this page')}</div>
+            <div className="text-sm text-muted-foreground">
+              {t(
+                'super_admin.financial.workflow.body',
+                'Top-line totals blend legacy platform billing and school subscription billing. The by-school tab reflects the blended exposure, while the invoice and payment tabs below focus on legacy platform billing records.'
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{t('super_admin.financial.workflow.badge_summary', 'Blended summary')}</Badge>
+            <Badge variant="secondary">{t('super_admin.financial.workflow.badge_school', 'By-school totals')}</Badge>
+            <Badge variant="secondary">{t('super_admin.financial.workflow.badge_legacy', 'Legacy detail tabs')}</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-muted-foreground" />
+              {t('super_admin.financial.source.platform', 'Legacy platform billing')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{t('super_admin.financial.cards.total_invoiced', 'Total Invoiced')}</span>
+              <span className="font-semibold">{loading ? '—' : legacyPlatformInvoiceTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{t('super_admin.financial.cards.total_paid', 'Total Paid')}</span>
+              <span className="font-semibold">{loading ? '—' : legacyPlatformPaymentTotal.toFixed(2)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t('super_admin.financial.source.platform_hint', 'These values back the legacy platform invoice and payment detail tabs below.')}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              {t('super_admin.financial.source.school', 'School subscription billing')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{t('super_admin.financial.cards.total_invoiced', 'Total Invoiced')}</span>
+              <span className="font-semibold">{loading ? '—' : schoolBillingInvoiceTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{t('super_admin.financial.cards.total_paid', 'Total Paid')}</span>
+              <span className="font-semibold">{loading ? '—' : schoolBillingPaymentTotal.toFixed(2)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t('super_admin.financial.source.school_hint', 'These values reflect the school billing service used by subscription, invoices, and payments workflows.')}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>{t('super_admin.financial.sections.overview', 'Financial overview')}</CardTitle>
@@ -103,17 +175,23 @@ export default function SuperAdminFinancialInsightsPage() {
           <Tabs defaultValue="schools">
             <TabsList>
               <TabsTrigger value="schools">{t('super_admin.financial.tabs.by_school', 'By school')}</TabsTrigger>
-              <TabsTrigger value="invoices">{t('super_admin.financial.tabs.invoices', 'Invoices')}</TabsTrigger>
-              <TabsTrigger value="payments">{t('super_admin.financial.tabs.payments', 'Payments')}</TabsTrigger>
+              <TabsTrigger value="invoices">{t('super_admin.financial.tabs.legacy_invoices', 'Legacy invoices')}</TabsTrigger>
+              <TabsTrigger value="payments">{t('super_admin.financial.tabs.legacy_payments', 'Legacy payments')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="schools">
               <PlatformFinancialBySchoolTab items={byTenant} loading={loading} />
             </TabsContent>
             <TabsContent value="invoices">
+              <div className="pb-4 text-sm text-muted-foreground">
+                {t('super_admin.financial.tabs.legacy_invoices_hint', 'This tab lists legacy platform invoice records. School subscription invoice totals remain visible in the blended summary and by-school breakdown above.')}
+              </div>
               <PlatformFinancialInvoicesTab />
             </TabsContent>
             <TabsContent value="payments">
+              <div className="pb-4 text-sm text-muted-foreground">
+                {t('super_admin.financial.tabs.legacy_payments_hint', 'This tab lists legacy platform payment records. School subscription payment totals remain visible in the blended summary and by-school breakdown above.')}
+              </div>
               <PlatformFinancialPaymentsTab />
             </TabsContent>
           </Tabs>

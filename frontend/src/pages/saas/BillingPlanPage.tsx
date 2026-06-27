@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
-import { Sparkles } from 'lucide-react'
+import { ArrowRight, CreditCard, Sparkles } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,9 +14,11 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { usePlanContext } from '@/hooks/usePlanContext'
 import billingService, { AcademicTerm, BillingPlan, SubscriptionChangeRequest } from '@/services/billingService'
+import { SAAS_BILLING_INVOICES_ROUTE, SAAS_BILLING_PAYMENTS_ROUTE, buildSaasReturnUrl } from '@/lib/saasRoutes'
 
 export default function BillingPlanPage() {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const { data: planContext, refresh: refreshPlanContext, isLoading: planContextLoading } = usePlanContext()
 
   const [plans, setPlans] = useState<BillingPlan[] | null>(null)
@@ -104,6 +107,15 @@ export default function BillingPlanPage() {
   }, [futureTerms.length])
 
   const currentPlanSlug = planContext?.plan?.slug || null
+  const currentPlanIndex = useMemo(() => (plans || []).findIndex((plan) => plan.slug === currentPlanSlug), [currentPlanSlug, plans])
+  const pendingUpgradeRequest = useMemo(
+    () => (requests || []).find((request) => request.request_type === 'upgrade' && ['pending', 'payment_pending'].includes(String(request.status || '').toLowerCase())),
+    [requests]
+  )
+  const pendingDowngradeRequest = useMemo(
+    () => (requests || []).find((request) => request.request_type === 'downgrade' && String(request.status || '').toLowerCase() === 'pending'),
+    [requests]
+  )
 
   const openUpgrade = (slug: string) => {
     setUpgradePlanSlug(slug)
@@ -119,6 +131,7 @@ export default function BillingPlanPage() {
     const s = (status || '').toLowerCase()
     if (s === 'approved') return 'success'
     if (s === 'rejected' || s === 'cancelled') return 'destructive'
+    if (s === 'payment_pending') return 'warning'
     if (s === 'pending') return 'warning'
     if (!s) return 'outline'
     return 'secondary'
@@ -134,22 +147,30 @@ export default function BillingPlanPage() {
     }
     setUpgrading(true)
     try {
+      const selectedChannel = upgradeChannel.toLowerCase()
       const res = await billingService.upgradeSubscription({
         plan_slug: upgradePlanSlug,
         plan: upgradePlanSlug,
         academic_term_id: termValue,
         term_id: termValue,
-        payment_channel: upgradeChannel,
-        channel: upgradeChannel,
-        return_url: window.location.origin + '/app/billing/invoices'
+        payment_channel: selectedChannel === 'manual' ? undefined : selectedChannel,
+        channel: selectedChannel === 'manual' ? undefined : selectedChannel,
+        return_url: buildSaasReturnUrl(SAAS_BILLING_INVOICES_ROUTE)
       })
-      toast({ title: 'Upgrade applied', description: res.plan.name })
+      toast({
+        title: 'Upgrade started',
+        description: res.payment?.payment_link
+          ? `Complete payment to activate ${res.plan.name}.`
+          : `${res.plan.name} will activate after invoice payment is confirmed.`,
+      })
       setUpgradeOpen(false)
-      await refreshPlanContext()
       await load()
       if (res.payment?.payment_link) {
         window.open(res.payment.payment_link, '_blank', 'noopener,noreferrer')
+      } else if (selectedChannel === 'manual') {
+        navigate(`${SAAS_BILLING_PAYMENTS_ROUTE}?invoiceId=${res.invoice.id}`)
       }
+      await refreshPlanContext()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
       toast({ variant: 'destructive', title: 'Upgrade failed', description: e.response?.data?.message || e.message || 'Please try again' })
@@ -206,6 +227,29 @@ export default function BillingPlanPage() {
           </CardContent>
         </Card>
 
+        {(pendingUpgradeRequest || pendingDowngradeRequest) && (
+          <Card className="rounded-2xl border-primary/20 bg-primary/5">
+            <CardContent className="flex flex-col gap-3 py-5 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-foreground">Subscription change in progress</div>
+                <div className="text-sm text-muted-foreground">
+                  {pendingUpgradeRequest
+                    ? 'Your upgrade has been started. Complete or verify invoice payment to activate the new plan.'
+                    : 'A downgrade request is pending review and will take effect from the selected future term.'}
+                </div>
+              </div>
+              {pendingUpgradeRequest && (
+                <Button asChild>
+                  <Link to={SAAS_BILLING_INVOICES_ROUTE}>
+                    <CreditCard className="h-4 w-4" />
+                    Review invoices
+                  </Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Available plans</CardTitle>
@@ -215,8 +259,12 @@ export default function BillingPlanPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(plans || []).map((p) => {
                 const isCurrent = currentPlanSlug && p.slug === currentPlanSlug
+                const planIndex = (plans || []).findIndex((plan) => plan.slug === p.slug)
+                const isUpgrade = currentPlanIndex >= 0 ? planIndex > currentPlanIndex : !isCurrent
+                const isDowngrade = currentPlanIndex >= 0 ? planIndex < currentPlanIndex : false
+                const actionDisabled = isCurrent || (isUpgrade && !!pendingUpgradeRequest) || (isDowngrade && !!pendingDowngradeRequest)
                 return (
-                  <div key={p.id} className="border border-border rounded-2xl p-4 space-y-2">
+                  <div key={p.id} className="border border-border rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-semibold truncate">{p.name}</div>
                       {isCurrent && <Badge variant="success">current</Badge>}
@@ -225,14 +273,32 @@ export default function BillingPlanPage() {
                     <div className="text-sm">
                       <span className="font-medium tabular-nums">{p.price_per_student.toFixed(2)}</span> {p.currency} / student / month
                     </div>
+                    {typeof p.active_student_count === 'number' && typeof p.total_per_month === 'number' && (
+                      <div className="text-xs text-muted-foreground">
+                        Approx. monthly total for {p.active_student_count} active students: {p.total_per_month.toFixed(2)} {p.currency}
+                      </div>
+                    )}
                     <div className="text-xs text-muted-foreground">Minimum payment period: {p.billing_min_months || 3} months</div>
-                    <div className="flex items-center gap-2 pt-2">
-                      <Button size="sm" onClick={() => openUpgrade(p.slug)} disabled={isCurrent}>
-                        Upgrade
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openDowngrade(p.slug)} disabled={isCurrent}>
-                        Request downgrade
-                      </Button>
+                    <div className="flex items-center gap-2 pt-1">
+                      {isCurrent ? (
+                        <Button size="sm" variant="outline" disabled>
+                          Current plan
+                        </Button>
+                      ) : isUpgrade ? (
+                        <Button size="sm" onClick={() => openUpgrade(p.slug)} disabled={actionDisabled}>
+                          Upgrade
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => openDowngrade(p.slug)} disabled={actionDisabled}>
+                          Request downgrade
+                        </Button>
+                      )}
+                      {actionDisabled && !isCurrent && (
+                        <span className="text-xs text-muted-foreground">
+                          {isUpgrade ? 'Pending upgrade already exists' : 'Pending downgrade already exists'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )

@@ -18,6 +18,52 @@ class EmailResult(dict):
             return bool(self) == other
         return super().__eq__(other)
 
+
+def _sanitize_runtime_smtp_host(host: Optional[str]) -> str:
+    if not host:
+        return ""
+    normalized = str(host).strip()
+    for char in ('\u200b', '\u200c', '\u200d', '\ufeff', '\u200E', '\u200F'):
+        normalized = normalized.replace(char, '')
+    for prefix in ('https://', 'http://', 'smtp://'):
+        if normalized.lower().startswith(prefix):
+            normalized = normalized[len(prefix):]
+    if '/' in normalized:
+        normalized = normalized.split('/', 1)[0]
+    return normalized.strip()
+
+
+def _load_active_email_provider_config(provider_override: Optional[str] = None) -> tuple[str, dict]:
+    from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
+    from flask import g
+
+    selected_provider = (provider_override or os.environ.get('EMAIL_PROVIDER', 'smtp')).lower()
+    cfg: dict[str, Any] = {}
+
+    db_provider = None
+    tenant_id = getattr(g, 'tenant_id', None)
+    if tenant_id:
+        db_provider = (
+            TenantServiceProviderOverride.query
+            .filter_by(tenant_id=tenant_id, service_type='email', is_active=True)
+            .order_by(TenantServiceProviderOverride.priority.asc(), TenantServiceProviderOverride.id.asc())
+            .first()
+        )
+
+    if not db_provider:
+        db_provider = (
+            PlatformServiceProviderConfig.query
+            .filter_by(service_type='email', is_active=True)
+            .order_by(PlatformServiceProviderConfig.priority.asc(), PlatformServiceProviderConfig.id.asc())
+            .first()
+        )
+
+    if db_provider:
+        cfg = db_provider.get_config() or {}
+        selected_provider = (provider_override or db_provider.provider_key or selected_provider).lower()
+
+    return selected_provider, cfg
+
 def send_email(subject: str, recipients: List[str], text_body: str, html_body: Optional[str] = None, sender: Optional[str] = None, attachments: Optional[List[Tuple[str, str, bytes]]] = None, provider: Optional[str] = None) -> EmailResult:
     """
     Send an email using the active provider configured in the database, with fallback to environment configuration.
@@ -62,54 +108,10 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
     selected_provider = (provider or os.environ.get('EMAIL_PROVIDER', 'smtp')).lower()
     cfg = {}
 
-    # 3. Refactored Extraction Logic: Check decrypted database platform configurations
+    # 3. Resolve the active provider deterministically from tenant override or platform config.
     try:
-        from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
-        from flask import g
-        
-        db_provider = None
-        # Try to resolve tenant-level override first if in a tenant context
-        tenant_id = getattr(g, 'tenant_id', None)
-        if tenant_id:
-            db_provider = TenantServiceProviderOverride.query.filter_by(
-                tenant_id=tenant_id, service_type='email', is_active=True
-            ).first()
-            
-        # Fallback to platform-level provider config
-        if not db_provider:
-            from sqlalchemy import text
-            from app.extensions import db
-            query = text("SELECT id, service_type, provider_key, display_name, priority, is_active, config_encrypted FROM platform_service_provider_configs WHERE service_type = 'email' AND is_active = :is_active LIMIT 1")
-            result = db.session.execute(query, {"is_active": True})
-            db_provider = result.mappings().first()
-            
-        if db_provider:
-            # Map database configuration parameters
-            if hasattr(db_provider, 'get_config'):
-                cfg = db_provider.get_config() or {}
-                provider_key = db_provider.provider_key
-            else:
-                # db_provider is a row mapping or dict
-                provider_key = db_provider.get('provider_key')
-                config_encrypted = db_provider.get('config_encrypted')
-                
-                cfg = {}
-                if config_encrypted:
-                    try:
-                        from flask import current_app
-                        from app.utils.secret_crypto import decrypt_value
-                        import json
-                        secret = current_app.config.get('SECRET_KEY') or current_app.config.get('ENCRYPTION_KEY') or ''
-                        salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
-                        decrypted_text = decrypt_value(config_encrypted, secret=secret, salt=salt)
-                        if decrypted_text:
-                            config_data = json.loads(decrypted_text)
-                            if isinstance(config_data, dict):
-                                cfg = config_data
-                    except Exception as dec_err:
-                        logger.warning(f"Failed to decrypt dynamic email config: {str(dec_err)}")
-            
-            selected_provider = (provider or provider_key or 'smtp').lower()
+        selected_provider, cfg = _load_active_email_provider_config(provider)
+        if cfg:
             logger.info("Retrieved active email integration settings from DB", provider_key=selected_provider)
     except Exception as e:
         logger.warning(f"Could not load email configuration from database, falling back to env/defaults: {str(e)}")
@@ -169,71 +171,18 @@ def send_email(subject: str, recipients: List[str], text_body: str, html_body: O
         try:
             from app.extensions import db
             from app.models.system_setting import SystemSettings
-            from app.models.service_tokens import PlatformServiceProviderConfig
-
-            # Synchronize active platform provider config (email service type) to SystemSettings
-            from sqlalchemy import text
-            query = text("SELECT id, service_type, provider_key, display_name, priority, is_active, config_encrypted FROM platform_service_provider_configs WHERE service_type = 'email' AND is_active = :is_active LIMIT 1")
-            result = db.session.execute(query, {"is_active": True})
-            provider_config = result.mappings().first()
 
             settings = db.session.query(SystemSettings).first()
-            if not settings:
-                from flask import g
-                import uuid
-                active_tenant_id = getattr(g, 'tenant_id', None)
-                if active_tenant_id and isinstance(active_tenant_id, str):
-                    try:
-                        active_tenant_id = uuid.UUID(active_tenant_id)
-                    except ValueError:
-                        pass
-                if not active_tenant_id:
-                    from app.models.tenant import Tenant
-                    first_tenant = Tenant.query.first()
-                    if first_tenant:
-                        active_tenant_id = first_tenant.id
-                settings = SystemSettings(id=1, tenant_id=active_tenant_id, setting_key='smtp')
-                db.session.add(settings)
-                db.session.flush()
-
-            if provider_config:
-                p_cfg = {}
-                if hasattr(provider_config, 'get_config'):
-                    p_cfg = provider_config.get_config() or {}
-                else:
-                    config_encrypted = provider_config.get('config_encrypted')
-                    if config_encrypted:
-                        try:
-                            from flask import current_app
-                            from app.utils.secret_crypto import decrypt_value
-                            import json
-                            secret = current_app.config.get('SECRET_KEY') or current_app.config.get('ENCRYPTION_KEY') or ''
-                            salt = current_app.config.get('SECURITY_PASSWORD_SALT') or ''
-                            decrypted_text = decrypt_value(config_encrypted, secret=secret, salt=salt)
-                            if decrypted_text:
-                                config_data = json.loads(decrypted_text)
-                                if isinstance(config_data, dict):
-                                    p_cfg = config_data
-                        except Exception as dec_err:
-                            logger.warning(f"Failed to decrypt provider_config dynamic SMTP settings: {str(dec_err)}")
-
-                settings.smtp_host = p_cfg.get('smtpHost') or p_cfg.get('smtp_host')
-                settings.smtp_password = p_cfg.get('smtpPassword') or p_cfg.get('smtp_password')
-                settings.smtp_username = p_cfg.get('smtpUsername') or p_cfg.get('smtp_username')
-                settings.smtp_port = p_cfg.get('smtpPort') or p_cfg.get('smtp_port')
-                settings.smtp_encryption = p_cfg.get('smtpEncryption') or p_cfg.get('smtp_encryption')
-                db.session.commit()
-
-            # Dynamic hydration from SystemSettings database record
-            db_smtp_host = settings.smtp_host
-            db_smtp_port = settings.smtp_port
-            db_smtp_user = settings.smtp_username
-            db_smtp_pass = settings.smtp_password
-            db_smtp_enc = settings.smtp_encryption
+            if settings:
+                db_smtp_host = settings.smtp_host
+                db_smtp_port = settings.smtp_port
+                db_smtp_user = settings.smtp_username
+                db_smtp_pass = settings.smtp_password
+                db_smtp_enc = settings.smtp_encryption
         except Exception as e:
-            logger.warning(f"Failed to query dynamic SystemSettings block: {str(e)}")
+            logger.warning(f"Failed to query legacy SystemSettings SMTP fallback block: {str(e)}")
 
-        smtp_host = cfg.get('smtpHost') or cfg.get('smtp_host') or db_smtp_host or os.environ.get('MAIL_SERVER', 'localhost')
+        smtp_host = _sanitize_runtime_smtp_host(cfg.get('smtpHost') or cfg.get('smtp_host') or db_smtp_host or os.environ.get('MAIL_SERVER', 'localhost'))
         smtp_port = cfg.get('smtpPort') or cfg.get('smtp_port') or db_smtp_port
         smtp_user = cfg.get('smtpUsername') or cfg.get('smtp_username') or db_smtp_user or os.environ.get('MAIL_USERNAME')
         smtp_pass = cfg.get('smtpPassword') or cfg.get('smtp_password') or db_smtp_pass or os.environ.get('MAIL_PASSWORD')

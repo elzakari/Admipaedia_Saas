@@ -1,4 +1,5 @@
 from datetime import datetime
+import uuid
 
 from flask import jsonify, request, g, current_app
 from sqlalchemy import or_, func
@@ -6,13 +7,54 @@ from sqlalchemy import or_, func
 from app.extensions import db
 from app.models.security import SecurityEvent, SchoolRegistrationToken
 from app.models.user import User, Role
-from app.models.tenant import Tenant
+from app.models.tenant import Tenant, TenantMembership
 from app.utils.platform_access import require_platform_super_admin
 from app.services.orphan_cleanup_service import OrphanCleanupService
 from app.services.user_service import SecurePurgeService
 
 
-def _serialize_user(u: User):
+def _serialize_school_memberships(memberships):
+    serialized = []
+    for membership, tenant in memberships:
+        serialized.append({
+            'membership_id': str(membership.id),
+            'tenant_id': str(membership.tenant_id),
+            'tenant_name': tenant.name if tenant else None,
+            'tenant_slug': tenant.slug if tenant else None,
+            'role': membership.role,
+            'status': membership.status,
+            'created_at': membership.created_at.isoformat() if membership.created_at else None,
+        })
+    return serialized
+
+
+def _membership_map_for_user_ids(user_ids):
+    ids = [int(user_id) for user_id in set(user_ids or []) if user_id is not None]
+    if not ids:
+        return {}
+
+    rows = (
+        db.session.query(TenantMembership, Tenant)
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .filter(TenantMembership.user_id.in_(ids))
+        .order_by(
+            TenantMembership.status.asc(),
+            TenantMembership.created_at.desc(),
+            Tenant.name.asc(),
+        )
+        .all()
+    )
+
+    membership_map = {user_id: [] for user_id in ids}
+    for membership, tenant in rows:
+        membership_map.setdefault(int(membership.user_id), []).append((membership, tenant))
+    return membership_map
+
+
+def _serialize_user(u: User, memberships=None):
+    school_memberships = _serialize_school_memberships(memberships or [])
+    active_school_memberships = [membership for membership in school_memberships if membership.get('status') == 'active']
+    primary_school = active_school_memberships[0] if active_school_memberships else (school_memberships[0] if school_memberships else None)
     return {
         'id': u.id,
         'username': u.username,
@@ -22,6 +64,16 @@ def _serialize_user(u: User):
         'created_at': u.created_at.isoformat() if u.created_at else None,
         'updated_at': u.updated_at.isoformat() if u.updated_at else None,
         'last_login': u.last_login.isoformat() if u.last_login else None,
+        'school_memberships': school_memberships,
+        'school_memberships_count': len(school_memberships),
+        'active_school_memberships_count': len(active_school_memberships),
+        'primary_school': {
+            'tenant_id': primary_school.get('tenant_id'),
+            'tenant_name': primary_school.get('tenant_name'),
+            'tenant_slug': primary_school.get('tenant_slug'),
+            'role': primary_school.get('role'),
+            'status': primary_school.get('status'),
+        } if primary_school else None,
     }
 
 
@@ -190,6 +242,8 @@ def super_admin_list_users():
     q = (request.args.get('q') or '').strip()
     role = (request.args.get('role') or '').strip()
     status = (request.args.get('status') or '').strip()
+    tenant_id = (request.args.get('tenant_id') or request.args.get('school_id') or '').strip()
+    membership_status = (request.args.get('membership_status') or '').strip()
 
     query = User.query
 
@@ -207,12 +261,28 @@ def super_admin_list_users():
         else:
             query = query.filter(User.status == status)
 
+    if tenant_id or membership_status:
+        query = query.join(TenantMembership, TenantMembership.user_id == User.id)
+
+        if tenant_id:
+            try:
+                tenant_uuid = tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+                query = query.filter(TenantMembership.tenant_id == tenant_uuid)
+            except Exception:
+                query = query.filter(db.text('1=0'))
+
+        if membership_status:
+            query = query.filter(TenantMembership.status == membership_status)
+
+        query = query.distinct()
+
     query = query.order_by(User.created_at.desc())
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    memberships_by_user = _membership_map_for_user_ids([user.id for user in pagination.items])
 
     return jsonify({
         'success': True,
-        'users': [_serialize_user(u) for u in pagination.items],
+        'users': [_serialize_user(u, memberships_by_user.get(u.id, [])) for u in pagination.items],
         'pagination': {
             'total': pagination.total,
             'pages': pagination.pages,
@@ -607,6 +677,22 @@ def super_admin_audit_logs():
             'has_next': pagination.has_next,
             'has_prev': pagination.has_prev,
         }
+    }), 200
+
+
+@super_admin_bp.route('/audit-logs/event-types', methods=['GET'])
+@require_platform_super_admin()
+def super_admin_audit_log_event_types():
+    rows = (
+        db.session.query(SecurityEvent.event_type)
+        .filter(SecurityEvent.event_type.like('super_admin.%'))
+        .distinct()
+        .order_by(SecurityEvent.event_type.asc())
+        .all()
+    )
+    return jsonify({
+        'success': True,
+        'event_types': [row[0] for row in rows if row and row[0]],
     }), 200
 
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Settings, 
   Save, 
@@ -20,9 +21,11 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api';
 import platformIntegrationsService from '../../services/platformIntegrationsService';
+import billingService from '../../services/billingService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { EmailProviderCard } from '../../components/settings/EmailProviderCard';
 import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
@@ -32,9 +35,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 
+function isValidEmail(value: string) {
+  if (!value) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidHttpUrl(value: string) {
+  if (!value) return true;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeHost(value: unknown) {
+  let host = String(value || '').trim();
+  for (const char of ['\u200b', '\u200c', '\u200d', '\ufeff', '\u200E', '\u200F']) {
+    host = host.replaceAll(char, '');
+  }
+  for (const prefix of ['https://', 'http://', 'smtp://']) {
+    if (host.toLowerCase().startsWith(prefix)) {
+      host = host.slice(prefix.length);
+    }
+  }
+  if (host.includes('/')) {
+    host = host.split('/', 1)[0];
+  }
+  return host.trim();
+}
+
+function hasSecretValue(value: unknown) {
+  const normalized = String(value || '').trim();
+  return normalized.length > 0 && normalized !== '********';
+}
+
 const SystemSettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
   const [supportEmail, setSupportEmail] = useState<string>('');
   const [termsUrl, setTermsUrl] = useState<string>('');
@@ -52,6 +92,8 @@ const SystemSettingsPage: React.FC = () => {
   const [defaultStudentLimit, setDefaultStudentLimit] = useState<string>('0');
 
   const [superAdminMfaRequired, setSuperAdminMfaRequired] = useState<boolean>(false);
+  const [platformAlertsEnabled, setPlatformAlertsEnabled] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<string>(() => searchParams.get('tab') || 'platform');
 
   const [savingKeys, setSavingKeys] = useState<Record<string, boolean>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, number>>({});
@@ -126,6 +168,12 @@ const SystemSettingsPage: React.FC = () => {
     whatsapp: 'idle',
     ai: 'idle',
   });
+  const [testMessages, setTestMessages] = useState<Record<string, string>>({
+    email: '',
+    sms: '',
+    whatsapp: '',
+    ai: '',
+  });
 
   const openTest = (serviceType: 'email' | 'sms' | 'whatsapp' | 'ai') => {
     setTestServiceType(serviceType);
@@ -171,18 +219,22 @@ const SystemSettingsPage: React.FC = () => {
         provider_key,
         config: cfg,
         params,
+        test_unsaved_config: true,
       });
 
       if (res && res.result && res.result.ok === true) {
         setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'verified' }));
+        setTestMessages((prev) => ({ ...prev, [testServiceType]: res.result.message || 'Test successful' }));
         toast.success(`${res.result.message || 'Test successful'} (Duration: ${res.result.duration_ms}ms)`);
         setTestOpen(false);
       } else {
         setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'failed' }));
+        setTestMessages((prev) => ({ ...prev, [testServiceType]: res?.result?.message || 'Test failed' }));
         toast.error(res?.result?.message || 'Test failed');
       }
     } catch (error: any) {
       setTestStatuses((prev) => ({ ...prev, [testServiceType]: 'failed' }));
+      setTestMessages((prev) => ({ ...prev, [testServiceType]: error.response?.data?.message || 'A network error occurred while running the test.' }));
       toast.error(error.response?.data?.message || 'A network error occurred while running the test.');
     } finally {
       setTestingProvider(false);
@@ -248,6 +300,14 @@ const SystemSettingsPage: React.FC = () => {
     }
   });
 
+  const { data: platformPlansData } = useQuery({
+    queryKey: ['platform-billing-plans'],
+    queryFn: async () => {
+      const res = await billingService.listPlatformPlans();
+      return res;
+    }
+  });
+
   const settings = useMemo(() => {
     return rawSettings || {};
   }, [rawSettings]);
@@ -271,7 +331,16 @@ const SystemSettingsPage: React.FC = () => {
     setDefaultStudentLimit(asIntString((settings as any).licensing_default_student_limit, '0'));
 
     setSuperAdminMfaRequired(asBool((settings as any).platform_super_admin_mfa_required, false));
+    setPlatformAlertsEnabled(asBool((settings as any).platform_alerts_enabled, true));
   }, [settings]);
+
+  useEffect(() => {
+    const requested = searchParams.get('tab') || 'platform';
+    const allowed = new Set(['platform', 'tenancy', 'licensing', 'security', 'integrations']);
+    if (allowed.has(requested)) {
+      setActiveTab(requested);
+    }
+  }, [searchParams]);
 
   const [planLimitDraft, setPlanLimitDraft] = useState<Record<string, Record<string, string>>>({});
 
@@ -366,10 +435,44 @@ const SystemSettingsPage: React.FC = () => {
   });
 
   const handleUpdateTextSetting = (key: string, value: string) => {
+    const trimmed = value.trim();
+    if (key === 'platform_support_email' && trimmed && !isValidEmail(trimmed)) {
+      toast.error('Enter a valid support email address');
+      return;
+    }
+    if ((key === 'platform_terms_url' || key === 'platform_privacy_url') && !isValidHttpUrl(trimmed)) {
+      toast.error('Enter a valid http or https URL');
+      return;
+    }
+    if (key === 'tenancy_default_country_code' && trimmed.length !== 2) {
+      toast.error('Country code must be a 2-letter ISO code');
+      return;
+    }
+    if (key === 'tenancy_default_currency' && trimmed.length !== 3) {
+      toast.error('Currency must be a 3-letter code');
+      return;
+    }
     updateSettingMutation.mutate({ key, value, setting_type: 'string' });
   };
 
   const handleUpdateIntSetting = (key: string, value: string) => {
+    const parsed = Number.parseInt(String(value), 10);
+    if (Number.isNaN(parsed)) {
+      toast.error('Enter a valid number');
+      return;
+    }
+    if (key === 'tenancy_default_invite_expiry_days' && (parsed < 1 || parsed > 365)) {
+      toast.error('Invite expiry must be between 1 and 365 days');
+      return;
+    }
+    if (key === 'licensing_trial_days' && (parsed < 0 || parsed > 365)) {
+      toast.error('Trial days must be between 0 and 365');
+      return;
+    }
+    if (key === 'licensing_default_student_limit' && parsed < 0) {
+      toast.error('Default student limit cannot be negative');
+      return;
+    }
     updateSettingMutation.mutate({ key, value, setting_type: 'int' });
   };
 
@@ -379,6 +482,85 @@ const SystemSettingsPage: React.FC = () => {
 
   const isSaving = (key: string) => Boolean(savingKeys[key]);
   const isSaved = (key: string) => Boolean(savedKeys[key]);
+  const providers = providersData?.providers || [];
+  const emailProviderRecord = useMemo(() => (
+    [...providers]
+      .filter((provider: any) => provider.service_type === 'email')
+      .sort((a: any, b: any) => Number(a.priority || 0) - Number(b.priority || 0))[0]
+  ), [providers]);
+  const providerWarnings = useMemo(() => providers.filter((provider: any) => provider.warning), [providers]);
+  const emailProviderHealth = emailProviderRecord?.config_status || 'missing';
+  const platformPlans = platformPlansData?.plans || [];
+  const integrationsConfiguredCount = providers.filter((provider: any) => provider.is_active).length;
+  const currentTabMeta = useMemo(() => {
+    const items: Record<string, { title: string; description: string }> = {
+      platform: {
+        title: 'Platform workflow',
+        description: 'Manage public-facing platform defaults, maintenance state, and support links.',
+      },
+      tenancy: {
+        title: 'Tenant onboarding defaults',
+        description: 'Control the country, timezone, language, and invite defaults applied when new schools are created.',
+      },
+      licensing: {
+        title: 'Licensing defaults',
+        description: 'Set the default plan and license baselines that shape new tenant subscriptions.',
+      },
+      security: {
+        title: 'Security posture',
+        description: 'Apply super-admin access policy and platform-wide alerting preferences.',
+      },
+      integrations: {
+        title: 'Integration operations',
+        description: 'Configure the live outbound providers, test connectivity, and manage plan token allowances.',
+      },
+    }
+    return items[activeTab] || items.platform
+  }, [activeTab]);
+  const handleTabChange = (nextTab: string) => {
+    setActiveTab(nextTab);
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', nextTab);
+    setSearchParams(next, { replace: true });
+  };
+
+  function sanitizeEmailProviderConfig(config: Record<string, any>) {
+    const next = { ...config };
+    if (next.smtpHost) {
+      next.smtpHost = sanitizeHost(next.smtpHost);
+    }
+    if (next.fromEmail) {
+      next.fromEmail = String(next.fromEmail).trim();
+    }
+    if (next.fromName) {
+      next.fromName = String(next.fromName).trim();
+    }
+    return next;
+  }
+
+  function validateEmailProviderConfig(config: Record<string, any>) {
+    const providerKey = String(config.provider_key || 'smtp').trim().toLowerCase();
+    const fromEmail = String(config.fromEmail || '').trim();
+    if (!isValidEmail(fromEmail)) {
+      return 'A valid from email address is required';
+    }
+    if (providerKey === 'smtp' || providerKey === 'ses_smtp') {
+      const smtpHost = sanitizeHost(config.smtpHost);
+      const smtpPort = Number(config.smtpPort);
+      if (!smtpHost) return 'SMTP host is required';
+      if (!Number.isInteger(smtpPort) || smtpPort <= 0 || smtpPort > 65535) return 'SMTP port must be between 1 and 65535';
+      if (!String(config.smtpUsername || '').trim()) return 'SMTP username is required';
+      if (!hasSecretValue(config.smtpPassword)) return 'SMTP password is required';
+    }
+    if (providerKey === 'resend' && !hasSecretValue(config.apiKey)) {
+      return 'Resend API key is required';
+    }
+    if (providerKey === 'ses_api') {
+      if (!hasSecretValue(config.awsAccessKeyId)) return 'AWS Access Key ID is required';
+      if (!hasSecretValue(config.awsSecretAccessKey)) return 'AWS Secret Access Key is required';
+    }
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -452,7 +634,44 @@ const SystemSettingsPage: React.FC = () => {
         <p className="text-gray-500 mt-1">{t('platform_settings.subtitle', 'Configure global platform parameters, tenant defaults, and licensing')}</p>
       </div>
 
-      <Tabs defaultValue="platform" className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active tab</div>
+            <div className="mt-2 text-lg font-semibold">{currentTabMeta.title}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email provider</div>
+            <div className="mt-2 text-lg font-semibold">{emailProviderRecord?.display_name || emailConfig.display_name || 'Not configured'}</div>
+            <div className="text-xs text-muted-foreground">{emailProviderHealth === 'active' ? 'Ready for live send' : emailProviderHealth.replaceAll('_', ' ')}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Plans loaded</div>
+            <div className="mt-2 text-lg font-semibold">{platformPlans.length}</div>
+            <div className="text-xs text-muted-foreground">Dynamic licensing options</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Integrations active</div>
+            <div className="mt-2 text-lg font-semibold">{integrationsConfiguredCount}</div>
+            <div className="text-xs text-muted-foreground">{providerWarnings.length > 0 ? `${providerWarnings.length} warning(s)` : 'No provider warnings'}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="py-5">
+          <div className="text-sm font-semibold text-foreground">{currentTabMeta.title}</div>
+          <div className="mt-1 text-sm text-muted-foreground">{currentTabMeta.description}</div>
+        </CardContent>
+      </Card>
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="bg-white border p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-2">
           <TabsTrigger value="platform" className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 py-2">
             <Settings size={16} className="mr-2" /> {t('platform_settings.tabs.platform', 'Platform')}
@@ -478,6 +697,9 @@ const SystemSettingsPage: React.FC = () => {
               <CardDescription>{t('platform_settings.platform.description', 'Global operational parameters (not school-specific)')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+                Support email is a public contact value shown to users. Outbound transactional email delivery is configured in the <strong>Integrations</strong> tab under Email Integration.
+              </div>
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div>
                   <p className="font-medium text-sm">{t('platform_settings.platform.maintenance_mode.title', 'Maintenance Mode')}</p>
@@ -714,6 +936,9 @@ const SystemSettingsPage: React.FC = () => {
               <CardDescription>Defaults for new tenants and high-level license rules</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+                Default plan options come from the active billing plans configured on the platform, which keeps licensing defaults aligned with real subscription offerings.
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Default plan</Label>
@@ -729,9 +954,9 @@ const SystemSettingsPage: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      {platformPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.slug}>{plan.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {isSaved('licensing_default_plan') ? <div className="text-xs text-emerald-600">Saved</div> : null}
@@ -817,8 +1042,9 @@ const SystemSettingsPage: React.FC = () => {
                   {isSaving('platform_alerts_enabled') ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : null}
                   {isSaved('platform_alerts_enabled') ? <span className="text-xs text-emerald-600">Saved</span> : null}
                   <Switch
-                    checked={asBool((settings as any).platform_alerts_enabled, true)}
+                    checked={platformAlertsEnabled}
                     onCheckedChange={(checked) => {
+                      setPlatformAlertsEnabled(checked)
                       updateBooleanSetting('platform_alerts_enabled', checked)
                     }}
                   />
@@ -842,12 +1068,32 @@ const SystemSettingsPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
+          {providerWarnings.length > 0 ? (
+            <Card className="rounded-2xl border-amber-300 bg-amber-50">
+              <CardHeader>
+                <CardTitle className="text-base">Integration warnings</CardTitle>
+                <CardDescription>Some saved provider configurations need attention before you rely on them in production.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-amber-900">
+                {providerWarnings.map((provider: any) => (
+                  <div key={`${provider.service_type}-${provider.provider_key}-${provider.id}`} className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                    <div className="font-medium">{provider.display_name || provider.provider_key} ({provider.service_type})</div>
+                    <div>{provider.warning}</div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Provider Configuration</CardTitle>
               <CardDescription>Email, SMS, WhatsApp and AI providers are configured centrally and distributed via plan-based service tokens.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                The Email Integration below is the authoritative outbound delivery source for password resets, registration invites, and platform transactional emails. Save the provider first, then run a live test against the current draft configuration.
+              </div>
               {providersLoading ? (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading integration providers…
@@ -859,7 +1105,14 @@ const SystemSettingsPage: React.FC = () => {
                   emailConfig={emailConfig}
                   setEmailConfig={setEmailConfig}
                   onSave={() => {
-                    const { provider_key, display_name, ...cfg } = emailConfig;
+                    const sanitizedConfig = sanitizeEmailProviderConfig(emailConfig);
+                    const validationError = validateEmailProviderConfig(sanitizedConfig);
+                    if (validationError) {
+                      toast.error(validationError);
+                      return;
+                    }
+                    setEmailConfig(sanitizedConfig);
+                    const { provider_key, display_name, ...cfg } = sanitizedConfig;
                     upsertProviderMutation.mutate({
                       scope: 'platform',
                       service_type: 'email',
@@ -874,6 +1127,9 @@ const SystemSettingsPage: React.FC = () => {
                   isSaving={upsertProviderMutation.isPending}
                   isTesting={testingProvider}
                   testStatus={testStatuses.email}
+                  statusNote={testMessages.email}
+                  providerWarning={emailProviderRecord?.warning || null}
+                  configStatus={emailProviderRecord?.config_status || null}
                 />
 
                 <div className="border rounded-xl p-4 space-y-4">

@@ -181,15 +181,29 @@ def platform_get_tenant_detail(tenant_id):
     payments = PlatformPayment.query.options(joinedload(PlatformPayment.tenant))\
         .filter_by(tenant_id=tenant.id).order_by(PlatformPayment.created_at.desc()).limit(10).all()
 
-    invoice_total = db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).filter(PlatformInvoice.tenant_id == tenant.id).scalar() or 0
-    payment_total = db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).filter(PlatformPayment.tenant_id == tenant.id).scalar() or 0
+    legacy_invoice_total = db.session.query(func.coalesce(func.sum(PlatformInvoice.amount), 0)).filter(PlatformInvoice.tenant_id == tenant.id).scalar() or 0
+    legacy_payment_total = db.session.query(func.coalesce(func.sum(PlatformPayment.amount), 0)).filter(PlatformPayment.tenant_id == tenant.id).scalar() or 0
+    school_billing_invoice_total = db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0)).filter(BillingInvoice.tenant_id == tenant.id).scalar() or 0
+    school_billing_payment_total = (
+        db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
+        .filter(BillingPayment.school_id == tenant.id, BillingPayment.status == 'successful')
+        .scalar() or 0
+    )
 
-    invoice_total_f = float(invoice_total)
-    payment_total_f = float(payment_total)
+    legacy_invoice_total_f = float(legacy_invoice_total)
+    legacy_payment_total_f = float(legacy_payment_total)
+    school_billing_invoice_total_f = float(school_billing_invoice_total)
+    school_billing_payment_total_f = float(school_billing_payment_total)
+    invoice_total_f = legacy_invoice_total_f + school_billing_invoice_total_f
+    payment_total_f = legacy_payment_total_f + school_billing_payment_total_f
 
     return {
         'tenant': serialize_tenant(tenant),
         'members_count': int(members_count),
+        'legacy_invoice_total': legacy_invoice_total_f,
+        'legacy_payment_total': legacy_payment_total_f,
+        'school_billing_invoice_total': school_billing_invoice_total_f,
+        'school_billing_payment_total': school_billing_payment_total_f,
         'invoice_total': invoice_total_f,
         'payment_total': payment_total_f,
         'outstanding_total': max(0.0, invoice_total_f - payment_total_f),
@@ -266,9 +280,7 @@ def platform_kpis():
     # --- Billing invoices / payments (school-fee SaaS billing) ---
     try:
         billing_invoice_total = float(
-            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
-            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
-            .scalar() or 0
+            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0)).scalar() or 0
         )
         billing_payment_total = float(
             db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
@@ -478,9 +490,7 @@ def platform_financial_summary():
     # --- Billing invoices / payments (school-fee SaaS billing) ---
     try:
         billing_inv_total = float(
-            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0))
-            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
-            .scalar() or 0
+            db.session.query(func.coalesce(func.sum(BillingInvoice.total_amount), 0)).scalar() or 0
         )
         billing_pmt_total = float(
             db.session.query(func.coalesce(func.sum(BillingPayment.amount), 0))
@@ -523,7 +533,6 @@ def platform_financial_summary():
     try:
         billing_inv_by_tenant = (
             db.session.query(BillingInvoice.tenant_id, func.sum(BillingInvoice.total_amount))
-            .filter(BillingInvoice.payment_status.in_(['paid', 'partially_paid']))
             .group_by(BillingInvoice.tenant_id)
             .all()
         )
@@ -563,5 +572,15 @@ def platform_financial_summary():
         'invoice_total': invoice_total,
         'payment_total': payment_total,
         'outstanding_total': max(0.0, invoice_total - payment_total),
-        'by_tenant': list(by_tenant.values()),
+        'platform_invoice_total': platform_inv_total,
+        'platform_payment_total': platform_pmt_total,
+        'school_billing_invoice_total': billing_inv_total,
+        'school_billing_payment_total': billing_pmt_total,
+        'by_tenant': [
+            {
+                **item,
+                'outstanding_total': max(0.0, float(item.get('invoice_total') or 0) - float(item.get('payment_total') or 0)),
+            }
+            for item in by_tenant.values()
+        ],
     }

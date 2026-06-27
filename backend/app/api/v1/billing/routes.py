@@ -6,8 +6,10 @@ from typing import Optional
 
 from flask import jsonify, request, g
 
+from app.extensions import db
 from app.models.billing import BillingInvoice
 from app.models.payments import Payment
+from app.models.security import SecurityEvent
 from app.services.payments.service import PaymentService
 from app.services.saas import subscription_change_ops
 from app.services.billing import plan_pricing_ops
@@ -49,6 +51,36 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
             return None
 
 
+def _parse_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in ('1', 'true', 'yes', 'on'):
+        return True
+    if normalized in ('0', 'false', 'no', 'off', ''):
+        return False
+    return default
+
+
+def _audit_gateway_change(event_type: str, gateway, details: dict):
+    actor = getattr(g, 'current_user', None)
+    event = SecurityEvent(
+        event_type=event_type,
+        user_id=getattr(actor, 'id', None),
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get('User-Agent'),
+        endpoint=request.path,
+        method=request.method,
+        details=details,
+        severity='info',
+        created_at=datetime.utcnow(),
+    )
+    db.session.add(event)
+    db.session.commit()
+
+
 @billing_bp.route('/gateways', methods=['GET'])
 @super_admin_required
 def list_payment_gateways():
@@ -71,11 +103,21 @@ def create_payment_gateway():
         webhook_secret=data.get('webhook_secret'),
         supported_channels=data.get('supported_channels'),
         environment=data.get('environment'),
-        is_active=bool(data.get('is_active', True)),
-        is_default=bool(data.get('is_default', False)),
+        is_active=_parse_bool(data.get('is_active'), True),
+        is_default=_parse_bool(data.get('is_default'), False),
     )
     if err or not gw:
         return jsonify({'success': False, 'message': err or 'Failed'}), 400
+    _audit_gateway_change('super_admin.payment_gateway_created', gw, {
+        'gateway_id': int(gw.id),
+        'gateway_name': gw.name,
+        'display_name': gw.display_name,
+        'country_code': gw.country_code,
+        'currency': gw.currency,
+        'environment': gw.environment,
+        'is_active': bool(gw.is_active),
+        'is_default': bool(gw.is_default),
+    })
     return jsonify({'success': True, 'gateway': PaymentService.serialize_gateway(gw)}), 201
 
 
@@ -94,12 +136,22 @@ def update_payment_gateway(gateway_id: int):
         webhook_secret=data.get('webhook_secret'),
         supported_channels=data.get('supported_channels'),
         environment=data.get('environment'),
-        is_active=bool(data.get('is_active', True)),
-        is_default=bool(data.get('is_default', False)),
+        is_active=_parse_bool(data.get('is_active'), True),
+        is_default=_parse_bool(data.get('is_default'), False),
     )
     if err or not gw:
         status = 404 if err == 'Gateway not found' else 400
         return jsonify({'success': False, 'message': err or 'Failed'}), status
+    _audit_gateway_change('super_admin.payment_gateway_updated', gw, {
+        'gateway_id': int(gw.id),
+        'gateway_name': gw.name,
+        'display_name': gw.display_name,
+        'country_code': gw.country_code,
+        'currency': gw.currency,
+        'environment': gw.environment,
+        'is_active': bool(gw.is_active),
+        'is_default': bool(gw.is_default),
+    })
     return jsonify({'success': True, 'gateway': PaymentService.serialize_gateway(gw)}), 200
 
 

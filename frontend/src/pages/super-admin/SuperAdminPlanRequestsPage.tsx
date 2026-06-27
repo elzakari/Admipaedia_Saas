@@ -54,6 +54,9 @@ export default function SuperAdminPlanRequestsPage() {
   }, [])
 
   const rows = useMemo(() => requests || [], [requests])
+  const pendingCount = useMemo(() => rows.filter((request) => String(request.status).toLowerCase() === 'pending').length, [rows])
+  const paymentPendingCount = useMemo(() => rows.filter((request) => String(request.status).toLowerCase() === 'payment_pending').length, [rows])
+  const approvedCount = useMemo(() => rows.filter((request) => String(request.status).toLowerCase() === 'approved').length, [rows])
 
   async function onApprove(r: SubscriptionChangeRequest) {
     setSaving(true)
@@ -96,9 +99,39 @@ export default function SuperAdminPlanRequestsPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">{t('super_admin.plan_requests.title', 'Plan Requests')}</h1>
-          <p className="text-sm text-muted-foreground">{t('super_admin.plan_requests.subtitle', 'Approve or reject school downgrade requests.')}</p>
+          <p className="text-sm text-muted-foreground">{t('super_admin.plan_requests.subtitle', 'Review subscription change requests with school, term, and plan context.')}</p>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.plan_requests.summary.pending', 'Pending')}</div>
+            <div className="mt-2 text-2xl font-semibold">{pendingCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.plan_requests.summary.payment_pending', 'Awaiting payment')}</div>
+            <div className="mt-2 text-2xl font-semibold">{paymentPendingCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.plan_requests.summary.approved', 'Approved')}</div>
+            <div className="mt-2 text-2xl font-semibold">{approvedCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="py-5 text-sm text-muted-foreground">
+          {t(
+            'super_admin.plan_requests.workflow_hint',
+            'Downgrades still require Super Admin approval. Upgrade requests marked as payment pending are waiting for school invoice settlement before activation.'
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl">
         <CardHeader>
@@ -148,10 +181,28 @@ export default function SuperAdminPlanRequestsPage() {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</TableCell>
-                  <TableCell className="max-w-[220px] truncate">{r.school_id}</TableCell>
+                  <TableCell className="max-w-[260px]">
+                    <div className="font-medium truncate">{r.school_name || 'Unknown school'}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {r.school_slug ? `${r.school_slug} • ` : ''}{r.school_id}
+                    </div>
+                    {r.created_by_user?.email ? (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {t('super_admin.plan_requests.table.requested_by', 'Requested by')}: {r.created_by_user.email}
+                      </div>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{r.request_type}</TableCell>
-                  <TableCell>{r.requested_plan?.name || r.requested_plan_id}</TableCell>
-                  <TableCell>{r.effective_date || '—'}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{r.requested_plan?.name || r.requested_plan_id}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('super_admin.plan_requests.table.current_plan', 'Current')}: {r.current_plan?.name || '—'}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>{r.effective_term?.name || r.effective_date || '—'}</div>
+                    {r.effective_date ? <div className="text-xs text-muted-foreground">{r.effective_date}</div> : null}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
                   </TableCell>
@@ -161,8 +212,10 @@ export default function SuperAdminPlanRequestsPage() {
                         <Button size="sm" onClick={() => onApprove(r)} disabled={saving}>{t('common.approved', 'Approved')}</Button>
                         <Button size="sm" variant="destructive" onClick={() => openReject(r)} disabled={saving}>{t('common.rejected', 'Rejected')}</Button>
                       </>
+                    ) : r.status === 'payment_pending' ? (
+                      <span className="text-sm text-muted-foreground">{t('super_admin.plan_requests.table.awaiting_payment', 'Awaiting payment')}</span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
+                      <span className="text-sm text-muted-foreground">{r.decision_note || '—'}</span>
                     )}
                   </TableCell>
                 </TableRow>

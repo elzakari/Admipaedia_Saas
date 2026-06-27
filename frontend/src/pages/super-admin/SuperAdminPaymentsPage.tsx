@@ -67,6 +67,16 @@ export default function SuperAdminPaymentsPage() {
   }, [])
 
   const rows = useMemo(() => payments || [], [payments])
+  const totalAmount = useMemo(() => rows.reduce((sum, payment) => sum + (payment.amount || 0), 0), [rows])
+  const pendingCount = useMemo(() => rows.filter((payment) => String(payment.status).toLowerCase() === 'pending').length, [rows])
+  const manualReviewCount = useMemo(
+    () => rows.filter((payment) => String(payment.status).toLowerCase() === 'pending' && payment.gateway_name === 'manual').length,
+    [rows]
+  )
+  const successfulCount = useMemo(
+    () => rows.filter((payment) => String(payment.status).toLowerCase() === 'successful').length,
+    [rows]
+  )
 
   async function onVerify(p: Payment) {
     try {
@@ -172,6 +182,43 @@ export default function SuperAdminPaymentsPage() {
         </CardContent>
       </Card>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payments.summary.visible', 'Visible payments')}</div>
+            <div className="mt-2 text-2xl font-semibold">{rows.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payments.summary.pending', 'Pending')}</div>
+            <div className="mt-2 text-2xl font-semibold">{pendingCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payments.summary.manual_review', 'Manual review')}</div>
+            <div className="mt-2 text-2xl font-semibold">{manualReviewCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.payments.summary.total_amount', 'Visible amount')}</div>
+            <div className="mt-2 text-2xl font-semibold">{totalAmount.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground">{t('super_admin.payments.summary.successful', 'Successful: {{count}}', { count: successfulCount })}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="py-5 text-sm text-muted-foreground">
+          {t(
+            'super_admin.payments.workflow_hint',
+            'This page is optimized for payment operations: identify the school quickly, verify gateway payments, and review pending manual submissions with invoice context.'
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">{t('super_admin.payments.table.title', 'Payments')}</CardTitle>
@@ -195,10 +242,21 @@ export default function SuperAdminPaymentsPage() {
               {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>{p.created_at ? new Date(p.created_at).toLocaleString() : '—'}</TableCell>
-                  <TableCell className="max-w-[220px] truncate">{p.school_id}</TableCell>
-                  <TableCell>{p.invoice_id}</TableCell>
+                  <TableCell className="max-w-[260px]">
+                    <div className="font-medium truncate">{p.tenant_name || p.school_name || 'Unknown school'}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.tenant_slug ? `${p.tenant_slug} • ` : ''}{p.school_id}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{p.invoice_number || `Invoice #${p.invoice_id}`}</div>
+                    <div className="text-xs text-muted-foreground">{t('super_admin.payments.table.payment_ref', 'Ref')}: {p.manual_reference || p.payment_reference || '—'}</div>
+                  </TableCell>
                   <TableCell>{p.gateway_name}</TableCell>
-                  <TableCell>{p.payment_channel}</TableCell>
+                  <TableCell>
+                    <div>{p.payment_channel || '—'}</div>
+                    {p.manual_method ? <div className="text-xs text-muted-foreground">{p.manual_method}</div> : null}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant(p.status)}>{p.status}</Badge>
                   </TableCell>

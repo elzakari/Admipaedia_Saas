@@ -48,6 +48,9 @@ export type Payment = {
   id: number
   invoice_id: number
   school_id: string
+  tenant_name?: string | null
+  tenant_slug?: string | null
+  school_name?: string | null
   payment_gateway_id: number | null
   gateway_name: string
   payment_reference: string
@@ -67,6 +70,7 @@ export type Payment = {
   manual_method: string | null
   manual_reference: string | null
   manual_paid_at: string | null
+  invoice_number?: string | null
   created_at: string | null
 }
 
@@ -85,6 +89,10 @@ export type BillingPlan = {
   currency: string
   is_active: boolean
   billing_min_months: number
+  active_student_count?: number
+  total_per_month?: number
+  is_current_plan?: boolean
+  pricing_via_alias?: boolean
 }
 
 export type AcademicTerm = {
@@ -97,6 +105,8 @@ export type AcademicTerm = {
 export type SubscriptionChangeRequest = {
   id: number
   school_id: string
+  school_name?: string | null
+  school_slug?: string | null
   requested_plan_id: number
   request_type: 'upgrade' | 'downgrade' | string
   status: 'pending' | 'approved' | 'rejected' | string
@@ -109,6 +119,18 @@ export type SubscriptionChangeRequest = {
   created_at: string | null
   updated_at: string | null
   requested_plan: BillingPlan | null
+  current_plan?: BillingPlan | null
+  effective_term?: AcademicTerm | null
+  created_by_user?: {
+    id: number
+    email: string
+    username: string
+  } | null
+  approved_by_user?: {
+    id: number
+    email: string
+    username: string
+  } | null
 }
 
 export type PlanPricingTier = {
@@ -224,7 +246,6 @@ const billingService = {
     })
     return res.data as {
       success: boolean
-      subscription_id: number
       plan: BillingPlan
       invoice: BillingInvoice
       payment: Payment | null

@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.academic_term import AcademicTerm
 from app.models.billing import Plan, SchoolPlanSubscription, SubscriptionChangeRequest
 from app.models.tenant import Tenant
+from app.models.user import User
 from app.services.entitlements.service import EntitlementService
 from app.services.payments.service import PaymentService
 from app.services.saas.plan_ops import assign_plan_to_tenant
@@ -35,9 +36,16 @@ def serialize_term(term: AcademicTerm) -> dict:
 
 
 def serialize_change_request(r: SubscriptionChangeRequest) -> dict:
+    tenant = Tenant.query.get(r.school_id) if r.school_id else None
+    effective_term = AcademicTerm.query.get(int(r.effective_academic_term_id)) if r.effective_academic_term_id else None
+    current_plan, _ = _get_current_plan_for_tenant(r.school_id) if r.school_id else (None, None)
+    created_by_user = User.query.get(int(r.created_by_user_id)) if r.created_by_user_id else None
+    approved_by_user = User.query.get(int(r.approved_by_user_id)) if r.approved_by_user_id else None
     return {
         'id': int(r.id),
         'school_id': str(r.school_id),
+        'school_name': tenant.name if tenant else None,
+        'school_slug': tenant.slug if tenant else None,
         'requested_plan_id': int(r.requested_plan_id),
         'request_type': r.request_type,
         'status': r.status,
@@ -50,6 +58,18 @@ def serialize_change_request(r: SubscriptionChangeRequest) -> dict:
         'created_at': r.created_at.isoformat() if r.created_at else None,
         'updated_at': r.updated_at.isoformat() if r.updated_at else None,
         'requested_plan': serialize_plan(r.requested_plan) if r.requested_plan else None,
+        'current_plan': serialize_plan(current_plan) if current_plan else None,
+        'effective_term': serialize_term(effective_term) if effective_term else None,
+        'created_by_user': {
+            'id': int(created_by_user.id),
+            'email': created_by_user.email,
+            'username': created_by_user.username,
+        } if created_by_user else None,
+        'approved_by_user': {
+            'id': int(approved_by_user.id),
+            'email': approved_by_user.email,
+            'username': approved_by_user.username,
+        } if approved_by_user else None,
     }
 
 
@@ -59,6 +79,43 @@ def list_active_plans() -> list[Plan]:
 
 def list_terms_for_tenant(tenant_id) -> list[AcademicTerm]:
     return AcademicTerm.query.filter_by(tenant_id=tenant_id).order_by(AcademicTerm.start_date.desc()).all()
+
+
+def _get_current_plan_for_tenant(tenant_id) -> tuple[Optional[Plan], Optional[str]]:
+    active, err = EntitlementService.getSchoolActivePlan(str(tenant_id))
+    if active and active.plan:
+        return active.plan, None
+
+    tenant = Tenant.query.get(tenant_id)
+    if not tenant:
+        return None, 'School not found'
+
+    fallback_slug = (getattr(tenant, 'plan', None) or '').strip().lower()
+    if fallback_slug:
+        fallback_plan = Plan.query.filter_by(slug=fallback_slug, is_active=True).first()
+        if fallback_plan:
+            return fallback_plan, None
+
+    latest_subscription = (
+        SchoolPlanSubscription.query
+        .filter_by(school_id=tenant.id)
+        .order_by(SchoolPlanSubscription.starts_at.desc(), SchoolPlanSubscription.id.desc())
+        .first()
+    )
+    if latest_subscription:
+        plan = Plan.query.get(int(latest_subscription.plan_id))
+        if plan:
+            return plan, None
+
+    return None, err or 'School has no active plan'
+
+
+def _plan_order_map() -> dict[str, int]:
+    plans = list_active_plans()
+    return {
+        str(plan.slug or '').strip().lower(): index
+        for index, plan in enumerate(plans)
+    }
 
 
 def create_upgrade(
@@ -79,28 +136,52 @@ def create_upgrade(
     if not plan:
         return None, 'Plan not found'
 
-    sub, err = assign_plan_to_tenant(tenant, plan.slug, actor_user_id=int(user_id))
-    if err or not sub:
-        return None, err or 'Failed to assign plan'
+    current_plan, current_plan_error = _get_current_plan_for_tenant(tenant.id)
+    if current_plan_error or not current_plan:
+        return None, current_plan_error or 'School has no active plan'
+
+    current_slug = str(current_plan.slug or '').strip().lower()
+    target_slug = str(plan.slug or '').strip().lower()
+    if current_slug == target_slug:
+        return None, 'School is already on this plan'
+
+    plan_order = _plan_order_map()
+    if current_slug in plan_order and target_slug in plan_order and plan_order[target_slug] <= plan_order[current_slug]:
+        return None, 'Use downgrade request for lower or equal plans'
+
+    existing_pending = (
+        SubscriptionChangeRequest.query
+        .filter(
+            SubscriptionChangeRequest.school_id == tenant.id,
+            SubscriptionChangeRequest.request_type == 'upgrade',
+            SubscriptionChangeRequest.status.in_(['pending', 'payment_pending']),
+        )
+        .first()
+    )
+    if existing_pending:
+        return None, 'An upgrade request is already in progress'
 
     req = SubscriptionChangeRequest(
         school_id=tenant.id,
         requested_plan_id=int(plan.id),
         request_type='upgrade',
-        status='approved',
+        status='payment_pending',
+        effective_academic_term_id=int(academic_term_id),
         created_by_user_id=int(user_id),
-        decided_at=datetime.utcnow(),
-        decision_note='Self-service upgrade',
+        effective_date=date.today(),
+        decision_note='Awaiting payment confirmation',
     )
     db.session.add(req)
-    db.session.commit()
+    db.session.flush()
 
     invoice, ierr = PaymentService.generate_invoice_for_school_term(
         school_id=tenant.id,
         academic_term_id=int(academic_term_id),
+        plan_override=plan,
         due_date=None,
     )
     if ierr or not invoice:
+        db.session.rollback()
         return None, ierr or 'Failed to generate invoice'
 
     payment = None
@@ -113,10 +194,12 @@ def create_upgrade(
             notify_url=notify_url,
         )
         if perr:
+            db.session.rollback()
             return None, perr
 
+    db.session.commit()
+
     return {
-        'subscription_id': int(sub.id),
         'plan': serialize_plan(plan),
         'invoice': PaymentService.serialize_invoice(invoice),
         'payment': PaymentService.serialize_payment(payment) if payment else None,
@@ -138,6 +221,19 @@ def request_downgrade(
     plan = Plan.query.filter_by(slug=(plan_slug or '').strip().lower(), is_active=True).first()
     if not plan:
         return None, 'Plan not found'
+
+    current_plan, current_plan_error = _get_current_plan_for_tenant(tenant.id)
+    if current_plan_error or not current_plan:
+        return None, current_plan_error or 'School has no active plan'
+
+    current_slug = str(current_plan.slug or '').strip().lower()
+    target_slug = str(plan.slug or '').strip().lower()
+    if current_slug == target_slug:
+        return None, 'School is already on this plan'
+
+    plan_order = _plan_order_map()
+    if current_slug in plan_order and target_slug in plan_order and plan_order[target_slug] >= plan_order[current_slug]:
+        return None, 'Downgrade target must be lower than the current plan'
 
     term = AcademicTerm.query.filter_by(id=int(effective_academic_term_id), tenant_id=tenant.id).first()
     if not term or not term.start_date:

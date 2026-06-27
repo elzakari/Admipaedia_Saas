@@ -10,6 +10,7 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app.extensions import db
+from app.models.security import SecurityEvent
 from app.models.billing import PlanLimit, PlanFeature, Plan
 from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
 from app.utils.platform_access import require_platform_super_admin, get_current_user
@@ -67,6 +68,94 @@ def _has_secret(v) -> bool:
     if v == '********':
         return False
     return True
+
+
+def _parse_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in ('1', 'true', 'yes', 'on'):
+        return True
+    if normalized in ('0', 'false', 'no', 'off', ''):
+        return False
+    return default
+
+
+def _validate_provider_config(service_type: str, provider_key: str, config: dict | None) -> str | None:
+    cfg = dict(config or {})
+    st = str(service_type or '').strip().lower()
+    pk = str(provider_key or '').strip().lower()
+
+    if st == 'email':
+        if pk not in ('smtp', 'ses_smtp', 'ses_api', 'resend'):
+            return 'Unsupported email provider'
+        from_email = str(cfg.get('fromEmail') or cfg.get('from_email') or '').strip()
+        if not from_email or '@' not in from_email:
+            return 'A valid from email is required'
+        if pk in ('smtp', 'ses_smtp'):
+            host = _sanitize_smtp_host(str(cfg.get('smtpHost') or cfg.get('smtp_host') or ''))
+            if not host:
+                return 'SMTP host is required'
+            try:
+                port = int(cfg.get('smtpPort') or cfg.get('smtp_port') or 0)
+            except Exception:
+                return 'SMTP port must be a valid integer'
+            if port <= 0 or port > 65535:
+                return 'SMTP port must be between 1 and 65535'
+            username = str(cfg.get('smtpUsername') or cfg.get('smtp_username') or '').strip()
+            if not username:
+                return 'SMTP username is required'
+            password = cfg.get('smtpPassword') or cfg.get('smtp_password')
+            if not _has_secret(password):
+                return 'SMTP password is required'
+        elif pk == 'ses_api':
+            if not _has_secret(cfg.get('awsAccessKeyId') or cfg.get('aws_access_key')):
+                return 'AWS Access Key ID is required'
+            if not _has_secret(cfg.get('awsSecretAccessKey') or cfg.get('aws_secret_key')):
+                return 'AWS Secret Access Key is required'
+        elif pk == 'resend':
+            if not _has_secret(cfg.get('apiKey') or cfg.get('api_key')):
+                return 'Resend API key is required'
+
+    return None
+
+
+def _normalize_provider_config(service_type: str, provider_key: str, config: dict | None) -> dict:
+    cfg = dict(config or {})
+    st = str(service_type or '').strip().lower()
+    pk = str(provider_key or '').strip().lower()
+
+    if st == 'email' and pk in ('smtp', 'ses_smtp'):
+        host_value = cfg.get('smtpHost') or cfg.get('smtp_host')
+        if host_value is not None:
+            sanitized_host = _sanitize_smtp_host(str(host_value))
+            cfg['smtpHost'] = sanitized_host
+            cfg['smtp_host'] = sanitized_host
+
+    return cfg
+
+
+def _audit_provider_change(event_type: str, *, actor_id: int | None, scope: str, service_type: str, provider_key: str, row_id: int, display_name: str | None, is_active: bool, priority: int):
+    ev = SecurityEvent(
+        event_type=event_type,
+        user_id=actor_id,
+        ip_address=request.remote_addr,
+        endpoint=request.path,
+        method=request.method,
+        details={
+            'scope': scope,
+            'service_type': service_type,
+            'provider_key': provider_key,
+            'provider_row_id': row_id,
+            'display_name': display_name,
+            'is_active': bool(is_active),
+            'priority': int(priority),
+        },
+        severity='info'
+    )
+    db.session.add(ev)
 
 
 def _mask_username(uname: str) -> str:
@@ -408,7 +497,13 @@ def upsert_provider_config():
         prio = int(priority) if priority is not None else 100
     except Exception:
         prio = 100
-    active = True if is_active is None else bool(is_active)
+    active = _parse_bool(is_active, True)
+    normalized_config = _normalize_provider_config(service_type, provider_key, config if isinstance(config, dict) else {})
+    validation_error = _validate_provider_config(service_type, provider_key, normalized_config)
+    if validation_error:
+        return jsonify({'success': False, 'message': validation_error}), 400
+    actor = get_current_user()
+    actor_id = int(getattr(actor, 'id', 0) or 0) if actor else None
 
     if scope == 'tenant':
         tenant_id = str(data.get('tenant_id') or '').strip()
@@ -426,7 +521,7 @@ def upsert_provider_config():
         row.priority = prio
         row.is_active = active
         row.source = str(data.get('source') or row.source or 'manual')
-        merged = _merge_secrets(row.get_config(), config if isinstance(config, dict) else {})
+        merged = _merge_secrets(row.get_config(), normalized_config)
         
         # Explicitly serialize to a clean string block before encrypting
         import json
@@ -434,7 +529,18 @@ def upsert_provider_config():
         secret, salt = row._crypto_secret()
         payload = json.dumps(merged or {}, separators=(',', ':'))
         row.config_encrypted = encrypt_value(payload, secret=secret, salt=salt)
-        
+        db.session.flush()
+        _audit_provider_change(
+            'super_admin.integration_provider_saved',
+            actor_id=actor_id,
+            scope='tenant',
+            service_type=service_type,
+            provider_key=provider_key,
+            row_id=int(row.id),
+            display_name=row.display_name,
+            is_active=bool(row.is_active),
+            priority=int(row.priority or 100),
+        )
         db.session.commit()
         return jsonify({'success': True, 'id': row.id}), 200
 
@@ -445,7 +551,7 @@ def upsert_provider_config():
     row.display_name = display_name
     row.priority = prio
     row.is_active = active
-    merged = _merge_secrets(row.get_config(), config if isinstance(config, dict) else {})
+    merged = _merge_secrets(row.get_config(), normalized_config)
     
     # Explicitly serialize to a clean string block before encrypting
     import json
@@ -453,7 +559,18 @@ def upsert_provider_config():
     secret, salt = row._crypto_secret()
     payload = json.dumps(merged or {}, separators=(',', ':'))
     row.config_encrypted = encrypt_value(payload, secret=secret, salt=salt)
-    
+    db.session.flush()
+    _audit_provider_change(
+        'super_admin.integration_provider_saved',
+        actor_id=actor_id,
+        scope='platform',
+        service_type=service_type,
+        provider_key=provider_key,
+        row_id=int(row.id),
+        display_name=row.display_name,
+        is_active=bool(row.is_active),
+        priority=int(row.priority or 100),
+    )
     db.session.commit()
     return jsonify({'success': True, 'id': row.id}), 200
 
@@ -539,22 +656,6 @@ def test_provider_config():
 
     if not service_type:
         return jsonify({'success': False, 'message': 'service_type is required'}), 400
-
-    import os
-    if os.getenv("EMAIL_PROVIDER") == "resend":
-        return jsonify({
-            'success': True,
-            'ok': True,
-            'provider_key': 'resend_api',
-            'message': 'Resend API connection ready.',
-            'result': {
-                'ok': True,
-                'provider_key': 'resend_api',
-                'message': 'Resend API connection ready.',
-                'message_id': '',
-                'duration_ms': 0
-            }
-        }), 200
 
     from app.models.service_tokens import PlatformServiceProviderConfig, TenantServiceProviderOverride
     from cryptography.fernet import InvalidToken

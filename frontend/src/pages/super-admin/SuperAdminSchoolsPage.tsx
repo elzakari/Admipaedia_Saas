@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/components/ui/use-toast'
 import { Switch } from '@/components/ui/switch'
 import saasService, { Pagination, PlatformKPIs, SaaSTenant } from '@/services/saasService'
+import billingService, { BillingPlan } from '@/services/billingService'
 import { PlatformTenantDrawer } from '@/pages/saas/PlatformTenantDrawer'
 import { superAdminService } from '@/services/superAdminService'
 
@@ -23,6 +24,7 @@ export default function SuperAdminSchoolsPage() {
   const [tenants, setTenants] = useState<SaaSTenant[] | null>(null)
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [kpis, setKpis] = useState<PlatformKPIs | null>(null)
+  const [platformPlans, setPlatformPlans] = useState<BillingPlan[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -98,9 +100,19 @@ export default function SuperAdminSchoolsPage() {
     }
   }
 
+  async function loadPlans() {
+    try {
+      const res = await billingService.listPlatformPlans()
+      setPlatformPlans(res.plans || [])
+    } catch (e) {
+      void e
+    }
+  }
+
   useEffect(() => {
     load(1)
     loadKpis()
+    loadPlans()
   }, [])
 
   const filtered = useMemo(() => tenants || [], [tenants])
@@ -110,6 +122,17 @@ export default function SuperAdminSchoolsPage() {
     ;(kpis ? Object.keys(kpis.tenants_by_country) : []).forEach((c) => set.add(c))
     return Array.from(set).sort()
   }, [kpis])
+  const planOptions = useMemo(() => {
+    const options = [{ value: 'trial', label: t('super_admin.schools.plan.trial', 'Trial') }]
+    const seen = new Set(options.map((option) => option.value))
+    for (const plan of platformPlans) {
+      const slug = String(plan.slug || '').trim().toLowerCase()
+      if (!slug || seen.has(slug)) continue
+      seen.add(slug)
+      options.push({ value: slug, label: plan.name || slug })
+    }
+    return options
+  }, [platformPlans, t])
 
   const onApplyFilters = async () => {
     await load(1)
@@ -417,10 +440,9 @@ export default function SuperAdminSchoolsPage() {
                 <SelectTrigger><SelectValue placeholder={t('common.all', 'All')} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('common.all', 'All')}</SelectItem>
-                  <SelectItem value="trial">{t('super_admin.schools.plan.trial', 'Trial')}</SelectItem>
-                  <SelectItem value="basic">{t('super_admin.schools.plan.basic', 'Basic')}</SelectItem>
-                  <SelectItem value="pro">{t('super_admin.schools.plan.pro', 'Pro')}</SelectItem>
-                  <SelectItem value="enterprise">{t('super_admin.schools.plan.enterprise', 'Enterprise')}</SelectItem>
+                  {planOptions.map((plan) => (
+                    <SelectItem key={plan.value} value={plan.value}>{plan.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -457,6 +479,7 @@ export default function SuperAdminSchoolsPage() {
                 <TableHead>{t('super_admin.schools.table.plan', 'Plan')}</TableHead>
                 <TableHead>{t('super_admin.schools.table.country', 'Country')}</TableHead>
                 <TableHead>{t('super_admin.schools.table.created', 'Created')}</TableHead>
+                <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -481,11 +504,24 @@ export default function SuperAdminSchoolsPage() {
                   </TableCell>
                   <TableCell>{tenant.country_code}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : '—'}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setSelectedTenantId(tenant.id)
+                        setDrawerOpen(true)
+                      }}
+                    >
+                      {t('super_admin.schools.table.open', 'Open')}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {!loading && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">{t('super_admin.schools.table.empty', 'No schools found.')}</TableCell>
+                  <TableCell colSpan={6} className="text-sm text-muted-foreground">{t('super_admin.schools.table.empty', 'No schools found.')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -513,6 +549,7 @@ export default function SuperAdminSchoolsPage() {
       <PlatformTenantDrawer
         open={drawerOpen}
         tenantId={selectedTenantId}
+        planOptions={planOptions}
         onOpenChange={setDrawerOpen}
         onChanged={async () => {
           await load(page)

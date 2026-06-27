@@ -93,6 +93,7 @@ export type PlatformKPIs = {
   invoices_count: number
   invoices_sent_count: number
   invoices_paid_count: number
+  students_total?: number
 }
 
 export interface AdminDashboardMetrics {
@@ -127,6 +128,10 @@ export interface AdminDashboardMetrics {
 export type PlatformTenantDetail = {
   tenant: SaaSTenant
   members_count: number
+  legacy_invoice_total?: number
+  legacy_payment_total?: number
+  school_billing_invoice_total?: number
+  school_billing_payment_total?: number
   invoice_total: number
   payment_total: number
   outstanding_total: number
@@ -164,7 +169,17 @@ export type PlatformFinancialSummary = {
   invoice_total: number
   payment_total: number
   outstanding_total: number
-  by_tenant: Array<{ tenant_id: string; tenant_name: string; invoice_total: number; payment_total: number }>
+  platform_invoice_total?: number
+  platform_payment_total?: number
+  school_billing_invoice_total?: number
+  school_billing_payment_total?: number
+  by_tenant: Array<{
+    tenant_id: string
+    tenant_name: string
+    invoice_total: number
+    payment_total: number
+    outstanding_total?: number
+  }>
 }
 
 export type SchoolRegistrationPreview = {

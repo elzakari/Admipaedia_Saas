@@ -48,6 +48,7 @@ const platformIntegrationsService = {
     provider_key: string
     config?: Record<string, any>
     params?: Record<string, any>
+    test_unsaved_config?: boolean
   }) {
     const res = await api.post('/platform/integrations/providers/test', input)
     return res.data as { success: boolean; result: { supported: boolean; ok: boolean; message: string; duration_ms: number } }

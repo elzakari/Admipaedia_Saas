@@ -15,6 +15,9 @@ interface EmailProviderCardProps {
   isSaving: boolean;
   isTesting: boolean;
   testStatus: 'idle' | 'verified' | 'failed';
+  statusNote?: string | null;
+  providerWarning?: string | null;
+  configStatus?: string | null;
 }
 
 export const EmailProviderCard: React.FC<EmailProviderCardProps> = ({
@@ -25,6 +28,9 @@ export const EmailProviderCard: React.FC<EmailProviderCardProps> = ({
   isSaving,
   isTesting,
   testStatus,
+  statusNote,
+  providerWarning,
+  configStatus,
 }) => {
   const { t } = useTranslation();
 
@@ -80,6 +86,11 @@ export const EmailProviderCard: React.FC<EmailProviderCardProps> = ({
                 Failed
               </span>
             )}
+            {configStatus && configStatus !== 'active' && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                {configStatus.replaceAll('_', ' ')}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -104,6 +115,16 @@ export const EmailProviderCard: React.FC<EmailProviderCardProps> = ({
       </CardHeader>
 
       <CardContent className="pt-6 space-y-6">
+        {providerWarning ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {providerWarning}
+          </div>
+        ) : null}
+        {statusNote ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            {statusNote}
+          </div>
+        ) : null}
         {/* Strategy Selector trigger */}
         <div className="space-y-2 max-w-md">
           <Label className="text-sm font-semibold">{t('platform_settings.email_provider_card.strategy', 'Email Strategy')}</Label>

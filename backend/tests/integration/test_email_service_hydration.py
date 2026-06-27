@@ -2,7 +2,6 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 from app.extensions import db
-from app.models.system_setting import SystemSettings
 from app.models.service_tokens import PlatformServiceProviderConfig
 from app.services.email_service import send_email
 
@@ -16,7 +15,6 @@ def test_email_service_env_fallback(app):
         app.config['MAIL_SUPPRESS_SEND'] = False
 
         # Clear database configs first
-        db.session.query(SystemSettings).delete()
         db.session.query(PlatformServiceProviderConfig).delete()
         db.session.commit()
 
@@ -52,15 +50,12 @@ def test_email_service_env_fallback(app):
 def test_email_service_dynamic_db_hydration(app):
     """
     Test that when active PlatformServiceProviderConfig SMTP credentials are saved
-    in the database, they dynamically synchronize and hydrate SystemSettings,
-    and the mail service utilizes them instead of the env variables.
+    in the database, the mail service uses them instead of environment values.
     """
     with app.app_context():
         # Temporarily disable suppression for testing SMTP flow
         app.config['MAIL_SUPPRESS_SEND'] = False
 
-        # Clear configs first
-        db.session.query(SystemSettings).delete()
         db.session.query(PlatformServiceProviderConfig).delete()
         db.session.commit()
 
@@ -109,108 +104,59 @@ def test_email_service_dynamic_db_hydration(app):
                 assert kwargs['password'] == 'db-admin-password-super-secret'
                 assert kwargs['encryption'] == 'tls'
 
-                # Double check SystemSettings model database state directly
-                settings = db.session.query(SystemSettings).first()
-                assert settings is not None
-                assert settings.smtp_host == 'smtp.dynamic-database.com'
-                assert settings.smtp_username == 'db-admin-user'
-                assert settings.smtp_password == 'db-admin-password-super-secret'
-
-
-def test_email_service_raw_tuple_hydration(app):
-    """
-    Test that when the email service database query returns a raw database tuple/mapping,
-    the polymorphic email engine successfully parses the fields defensively and resolves them.
-    """
+def test_email_service_uses_lowest_priority_active_provider(app):
     with app.app_context():
         app.config['MAIL_SUPPRESS_SEND'] = False
-        
-        # Clear configs first
-        db.session.query(SystemSettings).delete()
         db.session.query(PlatformServiceProviderConfig).delete()
         db.session.commit()
 
-        # Let's craft an encrypted config payload using the model helper
-        temp_model = PlatformServiceProviderConfig()
-        temp_model.set_config({
-            'smtpHost': 'smtp.tuple-raw.com',
-            'smtpPort': 465,
-            'smtpUsername': 'tuple-raw-user',
-            'smtpPassword': 'tuple-raw-password',
-            'smtpEncryption': 'ssl'
+        fallback = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Fallback SMTP',
+            is_active=True,
+            priority=50,
+        )
+        fallback.set_config({
+            'smtpHost': 'smtp.fallback-priority.com',
+            'smtpPort': 587,
+            'smtpUsername': 'fallback-user',
+            'smtpPassword': 'fallback-pass',
+            'smtpEncryption': 'tls',
         })
-        enc_payload = temp_model.config_encrypted
+        preferred = PlatformServiceProviderConfig(
+            service_type='email',
+            provider_key='smtp',
+            display_name='Preferred SMTP',
+            is_active=True,
+            priority=10,
+        )
+        preferred.set_config({
+            'smtpHost': 'smtp.preferred-priority.com',
+            'smtpPort': 465,
+            'smtpUsername': 'preferred-user',
+            'smtpPassword': 'preferred-pass',
+            'smtpEncryption': 'ssl',
+        })
+        db.session.add_all([fallback, preferred])
+        db.session.commit()
 
-        # Standard raw database tuple: (id, service_type, provider_key, display_name, priority, is_active, config_encrypted, created_at, updated_at)
-        mock_mapping = {
-            'id': 999,
-            'service_type': 'email',
-            'provider_key': 'smtp',
-            'display_name': 'Raw Mapped Provider',
-            'priority': 100,
-            'is_active': True,
-            'config_encrypted': enc_payload
-        }
+        with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
+            mock_send.return_value = (True, "Sent", "msg-priority-001")
 
-        with patch('app.extensions.db.session.execute') as mock_execute:
-            # mock_execute().mappings().first() returns the mock_mapping
-            mock_execute.return_value.mappings.return_value.first.return_value = mock_mapping
-            
-            with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
-                mock_send.return_value = (True, "Sent", "msg-tuple-101")
-                
-                send_email(
-                    subject="Tuple Test",
-                    recipients=["test@example.com"],
-                    text_body="Testing polymorphic tuple query.",
-                    provider="smtp"
-                )
-                
-                # Check that dynamic db values from raw tuple override environmental defaults
-                args, kwargs = mock_send.call_args
-                assert kwargs['host'] == 'smtp.tuple-raw.com'
-                assert int(kwargs['port']) == 465
-                assert kwargs['username'] == 'tuple-raw-user'
-                assert kwargs['password'] == 'tuple-raw-password'
-                assert kwargs['encryption'] == 'ssl'
+            send_email(
+                subject="Priority Test",
+                recipients=["test@example.com"],
+                text_body="Testing deterministic provider selection.",
+                provider="smtp"
+            )
 
-
-def test_email_integration_check_resend_guard(app):
-    """
-    Test that when EMAIL_PROVIDER environment variable is set to 'resend',
-    the test_provider_config endpoint bypasses other checks and immediately returns
-    success with the resend_api provider_key.
-    """
-    import json
-    
-    with app.app_context():
-        with patch('flask_jwt_extended.view_decorators.verify_jwt_in_request') as mock_jwt, \
-             patch('app.utils.platform_access.get_current_user') as mock_user, \
-             patch.dict(os.environ, {'EMAIL_PROVIDER': 'resend'}):
-            
-            mock_user.return_value = MagicMock(role='super_admin')
-            
-            with app.test_client() as client:
-                response = client.post(
-                    '/api/v1/platform/integrations/providers/test',
-                    json={
-                        'service_type': 'email',
-                        'provider_key': 'smtp'
-                    }
-                )
-                assert response.status_code == 200
-                res_data = json.loads(response.data)
-                
-                # Check direct guard dictionary values
-                assert res_data['ok'] is True
-                assert res_data['provider_key'] == 'resend_api'
-                assert res_data['message'] == 'Resend API connection ready.'
-                
-                # Check standard UI-compatible nested format too
-                assert res_data['success'] is True
-                assert res_data['result']['ok'] is True
-                assert res_data['result']['provider_key'] == 'resend_api'
-                assert res_data['result']['message'] == 'Resend API connection ready.'
+            _, kwargs = mock_send.call_args
+            assert kwargs['host'] == 'smtp.preferred-priority.com'
+            assert int(kwargs['port']) == 465
+            assert kwargs['username'] == 'preferred-user'
+            assert kwargs['password'] == 'preferred-pass'
+            assert kwargs['encryption'] == 'ssl'
 
 
 def test_email_service_fallback_to_resend(app):
@@ -221,7 +167,6 @@ def test_email_service_fallback_to_resend(app):
     """
     with app.app_context():
         # Clear database configs first
-        db.session.query(SystemSettings).delete()
         db.session.query(PlatformServiceProviderConfig).delete()
         db.session.commit()
 
@@ -487,39 +432,64 @@ def test_email_integration_check_dns_sanitization(app):
 def test_email_service_tenant_context_hydration(app):
     """
     Test that when send_email is called within a tenant context (g.tenant_id set),
-    SystemSettings is provisioned and instantiated with the correct tenant_id.
+    the tenant override is selected ahead of the platform provider.
     """
     from flask import g
     import uuid
+    from app.models.service_tokens import TenantServiceProviderOverride
+    from app.models.tenant import Tenant
     
     with app.app_context():
         app.config['MAIL_SUPPRESS_SEND'] = False
 
         # Clear configs first
-        db.session.query(SystemSettings).delete()
+        db.session.query(TenantServiceProviderOverride).delete()
         db.session.query(PlatformServiceProviderConfig).delete()
         db.session.commit()
 
-        # Insert active PlatformServiceProviderConfig SMTP record
-        provider_cfg = PlatformServiceProviderConfig(
+        tenant = Tenant(
+            slug=f"email-tenant-{uuid.uuid4().hex[:8]}",
+            name='Email Tenant Test',
+            country_code='GH',
+            schema_name=f"tenant_email_{uuid.uuid4().hex[:8]}",
+            status='active',
+            plan='pro',
+        )
+        db.session.add(tenant)
+        db.session.flush()
+
+        platform_provider = PlatformServiceProviderConfig(
             service_type='email',
             provider_key='smtp',
-            display_name='Tenant Specific SMTP',
+            display_name='Platform SMTP',
             is_active=True
         )
-        provider_cfg.set_config({
-            'smtpHost': 'smtp.tenant-database.com',
+        platform_provider.set_config({
+            'smtpHost': 'smtp.platform-database.com',
             'smtpPort': 587,
-            'smtpUsername': 'tenant-user',
-            'smtpPassword': 'tenant-password',
+            'smtpUsername': 'platform-user',
+            'smtpPassword': 'platform-password',
             'smtpEncryption': 'tls'
         })
-        db.session.add(provider_cfg)
+        tenant_override = TenantServiceProviderOverride(
+            tenant_id=str(tenant.id),
+            service_type='email',
+            provider_key='smtp',
+            display_name='Tenant Override SMTP',
+            is_active=True,
+            priority=5,
+        )
+        tenant_override.set_config({
+            'smtpHost': 'smtp.tenant-database.com',
+            'smtpPort': 465,
+            'smtpUsername': 'tenant-user',
+            'smtpPassword': 'tenant-password',
+            'smtpEncryption': 'ssl'
+        })
+        db.session.add_all([platform_provider, tenant_override])
         db.session.commit()
 
-        # Mock tenant_id on g context
-        mock_tenant_id = str(uuid.uuid4())
-        g.tenant_id = mock_tenant_id
+        g.tenant_id = str(tenant.id)
 
         try:
             with patch('app.services.email_service._send_via_smtp_isolated') as mock_send:
@@ -532,18 +502,15 @@ def test_email_service_tenant_context_hydration(app):
                     provider="smtp"
                 )
                 
-                # Check that dynamic db values are hydrated
-                settings = db.session.query(SystemSettings).first()
-                assert settings is not None
-                assert settings.smtp_host == 'smtp.tenant-database.com'
-                assert str(settings.tenant_id) == mock_tenant_id
+                _, kwargs = mock_send.call_args
+                assert kwargs['host'] == 'smtp.tenant-database.com'
+                assert int(kwargs['port']) == 465
+                assert kwargs['username'] == 'tenant-user'
+                assert kwargs['password'] == 'tenant-password'
+                assert kwargs['encryption'] == 'ssl'
         finally:
             # Clean up g context
             if hasattr(g, 'tenant_id'):
                 delattr(g, 'tenant_id')
-
-
-
-
 
 

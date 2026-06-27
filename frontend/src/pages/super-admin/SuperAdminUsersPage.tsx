@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -17,9 +18,10 @@ import {
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog'
 import { superAdminService, SuperAdminUser, SuperAdminUserRole } from '@/services/superAdminService'
+import saasService, { SaaSTenant } from '@/services/saasService'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
-import { Eye, KeyRound, Trash2, UserCheck, UserX, Copy, Check, Mail, RefreshCw } from 'lucide-react'
+import { Building2, Check, Copy, Eye, FilterX, KeyRound, Mail, RefreshCw, Trash2, UserCheck, UserX } from 'lucide-react'
 
 const baseRoleOptions: Array<{ value: SuperAdminUserRole; key: string; fallback: string }> = [
   { value: 'admin', key: 'super_admin.roles.admin', fallback: 'Admin' },
@@ -42,6 +44,8 @@ const SuperAdminUsersPage: React.FC = () => {
   const [q, setQ] = useState(searchParams.get('q') || '')
   const [role, setRole] = useState(searchParams.get('role') || '')
   const [status, setStatus] = useState(searchParams.get('status') || '')
+  const [tenantId, setTenantId] = useState(searchParams.get('tenant_id') || '')
+  const [tenants, setTenants] = useState<SaaSTenant[]>([])
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createEmail, setCreateEmail] = useState('')
@@ -71,16 +75,37 @@ const SuperAdminUsersPage: React.FC = () => {
     return [{ value: 'super_manager' as const, key: 'super_admin.roles.super_manager', fallback: 'Super Manager' }, ...baseRoleOptions]
   }, [isActorSuperAdmin])
 
-  const queryKey = useMemo(() => ({ q, role, status, page }), [q, role, status, page])
+  const queryKey = useMemo(() => ({ q, role, status, tenantId, page }), [page, q, role, status, tenantId])
+  const schoolLinkedCount = useMemo(() => items.filter((u) => (u.active_school_memberships_count || 0) > 0).length, [items])
+  const platformOnlyCount = useMemo(() => items.filter((u) => (u.school_memberships_count || 0) === 0).length, [items])
+  const inactiveCount = useMemo(() => items.filter((u) => u.status !== 'active').length, [items])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
     if (q) next.set('q', q); else next.delete('q')
     if (role) next.set('role', role); else next.delete('role')
     if (status) next.set('status', status); else next.delete('status')
+    if (tenantId) next.set('tenant_id', tenantId); else next.delete('tenant_id')
     next.set('page', String(page))
     setSearchParams(next, { replace: true })
-  }, [q, role, status, page])
+  }, [page, q, role, searchParams, setSearchParams, status, tenantId])
+
+  useEffect(() => {
+    let mounted = true
+    const run = async () => {
+      try {
+        const res = await saasService.platformListTenants({ page: 1, per_page: 100, sort: 'name_asc' })
+        if (!mounted) return
+        setTenants(res.items || [])
+      } catch (e) {
+        void e
+      }
+    }
+    run()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -94,6 +119,7 @@ const SuperAdminUsersPage: React.FC = () => {
           q: queryKey.q || undefined,
           role: queryKey.role || undefined,
           status: queryKey.status || undefined,
+          tenant_id: queryKey.tenantId || undefined,
         })
         if (!mounted) return
         setItems(res.users)
@@ -539,7 +565,30 @@ const SuperAdminUsersPage: React.FC = () => {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="rounded-xl border bg-background p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.users.summary.visible', 'Visible users')}</div>
+          <div className="mt-2 text-2xl font-semibold">{items.length}</div>
+          <div className="text-xs text-muted-foreground">{t('super_admin.users.summary.visible_hint', 'Current page results')}</div>
+        </div>
+        <div className="rounded-xl border bg-background p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.users.summary.school_linked', 'School-linked')}</div>
+          <div className="mt-2 text-2xl font-semibold">{schoolLinkedCount}</div>
+          <div className="text-xs text-muted-foreground">{t('super_admin.users.summary.school_linked_hint', 'Users attached to at least one school workspace')}</div>
+        </div>
+        <div className="rounded-xl border bg-background p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.users.summary.platform_only', 'Platform-only')}</div>
+          <div className="mt-2 text-2xl font-semibold">{platformOnlyCount}</div>
+          <div className="text-xs text-muted-foreground">{t('super_admin.users.summary.platform_only_hint', 'No school memberships yet')}</div>
+        </div>
+        <div className="rounded-xl border bg-background p-4">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.users.summary.inactive', 'Inactive')}</div>
+          <div className="mt-2 text-2xl font-semibold">{inactiveCount}</div>
+          <div className="text-xs text-muted-foreground">{t('super_admin.users.summary.inactive_hint', 'Accounts requiring access review')}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="md:col-span-1">
           <Input placeholder={t('super_admin.users.search_placeholder', 'Search email or username')} value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} />
         </div>
@@ -566,6 +615,50 @@ const SuperAdminUsersPage: React.FC = () => {
             <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={tenantId || 'all'} onValueChange={(v) => { setTenantId(v === 'all' ? '' : v); setPage(1) }}>
+          <SelectTrigger>
+            <SelectValue placeholder={t('super_admin.users.filters.school', 'School')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('super_admin.users.filters.all_schools', 'All schools')}</SelectItem>
+            {tenants.map((tenant) => (
+              <SelectItem key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/20 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{t('super_admin.users.filters.active_filters', 'Active filters')}:</span>
+          {q ? <Badge variant="secondary">{t('super_admin.users.filters.search', 'Search')}: {q}</Badge> : null}
+          {role ? <Badge variant="secondary">{t('super_admin.users.filters.role', 'Role')}: {role}</Badge> : null}
+          {status ? <Badge variant="secondary">{t('super_admin.users.filters.status', 'Status')}: {status}</Badge> : null}
+          {tenantId ? (
+            <Badge variant="secondary">
+              <Building2 className="mr-1 h-3 w-3" />
+              {tenants.find((tenant) => tenant.id === tenantId)?.name || t('super_admin.users.filters.school', 'School')}
+            </Badge>
+          ) : null}
+          {!q && !role && !status && !tenantId ? <span>{t('super_admin.users.filters.none', 'No filters applied')}</span> : null}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setQ('')
+            setRole('')
+            setStatus('')
+            setTenantId('')
+            setPage(1)
+          }}
+          disabled={!q && !role && !status && !tenantId}
+        >
+          <FilterX className="mr-1.5 h-4 w-4" />
+          {t('super_admin.users.filters.clear', 'Clear filters')}
+        </Button>
       </div>
 
       {loading ? (
@@ -579,21 +672,47 @@ const SuperAdminUsersPage: React.FC = () => {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.user', 'User')}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.school_scope', 'Schools')}</th>
                   <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.role', 'Role')}</th>
                   <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.status', 'Status')}</th>
+                  <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.last_login', 'Last login')}</th>
                   <th className="text-left px-4 py-3 font-medium">{t('super_admin.users.table.created', 'Created')}</th>
                   <th className="text-right px-4 py-3 font-medium">{t('common.actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">{t('super_admin.users.empty', 'No users found')}</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('super_admin.users.empty', 'No users found')}</td></tr>
                 ) : (
                   items.map((u) => (
                     <tr key={u.id} className="border-t">
                       <td className="px-4 py-3">
                         <div className="font-medium">{u.username}</div>
                         <div className="text-muted-foreground">{u.email}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="space-y-2">
+                          {u.school_memberships && u.school_memberships.length > 0 ? (
+                            <>
+                              <div className="font-medium">{u.primary_school?.tenant_name || u.school_memberships[0]?.tenant_name || '—'}</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {u.school_memberships.slice(0, 2).map((membership) => (
+                                  <Badge key={membership.membership_id} variant={membership.status === 'active' ? 'success' : 'secondary'}>
+                                    {membership.tenant_name || membership.tenant_slug || membership.tenant_id}
+                                  </Badge>
+                                ))}
+                                {u.school_memberships.length > 2 ? (
+                                  <Badge variant="outline">+{u.school_memberships.length - 2}</Badge>
+                                ) : null}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {t('super_admin.users.table.primary_role', 'Primary role')}: {u.primary_school?.role || u.school_memberships[0]?.role}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">{t('super_admin.users.table.platform_only', 'Platform-only user')}</div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {u.role === 'super_admin'
@@ -619,6 +738,7 @@ const SuperAdminUsersPage: React.FC = () => {
                             ? t('common.inactive', 'Inactive')
                             : u.status}
                       </td>
+                      <td className="px-4 py-3 text-muted-foreground">{u.last_login ? new Date(u.last_login).toLocaleString() : t('super_admin.users.table.never', 'Never')}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.created_at ? u.created_at.slice(0, 10) : ''}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2 flex-wrap">

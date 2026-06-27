@@ -6,17 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { superAdminService, SuperAdminAuditLog } from '@/services/superAdminService'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Copy, Eye, RefreshCcw } from 'lucide-react'
 import { toast } from 'sonner'
-
-const eventOptions = [
-  'super_admin.user_created',
-  'super_admin.user_updated',
-  'super_admin.user_deactivated',
-  'super_admin.user_reactivated',
-  'super_admin.user_reset_sent',
-]
 
 function formatIso(iso: string | null) {
   if (!iso) return ''
@@ -71,13 +63,21 @@ const SuperAdminAuditLogsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [eventType, setEventType] = useState('')
+  const [eventOptions, setEventOptions] = useState<string[]>([])
+  const [actorUserId, setActorUserId] = useState('')
+  const [targetUserId, setTargetUserId] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
   const [selected, setSelected] = useState<SuperAdminAuditLog | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
 
-  const queryKey = useMemo(() => ({ q, eventType, page, refreshNonce }), [q, eventType, page, refreshNonce])
+  const queryKey = useMemo(
+    () => ({ q, eventType, actorUserId, targetUserId, dateFrom, dateTo, page, refreshNonce }),
+    [actorUserId, dateFrom, dateTo, eventType, page, q, refreshNonce, targetUserId]
+  )
 
   useEffect(() => {
     let mounted = true
@@ -90,6 +90,10 @@ const SuperAdminAuditLogsPage: React.FC = () => {
           per_page: 25,
           q: queryKey.q || undefined,
           event_type: queryKey.eventType || undefined,
+          actor_user_id: queryKey.actorUserId ? Number(queryKey.actorUserId) : undefined,
+          target_user_id: queryKey.targetUserId ? Number(queryKey.targetUserId) : undefined,
+          from: queryKey.dateFrom ? `${queryKey.dateFrom}T00:00:00` : undefined,
+          to: queryKey.dateTo ? `${queryKey.dateTo}T23:59:59` : undefined,
         })
         if (!mounted) return
         setItems(res.logs)
@@ -108,6 +112,30 @@ const SuperAdminAuditLogsPage: React.FC = () => {
       mounted = false
     }
   }, [queryKey])
+
+  useEffect(() => {
+    let mounted = true
+    const run = async () => {
+      try {
+        const res = await superAdminService.listAuditLogEventTypes()
+        if (!mounted) return
+        setEventOptions(res.event_types || [])
+      } catch (e) {
+        void e
+      }
+    }
+    run()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const criticalCount = useMemo(
+    () => items.filter((item) => ['critical', 'error'].includes(String(item.severity || '').toLowerCase())).length,
+    [items]
+  )
+  const actorScopedCount = useMemo(() => items.filter((item) => item.actor_user_id != null).length, [items])
+  const eventTypeCount = eventOptions.length
 
   return (
     <div className="p-6 space-y-6">
@@ -198,9 +226,45 @@ const SuperAdminAuditLogsPage: React.FC = () => {
         <p className="text-sm text-muted-foreground">{t('super_admin.audit_logs.subtitle', 'Immutable record of Super Admin actions.')}</p>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.audit_logs.summary.visible', 'Visible logs')}</div>
+            <div className="mt-2 text-2xl font-semibold">{items.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.audit_logs.summary.critical', 'Critical or error')}</div>
+            <div className="mt-2 text-2xl font-semibold">{criticalCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.audit_logs.summary.actor_scoped', 'With actor')}</div>
+            <div className="mt-2 text-2xl font-semibold">{actorScopedCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl">
+          <CardContent className="pt-6">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.audit_logs.summary.event_types', 'Event types')}</div>
+            <div className="mt-2 text-2xl font-semibold">{eventTypeCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-2xl border-primary/20 bg-primary/5">
+        <CardContent className="py-5 text-sm text-muted-foreground">
+          {t(
+            'super_admin.audit_logs.workflow_hint',
+            'Use actor, target, date, and event filters together to investigate privileged actions quickly. Payment gateway changes now appear in this audit stream.'
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="border-slate-200">
         <CardContent className="p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-6">
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium text-slate-700 mb-1">{t('common.search', 'Search')}</div>
               <Input
@@ -209,7 +273,7 @@ const SuperAdminAuditLogsPage: React.FC = () => {
                 onChange={(e) => { setQ(e.target.value); setPage(1) }}
               />
             </div>
-            <div className="w-full lg:w-80">
+            <div>
               <div className="text-xs font-medium text-slate-700 mb-1">{t('super_admin.audit_logs.filters.event_type', 'Event type')}</div>
               <Select value={eventType || 'all'} onValueChange={(v) => { setEventType(v === 'all' ? '' : v); setPage(1) }}>
                 <SelectTrigger>
@@ -223,15 +287,31 @@ const SuperAdminAuditLogsPage: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2">
+            <div>
+              <div className="text-xs font-medium text-slate-700 mb-1">{t('super_admin.audit_logs.filters.actor', 'Actor user ID')}</div>
+              <Input value={actorUserId} onChange={(e) => { setActorUserId(e.target.value.replace(/\D/g, '')); setPage(1) }} placeholder="123" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-700 mb-1">{t('super_admin.audit_logs.filters.target', 'Target user ID')}</div>
+              <Input value={targetUserId} onChange={(e) => { setTargetUserId(e.target.value.replace(/\D/g, '')); setPage(1) }} placeholder="456" />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-700 mb-1">{t('super_admin.audit_logs.filters.from', 'From')}</div>
+              <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} />
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-700 mb-1">{t('super_admin.audit_logs.filters.to', 'To')}</div>
+              <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
               <Button variant="outline" onClick={() => setRefreshNonce((n) => n + 1)}>
                 <RefreshCcw className="h-4 w-4 mr-1.5" />
                 {t('common.refresh', 'Refresh')}
               </Button>
-              <Button variant="outline" onClick={() => { setQ(''); setEventType(''); setPage(1) }}>
+              <Button variant="outline" onClick={() => { setQ(''); setEventType(''); setActorUserId(''); setTargetUserId(''); setDateFrom(''); setDateTo(''); setPage(1) }}>
                 {t('common.clear', 'Clear')}
               </Button>
-            </div>
           </div>
         </CardContent>
       </Card>

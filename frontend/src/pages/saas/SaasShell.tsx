@@ -8,6 +8,14 @@ import { useSaasTenant } from '@/hooks/useSaasTenant'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import {
+  SAAS_BILLING_INVOICES_ROUTE,
+  SAAS_BILLING_PAYMENTS_ROUTE,
+  SAAS_BILLING_PLAN_ROUTE,
+  SAAS_SCHOOL_DASHBOARD_ROUTE,
+  SAAS_SCHOOL_PROFILE_ROUTE,
+  SAAS_TEAM_ROUTE,
+} from '@/lib/saasRoutes'
 
 type NavItem = {
   label: string
@@ -19,11 +27,18 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
   const location = useLocation()
   const { user, logout } = useAuth()
   const { tenants, currentTenantId, setCurrentTenant, isLoading } = useSaasTenant()
+  const canManageSchoolBilling = ['admin', 'school_admin', 'super_admin', 'super_manager'].includes(String(user?.role || ''))
+  const filteredNav = useMemo(() => {
+    if (canManageSchoolBilling) {
+      return nav
+    }
+    return nav.filter((item) => !item.href.startsWith('/app/billing'))
+  }, [canManageSchoolBilling, nav])
 
   const activeHref = useMemo(() => {
-    const found = nav.find((i) => location.pathname === i.href)
+    const found = filteredNav.find((i) => location.pathname === i.href)
     return found?.href || ''
-  }, [location.pathname, nav])
+  }, [filteredNav, location.pathname])
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,7 +89,7 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
             </div>
 
             <nav className="mt-2 space-y-1">
-              {nav.map((item) => (
+              {filteredNav.map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
@@ -107,12 +122,12 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
 }
 
 export const schoolNav: NavItem[] = [
-  { label: 'Dashboard', href: '/app', icon: <BarChart3 className="h-4 w-4" /> },
-  { label: 'School Profile', href: '/app/school', icon: <Settings2 className="h-4 w-4" /> },
-  { label: 'Team & Roles', href: '/app/team', icon: <Users className="h-4 w-4" /> },
-  { label: 'Plan', href: '/app/billing/plan', icon: <Sparkles className="h-4 w-4" /> },
-  { label: 'Invoices', href: '/app/billing/invoices', icon: <Receipt className="h-4 w-4" /> },
-  { label: 'Payments', href: '/app/billing/payments', icon: <CreditCard className="h-4 w-4" /> }
+  { label: 'Dashboard', href: SAAS_SCHOOL_DASHBOARD_ROUTE, icon: <BarChart3 className="h-4 w-4" /> },
+  { label: 'School Profile', href: SAAS_SCHOOL_PROFILE_ROUTE, icon: <Settings2 className="h-4 w-4" /> },
+  { label: 'Team & Roles', href: SAAS_TEAM_ROUTE, icon: <Users className="h-4 w-4" /> },
+  { label: 'Plan', href: SAAS_BILLING_PLAN_ROUTE, icon: <Sparkles className="h-4 w-4" /> },
+  { label: 'Invoices', href: SAAS_BILLING_INVOICES_ROUTE, icon: <Receipt className="h-4 w-4" /> },
+  { label: 'Payments', href: SAAS_BILLING_PAYMENTS_ROUTE, icon: <CreditCard className="h-4 w-4" /> }
 ]
 
 export const platformNav: NavItem[] = [

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { CreditCard } from 'lucide-react'
 import type { AxiosError } from 'axios'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
 import billingService, { BillingInvoice, Payment } from '@/services/billingService'
+import { SAAS_BILLING_INVOICES_ROUTE } from '@/lib/saasRoutes'
 
 export default function BillingPaymentsPage() {
   const { toast } = useToast()
@@ -62,6 +63,18 @@ export default function BillingPaymentsPage() {
   }, [location.search])
 
   const total = useMemo(() => (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0), [payments])
+  const pendingManualCount = useMemo(
+    () => (payments || []).filter((payment) => String(payment.status || '').toLowerCase() === 'pending' && payment.gateway_name === 'manual').length,
+    [payments]
+  )
+  const pendingManualAmount = useMemo(
+    () => (payments || []).reduce((sum, payment) => (
+      String(payment.status || '').toLowerCase() === 'pending' && payment.gateway_name === 'manual'
+        ? sum + (payment.amount || 0)
+        : sum
+    ), 0),
+    [payments]
+  )
 
   const statusVariant = (status?: string | null): 'success' | 'warning' | 'destructive' | 'secondary' | 'outline' => {
     const s = (status || '').toLowerCase()
@@ -130,6 +143,47 @@ export default function BillingPaymentsPage() {
   return (
     <SaasShell title="Payments" nav={schoolNav} showTenantSwitcher>
       <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Total recorded payments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : total.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Pending manual reviews</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : pendingManualCount}</div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Pending manual amount</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold tabular-nums">{loading ? 'Loading…' : pendingManualAmount.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="rounded-2xl border-primary/20 bg-primary/5">
+          <CardContent className="flex flex-col gap-3 py-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-foreground">Manual payment workflow</div>
+              <div className="text-sm text-muted-foreground">
+                Submit proof here, then wait for platform review. Pending manual payments stay visible below until approved or rejected.
+              </div>
+            </div>
+            <Button variant="outline" asChild>
+              <Link to={SAAS_BILLING_INVOICES_ROUTE}>Back to invoices</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card className="rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -223,6 +277,8 @@ export default function BillingPaymentsPage() {
                     <TableCell>
                       {String(p.status).toLowerCase() === 'pending' && p.gateway_name !== 'manual' ? (
                         <Button size="sm" variant="outline" onClick={() => onVerify(p.id)}>Verify</Button>
+                      ) : String(p.status).toLowerCase() === 'pending' && p.gateway_name === 'manual' ? (
+                        <span className="text-sm text-muted-foreground">Awaiting review</span>
                       ) : p.payment_link ? (
                         <Button size="sm" variant="outline" onClick={() => window.open(p.payment_link || '', '_blank', 'noopener,noreferrer')}>Open</Button>
                       ) : (

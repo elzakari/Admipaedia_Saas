@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, date
 from typing import Any, Optional
@@ -9,13 +10,14 @@ from flask import current_app
 from sqlalchemy import and_
 
 from app.extensions import db
-from app.models.billing import BillingInvoice, PendingInvoiceAdjustment
+from app.models.billing import BillingInvoice, PendingInvoiceAdjustment, Plan, SubscriptionChangeRequest
 from app.models.payments import Payment, PaymentGateway, new_reference
 from app.models.academic_term import AcademicTerm
 from app.models.tenant import Tenant, TenantMembership
 from app.services.adapters.payment import PaymentGatewayFactory
 from app.services.billing.pricing_service import PricingService
 from app.services.entitlements.service import EntitlementService
+from app.services.saas.plan_ops import assign_plan_to_tenant
 
 
 class PaymentService:
@@ -57,10 +59,14 @@ class PaymentService:
         verified_at = getattr(p, 'verified_at', None)
         reviewed_at = getattr(p, 'reviewed_at', None)
         manual_paid_at = getattr(p, 'manual_paid_at', None)
+        invoice = getattr(p, 'invoice', None)
         return {
             'id': int(p.id),
             'invoice_id': int(p.invoice_id),
             'school_id': str(p.school_id),
+            'tenant_name': getattr(p, 'tenant_name', None),
+            'tenant_slug': getattr(p, 'tenant_slug', None),
+            'school_name': getattr(p, 'tenant_name', None),
             'payment_gateway_id': int(p.payment_gateway_id) if p.payment_gateway_id is not None else None,
             'gateway_name': getattr(p, 'gateway_name', None),
             'payment_reference': getattr(p, 'payment_reference', None),
@@ -80,6 +86,7 @@ class PaymentService:
             'manual_method': getattr(p, 'manual_method', None),
             'manual_reference': getattr(p, 'manual_reference', None),
             'manual_paid_at': _dt(manual_paid_at),
+            'invoice_number': getattr(p, 'invoice_number', None) or getattr(invoice, 'invoice_number', None),
             'created_at': _dt(getattr(p, 'created_at', None)),
         }
 
@@ -146,10 +153,43 @@ class PaymentService:
 
         cc = (country_code or '').strip().upper() or None
         cur = (currency or '').strip().upper() or None
+        env = (environment or 'sandbox').strip().lower()
+        if env not in ('sandbox', 'live'):
+            return None, 'Invalid environment'
+        if cc and len(cc) != 2:
+            return None, 'country_code must be a 2-letter ISO code'
+        if cur and len(cur) != 3:
+            return None, 'currency must be a 3-letter code'
+
+        channels: list[str] = []
+        for raw_channel in supported_channels or []:
+            channel = str(raw_channel or '').strip().lower()
+            if not channel:
+                continue
+            if not re.fullmatch(r'[a-z0-9_]{2,32}', channel):
+                return None, f'Invalid supported channel: {raw_channel}'
+            if channel not in channels:
+                channels.append(channel)
 
         gw = PaymentGateway.query.get(int(gateway_id)) if gateway_id else PaymentGateway(name=key)
         if not gw:
             return None, 'Gateway not found'
+
+        duplicate_query = PaymentGateway.query.filter(
+            PaymentGateway.id != getattr(gw, 'id', None),
+            PaymentGateway.name == key,
+            PaymentGateway.environment == env,
+        )
+        if cc is None:
+            duplicate_query = duplicate_query.filter(PaymentGateway.country_code.is_(None))
+        else:
+            duplicate_query = duplicate_query.filter(PaymentGateway.country_code == cc)
+        if cur is None:
+            duplicate_query = duplicate_query.filter(PaymentGateway.currency.is_(None))
+        else:
+            duplicate_query = duplicate_query.filter(PaymentGateway.currency == cur)
+        if duplicate_query.first():
+            return None, 'A gateway already exists for this name, country, currency, and environment'
 
         gw.name = key
         gw.display_name = (display_name or '').strip() or None
@@ -158,8 +198,8 @@ class PaymentService:
         gw.public_key = (public_key or '').strip() or None
         gw.is_active = bool(is_active)
         gw.is_default = bool(is_default)
-        gw.environment = (environment or 'sandbox').strip().lower()
-        gw.supported_channels = supported_channels or []
+        gw.environment = env
+        gw.supported_channels = channels
 
         if secret_key and secret_key != '********':
             gw.set_secret_key(secret_key.strip())
@@ -192,13 +232,14 @@ class PaymentService:
         academic_term_id: int,
         months: Optional[int] = None,
         due_date: Optional[date] = None,
+        plan_override: Optional[Plan] = None,
     ) -> tuple[Optional[BillingInvoice], Optional[str]]:
         tenant = Tenant.query.get(school_id)
         if not tenant:
             return None, 'School not found'
 
         active, err = EntitlementService.getSchoolActivePlan(str(tenant.id))
-        if err or not active:
+        if (err or not active) and not plan_override:
             # Fallback: accept Trial or any subscription for the school so that
             # invoice generation is not blocked during trial periods.
             from app.models.billing import SchoolPlanSubscription, Plan
@@ -216,6 +257,13 @@ class PaymentService:
                     err = None
             if err or not active:
                 return None, err or 'School has no active plan'
+
+        if plan_override:
+            target_plan = plan_override
+        else:
+            if err or not active:
+                return None, err or 'School has no active plan'
+            target_plan = active.plan
 
         count = EntitlementService.count_active_registered_students_for_term(str(tenant.id), int(academic_term_id))
 
@@ -255,7 +303,7 @@ class PaymentService:
         # This fixes invoices being generated with 0 amount when tenant.currency
         # differs from the pricing tier currency (e.g. GHS vs XOF).
         resolved = PricingService.resolve_price_and_currency(
-            plan=active.plan,
+            plan=target_plan,
             student_count=int(count),
             country_code=tenant.country_code,
             preferred_currency=tenant.currency or None,
@@ -263,7 +311,7 @@ class PaymentService:
         price = resolved.price
         currency = resolved.resolved_currency
 
-        min_months = int(getattr(active.plan, 'billing_min_months', 3) or 3)
+        min_months = int(getattr(target_plan, 'billing_min_months', 3) or 3)
         if months is None:
             months_to_bill = PaymentService._months_for_term(tenant.id, int(academic_term_id), min_months=min_months)
         else:
@@ -281,6 +329,9 @@ class PaymentService:
 
         invoice = BillingInvoice.query.filter_by(tenant_id=tenant.id, academic_term_id=int(academic_term_id)).first()
         if invoice:
+            if plan_override and float(invoice.amount_paid or 0) > 0 and int(invoice.plan_id) != int(target_plan.id):
+                return None, 'Existing invoice already has payments recorded for this term'
+            invoice.plan_id = int(target_plan.id)
             invoice.price_per_student_snapshot = price
             invoice.billing_months = months_to_bill
             invoice.active_student_count = count
@@ -304,7 +355,7 @@ class PaymentService:
         invoice = BillingInvoice(
             invoice_number=inv_no,
             tenant_id=tenant.id,
-            plan_id=int(active.plan.id),
+            plan_id=int(target_plan.id),
             academic_term_id=int(academic_term_id),
             price_per_student_snapshot=price,
             billing_months=months_to_bill,
@@ -331,6 +382,42 @@ class PaymentService:
 
         db.session.commit()
         return invoice, None
+
+    @staticmethod
+    def _activate_paid_invoice_plan(inv: BillingInvoice, *, actor_user_id: Optional[int] = None):
+        if str(inv.payment_status or '').lower() != 'paid':
+            return
+
+        tenant = Tenant.query.get(inv.tenant_id)
+        if not tenant:
+            return
+
+        target_plan = Plan.query.get(int(inv.plan_id)) if inv.plan_id else None
+        if not target_plan:
+            return
+
+        current_plan_slug = str(getattr(tenant, 'plan', '') or '').strip().lower()
+        target_slug = str(target_plan.slug or '').strip().lower()
+        if target_slug and current_plan_slug != target_slug:
+            tenant.status = 'active'
+            assign_plan_to_tenant(tenant, target_slug, actor_user_id=actor_user_id)
+
+        upgrade_request = (
+            SubscriptionChangeRequest.query
+            .filter(
+                SubscriptionChangeRequest.school_id == tenant.id,
+                SubscriptionChangeRequest.request_type == 'upgrade',
+                SubscriptionChangeRequest.requested_plan_id == int(target_plan.id),
+                SubscriptionChangeRequest.status.in_(['pending', 'payment_pending']),
+            )
+            .order_by(SubscriptionChangeRequest.created_at.desc())
+            .first()
+        )
+        if upgrade_request:
+            upgrade_request.status = 'approved'
+            upgrade_request.approved_by_user_id = actor_user_id
+            upgrade_request.decided_at = datetime.utcnow()
+            upgrade_request.decision_note = 'Activated after invoice payment confirmation'
 
 
     @staticmethod
@@ -433,6 +520,13 @@ class PaymentService:
             inv.payment_status = 'paid'
             inv.status = 'paid'
             inv.paid_at = datetime.utcnow()
+            try:
+                PaymentService._activate_paid_invoice_plan(
+                    inv,
+                    actor_user_id=getattr(payment, 'reviewed_by_user_id', None) or getattr(payment, 'submitted_by_user_id', None),
+                )
+            except Exception as exc:
+                current_app.logger.warning('post-payment plan activation failed for invoice %s: %s', inv.id, exc)
         else:
             inv.payment_status = 'partially_paid'
 
@@ -589,34 +683,6 @@ class PaymentService:
             p.paid_at = p.paid_at or (p.manual_paid_at or datetime.utcnow())
             PaymentService.apply_payment_success(p, verified_amount=float(p.amount or 0), verified_currency=p.currency)
 
-            # ── Post-approval: activate tenant plan ──────────────────────────
-            # When a manual payment is approved, upgrade the school's plan from
-            # Trial to the plan associated with their billing invoice, so that
-            # the frontend sidebar features and plan context are unlocked.
-            try:
-                inv = BillingInvoice.query.get(int(p.invoice_id)) if p.invoice_id else None
-                if inv:
-                    from app.models.billing import SchoolPlanSubscription, Plan as BillingPlan
-                    from app.services.saas.plan_ops import assign_plan_to_tenant
-
-                    # Determine target plan: use invoice's plan_id, falling
-                    # back to 'basic' if the plan is still on trial.
-                    target_plan_id = getattr(inv, 'plan_id', None)
-                    target_plan = BillingPlan.query.get(int(target_plan_id)) if target_plan_id else None
-                    target_slug = (target_plan.slug if target_plan else None) or 'basic'
-
-                    # Don't downgrade — only upgrade away from trial
-                    tenant = Tenant.query.get(inv.tenant_id)
-                    if tenant:
-                        current_plan_slug = (tenant.plan or '').strip().lower()
-                        if current_plan_slug in ('', 'trial', None) or current_plan_slug != target_slug:
-                            tenant.status = 'active'
-                            assign_plan_to_tenant(tenant, target_slug, actor_user_id=reviewer_id)
-            except Exception as _act_err:
-                # Activation failure must not roll back the payment approval
-                current_app.logger.warning(
-                    'post-payment plan activation failed for payment %s: %s', payment_id, _act_err
-                )
         else:
             p.status = 'failed'
 
@@ -634,7 +700,16 @@ class PaymentService:
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
     ) -> list[Payment]:
-        q = Payment.query
+        q = (
+            db.session.query(
+                Payment,
+                Tenant.name.label('tenant_name'),
+                Tenant.slug.label('tenant_slug'),
+                BillingInvoice.invoice_number.label('invoice_number'),
+            )
+            .outerjoin(Tenant, Tenant.id == Payment.school_id)
+            .outerjoin(BillingInvoice, BillingInvoice.id == Payment.invoice_id)
+        )
         if status:
             q = q.filter(Payment.status == status)
         if gateway:
@@ -647,6 +722,14 @@ class PaymentService:
             q = q.filter(Payment.created_at <= datetime(date_to.year, date_to.month, date_to.day, 23, 59, 59))
         if country_code:
             cc = country_code.strip().upper()
-            q = q.join(Tenant, Tenant.id == Payment.school_id)
             q = q.filter(Tenant.country_code == cc)
-        return q.order_by(Payment.created_at.desc()).all()
+        rows = q.order_by(Payment.created_at.desc()).all()
+
+        payments: list[Payment] = []
+        for payment, tenant_name, tenant_slug, invoice_number in rows:
+            setattr(payment, 'tenant_name', tenant_name)
+            setattr(payment, 'tenant_slug', tenant_slug)
+            setattr(payment, 'invoice_number', invoice_number)
+            payments.append(payment)
+
+        return payments

@@ -54,16 +54,25 @@ def test_tiered_pricing_invoice_calculation(client):
     db.session.add(term)
     db.session.flush()
 
-    plan = Plan(
-        name='Basic',
-        slug='basic',
-        description='Basic plan',
-        price_per_student=100,
-        currency='XOF',
-        is_active=True,
-        billing_min_months=3,
-    )
-    db.session.add(plan)
+    plan = Plan.query.filter_by(slug='basic').first()
+    if not plan:
+        plan = Plan(
+            name='Basic',
+            slug='basic',
+            description='Basic plan',
+            price_per_student=100,
+            currency='XOF',
+            is_active=True,
+            billing_min_months=3,
+        )
+        db.session.add(plan)
+    else:
+        plan.name = 'Basic'
+        plan.description = 'Basic plan'
+        plan.price_per_student = 100
+        plan.currency = 'XOF'
+        plan.is_active = True
+        plan.billing_min_months = 3
     db.session.flush()
 
     tier = PlanPricingTier(

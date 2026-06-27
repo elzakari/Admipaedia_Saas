@@ -1,7 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { BarChart3, Building2, ClipboardList, CreditCard, RefreshCcw, Settings, ShieldCheck, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  BarChart3,
+  BellRing,
+  Building2,
+  ClipboardList,
+  CreditCard,
+  Landmark,
+  RefreshCcw,
+  ShieldCheck,
+  Sparkles,
+  UserCog,
+  Users
+} from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,6 +61,16 @@ function pickDetailsSummary(details: Record<string, any> | null | undefined) {
   return pairs.slice(0, 3)
 }
 
+function formatNumber(value: number | null | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—'
+  return new Intl.NumberFormat().format(value)
+}
+
+function formatAmount(value: number | null | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—'
+  return value.toFixed(2)
+}
+
 const KpiCard: React.FC<{
   title: string
   value: React.ReactNode
@@ -82,6 +105,35 @@ const SuperAdminDashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
 
   const roleEntries = useMemo(() => Object.entries(overview?.by_role || {}), [overview])
+  const countryEntries = useMemo(
+    () => Object.entries(kpis?.tenants_by_country || {}).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 4),
+    [kpis]
+  )
+  const planEntries = useMemo(
+    () => Object.entries(kpis?.tenants_by_plan || {}).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 4),
+    [kpis]
+  )
+  const recentAudit = overview?.recent_audit || []
+  const activeSchools = Number(kpis?.tenants_by_status?.active || 0)
+  const trialSchools = Number(kpis?.tenants_by_status?.trial || 0)
+  const suspendedSchools = Number(kpis?.tenants_by_status?.suspended || 0)
+  const inactiveUsers = Number(overview?.by_status?.inactive || 0)
+  const financialSourceCards = useMemo(() => ([
+    {
+      key: 'legacy',
+      title: t('super_admin.financial.source.platform', 'Legacy platform billing'),
+      invoice: financial?.platform_invoice_total,
+      payment: financial?.platform_payment_total,
+      href: '/super-admin/financial',
+    },
+    {
+      key: 'school',
+      title: t('super_admin.financial.source.school', 'School subscription billing'),
+      invoice: financial?.school_billing_invoice_total,
+      payment: financial?.school_billing_payment_total,
+      href: '/super-admin/financial',
+    }
+  ]), [financial, t])
 
   async function load() {
     setLoading(true)
@@ -142,49 +194,123 @@ const SuperAdminDashboardPage: React.FC = () => {
         </Card>
       ) : overview ? (
         <>
+          <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-background via-background to-primary/5">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t('super_admin.dashboard.hero.badge', 'Platform operations')}
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-semibold tracking-tight">
+                      {t('super_admin.dashboard.hero.title', 'Run user access, school onboarding, payments, and audit workflows from one place.')}
+                    </h2>
+                    <p className="max-w-3xl text-sm text-muted-foreground">
+                      {t(
+                        'super_admin.dashboard.hero.subtitle',
+                        'The dashboard combines account health, tenant growth, school billing exposure, and recent privileged actions so Super Admins can act quickly without leaving the portal.'
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:min-w-[420px]">
+                  <Link to="/super-admin/users">
+                    <Card className="border-border/70 transition-colors hover:border-primary/40">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <div className="text-sm font-semibold">{t('super_admin.dashboard.hero.users_title', 'User lifecycle')}</div>
+                          <div className="text-xs text-muted-foreground">{t('super_admin.dashboard.hero.users_subtitle', 'Reset, deactivate, and sort users by school')}</div>
+                        </div>
+                        <UserCog className="h-5 w-5 text-primary" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  <Link to="/super-admin/e-registration-billing">
+                    <Card className="border-border/70 transition-colors hover:border-primary/40">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <div className="text-sm font-semibold">{t('super_admin.dashboard.hero.onboarding_title', 'School onboarding')}</div>
+                          <div className="text-xs text-muted-foreground">{t('super_admin.dashboard.hero.onboarding_subtitle', 'Issue secure e-registration links')}</div>
+                        </div>
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  <Link to="/super-admin/payments">
+                    <Card className="border-border/70 transition-colors hover:border-primary/40">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <div className="text-sm font-semibold">{t('super_admin.dashboard.hero.payments_title', 'Payment operations')}</div>
+                          <div className="text-xs text-muted-foreground">{t('super_admin.dashboard.hero.payments_subtitle', 'Verify and review manual payments')}</div>
+                        </div>
+                        <CreditCard className="h-5 w-5 text-primary" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  <Link to="/super-admin/audit-logs">
+                    <Card className="border-border/70 transition-colors hover:border-primary/40">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <div className="text-sm font-semibold">{t('super_admin.dashboard.hero.audit_title', 'Audit review')}</div>
+                          <div className="text-xs text-muted-foreground">{t('super_admin.dashboard.hero.audit_subtitle', 'Inspect privileged admin activity')}</div>
+                        </div>
+                        <ShieldCheck className="h-5 w-5 text-primary" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <KpiCard
               title={t('super_admin.dashboard.cards.total_users', 'Total Users')}
-              value={overview.total_users}
+              value={formatNumber(overview.total_users)}
               href="/super-admin/users"
+              hint={t('super_admin.dashboard.cards.users_hint', 'All platform accounts')}
               icon={<Users className="h-4 w-4" />}
             />
             <KpiCard
               title={t('common.active', 'Active')}
-              value={overview.by_status.active}
+              value={formatNumber(overview.by_status.active)}
               href="/super-admin/users?status=active"
+              hint={t('super_admin.dashboard.cards.active_hint', 'Users currently allowed to sign in')}
               icon={<ShieldCheck className="h-4 w-4" />}
             />
             <KpiCard
               title={t('common.inactive', 'Inactive')}
-              value={overview.by_status.inactive}
+              value={formatNumber(overview.by_status.inactive)}
               href="/super-admin/users?status=inactive"
-              icon={<Users className="h-4 w-4" />}
+              hint={t('super_admin.dashboard.cards.inactive_hint', 'Accounts needing review or reactivation')}
+              icon={<BellRing className="h-4 w-4" />}
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             <KpiCard
               title={t('super_admin.dashboard.cards.schools_total', 'Schools')}
-              value={kpis?.tenants_total ?? '—'}
+              value={formatNumber(kpis?.tenants_total)}
               href="/super-admin/schools"
               icon={<Building2 className="h-4 w-4" />}
+            />
+            <KpiCard
+              title={t('super_admin.dashboard.cards.students_total', 'Students')}
+              value={formatNumber(kpis?.students_total)}
+              href="/super-admin/schools"
+              hint={t('super_admin.dashboard.cards.students_hint', 'Registered across all school workspaces')}
+              icon={<Users className="h-4 w-4" />}
             />
             <KpiCard
               title={t('super_admin.dashboard.cards.schools_new_30d', 'New schools (30d)')}
-              value={kpis?.tenants_new_last_30d ?? '—'}
+              value={formatNumber(kpis?.tenants_new_last_30d)}
               href="/super-admin/schools"
               icon={<Building2 className="h-4 w-4" />}
             />
             <KpiCard
-              title={t('super_admin.dashboard.cards.invoices_count', 'Invoices')}
-              value={kpis?.invoices_count ?? '—'}
-              href="/super-admin/financial"
-              icon={<ClipboardList className="h-4 w-4" />}
-            />
-            <KpiCard
               title={t('super_admin.dashboard.cards.outstanding_total', 'Outstanding')}
-              value={typeof kpis?.outstanding_total === 'number' ? kpis.outstanding_total.toFixed(2) : '—'}
+              value={formatAmount(kpis?.outstanding_total)}
               href="/super-admin/financial"
               hint={t('super_admin.dashboard.cards.outstanding_hint', 'Sum across all schools')}
               icon={<BarChart3 className="h-4 w-4" />}
@@ -194,45 +320,52 @@ const SuperAdminDashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{t('super_admin.dashboard.sections.quick_actions', 'Quick actions')}</CardTitle>
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.platform_watch', 'Platform watch')}</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                <Link to="/super-admin/users">
-                  <Button variant="outline">
-                    <Users className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.manage_users', 'Users')}
-                  </Button>
-                </Link>
-                <Link to="/super-admin/schools">
-                  <Button variant="outline">
-                    <Building2 className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.manage_schools', 'Schools')}
-                  </Button>
-                </Link>
-                <Link to="/super-admin/financial">
-                  <Button variant="outline">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.financial', 'Financial')}
-                  </Button>
-                </Link>
-                <Link to="/super-admin/payments">
-                  <Button variant="outline">
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.payments', 'Payments')}
-                  </Button>
-                </Link>
-                <Link to="/super-admin/plan-requests">
-                  <Button variant="outline">
-                    <ClipboardList className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.plan_requests', 'Plan requests')}
-                  </Button>
-                </Link>
-                <Link to="/super-admin/audit-logs">
-                  <Button variant="outline">
-                    <ShieldCheck className="h-4 w-4 mr-2" />
-                    {t('super_admin.dashboard.actions.audit_logs', 'Audit logs')}
-                  </Button>
-                </Link>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-xl border bg-muted/20 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.watch.accounts', 'Accounts needing attention')}</div>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <div>
+                        <div className="text-2xl font-semibold">{formatNumber(inactiveUsers)}</div>
+                        <div className="text-sm text-muted-foreground">{t('super_admin.dashboard.watch.accounts_hint', 'Inactive or deactivated users')}</div>
+                      </div>
+                      <Button variant="outline" asChild>
+                        <Link to="/super-admin/users?status=inactive">{t('super_admin.dashboard.actions.review_users', 'Review users')}</Link>
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-muted/20 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.watch.school_health', 'School portfolio')}</div>
+                    <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <div className="font-semibold">{formatNumber(activeSchools)}</div>
+                        <div className="text-muted-foreground">{t('common.active', 'Active')}</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold">{formatNumber(trialSchools)}</div>
+                        <div className="text-muted-foreground">{t('common.trial', 'Trial')}</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold">{formatNumber(suspendedSchools)}</div>
+                        <div className="text-muted-foreground">{t('common.suspended', 'Suspended')}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-muted/20 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.watch.activity', 'Recent privileged actions')}</div>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <div>
+                        <div className="text-2xl font-semibold">{formatNumber(recentAudit.length)}</div>
+                        <div className="text-sm text-muted-foreground">{t('super_admin.dashboard.watch.activity_hint', 'Most recent Super Admin audit entries')}</div>
+                      </div>
+                      <Button variant="outline" asChild>
+                        <Link to="/super-admin/audit-logs">{t('super_admin.dashboard.actions.audit_logs', 'Audit logs')}</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -241,17 +374,41 @@ const SuperAdminDashboardPage: React.FC = () => {
                 <CardTitle className="text-base">{t('super_admin.dashboard.sections.financial_snapshot', 'Financial snapshot')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                  {t(
+                    'super_admin.dashboard.financial_note',
+                    'Blended totals combine legacy platform billing and school subscription billing so platform finance exposure is visible from one dashboard.'
+                  )}
+                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{t('super_admin.financial.cards.total_invoiced', 'Total Invoiced')}</span>
-                  <span className="font-semibold">{financial ? financial.invoice_total.toFixed(2) : '—'}</span>
+                  <span className="font-semibold">{formatAmount(financial?.invoice_total)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{t('super_admin.financial.cards.total_paid', 'Total Paid')}</span>
-                  <span className="font-semibold">{financial ? financial.payment_total.toFixed(2) : '—'}</span>
+                  <span className="font-semibold">{formatAmount(financial?.payment_total)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{t('super_admin.financial.cards.outstanding', 'Outstanding')}</span>
-                  <span className="font-semibold">{financial ? financial.outstanding_total.toFixed(2) : '—'}</span>
+                  <span className="font-semibold">{formatAmount(financial?.outstanding_total)}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 pt-1">
+                  {financialSourceCards.map((item) => (
+                    <Link key={item.key} to={item.href} className="rounded-xl border p-3 transition-colors hover:border-primary/40">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">{item.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {t('super_admin.dashboard.financial_item', 'Invoiced {{invoice}} • Paid {{payment}}', {
+                              invoice: formatAmount(item.invoice),
+                              payment: formatAmount(item.payment),
+                            })}
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </Link>
+                  ))}
                 </div>
                 <div className="pt-2">
                   <Link to="/super-admin/financial" className="text-sm text-blue-600 hover:underline">
@@ -263,20 +420,115 @@ const SuperAdminDashboardPage: React.FC = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{t('super_admin.dashboard.sections.users_by_role', 'Users by role')}</CardTitle>
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.growth_mix', 'Growth mix')}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {roleEntries.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">—</div>
-                  ) : (
-                    roleEntries.map(([role, count]) => (
-                      <div key={role} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{role}</span>
-                        <span className="font-medium">{count}</span>
-                      </div>
-                    ))
-                  )}
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.sections.top_plans', 'Top plans')}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {planEntries.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">—</div>
+                    ) : (
+                      planEntries.map(([plan, count]) => (
+                        <Badge key={plan} variant="secondary">{plan}: {count}</Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.sections.top_countries', 'Top countries')}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {countryEntries.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">—</div>
+                    ) : (
+                      countryEntries.map(([country, count]) => (
+                        <Badge key={country} variant="outline">{country}: {count}</Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.sections.users_by_role', 'Users by role')}</div>
+                  <div className="space-y-2">
+                    {roleEntries.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">—</div>
+                    ) : (
+                      roleEntries.map(([role, count]) => (
+                        <div key={role} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{role}</span>
+                          <span className="font-medium">{count}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.management_shortcuts', 'Management shortcuts')}</CardTitle>
+                <Link to="/super-admin/schools" className="text-sm text-blue-600 hover:underline">
+                  {t('super_admin.dashboard.actions.manage_schools', 'Manage schools')}
+                </Link>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Link to="/super-admin/users" className="rounded-xl border p-4 transition-colors hover:border-primary/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{t('super_admin.dashboard.actions.manage_users', 'Users')}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t('super_admin.dashboard.shortcuts.users', 'Manage accounts by role, status, and school workspace.')}</div>
+                    </div>
+                    <UserCog className="h-5 w-5 text-primary" />
+                  </div>
+                </Link>
+                <Link to="/super-admin/e-registration-billing" className="rounded-xl border p-4 transition-colors hover:border-primary/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{t('super_admin.dashboard.actions.registration_links', 'E-registration')}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t('super_admin.dashboard.shortcuts.registration', 'Issue secure onboarding links for new schools and admin owners.')}</div>
+                    </div>
+                    <Building2 className="h-5 w-5 text-primary" />
+                  </div>
+                </Link>
+                <Link to="/super-admin/payments" className="rounded-xl border p-4 transition-colors hover:border-primary/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{t('super_admin.dashboard.actions.payments', 'Payments')}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t('super_admin.dashboard.shortcuts.payments', 'Review pending payment operations and verification queues.')}</div>
+                    </div>
+                    <Landmark className="h-5 w-5 text-primary" />
+                  </div>
+                </Link>
+                <Link to="/super-admin/plan-requests" className="rounded-xl border p-4 transition-colors hover:border-primary/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{t('super_admin.dashboard.actions.plan_requests', 'Plan requests')}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t('super_admin.dashboard.shortcuts.plan_requests', 'Review downgrade requests and pricing-impact decisions.')}</div>
+                    </div>
+                    <ClipboardList className="h-5 w-5 text-primary" />
+                  </div>
+                </Link>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('super_admin.dashboard.sections.billing_health', 'Billing health')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-xl border bg-muted/20 p-4">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.billing_health.invoices', 'Invoices tracked')}</div>
+                  <div className="mt-2 text-2xl font-semibold">{formatNumber(kpis?.invoices_count)}</div>
+                </div>
+                <div className="rounded-xl border bg-muted/20 p-4">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.billing_health.paid', 'Paid invoices')}</div>
+                  <div className="mt-2 text-2xl font-semibold">{formatNumber(kpis?.invoices_paid_count)}</div>
+                </div>
+                <div className="rounded-xl border bg-muted/20 p-4">
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('super_admin.dashboard.billing_health.sent', 'Sent invoices')}</div>
+                  <div className="mt-2 text-2xl font-semibold">{formatNumber(kpis?.invoices_sent_count)}</div>
                 </div>
               </CardContent>
             </Card>

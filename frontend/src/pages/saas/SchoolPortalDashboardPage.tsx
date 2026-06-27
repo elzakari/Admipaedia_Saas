@@ -6,26 +6,41 @@ import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/contexts/AuthContext'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
 import { usePlanContext } from '@/hooks/usePlanContext'
-import saasService, { PlatformInvoice, PlatformPayment } from '@/services/saasService'
+import billingService, { BillingInvoice, Payment } from '@/services/billingService'
+import {
+  SAAS_BILLING_INVOICES_ROUTE,
+  SAAS_BILLING_PLAN_ROUTE,
+  SAAS_TEAM_ROUTE,
+} from '@/lib/saasRoutes'
 
 export default function SchoolPortalDashboardPage() {
+  const { user } = useAuth()
   const { currentTenantId, current, isLoading } = useSaasTenant()
   const { data: planContext, isLoading: isLoadingPlanContext } = usePlanContext()
-  const [invoices, setInvoices] = useState<PlatformInvoice[] | null>(null)
-  const [payments, setPayments] = useState<PlatformPayment[] | null>(null)
+  const [invoices, setInvoices] = useState<BillingInvoice[] | null>(null)
+  const [payments, setPayments] = useState<Payment[] | null>(null)
   const [loadingData, setLoadingData] = useState(false)
+  const canManageSchoolBilling = ['admin', 'school_admin', 'super_admin', 'super_manager'].includes(String(user?.role || ''))
 
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!currentTenantId) return
+      if (!currentTenantId || !canManageSchoolBilling) {
+        if (!cancelled) {
+          setInvoices([])
+          setPayments([])
+          setLoadingData(false)
+        }
+        return
+      }
       setLoadingData(true)
       try {
         const [invRes, payRes] = await Promise.all([
-          saasService.listInvoices(currentTenantId),
-          saasService.listPayments(currentTenantId)
+          billingService.listSchoolInvoices(),
+          billingService.listSchoolPayments()
         ])
         if (!cancelled) {
           setInvoices(invRes.invoices)
@@ -39,10 +54,10 @@ export default function SchoolPortalDashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [currentTenantId])
+  }, [canManageSchoolBilling, currentTenantId])
 
   const totals = useMemo(() => {
-    const invoiceTotal = (invoices || []).reduce((sum, i) => sum + (i.amount || 0), 0)
+    const invoiceTotal = (invoices || []).reduce((sum, i) => sum + (i.total_amount || 0), 0)
     const paymentTotal = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0)
     return {
       invoiceTotal,
@@ -51,7 +66,7 @@ export default function SchoolPortalDashboardPage() {
     }
   }, [invoices, payments])
 
-  const plan = (current?.tenant.plan || 'trial').toString()
+  const plan = (planContext?.plan?.name || current?.tenant.plan || 'trial').toString()
   const status = (current?.tenant.status || 'active').toString()
   const statusVariant = status === 'active' ? 'success' : status === 'trial' ? 'warning' : 'secondary'
 
@@ -160,11 +175,11 @@ export default function SchoolPortalDashboardPage() {
                     </div>
                     {needsUpgrade ? (
                       <Button className="w-full">
-                        <Link to="/app/billing/invoices">View billing & upgrade</Link>
+                        <Link to={SAAS_BILLING_PLAN_ROUTE}>View plans & upgrade</Link>
                       </Button>
                     ) : (
                       <Button variant="outline" className="w-full">
-                        <Link to="/app/billing/invoices">View billing</Link>
+                        <Link to={SAAS_BILLING_INVOICES_ROUTE}>View billing</Link>
                       </Button>
                     )}
                   </div>
@@ -180,10 +195,16 @@ export default function SchoolPortalDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={loadingData ? 'text-2xl font-semibold tabular-nums animate-pulse' : 'text-2xl font-semibold tabular-nums'}>
-                  {loadingData ? 'Loading…' : totals.invoiceTotal.toFixed(2)}
-                </div>
-                <div className="text-xs text-muted-foreground">Total billed</div>
+                {canManageSchoolBilling ? (
+                  <>
+                    <div className={loadingData ? 'text-2xl font-semibold tabular-nums animate-pulse' : 'text-2xl font-semibold tabular-nums'}>
+                      {loadingData ? 'Loading…' : totals.invoiceTotal.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total billed</div>
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground">School billing is visible to school administrators only.</div>
+                )}
               </CardContent>
             </Card>
 
@@ -195,10 +216,16 @@ export default function SchoolPortalDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={loadingData ? 'text-2xl font-semibold tabular-nums animate-pulse' : 'text-2xl font-semibold tabular-nums'}>
-                  {loadingData ? 'Loading…' : totals.outstanding.toFixed(2)}
-                </div>
-                <div className="text-xs text-muted-foreground">Unpaid balance</div>
+                {canManageSchoolBilling ? (
+                  <>
+                    <div className={loadingData ? 'text-2xl font-semibold tabular-nums animate-pulse' : 'text-2xl font-semibold tabular-nums'}>
+                      {loadingData ? 'Loading…' : totals.outstanding.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Unpaid balance</div>
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Ask a school admin to review invoices, payments, and plan changes.</div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -209,17 +236,19 @@ export default function SchoolPortalDashboardPage() {
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3">
               <Button variant="outline" className="w-full sm:w-auto">
-                <Link to="/app/team">
+                <Link to={SAAS_TEAM_ROUTE}>
                   <UserPlus className="h-4 w-4" />
                   Invite team member
                 </Link>
               </Button>
-              <Button className="w-full sm:w-auto">
-                <Link to="/app/billing/invoices">
-                  <Receipt className="h-4 w-4" />
-                  Create invoice
-                </Link>
-              </Button>
+              {canManageSchoolBilling && (
+                <Button className="w-full sm:w-auto">
+                  <Link to={needsUpgrade ? SAAS_BILLING_PLAN_ROUTE : SAAS_BILLING_INVOICES_ROUTE}>
+                    <Receipt className="h-4 w-4" />
+                    {needsUpgrade ? 'Review plans' : 'Review invoices'}
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
