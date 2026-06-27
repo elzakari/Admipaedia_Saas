@@ -6,6 +6,7 @@ from flask import request, current_app
 from app.extensions import db, logger
 from app.models.user import User
 from app.models.email_verification import EmailVerificationToken
+from app.utils.url_helpers import get_frontend_base_url
 
 class EmailVerificationRepository:
     """
@@ -194,35 +195,5 @@ class EmailVerificationService:
         return True, "Email verified successfully"
 
     def get_request_base_url(self) -> str:
-        """
-        Dynamically inherit the current window location/routing context of the server,
-        accounting for proxies, domains, and frontend URLs.
-        """
-        try:
-            # 1. Inspect dynamic request context headers
-            origin = request.headers.get('Origin')
-            if origin:
-                return origin.rstrip('/')
-
-            proto = request.headers.get('X-Forwarded-Proto') or request.scheme
-            host = request.headers.get('X-Forwarded-Host') or request.host
-            if host:
-                # Map standard proxy configurations to port-forwarded routing
-                url = f"{proto}://{host}".rstrip('/')
-                if 'localhost:5173' in url:
-                    url = url.replace('localhost:5173', 'localhost:3000')
-                return url
-        except Exception:
-            pass
-
-        # 2. Configured fallbacks
-        try:
-            url = (current_app.config.get('FRONTEND_URL') or '').strip().rstrip('/')
-            if url:
-                if 'localhost:5173' in url:
-                    url = url.replace('localhost:5173', 'localhost:3000')
-                return url
-        except Exception:
-            pass
-
-        return 'http://localhost:3000'
+        """Resolve a production-safe frontend base URL for verification links."""
+        return get_frontend_base_url()

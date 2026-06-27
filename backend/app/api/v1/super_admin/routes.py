@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 
-from flask import jsonify, request, g, current_app
+from flask import jsonify, request, g
 from sqlalchemy import or_, func
 
 from app.extensions import db
@@ -9,6 +9,7 @@ from app.models.security import SecurityEvent, SchoolRegistrationToken
 from app.models.user import User, Role
 from app.models.tenant import Tenant, TenantMembership
 from app.utils.platform_access import require_platform_super_admin
+from app.utils.url_helpers import get_frontend_base_url
 from app.services.orphan_cleanup_service import OrphanCleanupService
 from app.services.user_service import SecurePurgeService
 
@@ -92,17 +93,6 @@ def _audit(event_type: str, actor_user_id: int, details: dict, severity: str = '
     db.session.add(event)
 
 
-def _resolve_frontend_url():
-    configured = (current_app.config.get('FRONTEND_URL') or '').strip().rstrip('/')
-    host = (request.headers.get('X-Forwarded-Host') or request.host or '').strip()
-    proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or '').strip()
-    if configured and not any(x in configured for x in ('localhost', '127.0.0.1')):
-        return configured
-    if host and not any(x in host for x in ('localhost', '127.0.0.1')):
-        return f"{proto}://{host}".rstrip('/')
-    return configured
-
-
 from . import super_admin_bp
 
 
@@ -183,11 +173,7 @@ def super_admin_create_school_registration_link():
         expires_in_hours=24
     )
 
-    frontend_url = _resolve_frontend_url()
-    if not frontend_url:
-        frontend_url = 'http://localhost:3000'
-    if 'localhost:5173' in frontend_url:
-        frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+    frontend_url = get_frontend_base_url()
     registration_url = f"{frontend_url}/school/register?token={token}" if frontend_url else f"/school/register?token={token}"
 
     _audit('super_admin.school_registration_link_created', actor.id, {
@@ -372,11 +358,7 @@ def super_admin_create_user():
                 user_agent=request.headers.get('User-Agent')
             )
             from app.services.email_service import send_password_reset_email
-            frontend_url = _resolve_frontend_url()
-            if not frontend_url:
-                frontend_url = 'http://localhost:3000'
-            if 'localhost:5173' in frontend_url:
-                frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+            frontend_url = get_frontend_base_url()
             email_sent = bool(send_password_reset_email(user.email, token, frontend_url=frontend_url, async_send=True))
             _audit('super_admin.user_reset_sent', actor.id, {
                 'target_user_id': user.id,
@@ -521,11 +503,7 @@ def super_admin_send_password_reset(user_id: int):
     data = request.get_json(silent=True) or {}
     send_email = data.get('send_email', True)
 
-    frontend_url = _resolve_frontend_url()
-    if not frontend_url:
-        frontend_url = 'http://localhost:3000'
-    if 'localhost:5173' in frontend_url:
-        frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+    frontend_url = get_frontend_base_url()
     reset_url = f"{frontend_url}/reset-password?token={token}"
     email_sent = False
 

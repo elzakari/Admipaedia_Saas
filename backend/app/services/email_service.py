@@ -3,6 +3,7 @@ import time
 import os
 from typing import Optional, List, Tuple, Dict, Any
 from flask import current_app, render_template
+from app.utils.url_helpers import get_frontend_base_url
 
 class EmailResult(dict):
     """
@@ -462,12 +463,7 @@ def _send_email_background(subject: str, recipients: List[str], text_body: str, 
 
 
 def _normalize_frontend_url(frontend_url: Optional[str]) -> str:
-    url = (frontend_url or current_app.config.get('FRONTEND_URL') or '').strip().rstrip('/')
-    if not url:
-        url = 'http://localhost:3000'
-    if 'localhost:5173' in url:
-        url = url.replace('localhost:5173', 'localhost:3000')
-    return url.rstrip('/')
+    return get_frontend_base_url(frontend_url).rstrip('/')
 
 
 def send_notification_email(user_email: str, subject: str, message: str) -> bool:

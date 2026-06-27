@@ -76,9 +76,12 @@ class TestEmailVerificationService:
 
     def test_get_request_base_url_defaults(self, app):
         with app.test_request_context():
+            app.config['TESTING'] = False
+            app.config['DEBUG'] = False
+            app.config['FRONTEND_URL'] = ''
             service = EmailVerificationService()
             url = service.get_request_base_url()
-            assert 'localhost' in url
+            assert url == 'https://admipaedia.easymsdigit.com'
 
     def test_get_request_base_url_proxies(self, app):
         # Mock request with custom proxy headers

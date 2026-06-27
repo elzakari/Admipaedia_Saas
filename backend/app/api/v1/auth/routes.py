@@ -17,6 +17,7 @@ from app.middleware.security_middleware import (
 )
 from app.utils.password_security import PasswordSecurity, AccountSecurity
 from app.models.system_setting import SystemSetting
+from app.utils.url_helpers import get_frontend_base_url
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime, timedelta
 import secrets
@@ -675,15 +676,7 @@ def request_password_reset():
             
             # Send password reset email
             from app.services.email_service import send_password_reset_email
-            frontend_url = (current_app.config.get('FRONTEND_URL') or '').strip().rstrip('/')
-            host = (request.headers.get('X-Forwarded-Host') or request.host or '').strip()
-            proto = (request.headers.get('X-Forwarded-Proto') or request.scheme or '').strip()
-            if not frontend_url and host:
-                frontend_url = f"{proto}://{host}".rstrip('/')
-            if not frontend_url:
-                frontend_url = 'http://localhost:3000'
-            if 'localhost:5173' in frontend_url:
-                frontend_url = frontend_url.replace('localhost:5173', 'localhost:3000')
+            frontend_url = get_frontend_base_url()
             email_sent = send_password_reset_email(user.email, token, frontend_url=frontend_url)
             
             if email_sent:

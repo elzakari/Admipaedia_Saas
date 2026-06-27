@@ -35,6 +35,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - SOCKETIO_ASYNC_MODE=disabled
+      - FRONTEND_URL=https://admipaedia.easymsdigit.com
+      - CORS_ORIGINS=https://admipaedia.easymsdigit.com
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
@@ -64,6 +66,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - SOCKETIO_ASYNC_MODE=eventlet
+      - FRONTEND_URL=https://admipaedia.easymsdigit.com
+      - CORS_ORIGINS=https://admipaedia.easymsdigit.com
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs

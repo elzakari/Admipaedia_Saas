@@ -14,25 +14,21 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     useEffect(() => {
         // Standard namespaces we want to keep alive globally
-        const rootWs = WebSocketService.getInstance('/');
         const dashboardWs = WebSocketService.getInstance('/dashboard');
         const chatWs = WebSocketService.getInstance('/chat');
 
         if (isAuthenticated) {
             console.log('🔄 Auth detected, initializing global sockets...');
-            rootWs.connect();
             dashboardWs.connect();
             // chatWs.connect(); // Connect as needed
         } else {
             console.log('🔄 No auth detected, disconnecting global sockets...');
-            rootWs.disconnect();
             dashboardWs.disconnect();
             chatWs.disconnect();
         }
 
         return () => {
             // Cleanup on unmount (app close)
-            rootWs.disconnect();
             dashboardWs.disconnect();
             chatWs.disconnect();
         };

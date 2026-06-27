@@ -1,4 +1,6 @@
 export const API_BASE_URL = '';
+export const SOCKET_BASE_URL = '';
+export const RAW_WEBSOCKET_BASE_URL = 'wss://admipaedia.easymsdigit.com';
 export const DEFAULT_PAGE_SIZE = 20;
 export const DEFAULT_PAGE = 1;
 export const DASHBOARD = {

@@ -14,6 +14,7 @@ from app.models.invitation import InvitationLink
 from app.utils.tenant_context import tenant_required
 from app.utils.billing_access import school_admin_required
 from app.utils.password_security import PasswordSecurity
+from app.utils.url_helpers import get_frontend_base_url
 
 from app.services.invitation_service import (
     enforce_create_rate_limit,
@@ -33,10 +34,8 @@ def _parse_uuid(value: str):
 
 
 def _frontend_invite_url(invite_id: str, exp_ts: int, sig: str) -> str:
-    frontend_url = (current_app.config.get('FRONTEND_URL') or '').rstrip('/')
-    if frontend_url:
-        return f"{frontend_url}/invite/{invite_id}?exp={exp_ts}&sig={sig}"
-    return f"/invite/{invite_id}?exp={exp_ts}&sig={sig}"
+    frontend_url = get_frontend_base_url()
+    return f"{frontend_url}/invite/{invite_id}?exp={exp_ts}&sig={sig}"
 
 
 @invitations_bp.route('/admin/invitations', methods=['POST'])

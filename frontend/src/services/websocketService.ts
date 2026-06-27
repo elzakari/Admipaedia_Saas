@@ -46,13 +46,13 @@ class WebSocketService {
       path: '/socket.io',
       auth: { token },
       query: token ? { token } : {},
-      transports: ['websocket'],
-      upgrade: false,
+      transports: ['websocket', 'polling'],
+      upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 5,     // Cap maximum connection retries
-      reconnectionDelay: 2000,     // Wait 2 seconds before retrying
-      reconnectionDelayMax: 10000, // Progressively scale delay up to 10 seconds max
-      timeout: 5000,               // Time out individual handshakes after 5 seconds
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 15000,
+      timeout: 20000,
       autoConnect: true
     });
 

@@ -2,6 +2,8 @@
 Flask Extensions Initialization
 """
 
+from urllib.parse import urlparse
+
 from flask_cors import CORS
 from flask_talisman import Talisman
 from flask import request, g
@@ -37,21 +39,37 @@ def init_extensions(app):
 
     babel.init_app(app, locale_selector=get_locale)
     
+    frontend_origins = [
+        origin.strip().rstrip('/')
+        for origin in (app.config.get('CORS_ORIGINS') or [app.config.get('FRONTEND_URL')])
+        if origin and str(origin).strip()
+    ]
+    if not frontend_origins:
+        frontend_url = (app.config.get('FRONTEND_URL') or 'https://admipaedia.easymsdigit.com').strip().rstrip('/')
+        frontend_origins = [frontend_url]
+
+    connect_src = {"'self'"}
+    for origin in frontend_origins:
+        connect_src.add(origin)
+        parsed = urlparse(origin)
+        if parsed.scheme == 'https' and parsed.netloc:
+            connect_src.add(f"wss://{parsed.netloc}")
+        elif parsed.scheme == 'http' and parsed.netloc:
+            connect_src.add(f"ws://{parsed.netloc}")
+
     # CORS Configuration
     cors.init_app(app, resources={
         r"/*": {
-            "origins": app.config.get('CORS_ORIGINS', [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173"
-            ]),
+            "origins": frontend_origins,
             "supports_credentials": True,
             "allow_headers": [
                 "Content-Type", 
                 "Authorization", 
                 "Cache-Control", 
-                "X-CSRF-Token"
+                "X-CSRF-Token",
+                "X-Tenant-ID",
+                "X-Branch-ID",
+                "X-Branch-Id"
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "expose_headers": [
@@ -74,7 +92,7 @@ def init_extensions(app):
             'style-src': "'self' 'unsafe-inline'",
             'img-src': "'self' data: https:",
             'font-src': "'self'",
-            'connect-src': "'self' http://localhost:3000 http://127.0.0.1:3000",
+            'connect-src': " ".join(sorted(connect_src)),
             'frame-ancestors': "'none'"
         }
         
@@ -90,7 +108,7 @@ def init_extensions(app):
     
     # WebSocket
     socketio.init_app(app, 
-        cors_allowed_origins="*",
+        cors_allowed_origins=frontend_origins,
         ping_timeout=120,
         ping_interval=25
     )

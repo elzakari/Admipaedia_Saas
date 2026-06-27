@@ -12,6 +12,7 @@ import {
   Database, Cpu, HardDrive, Network, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RAW_WEBSOCKET_BASE_URL } from '../../config/constants';
 
 interface RealTimeAnalyticsProps {
   refreshKey: number;
@@ -80,7 +81,7 @@ const RealTimeAnalytics: React.FC<RealTimeAnalyticsProps> = ({ refreshKey }) => 
     setConnectionStatus('connecting');
     
     try {
-      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000/ws/analytics';
+      const wsUrl = `${RAW_WEBSOCKET_BASE_URL}/ws/analytics`;
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {

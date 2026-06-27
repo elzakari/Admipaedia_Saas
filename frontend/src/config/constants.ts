@@ -1,11 +1,21 @@
+const CANONICAL_ORIGIN = 'https://admipaedia.easymsdigit.com';
+
+const getBrowserOrigin = (): string =>
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : CANONICAL_ORIGIN;
+
 // API configuration
 export const API_BASE_URL = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_API_URL || '');
+  : (import.meta.env.VITE_API_URL || getBrowserOrigin());
 
 export const SOCKET_BASE_URL = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_SOCKET_URL || '');
+  : (import.meta.env.VITE_SOCKET_URL || getBrowserOrigin());
+
+export const RAW_WEBSOCKET_BASE_URL = import.meta.env.VITE_WS_URL
+  || getBrowserOrigin().replace(/^http/i, 'ws');
 
 // Pagination defaults
 export const DEFAULT_PAGE_SIZE = 20;

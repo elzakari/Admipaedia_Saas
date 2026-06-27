@@ -9,6 +9,7 @@ from .enhanced_auth_config import EnhancedAuthConfig
 
 class BaseConfig:
     """Base configuration with common settings"""
+    CANONICAL_FRONTEND_URL = os.environ.get('CANONICAL_FRONTEND_URL', 'https://admipaedia.easymsdigit.com').rstrip('/')
     
     # Core Flask Settings
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-change-me')
@@ -50,7 +51,7 @@ class BaseConfig:
     RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
     
     # Frontend Configuration
-    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', CANONICAL_FRONTEND_URL)
     
     # Security Configuration
     SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT', 'dev-salt-change-me')
@@ -126,7 +127,11 @@ class ProductionConfig(BaseConfig):
     LOG_LEVEL = 'INFO'
     
     # CORS (restrictive for production)
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '').split(',')
+    CORS_ORIGINS = [
+        origin.strip()
+        for origin in os.environ.get('CORS_ORIGINS', BaseConfig.CANONICAL_FRONTEND_URL).split(',')
+        if origin.strip()
+    ]
     
     # SSL/TLS
     PREFERRED_URL_SCHEME = 'https'
