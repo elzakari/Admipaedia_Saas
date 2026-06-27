@@ -10,6 +10,7 @@ import {
   CreditCard,
   Landmark,
   RefreshCcw,
+  Settings,
   ShieldCheck,
   Sparkles,
   UserCog,
