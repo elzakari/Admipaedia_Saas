@@ -17,6 +17,7 @@ class WebSocketService {
   private connectionStatus: ConnectionStatus = 'disconnected';
   private statusCallbacks = new Set<(status: ConnectionStatus) => void>();
   private globalMessageHandlers = new Set<GlobalMessageHandler>();
+  private pendingSubscriptions = new Map<string, Set<SubscriptionHandler>>();
 
   private constructor(namespace: string = '/') {
     this.namespace = namespace;
@@ -66,6 +67,7 @@ class WebSocketService {
 
     this.socket.on('connect', () => {
       console.log(`✅ Socket connected to ${this.namespace}`);
+      this.attachPendingSubscriptions();
       this.setStatus('connected');
     });
 
@@ -100,18 +102,37 @@ class WebSocketService {
     this.statusCallbacks.forEach(callback => callback(status));
   }
 
+  private attachPendingSubscriptions(): void {
+    if (!this.socket) {
+      return;
+    }
+
+    this.pendingSubscriptions.forEach((handlers, event) => {
+      handlers.forEach((handler) => {
+        this.socket?.on(event, handler);
+      });
+    });
+  }
+
   subscribe(event: string, handler: SubscriptionHandler): () => void {
+    if (!this.pendingSubscriptions.has(event)) {
+      this.pendingSubscriptions.set(event, new Set());
+    }
+    this.pendingSubscriptions.get(event)!.add(handler);
+
     if (!this.socket && this.namespace && this.namespace !== '/') {
       this.connect();
     }
 
     if (this.socket) {
       this.socket.on(event, handler);
-    } else {
-      console.warn(`Socket subscription skipped for unsupported namespace ${this.namespace}:`, event);
     }
 
     return () => {
+      this.pendingSubscriptions.get(event)?.delete(handler);
+      if (this.pendingSubscriptions.get(event)?.size === 0) {
+        this.pendingSubscriptions.delete(event);
+      }
       this.socket?.off(event, handler);
     };
   }
@@ -137,6 +158,7 @@ class WebSocketService {
       this.socket = null;
     }
     this.globalMessageHandlers.clear();
+    this.setStatus('disconnected');
   }
 
   getStatus(): ConnectionStatus {

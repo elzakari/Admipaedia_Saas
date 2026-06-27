@@ -26,12 +26,6 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             dashboardWs.disconnect();
             chatWs.disconnect();
         }
-
-        return () => {
-            // Cleanup on unmount (app close)
-            dashboardWs.disconnect();
-            chatWs.disconnect();
-        };
     }, [isAuthenticated]);
 
     return (
