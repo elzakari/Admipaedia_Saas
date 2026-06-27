@@ -270,9 +270,13 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
         await api.post('/grades/bulk', payload);
         await handleLoadGradebook();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("API save failed:", err);
-      setErrorMessage("Failed to save the gradebook. Please verify the selected assessment and scores.");
+      const backendMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message;
+      setErrorMessage(backendMessage || "Failed to save the gradebook. Please verify the selected assessment and scores.");
     } finally {
       setIsLoading(false);
     }

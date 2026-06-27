@@ -16,6 +16,7 @@ from typing import List, Dict, Optional, Tuple, Any
 import logging
 from collections import defaultdict
 import statistics
+from app.services.exam_service import normalize_exam_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,14 @@ class EnhancedExamService:
         - Recommendations
         """
         try:
+            exam_date = normalize_exam_datetime(exam_date)
+            if exam_date is None:
+                return {
+                    'has_conflicts': False,
+                    'error': 'Invalid exam date',
+                    'severity': 'unknown'
+                }
+
             conflicts = {
                 'has_conflicts': False,
                 'time_conflicts': [],

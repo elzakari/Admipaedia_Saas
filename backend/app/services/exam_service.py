@@ -2,13 +2,35 @@ from app.models.exam import Exam
 from app.models.class_ import Class
 from app.models.subject import Subject
 from app.extensions import db
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import and_
 from app.services.cache_service import get_cache_service
 from app.schemas.exam import ExamSchema
 
 cache_service = get_cache_service()
 exam_schema = ExamSchema()
+
+
+def normalize_exam_datetime(value):
+    """Normalize exam datetimes to naive UTC values for DB storage and comparisons."""
+    if value is None or value == '':
+        return None
+
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        raw = str(value).strip()
+        if not raw:
+            return None
+        normalized = raw.replace('Z', '+00:00')
+        try:
+            dt = datetime.fromisoformat(normalized)
+        except ValueError:
+            dt = datetime.strptime(raw[:10], '%Y-%m-%d')
+
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 class ExamService:
     @staticmethod
@@ -79,12 +101,16 @@ class ExamService:
             return None, "Class not found"
         if not subject_obj:
             return None, "Subject not found"
+
+        exam_date = normalize_exam_datetime(data.get('exam_date'))
+        if exam_date is None:
+            return None, "exam_date is required"
         
         # Create new exam
         exam = Exam(
             title=data['title'],
             description=data.get('description'),
-            exam_date=data['exam_date'],
+            exam_date=exam_date,
             duration=data['duration'],
             total_marks=data['total_marks'],
             passing_marks=data['passing_marks'],
@@ -122,7 +148,7 @@ class ExamService:
         if 'description' in data:
             exam.description = data['description']
         if 'exam_date' in data:
-            exam.exam_date = data['exam_date']
+            exam.exam_date = normalize_exam_datetime(data['exam_date'])
         if 'duration' in data:
             exam.duration = data['duration']
         if 'total_marks' in data:
@@ -232,11 +258,10 @@ class ExamService:
     def check_exam_conflicts(class_id, exam_date, duration, exam_id=None):
         """Check for exam scheduling conflicts."""
         from datetime import timedelta
-        
-        # Convert exam_date to datetime if it's a string
-        if isinstance(exam_date, str):
-            normalized = exam_date.replace('Z', '+00:00')
-            exam_date = datetime.fromisoformat(normalized)
+
+        exam_date = normalize_exam_datetime(exam_date)
+        if exam_date is None:
+            return []
         
         # Calculate end time
         end_time = exam_date + timedelta(minutes=int(duration))

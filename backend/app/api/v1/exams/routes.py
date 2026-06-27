@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.services.exam_service import ExamService
+from app.services.exam_service import ExamService, normalize_exam_datetime
 from app.services.enhanced_exam_service import EnhancedExamService
 from app.services.grade_service import GradeService
 from app.services.identity_resolver import IdentityResolver
@@ -85,7 +85,7 @@ def get_exams():
                 if exam_data['status'] in ['scheduled', 'ongoing']:
                     conflicts = EnhancedExamService.detect_exam_conflicts(
                         exam_data['class_id'],
-                        datetime.fromisoformat(exam_data['exam_date']),
+                        normalize_exam_datetime(exam_data['exam_date']),
                         exam_data['duration'],
                         exam_data['id']
                     )
@@ -174,7 +174,7 @@ def create_exam():
         # Check for conflicts before creating
         check_conflicts = request.args.get('check_conflicts', 'true').lower() == 'true'
         if check_conflicts:
-            exam_date = datetime.fromisoformat(data['exam_date'])
+            exam_date = normalize_exam_datetime(data['exam_date'])
             conflicts = EnhancedExamService.detect_exam_conflicts(
                 data['class_id'],
                 exam_date,
@@ -254,7 +254,7 @@ def update_exam(exam_id):
         if check_conflicts and ('exam_date' in data or 'duration' in data):
             exam = ExamService.get_exam_by_id(exam_id)
             if exam:
-                exam_date = datetime.fromisoformat(data.get('exam_date', exam.exam_date.isoformat()))
+                exam_date = normalize_exam_datetime(data.get('exam_date', exam.exam_date))
                 duration = data.get('duration', exam.duration)
                 
                 conflicts = EnhancedExamService.detect_exam_conflicts(
