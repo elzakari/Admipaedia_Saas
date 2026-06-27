@@ -1,6 +1,7 @@
 from datetime import datetime
 from unittest.mock import patch
 
+from app.schemas.exam import ExamCreateSchema
 from app.models.class_ import Class
 from app.models.subject import Subject
 from app.services.enhanced_exam_service import EnhancedExamService
@@ -12,6 +13,21 @@ def test_normalize_exam_datetime_converts_aware_values_to_naive_utc():
 
     assert normalized == datetime(2026, 6, 27, 9, 0, 0)
     assert normalized.tzinfo is None
+
+
+def test_exam_create_schema_accepts_timezone_aware_future_datetime():
+    schema = ExamCreateSchema()
+    errors = schema.validate({
+        'title': 'Aware Future Exam',
+        'exam_date': '2099-06-27T10:00:00+01:00',
+        'duration': 60,
+        'total_marks': 100,
+        'passing_marks': 50,
+        'class_id': 1,
+        'subject_id': 1,
+    })
+
+    assert errors == {}
 
 
 def test_exam_creation_and_conflict_detection_accept_timezone_aware_input(db_session, sample_tenant, user_factory):

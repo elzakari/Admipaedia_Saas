@@ -5,6 +5,7 @@ from app.websockets.notifications import notifications_namespace
 from app.websockets.announcements import announcements_namespace
 from app.websockets.message_handler import MessageNamespace
 from app.websockets.dashboard_handler import DashboardNamespace
+import app.services.communication_service  # noqa: F401
 
 messages_namespace = MessageNamespace('/messages')
 dashboard_namespace = DashboardNamespace('/dashboard')

@@ -34,6 +34,14 @@ class WebSocketService {
       return;
     }
 
+    // The backend does not expose a generic root namespace; skip stray callers
+    // instead of generating repeated production handshake failures.
+    if (!this.namespace || this.namespace === '/') {
+      console.info('Skipping unsupported root socket namespace connection');
+      this.setStatus('disconnected');
+      return;
+    }
+
     this.setStatus('connecting');
 
     // Get token from localStorage

@@ -1,5 +1,13 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError, post_load, EXCLUDE
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _normalize_exam_datetime_for_validation(value):
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 class ExamSchema(Schema):
     """Schema for serializing and deserializing Exam objects"""
@@ -26,7 +34,8 @@ class ExamSchema(Schema):
     @validates('exam_date')
     def validate_exam_date(self, value):
         """Validate that exam date is not in the past"""
-        if value and value < (datetime.utcnow() - timedelta(minutes=1)):
+        normalized = _normalize_exam_datetime_for_validation(value)
+        if normalized and normalized < (datetime.utcnow() - timedelta(minutes=1)):
             raise ValidationError("Exam date cannot be in the past")
     
     @validates('passing_marks')
@@ -62,7 +71,8 @@ class ExamCreateSchema(Schema):
     @validates('exam_date')
     def validate_exam_date(self, value):
         """Validate that exam date is not in the past"""
-        if value and value < (datetime.utcnow() - timedelta(minutes=1)):
+        normalized = _normalize_exam_datetime_for_validation(value)
+        if normalized and normalized < (datetime.utcnow() - timedelta(minutes=1)):
             raise ValidationError("Exam date cannot be in the past")
     
     @validates('passing_marks')
@@ -84,7 +94,8 @@ class ExamUpdateSchema(Schema):
     @validates('exam_date')
     def validate_exam_date(self, value):
         """Validate that exam date is not in the past"""
-        if value and value < (datetime.utcnow() - timedelta(minutes=1)):
+        normalized = _normalize_exam_datetime_for_validation(value)
+        if normalized and normalized < (datetime.utcnow() - timedelta(minutes=1)):
             raise ValidationError("Exam date cannot be in the past")
     
     @validates('passing_marks')
