@@ -242,3 +242,38 @@ def test_dashboard_telemetry_access_and_scoping(mock_disk, mock_mem, mock_cpu, c
     assert math_perf2 is not None
     assert math_perf2["average_score"] == 75.0
     assert math_perf2["student_count"] == 1
+
+
+@patch('psutil.cpu_percent')
+@patch('psutil.virtual_memory')
+@patch('psutil.disk_usage')
+def test_dashboard_telemetry_defaults_to_active_tenant_branch_when_header_missing(mock_disk, mock_mem, mock_cpu, client, db, telemetry_setup):
+    mock_cpu.return_value = 21.5
+
+    mock_mem_value = MagicMock()
+    mock_mem_value.percent = 48.0
+    mock_mem.return_value = mock_mem_value
+
+    mock_disk_value = MagicMock()
+    mock_disk_value.percent = 63.3
+    mock_disk.return_value = mock_disk_value
+
+    tenant = telemetry_setup["tenant"]
+    token = _login(client, 'telemetry-admin@example.com', 'password')
+
+    response = client.get(
+        '/api/v1/saas/dashboard/telemetry',
+        headers={
+            'Authorization': f'Bearer {token}',
+            'X-Tenant-ID': str(tenant.id),
+        }
+    )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["success"] is True
+
+    metrics = payload["data"]["academic_metrics"]
+    assert metrics["students_count"] == 1
+    assert metrics["classes_count"] == 1
+    assert metrics["average_grade"] == 95.0

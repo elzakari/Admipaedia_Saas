@@ -6,7 +6,7 @@ from flask import g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from app.models.user import User
-from app.models.tenant import Tenant, TenantMembership
+from app.models.tenant import Tenant, TenantMembership, Branch
 
 
 def _parse_uuid(value: str) -> Optional[uuid.UUID]:
@@ -81,6 +81,45 @@ def resolve_tenant_for_request(require_explicit: bool = True) -> Tuple[Optional[
     return requested, user, None
 
 
+def resolve_branch_for_request(tenant_id: uuid.UUID, user: Optional[User]) -> Optional[uuid.UUID]:
+    branch_id_val = request.headers.get('X-Branch-ID') or request.headers.get('X-Branch-Id')
+    requested_branch_id = _parse_uuid(branch_id_val.strip()) if branch_id_val else None
+
+    if requested_branch_id is not None:
+        branch = Branch.query.filter_by(id=requested_branch_id, tenant_id=tenant_id).first()
+        if branch:
+            return branch.id
+
+    if user:
+        if user.role == 'teacher':
+            from app.models.teacher import Teacher
+            profile = Teacher.query.filter_by(user_id=user.id, tenant_id=tenant_id).first()
+            if profile and profile.branch_id:
+                return profile.branch_id
+        elif user.role == 'student':
+            from app.models.student import Student
+            profile = Student.query.filter_by(user_id=user.id, tenant_id=tenant_id).first()
+            if profile and profile.branch_id:
+                return profile.branch_id
+
+    default_branch = (
+        Branch.query
+        .filter_by(tenant_id=tenant_id, is_active=True)
+        .order_by(Branch.created_at.asc(), Branch.name.asc(), Branch.id.asc())
+        .first()
+    )
+    if default_branch:
+        return default_branch.id
+
+    fallback_branch = (
+        Branch.query
+        .filter_by(tenant_id=tenant_id)
+        .order_by(Branch.created_at.asc(), Branch.name.asc(), Branch.id.asc())
+        .first()
+    )
+    return fallback_branch.id if fallback_branch else None
+
+
 def tenant_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -96,15 +135,7 @@ def tenant_required(fn):
         g.tenant_id = tenant_id
         g.current_user = user
 
-        # Parse X-Branch-ID header contextually
-        branch_id_val = request.headers.get('X-Branch-ID') or request.headers.get('X-Branch-Id')
-        if branch_id_val:
-            try:
-                g.branch_id = uuid.UUID(branch_id_val.strip())
-            except Exception:
-                g.branch_id = None
-        else:
-            g.branch_id = None
+        g.branch_id = resolve_branch_for_request(tenant_id, user)
 
         return fn(*args, **kwargs)
 

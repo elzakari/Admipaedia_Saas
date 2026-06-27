@@ -262,19 +262,21 @@ def super_admin_list_users():
             query = query.filter(User.status == status)
 
     if tenant_id or membership_status:
-        query = query.join(TenantMembership, TenantMembership.user_id == User.id)
+        membership_user_ids = db.session.query(TenantMembership.user_id)
 
         if tenant_id:
             try:
                 tenant_uuid = tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
-                query = query.filter(TenantMembership.tenant_id == tenant_uuid)
+                membership_user_ids = membership_user_ids.filter(TenantMembership.tenant_id == tenant_uuid)
             except Exception:
                 query = query.filter(db.text('1=0'))
+                membership_user_ids = None
 
-        if membership_status:
-            query = query.filter(TenantMembership.status == membership_status)
+        if membership_user_ids is not None and membership_status:
+            membership_user_ids = membership_user_ids.filter(TenantMembership.status == membership_status)
 
-        query = query.distinct()
+        if membership_user_ids is not None:
+            query = query.filter(User.id.in_(membership_user_ids.distinct()))
 
     query = query.order_by(User.created_at.desc())
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
