@@ -12,9 +12,41 @@ import {
 import { Button } from './button';
 import { applyDocumentLanguage, markLanguageOverride, normalizeLanguage } from '@/lib/countryLanguage';
 
+type LanguageCode = 'en' | 'fr';
+
+const FlagIcon: React.FC<{ code: LanguageCode; className?: string }> = ({ code, className }) => {
+  if (code === 'fr') {
+    return (
+      <svg
+        viewBox="0 0 24 16"
+        aria-hidden="true"
+        className={cn('h-4 w-6 overflow-hidden rounded-sm border border-black/10 shadow-sm', className)}
+      >
+        <rect width="8" height="16" fill="#1f49c7" />
+        <rect x="8" width="8" height="16" fill="#ffffff" />
+        <rect x="16" width="8" height="16" fill="#e53b35" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 16"
+      aria-hidden="true"
+      className={cn('h-4 w-6 overflow-hidden rounded-sm border border-black/10 shadow-sm', className)}
+    >
+      <rect width="24" height="16" fill="#0a36a8" />
+      <path d="M0 0L24 16M24 0L0 16" stroke="#ffffff" strokeWidth="4.2" />
+      <path d="M0 0L24 16M24 0L0 16" stroke="#cf142b" strokeWidth="2.2" />
+      <path d="M12 0V16M0 8H24" stroke="#ffffff" strokeWidth="6.2" />
+      <path d="M12 0V16M0 8H24" stroke="#cf142b" strokeWidth="3.6" />
+    </svg>
+  );
+};
+
 const languages = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en' as const, name: 'English' },
+  { code: 'fr' as const, name: 'Français' },
 ];
 
 const LanguageSwitcher: React.FC = () => {
@@ -44,7 +76,7 @@ const LanguageSwitcher: React.FC = () => {
               : "bg-white/50 border-slate-200/50 text-slate-600 hover:text-indigo-600 hover:bg-white shadow-sm"
           )}
         >
-          <span className="text-lg leading-none">{currentLang.flag}</span>
+          <FlagIcon code={currentLang.code} />
           <span className="text-xs font-medium uppercase tracking-wider hidden md:inline-block">{currentLang.code}</span>
           <ChevronDown className={cn("h-3 w-3 opacity-50", isCasaos ? "text-slate-500" : "text-slate-400")} />
         </Button>
@@ -68,7 +100,7 @@ const LanguageSwitcher: React.FC = () => {
               currentLang.code === lang.code && (isCasaos ? "bg-white/5 text-white" : "bg-indigo-50 text-indigo-600 font-medium")
             )}
           >
-            <span className="text-lg">{lang.flag}</span>
+            <FlagIcon code={lang.code} className="shrink-0" />
             <span className="text-sm">{lang.name}</span>
             {currentLang.code === lang.code && (
               <span className={cn(
