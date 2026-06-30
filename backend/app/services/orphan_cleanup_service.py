@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Dict, Tuple
 
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, inspect, or_, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -68,11 +68,52 @@ class OrphanCleanupService:
         return db.engine.dialect.identifier_preparer.quote(name)
 
     @staticmethod
-    def _tenant_tables_order():
+    def _tenant_param_value(tenant_uuid: uuid.UUID):
+        if db.engine.dialect.name == 'sqlite':
+            return str(tenant_uuid)
+        return tenant_uuid
+
+    @staticmethod
+    def _tenant_table(table_name: str):
+        metadata_tables = getattr(db.Model.metadata, 'tables', {}) or {}
+        return metadata_tables.get(table_name)
+
+    @staticmethod
+    def _tenant_value_for_column(column, tenant_uuid: uuid.UUID):
+        try:
+            python_type = column.type.python_type
+        except Exception:
+            python_type = None
+        if python_type is str:
+            return str(tenant_uuid)
+        return tenant_uuid
+
+    @staticmethod
+    def _tenant_predicate(table_name: str, columns: list[str], tenant_uuid: uuid.UUID):
+        table = OrphanCleanupService._tenant_table(table_name)
+        if table is None:
+            return None
+        predicates = [
+            table.c[col] == OrphanCleanupService._tenant_value_for_column(table.c[col], tenant_uuid)
+            for col in columns
+            if col in table.c
+        ]
+        if not predicates:
+            return None
+        return or_(*predicates)
+
+    @staticmethod
+    def _tenant_reference_columns():
         inspector = inspect(db.engine)
+        metadata_tables = getattr(db.Model.metadata, 'tables', {}) or {}
         table_names = inspector.get_table_names()
-        tenant_tables = []
-        tenant_tables_set = set()
+        existing_table_names = set(table_names)
+        tenant_refs: dict[str, set[str]] = {}
+
+        def add_reference(table_name: str, column_name: str):
+            if not table_name or not column_name or table_name == 'tenants':
+                return
+            tenant_refs.setdefault(table_name, set()).add(column_name)
 
         for t in table_names:
             if t == 'tenants':
@@ -81,19 +122,128 @@ class OrphanCleanupService:
                 cols = inspector.get_columns(t) or []
             except Exception:
                 continue
-            if any((c.get('name') or '').lower() == 'tenant_id' for c in cols):
-                tenant_tables.append(t)
-                tenant_tables_set.add(t)
+            referenced_cols = {
+                c.get('name')
+                for c in cols
+                if (c.get('name') or '').lower() == 'tenant_id'
+            }
+            try:
+                fks = inspector.get_foreign_keys(t) or []
+            except Exception:
+                fks = []
+            for fk in fks:
+                if (fk.get('referred_table') or '') != 'tenants':
+                    continue
+                referred_cols = fk.get('referred_columns') or []
+                if 'id' not in referred_cols:
+                    continue
+                for col in fk.get('constrained_columns') or []:
+                    if col:
+                        referenced_cols.add(col)
+            if referenced_cols:
+                tenant_refs[t] = referenced_cols
+
+        for table_name, table in metadata_tables.items():
+            if table_name == 'tenants':
+                continue
+            if existing_table_names and table_name not in existing_table_names:
+                continue
+            for column in table.columns:
+                if (column.name or '').lower() == 'tenant_id':
+                    add_reference(table_name, column.name)
+                for fk in column.foreign_keys:
+                    fk_column = getattr(fk, 'column', None)
+                    fk_table = getattr(getattr(fk_column, 'table', None), 'name', None)
+                    fk_name = getattr(fk_column, 'name', None)
+                    if fk_table == 'tenants' and fk_name == 'id':
+                        add_reference(table_name, column.name)
+
+        return tenant_refs
+
+    @staticmethod
+    def _tenant_scoped_predicates(tenant_uuid: uuid.UUID):
+        metadata_tables = getattr(db.Model.metadata, 'tables', {}) or {}
+        inspector = inspect(db.engine)
+        existing_table_names = set(inspector.get_table_names())
+        tenant_refs = OrphanCleanupService._tenant_reference_columns()
+
+        scoped_predicates = {}
+        for table_name, columns in tenant_refs.items():
+            predicate = OrphanCleanupService._tenant_predicate(table_name, sorted(columns), tenant_uuid)
+            if predicate is not None:
+                scoped_predicates[table_name] = predicate
+
+        changed = True
+        while changed:
+            changed = False
+            for table_name, table in metadata_tables.items():
+                if table_name in scoped_predicates or table_name == 'tenants':
+                    continue
+                if existing_table_names and table_name not in existing_table_names:
+                    continue
+
+                predicates = []
+                for fk_constraint in table.foreign_key_constraints:
+                    referred_table = getattr(getattr(fk_constraint, 'referred_table', None), 'name', None)
+                    if referred_table not in scoped_predicates:
+                        continue
+                    parent_table = metadata_tables.get(referred_table)
+                    if parent_table is None:
+                        continue
+
+                    child_columns = list(fk_constraint.columns)
+                    parent_columns = [getattr(element, 'column', None) for element in fk_constraint.elements]
+                    if not child_columns or len(child_columns) != len(parent_columns):
+                        continue
+
+                    # Start with single-column FKs, which cover the current tenant purge graph.
+                    if len(child_columns) != 1:
+                        continue
+
+                    child_column = child_columns[0]
+                    parent_column = parent_columns[0]
+                    if child_column is None or parent_column is None:
+                        continue
+
+                    predicates.append(
+                        child_column.in_(
+                            select(parent_column).where(scoped_predicates[referred_table])
+                        )
+                    )
+
+                if predicates:
+                    scoped_predicates[table_name] = or_(*predicates)
+                    changed = True
+
+        return scoped_predicates
+
+    @staticmethod
+    def _tenant_tables_order(table_names=None):
+        tenant_tables = list(table_names or [])
+        if not tenant_tables:
+            tenant_refs = OrphanCleanupService._tenant_reference_columns()
+            tenant_tables = list(tenant_refs.keys())
+        if not tenant_tables:
+            return []
+        tenant_tables_set = set(tenant_tables)
+        inspector = inspect(db.engine)
+        metadata_tables = getattr(db.Model.metadata, 'tables', {}) or {}
 
         deps: dict[str, set[str]] = {t: set() for t in tenant_tables}
         for t in tenant_tables:
+            table = metadata_tables.get(t)
+            if table is not None:
+                for fk in table.foreign_keys:
+                    ref_table = getattr(getattr(fk.column, 'table', None), 'name', None)
+                    if ref_table in tenant_tables_set and ref_table != t:
+                        deps[t].add(ref_table)
             try:
                 fks = inspector.get_foreign_keys(t) or []
             except Exception:
                 continue
             for fk in fks:
                 ref_table = fk.get('referred_table')
-                if ref_table in tenant_tables_set:
+                if ref_table in tenant_tables_set and ref_table != t:
                     deps[t].add(ref_table)
 
         visited: set[str] = set()
@@ -118,40 +268,43 @@ class OrphanCleanupService:
         return order
 
     @staticmethod
+    def _tenant_ref_clause(columns: list[str], tenant_uuid: uuid.UUID):
+        tenant_value = OrphanCleanupService._tenant_param_value(tenant_uuid)
+        params = {}
+        predicates = []
+        for index, col in enumerate(columns):
+            param_name = f'tid_{index}'
+            params[param_name] = tenant_value
+            predicates.append(f"{OrphanCleanupService._quote_ident(col)} = :{param_name}")
+        return " OR ".join(predicates), params
+
+    @staticmethod
     def _tenant_references(tenant_uuid: uuid.UUID):
         refs = []
         try:
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
+            tenant_refs = OrphanCleanupService._tenant_reference_columns()
         except Exception:
             return refs
 
-        for t in tables:
-            if t == 'tenants':
-                continue
+        for t, columns in tenant_refs.items():
+            ordered_columns = sorted(columns)
             try:
-                cols = inspector.get_columns(t) or []
-            except Exception:
-                continue
-            tenant_col = None
-            for c in cols:
-                if (c.get('name') or '').lower() == 'tenant_id':
-                    tenant_col = c.get('name')
-                    break
-            if not tenant_col:
-                continue
-            try:
-                q_table = OrphanCleanupService._quote_ident(t)
-                q_col = OrphanCleanupService._quote_ident(tenant_col)
-                cnt = db.session.execute(
-                    text(f"SELECT COUNT(*) FROM {q_table} WHERE {q_col} = :tid"),
-                    {'tid': tenant_uuid},
-                ).scalar()
+                predicate = OrphanCleanupService._tenant_predicate(t, ordered_columns, tenant_uuid)
+                if predicate is not None:
+                    table = OrphanCleanupService._tenant_table(t)
+                    cnt = db.session.query(func.count()).select_from(table).filter(predicate).scalar()
+                else:
+                    q_table = OrphanCleanupService._quote_ident(t)
+                    where_clause, params = OrphanCleanupService._tenant_ref_clause(ordered_columns, tenant_uuid)
+                    cnt = db.session.execute(
+                        text(f"SELECT COUNT(*) FROM {q_table} WHERE {where_clause}"),
+                        params,
+                    ).scalar()
                 cnt = int(cnt or 0)
             except Exception:
                 continue
             if cnt > 0:
-                refs.append({'table': t, 'column': tenant_col, 'count': cnt})
+                refs.append({'table': t, 'columns': ordered_columns, 'count': cnt})
         return refs
 
     @staticmethod
@@ -453,13 +606,36 @@ class OrphanCleanupService:
 
         try:
             current_table = None
+            tenant_scoped_predicates = OrphanCleanupService._tenant_scoped_predicates(tid)
+            tenant_refs = OrphanCleanupService._tenant_reference_columns()
+            if not ordered_tables:
+                ordered_tables = list(tenant_scoped_predicates.keys() or tenant_refs.keys())
+            if tenant_scoped_predicates:
+                ordered_tables = OrphanCleanupService._tenant_tables_order(tenant_scoped_predicates.keys())
             for table in reversed(ordered_tables):
                 current_table = table
-                q_table = OrphanCleanupService._quote_ident(table)
-                db.session.execute(
-                    text(f"DELETE FROM {q_table} WHERE tenant_id = :tid"),
-                    {'tid': tid},
-                )
+                predicate = tenant_scoped_predicates.get(table)
+                if predicate is not None:
+                    table_obj = OrphanCleanupService._tenant_table(table)
+                    if table_obj is not None:
+                        db.session.execute(table_obj.delete().where(predicate))
+                        continue
+                columns = sorted(tenant_refs.get(table) or [])
+                if not columns:
+                    continue
+                predicate = OrphanCleanupService._tenant_predicate(table, columns, tid)
+                if predicate is not None:
+                    table_obj = OrphanCleanupService._tenant_table(table)
+                    if table_obj is not None:
+                        db.session.execute(table_obj.delete().where(predicate))
+                        continue
+                else:
+                    q_table = OrphanCleanupService._quote_ident(table)
+                    where_clause, params = OrphanCleanupService._tenant_ref_clause(columns, tid)
+                    db.session.execute(
+                        text(f"DELETE FROM {q_table} WHERE {where_clause}"),
+                        params,
+                    )
         except Exception as e:
             db.session.rollback()
             return False, {
@@ -642,45 +818,28 @@ class OrphanCleanupService:
         if not user:
             return False, status
 
-        deletions = {}
+        # Student/parent platform-only users can still have profile rows that
+        # keep a FK back to users. Reuse the hardened purge path to avoid
+        # route-level 500s from partial lightweight deletion.
+        try:
+            from app.services.user_service import SecurePurgeService
+        except Exception as e:
+            return False, {
+                **status,
+                'can_delete': False,
+                'reasons': ['Unable to initialize secure orphan deletion'],
+                'error': type(e).__name__,
+            }
 
-        for ref in status.get('detachable_references') or []:
-            table = ref.get('table')
-            column = ref.get('column')
-            if not table or not column:
-                continue
-            try:
-                db.session.execute(text(f"UPDATE {table} SET {column} = NULL WHERE {column} = :uid"), {'uid': user_id})
-            except Exception:
-                continue
-
-        deletions['notifications'] = Notification.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['mfa_devices'] = MFADevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['trusted_devices'] = TrustedDevice.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['auth_attempts'] = AuthenticationAttempt.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_security_settings'] = UserSecuritySettings.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['security_audit_logs'] = SecurityAuditLog.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['staff_leaves'] = StaffLeave.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_preferences'] = UserPreferences.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['user_profile'] = UserProfile.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['api_keys'] = APIKey.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['password_reset_tokens'] = PasswordResetToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['password_history'] = PasswordHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['login_history'] = LoginHistory.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['tenant_memberships_invited_by'] = TenantMembership.query.filter_by(invited_by_user_id=user_id).delete(synchronize_session=False)
-
-        deletions['detached_nullable_refs'] = len(status.get('detachable_references') or [])
-
-        db.session.execute(user_roles.delete().where(user_roles.c.user_id == user_id))
-        deletions['user_roles'] = True
-
-        SessionToken.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        deletions['session_tokens'] = status['counts'].get('session_tokens', 0)
-
-        db.session.delete(user)
-        deletions['user'] = 1
-
-        return True, {'deleted': deletions, 'user_id': user_id}
+        ok, result = SecurePurgeService.force_purge_user(user_id, actor_user_id=actor_user_id)
+        if not ok:
+            return False, {
+                **status,
+                'can_delete': False,
+                'reasons': [result.get('error', 'Secure orphan deletion failed')],
+                'delete_error': result,
+            }
+        return True, {'deleted': result, 'user_id': user_id}
 
     @staticmethod
     def purge_user(user_id: int, actor_user_id: int) -> Tuple[bool, Dict[str, Any]]:

@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 
-from flask import jsonify, request, g
+from flask import jsonify, request, g, current_app
 from sqlalchemy import or_, func
 
 from app.extensions import db
@@ -11,6 +11,7 @@ from app.models.tenant import Tenant, TenantMembership
 from app.utils.platform_access import require_platform_super_admin
 from app.utils.url_helpers import get_frontend_base_url
 from app.services.orphan_cleanup_service import OrphanCleanupService
+from app.services.user_deletion_policy_service import UserDeletionPolicyService
 from app.services.user_service import SecurePurgeService
 
 
@@ -22,6 +23,7 @@ def _serialize_school_memberships(memberships):
             'tenant_id': str(membership.tenant_id),
             'tenant_name': tenant.name if tenant else None,
             'tenant_slug': tenant.slug if tenant else None,
+            'tenant_status': tenant.status if tenant else None,
             'role': membership.role,
             'status': membership.status,
             'created_at': membership.created_at.isoformat() if membership.created_at else None,
@@ -559,6 +561,13 @@ def super_admin_purge_user(user_id: int):
         return jsonify({'success': False, 'error': 'Confirmation text mismatch', 'expected': expected_delete, 'expected_anonymize': expected_anonymize}), 400
 
     try:
+        delete_status = UserDeletionPolicyService.get_delete_status(user_id, actor.id)
+        if mode == 'delete':
+            if not delete_status.get('can_delete') or delete_status.get('mode') != 'purge':
+                status_payload = dict(delete_status)
+                status_payload['expected_anonymize'] = expected_anonymize
+                status_payload['can_anonymize'] = True
+                return jsonify({'success': False, 'error': 'Cannot delete user', 'status': status_payload}), 400
         if mode == 'anonymize':
             ok, result = OrphanCleanupService.anonymize_user(user_id, actor_user_id=actor.id)
         else:
@@ -790,6 +799,15 @@ def super_admin_delete_orphan_user(user_id: int):
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': 'Failed to delete orphan user'}), 500
+
+
+@super_admin_bp.route('/users/<int:user_id>/delete-status', methods=['GET'])
+@require_platform_super_admin()
+def super_admin_get_user_delete_status(user_id: int):
+    actor = g.current_user
+    status = UserDeletionPolicyService.get_delete_status(user_id, actor.id)
+    code = 200 if status.get('exists') else 404
+    return jsonify({'success': True, 'status': status}), code
 
 
 @super_admin_bp.route('/users/<int:user_id>/force-purge', methods=['POST', 'DELETE'])

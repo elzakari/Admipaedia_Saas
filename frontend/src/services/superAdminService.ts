@@ -8,6 +8,7 @@ export type SuperAdminSchoolMembership = {
   tenant_id: string
   tenant_name: string | null
   tenant_slug: string | null
+  tenant_status?: string | null
   role: string
   status: string
   created_at?: string | null
@@ -159,6 +160,25 @@ export type OrphanUserStatus = {
   user?: SuperAdminUser
 }
 
+export type UserDeleteStatus = {
+  exists: boolean
+  user_id: number
+  can_delete: boolean
+  mode?: 'orphan' | 'purge' | null
+  reasons: string[]
+  memberships?: Array<{
+    tenant_id: string
+    tenant_name?: string | null
+    tenant_slug?: string | null
+    tenant_status?: string | null
+    membership_role?: string
+    membership_status?: string
+  }>
+  active_tenant_ids?: string[]
+  expected_delete?: string
+  user?: SuperAdminUser
+}
+
 export const superAdminService = {
   getOverview: async (): Promise<SuperAdminOverviewResponse> => {
     const res = await api.get('/super-admin/overview')
@@ -276,6 +296,11 @@ export const superAdminService = {
 
   getOrphanUserStatus: async (id: number): Promise<{ success: boolean; status: OrphanUserStatus }> => {
     const res = await api.get(`/super-admin/orphans/users/${id}`)
+    return res.data
+  },
+
+  getUserDeleteStatus: async (id: number): Promise<{ success: boolean; status: UserDeleteStatus }> => {
+    const res = await api.get(`/super-admin/users/${id}/delete-status`)
     return res.data
   },
 

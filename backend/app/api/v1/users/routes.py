@@ -3,7 +3,7 @@ User Management API Routes
 Comprehensive CRUD operations for user management with role-based access control
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime, timedelta
@@ -18,7 +18,9 @@ from app.middleware.security_middleware import (
 )
 from app.utils.rbac_decorators import require_permission
 from app.utils.password_security import PasswordSecurity
+from app.utils.tenant_context import tenant_required
 from app.services.auth_service import AuthService
+from app.services.user_deletion_policy_service import UserDeletionPolicyService
 
 logger = structlog.get_logger()
 users_bp = Blueprint('users', __name__)
@@ -362,59 +364,56 @@ def update_user(user_id):
 
 @users_bp.route('/<int:user_id>', methods=['DELETE'])
 @jwt_required()
+@tenant_required(resolve_branch=False, load_full_user=False)
 @require_permission('user.delete')
 @rate_limit(limit=5, window=3600)  # 5 deletions per hour
 @security_headers()
 def delete_user(user_id):
-    """Delete a user (soft delete recommended)"""
+    """Delete a user within the active tenant scope."""
     try:
-        user = User.query.get_or_404(user_id)
-        
-        # Prevent self-deletion
         current_user_id = get_jwt_identity()
-        current_user = User.query.get(current_user_id)
-        actor_role = getattr(current_user, 'role', None)
-        if not actor_role and current_user:
-            if any(r.name == 'super_admin' for r in current_user.roles):
-                actor_role = 'super_admin'
-            elif any(r.name == 'super_manager' for r in current_user.roles):
-                actor_role = 'super_manager'
+        tenant_id = getattr(g, 'tenant_id', None)
+        status = UserDeletionPolicyService.get_delete_status(
+            user_id,
+            current_user_id,
+            tenant_scope_id=tenant_id,
+        )
+        if not status.get('exists'):
+            return jsonify({'success': False, 'error': 'User not found', 'status': status}), 404
+        if not status.get('can_delete'):
+            reasons = status.get('reasons') or ['Cannot delete user']
+            auth_reasons = {
+                'Tenant context is required',
+                'Only a School Admin can delete users from a school',
+                'School Admin can only delete users from an active school',
+                'School Admin can only delete users linked to their school',
+                'School Admin cannot delete another School Admin account',
+                'User has links to another school and cannot be deleted from this school',
+            }
+            code = 403 if any(reason in auth_reasons for reason in reasons) else 400
+            return jsonify({'success': False, 'error': 'Cannot delete user', 'status': status}), code
 
-        target_role = getattr(user, 'role', None)
-        if not target_role:
-            if any(r.name == 'super_admin' for r in user.roles):
-                target_role = 'super_admin'
-            elif any(r.name == 'super_manager' for r in user.roles):
-                target_role = 'super_manager'
+        target_user = User.query.get(user_id)
+        ok, result = UserDeletionPolicyService.delete_user(
+            user_id,
+            current_user_id,
+            tenant_scope_id=tenant_id,
+        )
+        if not ok:
+            return jsonify({'success': False, 'error': 'Cannot delete user', 'status': result}), 400
 
-        if target_role in ('super_admin', 'super_manager') and actor_role != 'super_admin':
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        if str(user_id) == str(current_user_id):
-            return jsonify({
-                'success': False,
-                'error': 'Cannot delete your own account'
-            }), 400
-
-        # Soft delete by deactivating instead of hard delete
-        if hasattr(user, 'is_active'):
-            user.is_active = False
-            user.deleted_at = datetime.utcnow()
-        else:
-            # If no soft delete field, perform hard delete
-            db.session.delete(user)
-
-        db.session.commit()
-
-        # Log security event
         log_security_event('user_deleted_by_admin', {
-            'deleted_user_id': user.id,
+            'deleted_user_id': user_id,
             'deleted_by': current_user_id,
-            'email': user.email
+            'email': target_user.email if target_user else None,
+            'tenant_id': str(tenant_id) if tenant_id else None,
         })
+        db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': 'User deleted successfully'
+            'message': 'User deleted successfully',
+            'result': result,
         }), 200
 
     except Exception as e:

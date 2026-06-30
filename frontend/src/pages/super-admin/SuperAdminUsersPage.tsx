@@ -831,7 +831,7 @@ const SuperAdminUsersPage: React.FC = () => {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>{t('super_admin.users.delete.title', 'Delete this user permanently?')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  {t('super_admin.users.delete.description', 'This will permanently remove the account only if it is an orphan user (no school memberships and no school profile).')}
+                                  {t('super_admin.users.delete.description', 'Super Admin can delete orphan users or users linked only to inactive or suspended schools. Active-school user deletion stays with the School Admin of that school.')}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -853,27 +853,24 @@ const SuperAdminUsersPage: React.FC = () => {
                                       setDeletingUserId(u.id)
                                       let statusRes: { success: boolean; status: any }
                                       try {
-                                        statusRes = await superAdminService.getOrphanUserStatus(u.id)
+                                        statusRes = await superAdminService.getUserDeleteStatus(u.id)
                                       } catch (e) {
                                         toast.error(t('super_admin.users.delete.status_failed', 'Could not check deletion conditions'), {
                                           description: extractError(e)
                                         })
-                                        if (isActorSuperAdmin && u.role !== 'super_admin') {
-                                          setPurgeUser(u)
-                                          setPurgeConfirmText('')
-                                          setPurgeOpen(true)
-                                        }
                                         return
                                       }
                                       if (!statusRes.status.can_delete) {
                                         toast.error(t('super_admin.users.delete.cannot_title', 'Cannot delete user'), {
-                                          description: statusRes.status.reasons?.join(', ') || t('super_admin.users.delete.not_orphan', 'User is not an orphan')
+                                          description: statusRes.status.reasons?.join(', ') || t('super_admin.users.delete.not_allowed', 'User does not meet the secure deletion policy')
                                         })
-                                        if (u.role !== 'super_admin') {
-                                          setPurgeUser(u)
-                                          setPurgeConfirmText('')
-                                          setPurgeOpen(true)
-                                        }
+                                        return
+                                      }
+                                      if (statusRes.status.mode === 'purge') {
+                                        setPurgeMode('delete')
+                                        setPurgeUser(u)
+                                        setPurgeConfirmText('')
+                                        setPurgeOpen(true)
                                         return
                                       }
                                       try {

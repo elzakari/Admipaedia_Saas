@@ -237,11 +237,33 @@ export function PlatformTenantDrawer({
                       const data = e.response?.data
                       const expected = data?.expected
                       const status = data?.status
-                      const statusReasons = Array.isArray(status?.reasons) ? status.reasons.join(', ') : null
+                      const statusReasons = Array.isArray(status?.reasons) ? status.reasons : []
+                      const referenceReasons = Array.isArray(status?.references)
+                        ? status.references.map((ref: { table?: string; count?: number }) => {
+                            const table = ref?.table || 'unknown_table'
+                            const count = typeof ref?.count === 'number' ? ref.count : null
+                            return count !== null
+                              ? `Still referenced by ${table} (${count})`
+                              : `Still referenced by ${table}`
+                          })
+                        : []
+                      const failedTableReason = status?.failed_table ? [`Failed while deleting ${status.failed_table}`] : []
+                      const nextReasons = [...statusReasons, ...referenceReasons, ...failedTableReason]
+                      if (nextReasons.length) {
+                        setPurgeReasons(nextReasons)
+                      }
+                      if (expected) {
+                        setPurgeExpected(expected)
+                      }
                       toast({
                         variant: 'destructive',
                         title: 'Delete failed',
-                        description: data?.error || statusReasons || (expected ? `Confirmation text: ${expected}` : null) || data?.message || e.message || 'Please try again'
+                        description: data?.error
+                          || nextReasons.join(', ')
+                          || (expected ? `Confirmation text: ${expected}` : null)
+                          || data?.message
+                          || e.message
+                          || 'Please try again'
                       })
                     } finally {
                       setPurgingTenant(false)
