@@ -1,7 +1,9 @@
 import pytest
 import uuid
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from app.extensions import db
+from app.models.session_token import SessionToken
 from app.models.tenant import Tenant, Branch
 from app.models.user import User
 from app.models.student import Student
@@ -318,3 +320,93 @@ def test_dashboard_telemetry_falls_back_to_tenant_scope_without_branch(mock_disk
     assert system_monitor["cpu_usage"] == 19.2
     assert system_monitor["memory_usage"] == 44.1
     assert system_monitor["disk_usage"] == 58.7
+
+
+@patch('psutil.cpu_percent')
+@patch('psutil.virtual_memory')
+@patch('psutil.disk_usage')
+def test_dashboard_telemetry_uses_live_branch_scoped_sessions_for_active_users(mock_disk, mock_mem, mock_cpu, client, db, telemetry_setup):
+    mock_cpu.return_value = 18.4
+
+    mock_mem_value = MagicMock()
+    mock_mem_value.percent = 42.0
+    mock_mem.return_value = mock_mem_value
+
+    mock_disk_value = MagicMock()
+    mock_disk_value.percent = 51.7
+    mock_disk.return_value = mock_disk_value
+
+    tenant = telemetry_setup["tenant"]
+    branch1 = telemetry_setup["branch1"]
+    branch2 = telemetry_setup["branch2"]
+
+    admin_token = _login(client, 'telemetry-admin@example.com', 'password')
+
+    teacher_user_1 = _make_user(db, 'teacher', 'branch1-teacher@example.com')
+    teacher_user_2 = _make_user(db, 'teacher', 'branch2-teacher@example.com')
+    db.session.add_all([
+        Teacher(
+            tenant_id=tenant.id,
+            branch_id=branch1.id,
+            user_id=teacher_user_1.id,
+            employee_id='EMP-BR1',
+            first_name='Branch',
+            last_name='One',
+            status='active',
+        ),
+        Teacher(
+            tenant_id=tenant.id,
+            branch_id=branch2.id,
+            user_id=teacher_user_2.id,
+            employee_id='EMP-BR2',
+            first_name='Branch',
+            last_name='Two',
+            status='active',
+        ),
+    ])
+
+    now = datetime.utcnow()
+    db.session.add_all([
+        SessionToken(
+            jti='live-branch1-teacher',
+            user_id=teacher_user_1.id,
+            token_type='access',
+            expires_at=now + timedelta(hours=1),
+        ),
+        SessionToken(
+            jti='live-branch2-teacher',
+            user_id=teacher_user_2.id,
+            token_type='access',
+            expires_at=now + timedelta(hours=1),
+        ),
+    ])
+    db.session.flush()
+    for token in SessionToken.query.filter(SessionToken.jti.in_(['live-branch1-teacher', 'live-branch2-teacher'])).all():
+        token.last_used_at = now
+    db.session.commit()
+
+    branch1_response = client.get(
+        '/api/v1/saas/dashboard/telemetry',
+        headers={
+            'Authorization': f'Bearer {admin_token}',
+            'X-Tenant-ID': str(tenant.id),
+            'X-Branch-ID': str(branch1.id),
+        }
+    )
+    assert branch1_response.status_code == 200
+    branch1_monitor = branch1_response.get_json()['data']['system_monitor']
+    assert branch1_monitor['online_teachers'] == 1
+    assert branch1_monitor['active_users'] == 2
+
+    branch2_response = client.get(
+        '/api/v1/saas/dashboard/telemetry',
+        headers={
+            'Authorization': f'Bearer {admin_token}',
+            'X-Tenant-ID': str(tenant.id),
+            'X-Branch-ID': str(branch2.id),
+        }
+    )
+    assert branch2_response.status_code == 200
+    branch2_monitor = branch2_response.get_json()['data']['system_monitor']
+    assert branch2_monitor['online_teachers'] == 1
+    assert branch2_monitor['active_users'] == 2

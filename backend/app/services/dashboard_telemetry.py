@@ -1,19 +1,138 @@
 import psutil
 import uuid
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import g, current_app
+from sqlalchemy import func, union
 from app.extensions import db
+from app.models.parent import Parent
+from app.models.session_token import SessionToken
+from app.models.staff import Staff
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.class_ import Class
 from app.models.attendance import Attendance
 from app.models.grade import Grade
 from app.models.subject import Subject
+from app.models.tenant import TenantMembership
+from app.models.user import User
 from app.services.attendance_analytics import AttendanceAnalytics
 
 class DashboardTelemetryService:
     """Service for connecting live system metrics and row-level academic telemetry to dashboards."""
+
+    LIVE_ACTIVITY_WINDOW_MINUTES = 15
+
+    @staticmethod
+    def _active_access_session_filters():
+        now = datetime.utcnow()
+        activity_cutoff = now - timedelta(minutes=DashboardTelemetryService.LIVE_ACTIVITY_WINDOW_MINUTES)
+        return (
+            SessionToken.is_revoked.is_(False),
+            SessionToken.token_type == 'access',
+            SessionToken.expires_at > now,
+            func.coalesce(SessionToken.last_used_at, SessionToken.issued_at) >= activity_cutoff,
+        )
+
+    @staticmethod
+    def _scoped_user_ids_subquery(tenant_id, branch_id):
+        membership_users = (
+            db.session.query(TenantMembership.user_id.label('user_id'))
+            .join(User, User.id == TenantMembership.user_id)
+            .filter(
+                TenantMembership.tenant_id == tenant_id,
+                TenantMembership.status == 'active',
+                User.status == 'active',
+            )
+        )
+
+        student_users = (
+            db.session.query(Student.user_id.label('user_id'))
+            .join(User, User.id == Student.user_id)
+            .filter(
+                Student.tenant_id == tenant_id,
+                Student.status == 'active',
+                User.status == 'active',
+            )
+        )
+        if branch_id:
+            student_users = student_users.filter(Student.branch_id == branch_id)
+
+        teacher_users = (
+            db.session.query(Teacher.user_id.label('user_id'))
+            .join(User, User.id == Teacher.user_id)
+            .filter(
+                Teacher.tenant_id == tenant_id,
+                Teacher.status == 'active',
+                User.status == 'active',
+            )
+        )
+        if branch_id:
+            teacher_users = teacher_users.filter(Teacher.branch_id == branch_id)
+
+        parent_users = (
+            db.session.query(Parent.user_id.label('user_id'))
+            .join(User, User.id == Parent.user_id)
+            .filter(
+                Parent.tenant_id == tenant_id,
+                User.status == 'active',
+            )
+        )
+        if branch_id:
+            parent_users = (
+                parent_users
+                .join(Student, Student.parent_id == Parent.id)
+                .filter(Student.branch_id == branch_id)
+            )
+
+        staff_users = (
+            db.session.query(Staff.user_id.label('user_id'))
+            .join(User, User.id == Staff.user_id)
+            .filter(
+                Staff.tenant_id == tenant_id,
+                Staff.status == 'active',
+                User.status == 'active',
+            )
+        )
+
+        return union(
+            membership_users,
+            student_users,
+            teacher_users,
+            parent_users,
+            staff_users,
+        ).subquery()
+
+    @staticmethod
+    def _count_active_users(tenant_id, branch_id) -> int:
+        scoped_user_ids = DashboardTelemetryService._scoped_user_ids_subquery(tenant_id, branch_id)
+        active_users = (
+            db.session.query(func.count(func.distinct(SessionToken.user_id)))
+            .select_from(SessionToken)
+            .join(scoped_user_ids, scoped_user_ids.c.user_id == SessionToken.user_id)
+            .filter(*DashboardTelemetryService._active_access_session_filters())
+            .scalar()
+        )
+        return int(active_users or 0)
+
+    @staticmethod
+    def _count_online_teachers(tenant_id, branch_id) -> int:
+        teacher_query = (
+            db.session.query(func.count(func.distinct(Teacher.user_id)))
+            .select_from(Teacher)
+            .join(User, User.id == Teacher.user_id)
+            .join(SessionToken, SessionToken.user_id == Teacher.user_id)
+            .filter(
+                Teacher.tenant_id == tenant_id,
+                Teacher.status == 'active',
+                User.status == 'active',
+            )
+        )
+        if branch_id:
+            teacher_query = teacher_query.filter(Teacher.branch_id == branch_id)
+        teacher_query = teacher_query.filter(*DashboardTelemetryService._active_access_session_filters())
+        online_teachers = teacher_query.scalar()
+        return int(online_teachers or 0)
 
     @staticmethod
     def get_live_telemetry(tenant_id, branch_id) -> dict:
@@ -136,13 +255,17 @@ class DashboardTelemetryService:
             memory_usage = round(45.0 + random.random() * 10.0, 1)
             disk_usage = 68.4
 
-        # Network latency and active connections
+        # Network latency and active user counts
         network_latency = round(15.0 + random.random() * 10.0, 1)
         db_connections = int(12 + random.randint(1, 8))
-        online_teachers = int(max(1, teacher_count - 1))
-        
-        # Calculate active sessions based on student presence
-        active_users = student_count + online_teachers + random.randint(2, 6)
+        try:
+            online_teachers = DashboardTelemetryService._count_online_teachers(tenant_id, branch_id)
+        except Exception:
+            online_teachers = 0
+        try:
+            active_users = DashboardTelemetryService._count_active_users(tenant_id, branch_id)
+        except Exception:
+            active_users = 0
 
         # 4. Compile the unified data schema
         return {

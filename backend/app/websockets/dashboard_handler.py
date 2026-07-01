@@ -3,6 +3,7 @@ from flask import current_app, request
 import time
 import threading
 from datetime import datetime, timedelta
+import uuid
 
 try:
     import psutil  # type: ignore
@@ -41,10 +42,14 @@ class DashboardNamespace(Namespace):
 
         user_id = None
         role = None
+        tenant_id = None
+        branch_id = None
 
         token = None
         if isinstance(auth, dict):
             token = auth.get('token')
+            tenant_id = auth.get('tenant_id')
+            branch_id = auth.get('branch_id')
 
         if token and sid:
             try:
@@ -61,6 +66,8 @@ class DashboardNamespace(Namespace):
             self._connected[sid] = {
                 'user_id': int(user_id) if user_id is not None else None,
                 'role': role,
+                'tenant_id': self._parse_uuid(tenant_id),
+                'branch_id': self._parse_uuid(branch_id),
                 'connected_at': time.time()
             }
 
@@ -92,42 +99,57 @@ class DashboardNamespace(Namespace):
         while not self.stop_event.is_set():
             try:
                 with app.app_context():
-                    now = datetime.utcnow()
-
-                    system = self._perf.get_system_metrics() or {}
-                    dbm = self._perf.get_database_metrics() or {}
-                    appm = self._perf.get_application_metrics() or {}
-
-                    cpu_percent = float(system.get('cpu', {}).get('usage_percent', 0) or 0)
-                    memory_percent = float(system.get('memory', {}).get('usage_percent', 0) or 0)
-                    disk_percent = float(system.get('disk', {}).get('usage_percent', 0) or 0)
-
-                    conn_time_ms = float(dbm.get('connection_time_ms', 0) or 0)
-                    active_db_connections = int(dbm.get('active_connections', 0) or 0)
-
-                    connected = list(self._connected.values())
-                    connected_user_ids = {c.get('user_id') for c in connected if c.get('user_id') is not None}
-                    active_users = len(connected_user_ids) if len(connected_user_ids) > 0 else max(0, self.active_connections)
-                    online_teachers = len({c.get('user_id') for c in connected if c.get('role') == 'teacher' and c.get('user_id') is not None})
-
-                    total_classes = int((appm.get('table_counts') or {}).get('classes', 0) or 0)
+                    from app.services.dashboard_telemetry import DashboardTelemetryService
 
                     disk_io = self._get_disk_io_mb_s()
+                    contexts = {}
+                    for sid, connection in self._connected.items():
+                        key = (
+                            str(connection.get('tenant_id') or ''),
+                            str(connection.get('branch_id') or ''),
+                        )
+                        contexts.setdefault(key, []).append((sid, connection))
 
-                    update_data = {
-                        'activeUsers': int(active_users),
-                        'onlineTeachers': int(online_teachers),
-                        'currentClasses': total_classes,
-                        'systemLoad': round(cpu_percent),
-                        'memoryUsage': round(memory_percent),
-                        'diskUsage': round(disk_percent),
-                        'diskIO': disk_io,
-                        'networkLatency': round(conn_time_ms),
-                        'databaseConnections': active_db_connections,
-                        'timestamp': time.time(),
-                    }
+                    for (_, _), entries in contexts.items():
+                        sample = entries[0][1]
+                        tenant_id = sample.get('tenant_id')
+                        branch_id = sample.get('branch_id')
 
-                    socketio.emit('system_update', update_data, namespace='/dashboard')
+                        if tenant_id is not None:
+                            telemetry = DashboardTelemetryService.get_live_telemetry(tenant_id, branch_id)
+                            system_monitor = telemetry.get('system_monitor', {})
+                            academic_metrics = telemetry.get('academic_metrics', {})
+                            update_data = {
+                                'activeUsers': int(system_monitor.get('active_users', 0) or 0),
+                                'onlineTeachers': int(system_monitor.get('online_teachers', 0) or 0),
+                                'currentClasses': int(academic_metrics.get('classes_count', 0) or 0),
+                                'systemLoad': round(float(system_monitor.get('cpu_usage', 0) or 0)),
+                                'memoryUsage': round(float(system_monitor.get('memory_usage', 0) or 0)),
+                                'diskUsage': round(float(system_monitor.get('disk_usage', 0) or 0)),
+                                'diskIO': disk_io,
+                                'networkLatency': round(float(system_monitor.get('network_latency', 0) or 0)),
+                                'databaseConnections': int(system_monitor.get('database_connections', 0) or 0),
+                                'timestamp': time.time(),
+                            }
+                        else:
+                            system = self._perf.get_system_metrics() or {}
+                            dbm = self._perf.get_database_metrics() or {}
+                            appm = self._perf.get_application_metrics() or {}
+                            update_data = {
+                                'activeUsers': max(0, self.active_connections),
+                                'onlineTeachers': 0,
+                                'currentClasses': int((appm.get('table_counts') or {}).get('classes', 0) or 0),
+                                'systemLoad': round(float(system.get('cpu', {}).get('usage_percent', 0) or 0)),
+                                'memoryUsage': round(float(system.get('memory', {}).get('usage_percent', 0) or 0)),
+                                'diskUsage': round(float(system.get('disk', {}).get('usage_percent', 0) or 0)),
+                                'diskIO': disk_io,
+                                'networkLatency': round(float(dbm.get('connection_time_ms', 0) or 0)),
+                                'databaseConnections': int(dbm.get('active_connections', 0) or 0),
+                                'timestamp': time.time(),
+                            }
+
+                        for sid, _connection in entries:
+                            socketio.emit('system_update', update_data, namespace='/dashboard', to=sid)
             except Exception as e:
                 try:
                     print(f"Dashboard realtime metrics error: {e}")
@@ -167,3 +189,14 @@ class DashboardNamespace(Namespace):
         """Handle manual refresh requests from clients."""
         # Broadcast to all clients in the namespace that they should refresh their data
         emit('data_invalidated', {'type': data.get('type', 'all')}, broadcast=True)
+
+    @staticmethod
+    def _parse_uuid(value):
+        if not value:
+            return None
+        if isinstance(value, uuid.UUID):
+            return value
+        try:
+            return uuid.UUID(str(value))
+        except Exception:
+            return None

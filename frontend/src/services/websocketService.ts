@@ -47,14 +47,20 @@ class WebSocketService {
 
     // Get token from localStorage
     const token = localStorage.getItem('token');
+    const tenantId = localStorage.getItem('saas_current_tenant_id');
+    const branchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
 
     // Construct full URL
     const url = `${SOCKET_BASE_URL}${this.namespace}`;
 
     this.socket = io(url, {
       path: '/socket.io',
-      auth: { token },
-      query: token ? { token } : {},
+      auth: {
+        token,
+        tenant_id: tenantId,
+        branch_id: branchId,
+      },
+      query: token ? { token, tenant_id: tenantId, branch_id: branchId } : {},
       transports: ['websocket', 'polling'],
       upgrade: true,
       reconnection: true,
