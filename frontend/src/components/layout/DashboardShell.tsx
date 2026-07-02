@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Home, Users, Calendar, BarChart3, Settings, Menu, LayoutGrid, User, Activity, Bell } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { MobileBottomNavigation } from '../navigation/MobileBottomNavigation';
+import { useSaasTenant } from '../../hooks/useSaasTenant';
+import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -17,6 +20,15 @@ interface DashboardShellProps {
 export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout, activeUser }: DashboardShellProps) {
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const { current } = useSaasTenant();
+  const { unreadCount } = useUnreadNotifications();
+
+  const schoolBrandName = current?.tenant?.name || current?.tenant?.slug?.toUpperCase() || 'ADMIPAEDIA';
+  const schoolBrandLogo = current?.tenant?.logo_url || '/assets/images/Admipaedia_Logo.png';
+  const notificationPath =
+    activeUser?.role === 'teacher' ? '/teacher/notifications' :
+    activeUser?.role === 'student' ? '/student/notifications' :
+    '/notifications';
 
   useEffect(() => {
     const scrollContainer = document.querySelector('.adm-main-container');
@@ -87,9 +99,15 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
       {/* Semantic Sidebar Component */}
       <aside className="adm-sidebar">
         <div className="adm-sidebar-brand">
-          <div className="adm-brand-icon-wrapper" />
+          <div className="adm-brand-icon-wrapper overflow-hidden rounded-2xl bg-white/10 flex items-center justify-center">
+            <img
+              src={schoolBrandLogo}
+              alt={`${schoolBrandName} Logo`}
+              className="h-10 w-10 object-contain"
+            />
+          </div>
           <div className="adm-brand-info">
-            <span className="adm-brand-name">COLLEGE-GERMINOS</span>
+            <span className="adm-brand-name truncate">{schoolBrandName}</span>
           </div>
         </div>
 
@@ -129,23 +147,28 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           </button>
 
           <div className="adm-mobile-brand-center flex items-center gap-2">
-            <div className="adm-mobile-logo-wrapper">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="adm-mobile-logo h-5 w-5 text-white animate-pulse">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
+            <div className="adm-mobile-logo-wrapper overflow-hidden rounded-xl bg-white/10 flex items-center justify-center">
+              <img
+                src={schoolBrandLogo}
+                alt={`${schoolBrandName} Logo`}
+                className="adm-mobile-logo h-6 w-6 object-contain"
+              />
             </div>
-            <span className="adm-mobile-brand-title">ADMIPAEDIA</span>
+            <span className="adm-mobile-brand-title truncate max-w-[10rem] sm:max-w-none">{schoolBrandName}</span>
           </div>
 
           <div className="adm-mobile-actions-right flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white shadow-inner">
               {activeUser?.initials || "SM"}
             </div>
-            <button className="text-white hover:text-indigo-200" aria-label="View Notifications">
+            <Link to={notificationPath} className="relative text-white hover:text-indigo-200" aria-label="View Notifications">
               <Bell className="h-5 w-5" />
-            </button>
+              {unreadCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-500 text-[10px] leading-4 text-white font-bold text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
           </div>
         </header>
 
@@ -164,9 +187,11 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           <div className="adm-topbar-right">
             <button className="adm-btn-commands">Commandes</button>
             <div className="adm-notification-bell-wrapper">
-              <button className="adm-icon-button" aria-label="View Notifications">
-                <span className="adm-notif-badge">10</span>
-              </button>
+              <Link to={notificationPath} className="adm-icon-button relative" aria-label="View Notifications">
+                {unreadCount > 0 && (
+                  <span className="adm-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </Link>
             </div>
             <div className="adm-user-profile-block">
               <div className="adm-avatar-initials">{activeUser?.initials || "SM"}</div>
