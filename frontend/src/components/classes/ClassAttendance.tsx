@@ -4,7 +4,6 @@ import { useClass } from '../../hooks/useClasses';
 import { useSubmitClassAttendance } from '../../hooks/useClassAttendance';
 import { useStudents } from '../../hooks/useStudents';
 import attendanceService, { Attendance } from '../../services/attendanceService';
-import subjectService from '../../services/subjectService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
@@ -13,7 +12,6 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { AlertCircle, CalendarIcon, CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
 
 interface ClassAttendanceProps {
@@ -39,7 +37,6 @@ const ATTENDANCE_STATUSES: Array<{ value: AttendanceStatus; label: string }> = [
 
 export function ClassAttendance({ classId }: ClassAttendanceProps) {
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [studentsWithStatus, setStudentsWithStatus] = useState<Student[]>([]);
   
   const { data: classData } = useClass(classId);
@@ -63,36 +60,14 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
     return [];
   }, [studentsData]);
 
-  const { data: subjectsResponse, isLoading: isLoadingSubjects } = useQuery({
-    queryKey: ['attendance-subjects', classId],
-    queryFn: async () => {
-      try {
-        return await subjectService.getSubjectsByClass(classId);
-      } catch (_error) {
-        return subjectService.getSubjects({ page: 1, per_page: 200, is_active: true });
-      }
-    },
-    enabled: !!classId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const subjects = useMemo(() => subjectsResponse?.subjects || [], [subjectsResponse]);
-  const resolvedSubjectId = selectedSubjectId ? Number(selectedSubjectId) : undefined;
-
-  React.useEffect(() => {
-    if (subjects.length === 1 && !selectedSubjectId) {
-      setSelectedSubjectId(String(subjects[0].id));
-    }
-  }, [selectedSubjectId, subjects]);
-
   const {
     data: existingAttendances = [],
     isLoading: isLoadingAttendance,
     isFetching: isFetchingAttendance
   } = useQuery<Attendance[]>({
-    queryKey: ['class-attendance-day', classId, selectedDate, resolvedSubjectId ?? 'all'],
-    queryFn: () => attendanceService.getClassAttendance(classId, selectedDate, resolvedSubjectId),
-    enabled: !!classId && !!selectedDate && (!subjects.length || !!resolvedSubjectId),
+    queryKey: ['class-attendance-day', classId, selectedDate],
+    queryFn: () => attendanceService.getClassAttendance(classId, selectedDate),
+    enabled: !!classId && !!selectedDate,
     staleTime: 30 * 1000,
   });
 
@@ -174,11 +149,6 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
   const handleSubmitAttendance = async () => {
     if (!classId) return;
 
-    if (subjects.length > 0 && !resolvedSubjectId) {
-      toast.error('Select a subject before saving attendance');
-      return;
-    }
-
     if (stats.unmarked > 0) {
       toast.error('Mark every student before submitting attendance');
       return;
@@ -187,7 +157,6 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
     try {
       const attendanceData = {
         class_id: classId,
-        subject_id: resolvedSubjectId ?? null,
         date: selectedDate,
         attendances: studentsWithStatus.map(student => ({
           student_id: student.id,
@@ -204,7 +173,7 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
     }
   };
 
-  const isBusy = isLoadingStudents || isLoadingSubjects || isLoadingAttendance;
+  const isBusy = isLoadingStudents || isLoadingAttendance;
   
   return (
     <Card>
@@ -212,11 +181,11 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
         <div>
           <CardTitle>Daily Attendance Workflow</CardTitle>
           <CardDescription>
-            {classData?.name ? `Review ${classData.name} by date and subject, then save the completed register.` : 'Review attendance by date and subject before saving.'}
+            {classData?.name ? `Review ${classData.name} by date, then save the shared daily register.` : 'Review attendance by date before saving the shared daily register.'}
           </CardDescription>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">Attendance Date</label>
             <div className="relative">
@@ -228,22 +197,6 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
                 className="pl-10"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Subject</label>
-            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={subjects.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder={subjects.length === 0 ? 'No subjects available' : 'Select subject'} />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.id} value={String(subject.id)}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="space-y-2">
@@ -317,9 +270,7 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
                 {existingAttendances.length > 0 ? 'Existing register loaded' : 'New register'}
               </Badge>
               {isFetchingAttendance ? <span>Refreshing saved records...</span> : null}
-              {subjects.length > 0 && !resolvedSubjectId ? (
-                <span>Select a subject to load or save attendance for this date.</span>
-              ) : null}
+              <span>Attendance is saved once per student for the selected class and date.</span>
             </div>
 
             <Table>
@@ -370,7 +321,7 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
               <div>
                 <div className="font-medium">Ready to save</div>
                 <div className="text-sm text-muted-foreground">
-                  Attendance saves for {selectedDate}{resolvedSubjectId ? ' with the selected subject context' : ''}.
+                  Attendance saves for {selectedDate} and stays synced across admin and teacher portals.
                 </div>
               </div>
               <Button 

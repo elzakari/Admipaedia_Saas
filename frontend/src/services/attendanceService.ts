@@ -7,7 +7,7 @@ export interface Attendance {
   id: number;
   student_id: number;
   class_id: number;
-  subject_id: number;
+  subject_id?: number | null;
   date: string;
   status: 'present' | 'absent' | 'late' | 'excused';
   remarks?: string;
@@ -21,7 +21,7 @@ export interface Attendance {
 export interface AttendanceCreate {
   student_id: number;
   class_id: number;
-  subject_id: number;
+  subject_id?: number | null;
   date: string;
   status: 'present' | 'absent' | 'late' | 'excused';
   remarks?: string;
@@ -273,7 +273,7 @@ const attendanceService = {
     try {
       const res = await attendanceService.getAttendances({
         class_id: classId,
-        subject_id: subjectId,
+        ...(subjectId ? { subject_id: subjectId } : {}),
         date_from: date,
         date_to: date,
         per_page: 500,

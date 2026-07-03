@@ -37,6 +37,9 @@ export const useSubmitClassAttendance = () => {
       attendanceService.createBulkAttendance(data),
     onSuccess: (_, variables) => {
       // Invalidate relevant queries
+      queryClient.invalidateQueries({
+        queryKey: ['class-attendance-day', variables.class_id]
+      });
       queryClient.invalidateQueries({ 
         queryKey: classAttendanceKeys.lists() 
       });

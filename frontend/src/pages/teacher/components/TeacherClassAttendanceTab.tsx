@@ -5,7 +5,6 @@ import type { TeacherClass } from '../teacherMockData';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import attendanceService from '../../../services/attendanceService';
-import subjectService from '../../../services/subjectService';
 
 type AttendanceMark = 'present' | 'absent' | 'late' | 'excused';
 type AttendanceRow = { studentId: string; mark: AttendanceMark; note?: string };
@@ -14,8 +13,6 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
   const { t } = useTranslation();
   const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceRow>>({});
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const [subjectName, setSubjectName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -30,24 +27,7 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
 
     try {
       setLoading(true);
-
-      let resolvedSubjectId = subjectId;
-      if (!resolvedSubjectId) {
-        const subjectResponse = await subjectService.getSubjectsByClass(numericClassId);
-        const subjects = Array.isArray(subjectResponse?.subjects) ? subjectResponse.subjects : [];
-        const fallbackSubject = subjects[0] || null;
-        resolvedSubjectId = fallbackSubject?.id ?? null;
-        setSubjectId(resolvedSubjectId);
-        setSubjectName(fallbackSubject?.name ?? null);
-      }
-
-      if (!resolvedSubjectId) {
-        setAttendanceDraft({});
-        toast.error('No subject is configured for this class attendance workflow yet.');
-        return;
-      }
-
-      const records = await attendanceService.getClassAttendance(numericClassId, attendanceDate, resolvedSubjectId);
+      const records = await attendanceService.getClassAttendance(numericClassId, attendanceDate);
       const next: Record<string, AttendanceRow> = {};
       for (const record of records) {
         next[String(record.student_id)] = {
@@ -79,24 +59,8 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
     try {
       setSaving(true);
 
-      let resolvedSubjectId = subjectId;
-      if (!resolvedSubjectId) {
-        const subjectResponse = await subjectService.getSubjectsByClass(numericClassId);
-        const subjects = Array.isArray(subjectResponse?.subjects) ? subjectResponse.subjects : [];
-        const fallbackSubject = subjects[0] || null;
-        resolvedSubjectId = fallbackSubject?.id ?? null;
-        setSubjectId(resolvedSubjectId);
-        setSubjectName(fallbackSubject?.name ?? null);
-      }
-
-      if (!resolvedSubjectId) {
-        toast.error('No subject is configured for this class attendance workflow yet.');
-        return;
-      }
-
       await attendanceService.bulkCreateAttendance({
         class_id: numericClassId,
-        subject_id: resolvedSubjectId,
         date: attendanceDate,
         attendances: activeRoster.map((student) => {
           const row = attendanceDraft[student.id] ?? { studentId: student.id, mark: 'present' as AttendanceMark };
@@ -124,9 +88,7 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
         <div>
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('teacher_portal.attendance.title')}</div>
           <div className="text-xs text-slate-500">{t('teacher_portal.attendance.subtitle')}</div>
-          {subjectName ? (
-            <div className="mt-1 text-xs text-slate-500">Saving against subject context: {subjectName}</div>
-          ) : null}
+          <div className="mt-1 text-xs text-slate-500">This daily class register syncs with the admin attendance page.</div>
         </div>
         <div className="flex gap-2 items-center">
           <input

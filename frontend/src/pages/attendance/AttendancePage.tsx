@@ -68,7 +68,7 @@ export default function AttendancePage() {
             <CardHeader>
               <CardTitle>{selectedClass?.name || t('navigation.attendance')}</CardTitle>
               <CardDescription>
-                Refined attendance workflow for daily registers, saved history review, and class-wide attendance insights.
+                Shared daily attendance workflow for admin and teacher portals, with one canonical register per class and date.
               </CardDescription>
             </CardHeader>
             <CardContent>

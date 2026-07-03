@@ -1,14 +1,18 @@
 from app.extensions import db
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import UniqueConstraint
 
 class Attendance(db.Model):
     __tablename__ = 'attendances'
+    __table_args__ = (
+        UniqueConstraint('student_id', 'class_id', 'date', name='uq_attendance_student_class_date'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id', ondelete='CASCADE'), nullable=False, index=True)
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id', ondelete='CASCADE'), nullable=False, index=True)
-    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
     branch_id = db.Column(UUID(as_uuid=True), db.ForeignKey('branches.id', ondelete='SET NULL'), nullable=True, index=True)
     date = db.Column(db.Date, nullable=False, index=True)
     status = db.Column(db.String(20), nullable=False, default='present')

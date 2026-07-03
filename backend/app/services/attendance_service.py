@@ -16,6 +16,22 @@ attendance_schema = AttendanceSchema()
 
 class AttendanceService:
     """Service for attendance-related operations."""
+
+    @staticmethod
+    def _validate_subject_context(class_, subject_id):
+        """Validate optional subject context without making it part of daily uniqueness."""
+        if not subject_id:
+            return None, None
+
+        subject = Subject.query.get(subject_id)
+        if not subject:
+            return None, "Subject not found"
+
+        if getattr(class_, 'tenant_id', None) and getattr(subject, 'tenant_id', None):
+            if getattr(class_, 'tenant_id', None) != getattr(subject, 'tenant_id', None):
+                return None, "Subject is outside the selected class tenant context"
+
+        return subject, None
     
     @staticmethod
     def get_all_attendances(page=1, per_page=20, class_id=None, student_id=None, subject_id=None, date_from=None, date_to=None, status=None):
@@ -74,7 +90,7 @@ class AttendanceService:
     
     @staticmethod
     def get_attendance_by_student_date(student_id, date_val, class_id=None, subject_id=None):
-        """Get an attendance record by student ID and date."""
+        """Get the canonical daily attendance record for a student."""
         from sqlalchemy.orm import joinedload
         
         query = Attendance.query.options(
@@ -88,9 +104,6 @@ class AttendanceService:
         
         if class_id:
             query = query.filter(Attendance.class_id == class_id)
-            
-        if subject_id:
-            query = query.filter(Attendance.subject_id == subject_id)
             
         return query.first()
     
@@ -110,26 +123,15 @@ class AttendanceService:
             if getattr(student, 'class_id', None) != getattr(class_, 'id', None):
                 return None, "Student is not assigned to the selected class"
             
-            subject_id = attendance_data.get('subject_id')
-            if subject_id:
-                subject = Subject.query.get(subject_id)
-                if not subject:
-                    return None, "Subject not found"
-                if getattr(class_, 'tenant_id', None) and getattr(subject, 'tenant_id', None):
-                    if getattr(class_, 'tenant_id', None) != getattr(subject, 'tenant_id', None):
-                        return None, "Subject is outside the selected class tenant context"
-            else:
-                default_subject = Subject.query.first()
-                if not default_subject:
-                    return None, "No subjects configured"
-                attendance_data['subject_id'] = default_subject.id
+            _, subject_error = AttendanceService._validate_subject_context(class_, attendance_data.get('subject_id'))
+            if subject_error:
+                return None, subject_error
             
             # Check if attendance record already exists for this student on this date
             existing = AttendanceService.get_attendance_by_student_date(
                 attendance_data['student_id'],
                 attendance_data['date'],
-                attendance_data.get('class_id'),
-                attendance_data.get('subject_id')
+                attendance_data.get('class_id')
             )
             
             if existing:
@@ -201,18 +203,9 @@ class AttendanceService:
                 return None, "Class not found"
             
             subject_id = bulk_data.get('subject_id')
-            if subject_id:
-                subject = Subject.query.get(subject_id)
-                if not subject:
-                    return None, "Subject not found"
-                if getattr(class_, 'tenant_id', None) and getattr(subject, 'tenant_id', None):
-                    if getattr(class_, 'tenant_id', None) != getattr(subject, 'tenant_id', None):
-                        return None, "Subject is outside the selected class tenant context"
-            else:
-                default_subject = Subject.query.first()
-                if not default_subject:
-                    return None, "No subjects configured"
-                subject_id = default_subject.id
+            _, subject_error = AttendanceService._validate_subject_context(class_, subject_id)
+            if subject_error:
+                return None, subject_error
             
             created_attendances = []
             for attendance_item in bulk_data['attendances']:
@@ -239,7 +232,7 @@ class AttendanceService:
                     attendance_data['student_id'],
                     attendance_data['date'],
                     attendance_data['class_id'],
-                    attendance_data.get('subject_id')
+                    attendance_data.get('class_id')
                 )
                 
                 if existing:
@@ -247,6 +240,8 @@ class AttendanceService:
                     for key, value in attendance_data.items():
                         if key not in ['student_id', 'class_id', 'subject_id', 'date']:
                             setattr(existing, key, value)
+                    if not existing.subject_id and attendance_data.get('subject_id'):
+                        existing.subject_id = attendance_data['subject_id']
                     existing.updated_at = datetime.utcnow()
                     created_attendances.append(existing)
                 else:
@@ -445,16 +440,12 @@ class AttendanceService:
                 if not student_id or not status:
                     continue  # Skip invalid entries
                 
-                # Check if attendance record already exists for this student, date, class, and subject
+                # Daily attendance is canonical per student + class + date.
                 existing = Attendance.query.filter(
                     Attendance.student_id == student_id,
                     Attendance.date == date,
                     Attendance.class_id == class_id
                 )
-                
-                if subject_id:
-                    existing = existing.filter(Attendance.subject_id == subject_id)
-                
                 existing = existing.first()
                 
                 if existing:
@@ -462,6 +453,8 @@ class AttendanceService:
                     existing.status = status
                     if remarks is not None:
                         existing.remarks = remarks
+                    if not existing.subject_id and subject_id:
+                        existing.subject_id = subject_id
                     updated_records.append(existing)
                 else:
                     # Create new record
@@ -763,12 +756,15 @@ class AttendanceService:
                         existing.status = item['status']
                         existing.remarks = item.get('remarks')
                         existing.recorded_by = recorded_by
+                        if not existing.subject_id and item.get('subject_id'):
+                            existing.subject_id = item.get('subject_id')
                         existing.updated_at = datetime.utcnow()
                     else:
                         # Create new
                         new_record = Attendance(
                             student_id=item['student_id'],
                             class_id=item['class_id'],
+                            subject_id=item.get('subject_id'),
                             date=item['date'],
                             status=item['status'],
                             remarks=item.get('remarks'),

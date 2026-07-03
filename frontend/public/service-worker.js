@@ -225,7 +225,8 @@ async function syncAttendance() {
 
     for (const record of pendingAttendance) {
       try {
-        const response = await fetch('/api/v1/attendances', {
+        const isBulkAttendance = Array.isArray(record?.data?.attendances) || Array.isArray(record?.data?.attendance_records);
+        const response = await fetch(isBulkAttendance ? '/api/v1/attendances/bulk' : '/api/v1/attendances', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
