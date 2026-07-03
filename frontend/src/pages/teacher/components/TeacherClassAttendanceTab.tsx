@@ -91,9 +91,9 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
 
       if (!resolvedSubjectId) {
         toast.error('No subject is configured for this class attendance workflow yet.');
-    }
-  };
-  const saveAttendance = () => {
+        return;
+      }
+
       await attendanceService.bulkCreateAttendance({
         class_id: numericClassId,
         subject_id: resolvedSubjectId,
@@ -116,10 +116,10 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
     } finally {
       setSaving(false);
     }
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t('teacher_portal.attendance.title')}</div>
