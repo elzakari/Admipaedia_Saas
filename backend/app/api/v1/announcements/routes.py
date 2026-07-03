@@ -21,14 +21,10 @@ def create_announcement():
         title = (data.get('title') or '').strip()
         content = (data.get('content') or '').strip()
         class_id = data.get('class_id')
-        recipients = (data.get('recipients') or 'all').strip().lower()
         send_email = bool(data.get('send_email', False))
 
         if not title or not content or not class_id:
             return jsonify({'success': False, 'message': 'title, content and class_id are required'}), 400
-
-        if recipients not in ('all', 'students', 'parents', 'teachers', 'admins'):
-            recipients = 'all'
 
         scheduled_date = None
         scheduled_date_raw = data.get('scheduled_date')
@@ -41,9 +37,11 @@ def create_announcement():
         target_roles = None
         target_roles_raw = data.get('target_roles')
         if isinstance(target_roles_raw, list):
-            target_roles = ','.join([str(x).strip().lower() for x in target_roles_raw if str(x).strip()])
+            target_roles = [str(x).strip().lower() for x in target_roles_raw if str(x).strip()]
         elif isinstance(target_roles_raw, str) and target_roles_raw.strip():
-            target_roles = target_roles_raw.strip().lower()
+            target_roles = [item.strip().lower() for item in target_roles_raw.split(',') if item.strip()]
+        else:
+            target_roles = ['all']
 
         user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
@@ -76,7 +74,6 @@ def create_announcement():
             'content': content,
             'class_id': class_id,
             'teacher_id': teacher_id,
-            'recipients': recipients,
             'send_email': send_email,
             'scheduled_date': scheduled_date,
             'target_roles': target_roles,
@@ -153,7 +150,7 @@ def update_announcement(announcement_id):
 
         data = request.get_json() or {}
         updates = {}
-        for key in ('title', 'content', 'recipients', 'send_email', 'is_published', 'target_roles', 'scheduled_date'):
+        for key in ('title', 'content', 'send_email', 'is_published', 'target_roles', 'scheduled_date'):
             if key in data:
                 updates[key] = data.get(key)
 
@@ -165,12 +162,6 @@ def update_announcement(announcement_id):
             updates['content'] = (updates['content'] or '').strip()
             if not updates['content']:
                 return jsonify({'success': False, 'message': 'content cannot be empty'}), 400
-
-        if 'recipients' in updates:
-            r = (updates['recipients'] or 'all').strip().lower()
-            if r not in ('all', 'students', 'parents', 'teachers', 'admins'):
-                return jsonify({'success': False, 'message': 'Invalid recipients'}), 400
-            updates['recipients'] = r
 
         if 'scheduled_date' in updates:
             raw = updates['scheduled_date']
@@ -185,11 +176,11 @@ def update_announcement(announcement_id):
         if 'target_roles' in updates:
             tr = updates['target_roles']
             if isinstance(tr, list):
-                updates['target_roles'] = ','.join([str(x).strip().lower() for x in tr if str(x).strip()])
+                updates['target_roles'] = [str(x).strip().lower() for x in tr if str(x).strip()]
             elif isinstance(tr, str):
-                updates['target_roles'] = tr.strip().lower() if tr.strip() else None
+                updates['target_roles'] = [item.strip().lower() for item in tr.split(',') if item.strip()]
             else:
-                updates['target_roles'] = None
+                updates['target_roles'] = ['all']
 
         if user.role in ('admin', 'super_admin', 'superadmin', 'super_manager'):
             announcement, err = AnnouncementService.update_announcement_admin(announcement_id, updates)

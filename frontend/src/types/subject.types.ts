@@ -4,8 +4,11 @@ export interface Subject {
   code: string;
   description?: string;
   department?: string;
+  department_name?: string | null;
   credit_hours?: number;
   is_active: boolean;
+  classes?: Array<{ id: number; name: string }>;
+  teachers?: Array<{ id: number; name: string }>;
   created_at?: string;
   updated_at?: string;
 }
@@ -14,6 +17,7 @@ export interface SubjectFilters {
   search?: string;
   department?: string;
   is_active?: boolean;
+  class_id?: number;
   page?: number;
   per_page?: number;
 }

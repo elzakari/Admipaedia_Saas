@@ -17,6 +17,7 @@ export function useSubjects(filters: SubjectFilters = {}) {
         per_page: filters.per_page,
         department: filters.department,
         is_active: filters.is_active,
+        class_id: filters.class_id,
       });
       return {
         subjects: result.subjects,

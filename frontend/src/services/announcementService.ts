@@ -7,11 +7,13 @@ export interface Announcement {
   title: string;
   content: string;
   class_id?: number;
+  class_name?: string | null;
   teacher_id?: number | null;
   recipients?: string;
   send_email?: boolean;
   scheduled_date?: string | null;
   is_published?: boolean;
+  target_roles?: string[] | string | null;
 
   author_id?: number;
   author_name?: string;
@@ -40,10 +42,10 @@ export interface AnnouncementCreate {
 export interface AnnouncementUpdate {
   title?: string;
   content?: string;
-  recipients?: string;
   send_email?: boolean;
   scheduled_date?: string | null;
   is_published?: boolean;
+  target_roles?: string[] | null;
 }
 
 export interface AdminAnnouncementCreate {
@@ -53,7 +55,6 @@ export interface AdminAnnouncementCreate {
   target_roles: string[];
   send_email?: boolean;
   scheduled_date?: string | null;
-  recipients?: string;
 }
 
 export interface AnnouncementFilters {

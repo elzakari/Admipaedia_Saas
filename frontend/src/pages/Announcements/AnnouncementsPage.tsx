@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, List, Tag, Input, Button, Tabs, Empty, Skeleton, Dropdown, Menu, Modal, Form, Select, Switch, DatePicker, message } from 'antd';
-import { SearchOutlined, FilterOutlined, BellOutlined, CalendarOutlined, MailOutlined } from '@ant-design/icons';
+import { Card, List, Tag, Input, Button, Tabs, Empty, Skeleton, Dropdown, Modal, Form, Select, Switch, DatePicker, message } from 'antd';
+import { FilterOutlined, BellOutlined, CalendarOutlined, MailOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import announcementService, { Announcement } from '../../services/announcementService';
@@ -15,6 +15,24 @@ import dayjs from 'dayjs';
 const { Search } = Input;
 const { TextArea } = Input;
 const { Option } = Select;
+
+const AUDIENCE_LABELS: Record<string, string> = {
+  all: 'Entire class audience',
+  students: 'Students',
+  parents: 'Parents',
+  teachers: 'Teachers',
+  admins: 'Administrators',
+};
+
+const parseTargetRoles = (value: Announcement['target_roles']): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim().toLowerCase()).filter(Boolean);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
+  }
+  return ['all'];
+};
 
 const AnnouncementsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -138,7 +156,7 @@ const AnnouncementsPage: React.FC = () => {
       editForm.setFieldsValue({
         title: announcement.title,
         content: announcement.content,
-        recipients: announcement.recipients || 'all',
+        target_roles: parseTargetRoles(announcement.target_roles),
         send_email: Boolean(announcement.send_email),
         is_published: announcement.is_published !== false,
         scheduled_date: announcement.scheduled_date ? dayjs(announcement.scheduled_date) : null
@@ -179,8 +197,11 @@ const AnnouncementsPage: React.FC = () => {
       >
         <List.Item.Meta
           title={
-            <div className="flex items-center">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="mr-2">{announcement.title}</span>
+              {announcement.class_name || announcement.class_id ? (
+                <Tag>{announcement.class_name || `Class ${announcement.class_id}`}</Tag>
+              ) : null}
               {isScheduled && (
                 <Tag color="orange">
                   <CalendarOutlined /> Scheduled: {new Date(announcement.scheduled_date!).toLocaleString()}
@@ -191,9 +212,21 @@ const AnnouncementsPage: React.FC = () => {
                   <MailOutlined /> Email
                 </Tag>
               )}
+              {parseTargetRoles(announcement.target_roles).map((role) => (
+                <Tag key={`${announcement.id}-${role}`} color={role === 'all' ? 'geekblue' : 'purple'}>
+                  {AUDIENCE_LABELS[role] || role}
+                </Tag>
+              ))}
             </div>
           }
-          description={announcement.content}
+          description={
+            <div className="space-y-1">
+              <div>{announcement.content}</div>
+              <div className="text-xs text-gray-500">
+                Scoped to {announcement.class_name || `Class ${announcement.class_id}`}
+              </div>
+            </div>
+          }
         />
       </List.Item>
     );
@@ -405,7 +438,7 @@ const AnnouncementsPage: React.FC = () => {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
-        width={760}
+        width={820}
         destroyOnHidden
       >
         <EnhancedAnnouncementForm
@@ -426,7 +459,7 @@ const AnnouncementsPage: React.FC = () => {
               editForm.setFieldsValue({
                 title: selected.title,
                 content: selected.content,
-                recipients: selected.recipients || 'all',
+                target_roles: parseTargetRoles(selected.target_roles),
                 send_email: Boolean(selected.send_email),
                 is_published: selected.is_published !== false,
                 scheduled_date: selected.scheduled_date ? dayjs(selected.scheduled_date) : null
@@ -445,7 +478,12 @@ const AnnouncementsPage: React.FC = () => {
             <div className="text-sm text-gray-500">{new Date(selected.created_at).toLocaleString()}</div>
             <div className="whitespace-pre-wrap">{selected.content}</div>
             <div className="flex gap-2 flex-wrap">
-              {selected.recipients ? <Tag>Recipients: {selected.recipients}</Tag> : null}
+              {selected.class_name || selected.class_id ? (
+                <Tag color="blue">{selected.class_name || `Class ${selected.class_id}`}</Tag>
+              ) : null}
+              {parseTargetRoles(selected.target_roles).map((role) => (
+                <Tag key={`view-${selected.id}-${role}`}>{AUDIENCE_LABELS[role] || role}</Tag>
+              ))}
               {selected.send_email ? <Tag color="blue">Email</Tag> : null}
               {selected.scheduled_date ? <Tag color="orange">Scheduled: {new Date(selected.scheduled_date).toLocaleString()}</Tag> : null}
               {selected.is_published === false ? <Tag color="red">Unpublished</Tag> : <Tag color="green">Published</Tag>}
@@ -466,7 +504,7 @@ const AnnouncementsPage: React.FC = () => {
             await announcementService.updateAnnouncement(selected.id, {
               title: values.title,
               content: values.content,
-              recipients: values.recipients,
+              target_roles: values.target_roles,
               send_email: Boolean(values.send_email),
               is_published: Boolean(values.is_published),
               scheduled_date: values.scheduled_date ? values.scheduled_date.toISOString() : null
@@ -489,13 +527,25 @@ const AnnouncementsPage: React.FC = () => {
             <TextArea rows={5} />
           </Form.Item>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="recipients" label="Recipients" rules={[{ required: true, message: 'Recipients is required' }]}>
-              <Select>
-                <Option value="all">all</Option>
-                <Option value="students">students</Option>
-                <Option value="parents">parents</Option>
-                <Option value="teachers">teachers</Option>
-                <Option value="admins">admins</Option>
+            <Form.Item name="target_roles" label="Target audience" rules={[{ required: true, message: 'Select at least one audience' }]}>
+              <Select
+                mode="multiple"
+                maxTagCount="responsive"
+                onChange={(vals: string[]) => {
+                  if (!Array.isArray(vals) || vals.length === 0) {
+                    editForm.setFieldsValue({ target_roles: ['all'] });
+                    return;
+                  }
+                  if (vals.includes('all') && vals.length > 1) {
+                    editForm.setFieldsValue({ target_roles: ['all'] });
+                  }
+                }}
+              >
+                <Option value="all">Entire class audience</Option>
+                <Option value="students">Students</Option>
+                <Option value="parents">Parents</Option>
+                <Option value="teachers">Teachers</Option>
+                <Option value="admins">Administrators</Option>
               </Select>
             </Form.Item>
             <Form.Item name="scheduled_date" label="Scheduled date" help="Leave empty to publish immediately">

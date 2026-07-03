@@ -2,12 +2,35 @@ from app.extensions import db
 from app.models.timetable import TimetableSlot, Period
 from app.models.class_ import Class
 from app.models.teacher import Teacher
+from app.models.subject import Subject
 import structlog
 from sqlalchemy import and_
 
 logger = structlog.get_logger()
 
 class TimetableService:
+    @staticmethod
+    def validate_slot_relationships(data):
+        class_obj = Class.query.get(data.get('class_id'))
+        if not class_obj:
+            return None, None, "Class not found"
+
+        subject = Subject.query.get(data.get('subject_id'))
+        if not subject:
+            return class_obj, None, "Subject not found"
+
+        teacher = Teacher.query.get(data.get('teacher_id'))
+        if not teacher:
+            return class_obj, subject, "Teacher not found"
+
+        if not any(mapped_class.id == class_obj.id for mapped_class in subject.classes):
+            return class_obj, subject, "Selected subject is not assigned to this class. Assign it in Settings > Academic > Subjects first."
+
+        if not any(mapped_teacher.id == teacher.id for mapped_teacher in subject.teachers):
+            return class_obj, subject, "Selected teacher is not assigned to this subject. Update the subject setup before creating the timetable slot."
+
+        return class_obj, subject, None
+
     @staticmethod
     def create_period(data):
         """Create a time slot definition."""
@@ -28,6 +51,10 @@ class TimetableService:
     @staticmethod
     def create_slot(data):
         """Create a timetable slot with conflict checking."""
+        _, _, relationship_error = TimetableService.validate_slot_relationships(data)
+        if relationship_error:
+            return None, relationship_error
+
         # 1. Check for Class Conflict (Class already booked at this time)
         class_conflict = TimetableSlot.query.filter_by(
             class_id=data['class_id'],
@@ -140,6 +167,24 @@ class TimetableService:
             slot = TimetableSlot.query.get(slot_id)
             if not slot:
                 return None, "Slot not found"
+
+            payload = {
+                'class_id': data.get('class_id', slot.class_id),
+                'subject_id': data.get('subject_id', slot.subject_id),
+                'teacher_id': data.get('teacher_id', slot.teacher_id),
+                'day_of_week': data.get('day_of_week', slot.day_of_week),
+                'period_id': data.get('period_id', slot.period_id),
+                'term': data.get('term', slot.term),
+                'academic_year': data.get('academic_year', slot.academic_year),
+            }
+
+            _, _, relationship_error = TimetableService.validate_slot_relationships(payload)
+            if relationship_error:
+                return None, relationship_error
+
+            conflicts = TimetableService.check_conflicts({**payload, 'id': slot.id})
+            if conflicts:
+                return None, conflicts[0]['message']
             
             # Update attributes
             for key, value in data.items():

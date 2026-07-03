@@ -40,6 +40,7 @@ type ClassItem = {
 type SubjectItem = {
   id: number
   name: string
+  teachers?: Array<{ id: number; name?: string }>
 }
 
 type TeacherItem = {
@@ -149,17 +150,29 @@ const SchedulePage: React.FC = () => {
   }, [periodsResp])
 
   const { data: subjectsResp } = useQuery({
-    queryKey: ['schedule', 'subjects'],
+    queryKey: ['schedule', 'subjects', selectedClassId],
     queryFn: async () => {
-      const res = await api.get('/subjects', { params: { per_page: 200 } })
+      if (!selectedClassId) {
+        return { subjects: [] }
+      }
+      const res = await api.get(`/subjects/class/${selectedClassId}`, { params: { per_page: 200 } })
       return res.data
-    }
+    },
+    enabled: Boolean(selectedClassId)
   })
 
   const subjects: SubjectItem[] = useMemo(() => {
     const list = subjectsResp?.subjects
     return Array.isArray(list) ? list : []
   }, [subjectsResp])
+
+  const selectedLessonSubject = useMemo(() => {
+    return subjects.find((subject) => subject.id === Number(lessonForm.subject_id)) || null
+  }, [subjects, lessonForm.subject_id])
+
+  const allowedTeacherIds = useMemo(() => {
+    return new Set((selectedLessonSubject?.teachers || []).map((teacher) => Number(teacher.id)))
+  }, [selectedLessonSubject])
 
   const { data: teachersResp } = useQuery({
     queryKey: ['schedule', 'teachers'],
@@ -171,8 +184,33 @@ const SchedulePage: React.FC = () => {
 
   const teachers: TeacherItem[] = useMemo(() => {
     const list = teachersResp?.teachers
-    return Array.isArray(list) ? list : []
-  }, [teachersResp])
+    const rawTeachers = Array.isArray(list) ? list : []
+    if (allowedTeacherIds.size === 0) {
+      return rawTeachers
+    }
+    return rawTeachers.filter((teacher) => allowedTeacherIds.has(Number(teacher.id)))
+  }, [teachersResp, allowedTeacherIds])
+
+  React.useEffect(() => {
+    setLessonForm((prev) => ({ ...prev, subject_id: '', teacher_id: '' }))
+    setExamForm((prev) => ({ ...prev, subject_id: '' }))
+  }, [selectedClassId])
+
+  React.useEffect(() => {
+    if (!selectedLessonSubject) {
+      return
+    }
+
+    const teacherIds = (selectedLessonSubject.teachers || []).map((teacher) => Number(teacher.id))
+    if (teacherIds.length === 1) {
+      setLessonForm((prev) => ({ ...prev, teacher_id: String(teacherIds[0]) }))
+      return
+    }
+
+    if (lessonForm.teacher_id && !teacherIds.includes(Number(lessonForm.teacher_id))) {
+      setLessonForm((prev) => ({ ...prev, teacher_id: '' }))
+    }
+  }, [selectedLessonSubject, lessonForm.teacher_id])
 
   const { data: timetableResp } = useQuery({
     queryKey: ['schedule', 'timetable', selectedClassId, academicYear, term],
@@ -731,7 +769,7 @@ const SchedulePage: React.FC = () => {
 
             <div className="space-y-2">
               <Label>Subject</Label>
-              <Select value={lessonForm.subject_id} onValueChange={(v) => setLessonForm((p) => ({ ...p, subject_id: v }))}>
+              <Select value={lessonForm.subject_id} onValueChange={(v) => setLessonForm((p) => ({ ...p, subject_id: v, teacher_id: '' }))}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
@@ -739,6 +777,11 @@ const SchedulePage: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedClassId && subjects.length === 0 ? (
+                <p className="text-xs text-amber-700">
+                  No subjects are assigned to this class yet. Configure them in Settings &gt; Academic &gt; Subjects first.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -756,6 +799,11 @@ const SchedulePage: React.FC = () => {
                   })}
                 </SelectContent>
               </Select>
+              {lessonForm.subject_id && teachers.length === 0 ? (
+                <p className="text-xs text-amber-700">
+                  No teachers are assigned to this subject yet. Update the subject setup before saving the slot.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -816,6 +864,11 @@ const SchedulePage: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedClassId && subjects.length === 0 ? (
+                <p className="text-xs text-amber-700">
+                  Add and assign subjects to this class before scheduling exams.
+                </p>
+              ) : null}
             </div>
           </div>
           <DialogFooter>
@@ -876,4 +929,3 @@ const SchedulePage: React.FC = () => {
 }
 
 export default SchedulePage
-

@@ -7,9 +7,12 @@ export interface Subject {
   code: string;
   description?: string;
   department?: string;
+  department_name?: string | null;
   credit_hours?: number;
   credits?: number;
   is_active: boolean;
+  classes?: Array<{ id: number; name: string }>;
+  teachers?: Array<{ id: number; name: string }>;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +43,7 @@ const subjectService = {
     per_page?: number | undefined;
     department?: string | undefined;
     is_active?: boolean | undefined;
+    class_id?: number | undefined;
   }): Promise<{ subjects: Subject[]; pagination: any }> => {
     try {
       const response = await api.get('/subjects', { params });
@@ -48,6 +52,26 @@ const subjectService = {
       console.error('Error fetching subjects:', error);
       throw error;
     }
+  },
+
+  assignClass: async (subjectId: number, classId: number): Promise<Subject> => {
+    const response = await api.put(`/subjects/${subjectId}/assign-class`, { class_id: classId });
+    return response.data.subject;
+  },
+
+  removeClass: async (subjectId: number, classId: number): Promise<Subject> => {
+    const response = await api.put(`/subjects/${subjectId}/remove-class`, { class_id: classId });
+    return response.data.subject;
+  },
+
+  assignTeacher: async (subjectId: number, teacherId: number): Promise<Subject> => {
+    const response = await api.put(`/subjects/${subjectId}/assign-teacher`, { teacher_id: teacherId });
+    return response.data.subject;
+  },
+
+  removeTeacher: async (subjectId: number, teacherId: number): Promise<Subject> => {
+    const response = await api.put(`/subjects/${subjectId}/remove-teacher`, { teacher_id: teacherId });
+    return response.data.subject;
   },
 
   getSubjectsByClass: async (classId: number): Promise<{ subjects: Subject[]; pagination: any }> => {

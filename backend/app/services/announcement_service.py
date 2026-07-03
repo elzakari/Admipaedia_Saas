@@ -7,8 +7,66 @@ from sqlalchemy.exc import SQLAlchemyError
 
 logger = structlog.get_logger()
 
+SUPPORTED_TARGET_ROLES = ('all', 'students', 'parents', 'teachers', 'admins')
+ROLE_ALIASES = {
+    'student': 'students',
+    'parent': 'parents',
+    'teacher': 'teachers',
+    'admin': 'admins',
+    'school_admin': 'admins',
+    'super_admin': 'admins',
+    'super_manager': 'admins',
+}
+
 class AnnouncementService:
     """Service for announcement-related operations."""
+
+    @staticmethod
+    def normalize_target_roles(target_roles):
+        if isinstance(target_roles, str):
+            raw_roles = [item.strip().lower() for item in target_roles.split(',') if item.strip()]
+        elif isinstance(target_roles, (list, tuple, set)):
+            raw_roles = [str(item).strip().lower() for item in target_roles if str(item).strip()]
+        else:
+            raw_roles = []
+
+        normalized = []
+        for role in raw_roles:
+            if role in SUPPORTED_TARGET_ROLES and role not in normalized:
+                normalized.append(role)
+
+        if not normalized:
+            return ['all']
+        if 'all' in normalized:
+            return ['all']
+        return normalized
+
+    @staticmethod
+    def serialize_target_roles(target_roles):
+        normalized = AnnouncementService.normalize_target_roles(target_roles)
+        return ','.join(normalized)
+
+    @staticmethod
+    def derive_recipients(target_roles):
+        normalized = AnnouncementService.normalize_target_roles(target_roles)
+        if normalized == ['all']:
+            return 'all'
+        if len(normalized) == 1:
+            return normalized[0]
+        return 'selected'
+
+    @staticmethod
+    def announcement_targets_role(announcement, role_key):
+        normalized = AnnouncementService.normalize_target_roles(getattr(announcement, 'target_roles', None))
+        if 'all' in normalized:
+            return True
+        if role_key in normalized:
+            return True
+
+        recipients = (getattr(announcement, 'recipients', None) or 'all').strip().lower()
+        if recipients == 'all':
+            return True
+        return recipients == role_key
     
     @staticmethod
     def get_announcements_by_class(class_id, page=1, per_page=20):
@@ -42,6 +100,13 @@ class AnnouncementService:
             if not class_obj:
                 return None, "Class not found"
             
+            announcement_data['target_roles'] = AnnouncementService.serialize_target_roles(
+                announcement_data.get('target_roles')
+            )
+            announcement_data['recipients'] = AnnouncementService.derive_recipients(
+                announcement_data.get('target_roles')
+            )
+
             new_announcement = Announcement(**announcement_data)
             db.session.add(new_announcement)
             db.session.flush()
@@ -85,6 +150,14 @@ class AnnouncementService:
             # Verify the teacher has permission to update this announcement
             if announcement.teacher_id != teacher_id:
                 return None, "You don't have permission to update this announcement"
+
+            if 'target_roles' in announcement_data:
+                announcement_data['target_roles'] = AnnouncementService.serialize_target_roles(
+                    announcement_data.get('target_roles')
+                )
+                announcement_data['recipients'] = AnnouncementService.derive_recipients(
+                    announcement_data.get('target_roles')
+                )
             
             for key, value in announcement_data.items():
                 setattr(announcement, key, value)
@@ -110,6 +183,14 @@ class AnnouncementService:
             announcement = Announcement.query.get(announcement_id)
             if not announcement:
                 return None, "Announcement not found"
+
+            if 'target_roles' in announcement_data:
+                announcement_data['target_roles'] = AnnouncementService.serialize_target_roles(
+                    announcement_data.get('target_roles')
+                )
+                announcement_data['recipients'] = AnnouncementService.derive_recipients(
+                    announcement_data.get('target_roles')
+                )
 
             for key, value in announcement_data.items():
                 setattr(announcement, key, value)
@@ -224,7 +305,7 @@ class AnnouncementService:
                 from app.services.identity_resolver import IdentityResolver
                 class_ids = IdentityResolver.resolve_teacher_class_ids(user_id)
                 query = query.filter(Announcement.class_id.in_(class_ids))
-            elif user.role == 'admin':
+            elif user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
                 # Admins can see all announcements
                 pass
             else:
@@ -242,16 +323,27 @@ class AnnouncementService:
 
             # Order by creation date (newest first)
             query = query.order_by(Announcement.created_at.desc())
-            
-            # Paginate results
-            paginated = query.paginate(page=page, per_page=per_page)
-            
+
+            all_items = query.all()
+            if user.role in ('student', 'parent'):
+                role_key = ROLE_ALIASES.get(user.role, user.role)
+                all_items = [
+                    announcement
+                    for announcement in all_items
+                    if AnnouncementService.announcement_targets_role(announcement, role_key)
+                ]
+
+            total = len(all_items)
+            start = max(page - 1, 0) * per_page
+            end = start + per_page
+            page_items = all_items[start:end]
+
             # Format announcements for API response
             from app.schemas.announcement import AnnouncementListSchema
             announcement_schema = AnnouncementListSchema(many=True)
-            announcements = announcement_schema.dump(paginated.items)
-            
-            return announcements, paginated.total
+            announcements = announcement_schema.dump(page_items)
+
+            return announcements, total
             
         except Exception as e:
             logger.error("Error fetching announcements for user", error=str(e), user_id=user_id)
@@ -286,13 +378,16 @@ class AnnouncementService:
                 'is_update': is_update
             }
             
-            # Determine target rooms based on recipients
-            target_rooms = [f"class_{announcement.class_id}"]  # Always send to the class room
-            
-            if announcement.recipients == 'all':
+            # Preserve the existing class room broadcast and add role rooms from normalized audience data.
+            target_rooms = [f"class_{announcement.class_id}"]
+            normalized_roles = AnnouncementService.normalize_target_roles(getattr(announcement, 'target_roles', None))
+
+            if normalized_roles == ['all']:
                 target_rooms.extend(["role_students", "role_parents", "role_teachers", "role_admins"])
-            elif announcement.recipients in ('students', 'parents', 'teachers', 'admins'):
-                target_rooms.append(f"role_{announcement.recipients}")
+            else:
+                target_rooms.extend([f"role_{role}" for role in normalized_roles if role != 'all'])
+
+            target_rooms = list(dict.fromkeys(target_rooms))
             
             # Broadcast to all target rooms
             broadcast_announcement(announcement_data, target_rooms)

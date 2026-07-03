@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card'
@@ -12,10 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useToast } from '../../ui/use-toast'
 import { useSubjects, useCreateSubject, useUpdateSubject, useDeleteSubject, useSubject } from '../../../hooks/useSubjects'
 import { Subject, SubjectFilters } from '../../../types/subject.types'
-import { Plus, Edit, Trash2, Eye, RefreshCw } from 'lucide-react'
+import { useClasses } from '../../../hooks/useClasses'
+import { useTeachers } from '../../../hooks/useTeachers'
+import subjectService from '../../../services/subjectService'
+import { Plus, Edit, Trash2, Eye, RefreshCw, Link2 } from 'lucide-react'
 
 const PAGE_SIZES = [10, 25, 50, 100]
-type SubjectFormData = Partial<Subject> & { department_id?: number }
+type SubjectFormData = Partial<Subject> & {
+  department_id?: number
+  assigned_class_ids?: number[]
+  assigned_teacher_ids?: number[]
+}
 
 export default function SubjectsManagement() {
   const { t } = useTranslation()
@@ -37,6 +44,35 @@ export default function SubjectsManagement() {
 
   const detailQuery = useSubject(selectedId || 0)
 
+  const syncSubjectAssignments = async (subjectId: number, data: SubjectFormData) => {
+    const latest = await subjectService.getSubjectById(subjectId)
+    const currentClassIds = new Set((latest.classes || []).map((item) => item.id))
+    const currentTeacherIds = new Set((latest.teachers || []).map((item) => item.id))
+    const desiredClassIds = new Set(data.assigned_class_ids || [])
+    const desiredTeacherIds = new Set(data.assigned_teacher_ids || [])
+
+    for (const classId of desiredClassIds) {
+      if (!currentClassIds.has(classId)) {
+        await subjectService.assignClass(subjectId, classId)
+      }
+    }
+    for (const classId of currentClassIds) {
+      if (!desiredClassIds.has(classId)) {
+        await subjectService.removeClass(subjectId, classId)
+      }
+    }
+    for (const teacherId of desiredTeacherIds) {
+      if (!currentTeacherIds.has(teacherId)) {
+        await subjectService.assignTeacher(subjectId, teacherId)
+      }
+    }
+    for (const teacherId of currentTeacherIds) {
+      if (!desiredTeacherIds.has(teacherId)) {
+        await subjectService.removeTeacher(subjectId, teacherId)
+      }
+    }
+  }
+
   const handleCreate = (data: Partial<Subject>) => {
     if (!data.name || !data.code) {
       toast({
@@ -48,13 +84,23 @@ export default function SubjectsManagement() {
       return
     }
     createMutation.mutate(data as any, {
-      onSuccess: () => {
-        toast({
-            title: t('admin_settings.subject_created', 'Subject Created'),
-            description: t('admin_settings.subject_created_desc', 'New subject added successfully'),
+      onSuccess: async (subject) => {
+        try {
+          await syncSubjectAssignments(subject.id, data as SubjectFormData)
+          toast({
+              title: t('admin_settings.subject_created', 'Subject Created'),
+              description: 'New subject added and timetable mappings saved successfully',
+              id: ''
+          })
+          setIsFormOpen(false)
+        } catch (error: any) {
+          toast({
+            title: 'Subject created with mapping issue',
+            description: error?.message || 'Subject was created but class or teacher mapping failed',
+            variant: 'destructive',
             id: ''
-        })
-        setIsFormOpen(false)
+          })
+        }
       },
       onError: (e: any) => toast({
           title: t('admin_settings.create_failed', 'Create Failed'),
@@ -67,14 +113,24 @@ export default function SubjectsManagement() {
 
   const handleUpdate = (id: number, data: Partial<Subject>) => {
     updateMutation.mutate({ id, data }, {
-      onSuccess: () => {
-        toast({
-            title: t('admin_settings.subject_updated', 'Subject Updated'),
-            description: t('common.changes_saved', 'Changes saved successfully'),
+      onSuccess: async () => {
+        try {
+          await syncSubjectAssignments(id, data as SubjectFormData)
+          toast({
+              title: t('admin_settings.subject_updated', 'Subject Updated'),
+              description: 'Changes saved successfully and timetable mappings updated',
+              id: ''
+          })
+          setIsFormOpen(false)
+          setEditing(null)
+        } catch (error: any) {
+          toast({
+            title: 'Subject updated with mapping issue',
+            description: error?.message || 'Subject details were saved but class or teacher mapping failed',
+            variant: 'destructive',
             id: ''
-        })
-        setIsFormOpen(false)
-        setEditing(null)
+          })
+        }
       },
       onError: (e: any) => toast({
           title: t('admin_settings.update_failed_title', 'Update Failed'),
@@ -144,6 +200,16 @@ export default function SubjectsManagement() {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <div className="flex items-center gap-2 font-medium">
+            <Link2 className="h-4 w-4" />
+            Subject setup powers timetable setup
+          </div>
+          <div className="mt-1 text-blue-800">
+            Assign each subject to its classes and teachers here so timetable creation only offers valid combinations.
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -219,6 +285,18 @@ export default function SubjectsManagement() {
               <div><span className="font-medium">{t('admin_settings.credits', 'Credits')}:</span> {(detailQuery.data as any).credits ?? detailQuery.data.credit_hours ?? '-'}</div>
               <div><span className="font-medium">{t('super_admin.users.table.status', 'Status')}:</span> {detailQuery.data.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</div>
               <div><span className="font-medium">{t('common.description', 'Description')}:</span> {detailQuery.data.description || '-'}</div>
+              <div>
+                <span className="font-medium">Assigned classes:</span>{' '}
+                {(detailQuery.data.classes || []).length > 0
+                  ? detailQuery.data.classes?.map((item) => item.name).join(', ')
+                  : 'None'}
+              </div>
+              <div>
+                <span className="font-medium">Assigned teachers:</span>{' '}
+                {(detailQuery.data.teachers || []).length > 0
+                  ? detailQuery.data.teachers?.map((item) => item.name).join(', ')
+                  : 'None'}
+              </div>
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">{t('common.no_data', 'No data')}</div>
@@ -244,6 +322,9 @@ export default function SubjectsManagement() {
 
 function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Subject | null; onSubmit: (data: SubjectFormData) => void; onCancel: () => void; submitting: boolean }) {
   const { t } = useTranslation()
+  const detailQuery = useSubject(editing?.id || 0)
+  const { data: classesData } = useClasses({ page: 1, per_page: 200 })
+  const { data: teachersData } = useTeachers({ page: 1, per_page: 200, status: 'active' })
   const { data: disciplines = [] } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['academic-structures', 'discipline'],
     queryFn: async () => {
@@ -259,7 +340,39 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
     department_id: (editing as any)?.department_id ?? undefined,
     credit_hours: editing?.credit_hours ?? (editing as any)?.credits ?? 0,
     is_active: editing?.is_active ?? true,
+    assigned_class_ids: editing?.classes?.map((item) => item.id) || [],
+    assigned_teacher_ids: editing?.teachers?.map((item) => item.id) || [],
   })
+
+  useEffect(() => {
+    const source = detailQuery.data || editing
+    setData({
+      name: source?.name || '',
+      code: source?.code || '',
+      description: source?.description || '',
+      department_id: (source as any)?.department_id ?? undefined,
+      credit_hours: source?.credit_hours ?? (source as any)?.credits ?? 0,
+      is_active: source?.is_active ?? true,
+      assigned_class_ids: source?.classes?.map((item) => item.id) || [],
+      assigned_teacher_ids: source?.teachers?.map((item) => item.id) || [],
+    })
+  }, [detailQuery.data, editing])
+
+  const classOptions = Array.isArray(classesData?.data) ? classesData.data : []
+  const teacherOptions = Array.isArray(teachersData?.teachers) ? teachersData.teachers : []
+
+  const toggleMultiSelect = (field: 'assigned_class_ids' | 'assigned_teacher_ids', value: number) => {
+    setData((current) => {
+      const existing = new Set(current[field] || [])
+      if (existing.has(value)) {
+        existing.delete(value)
+      } else {
+        existing.add(value)
+      }
+      return { ...current, [field]: Array.from(existing) }
+    })
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -291,6 +404,53 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
         <div className="md:col-span-2 space-y-2">
           <Label>{t('common.description', 'Description')}</Label>
           <Input value={data.description || ''} onChange={(e) => setData((d) => ({ ...d, description: e.target.value }))} />
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label>Assigned Classes</Label>
+          <div className="max-h-40 overflow-y-auto rounded-md border border-input p-3">
+            {classOptions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {classOptions.map((cls: any) => (
+                  <label key={cls.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={(data.assigned_class_ids || []).includes(cls.id)}
+                      onChange={() => toggleMultiSelect('assigned_class_ids', cls.id)}
+                    />
+                    <span>{cls.name || `Class ${cls.id}`}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No classes available</div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">Only assigned classes can use this subject in timetable setup.</p>
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label>Assigned Teachers</Label>
+          <div className="max-h-48 overflow-y-auto rounded-md border border-input p-3">
+            {teacherOptions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {teacherOptions.map((teacher: any) => {
+                  const label = teacher.full_name || teacher.name || `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() || `Teacher ${teacher.id}`
+                  return (
+                    <label key={teacher.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={(data.assigned_teacher_ids || []).includes(teacher.id)}
+                        onChange={() => toggleMultiSelect('assigned_teacher_ids', teacher.id)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No teachers available</div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">Only assigned teachers can be selected for timetable slots under this subject.</p>
         </div>
       </div>
 

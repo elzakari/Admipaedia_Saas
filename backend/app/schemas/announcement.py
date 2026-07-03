@@ -5,7 +5,7 @@ class AnnouncementSchema(Schema):
     id = fields.Integer(dump_only=True)
     title = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True)
-    recipients = fields.String(validate=validate.OneOf(['all', 'selected', 'parents']), load_default='all')
+    recipients = fields.String(validate=validate.OneOf(['all', 'selected', 'students', 'parents', 'teachers', 'admins']), load_default='all')
     send_email = fields.Boolean(load_default=False)
     target_roles = fields.String(load_default='all')
     scheduled_date = fields.DateTime(allow_none=True)
@@ -46,5 +46,13 @@ class AnnouncementListSchema(Schema):
     scheduled_date = fields.DateTime(allow_none=True)
     is_published = fields.Boolean()
     class_id = fields.Integer()
+    class_name = fields.Method("get_class_name")
     teacher_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(format='iso')
+
+    def get_class_name(self, obj):
+        try:
+            class_obj = getattr(obj, 'class_', None)
+            return getattr(class_obj, 'name', None)
+        except Exception:
+            return None

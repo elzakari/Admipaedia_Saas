@@ -56,7 +56,12 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { data: classesData } = useClasses();
-  const { data: subjectsData } = useSubjects({});
+  const { data: subjectsData } = useSubjects({
+    class_id: formData.class_id || undefined,
+    page: 1,
+    per_page: 200,
+    is_active: true,
+  });
   const { data: teachersData } = useTeachers();
   const { data: periodsData } = usePeriods();
   
@@ -76,17 +81,35 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
     if (!subjectsData?.subjects) return [];
     return subjectsData.subjects.map((sub: any) => ({
       value: sub.id.toString(),
-      label: sub.name
+      label: sub.name,
+      teachers: Array.isArray(sub.teachers) ? sub.teachers : [],
     }));
   }, [subjectsData]);
 
+  const selectedSubject = useMemo(
+    () => (subjectsData?.subjects || []).find((subject: any) => Number(subject.id) === Number(formData.subject_id)),
+    [subjectsData, formData.subject_id]
+  );
+
   const teacherOptions = useMemo(() => {
     if (!teachersData?.teachers) return [];
-    return teachersData.teachers.map((teacher: any) => ({
+    const allowedTeacherIds = new Set(
+      Array.isArray(selectedSubject?.teachers)
+        ? selectedSubject.teachers.map((teacher: any) => Number(teacher.id))
+        : []
+    );
+
+    const mappedTeachers = teachersData.teachers.map((teacher: any) => ({
       value: teacher.id.toString(),
       label: `${teacher.first_name} ${teacher.last_name}`
     }));
-  }, [teachersData]);
+
+    if (allowedTeacherIds.size === 0) {
+      return mappedTeachers;
+    }
+
+    return mappedTeachers.filter((teacher) => allowedTeacherIds.has(Number(teacher.value)));
+  }, [teachersData, selectedSubject]);
 
   const periodOptions = useMemo(() => {
     if (!periodsData?.data) return [];
@@ -138,7 +161,9 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
+      ...(name === 'class_id' ? { subject_id: 0, teacher_id: 0 } : {}),
+      ...(name === 'subject_id' ? { teacher_id: 0 } : {}),
     }));
     
     if (errors[name]) {
@@ -149,6 +174,22 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
       });
     }
   };
+
+  useEffect(() => {
+    if (!selectedSubject || !Array.isArray(selectedSubject.teachers)) {
+      return;
+    }
+
+    const allowedTeacherIds = selectedSubject.teachers.map((teacher: any) => Number(teacher.id));
+    if (allowedTeacherIds.length === 1) {
+      setFormData((prev) => ({ ...prev, teacher_id: allowedTeacherIds[0] }));
+      return;
+    }
+
+    if (formData.teacher_id && !allowedTeacherIds.includes(Number(formData.teacher_id))) {
+      setFormData((prev) => ({ ...prev, teacher_id: 0 }));
+    }
+  }, [selectedSubject, formData.teacher_id]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,11 +309,17 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
                     value={formData.subject_id.toString()}
                     onChange={(value: string) => handleInputChange('subject_id', parseInt(value))}
                     options={subjectOptions}
-                    placeholder="Select Subject"
+                    placeholder={formData.class_id ? "Select Subject" : "Select class first"}
                     leftIcon={<BookOpen className="h-4 w-4" />}
                   />
                 </FormField>
               </FormRow>
+
+              {formData.class_id > 0 && subjectOptions.length === 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  No subjects are assigned to this class yet. Add the subject, then assign its class and teacher in Settings &gt; Academic &gt; Subjects before creating timetable slots.
+                </div>
+              )}
 
               <FormRow>
                 <FormField label="Teacher" htmlFor="teacher_id" error={errors.teacher_id} required>
@@ -280,7 +327,7 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
                     value={formData.teacher_id.toString()}
                     onChange={(value: string) => handleInputChange('teacher_id', parseInt(value))}
                     options={teacherOptions}
-                    placeholder="Select Teacher"
+                    placeholder={formData.subject_id ? "Select Teacher" : "Select subject first"}
                     leftIcon={<User className="h-4 w-4" />}
                   />
                 </FormField>
