@@ -18,7 +18,7 @@ class AttendanceService:
     """Service for attendance-related operations."""
     
     @staticmethod
-    def get_all_attendances(page=1, per_page=20, class_id=None, student_id=None, date_from=None, date_to=None, status=None):
+    def get_all_attendances(page=1, per_page=20, class_id=None, student_id=None, subject_id=None, date_from=None, date_to=None, status=None):
         """Get all attendances with optional filtering and pagination."""
         from sqlalchemy.orm import joinedload
         
@@ -33,6 +33,9 @@ class AttendanceService:
             
         if student_id:
             query = query.filter(Attendance.student_id == student_id)
+
+        if subject_id:
+            query = query.filter(Attendance.subject_id == subject_id)
             
         if date_from:
             query = query.filter(Attendance.date >= date_from)
@@ -112,6 +115,9 @@ class AttendanceService:
                 subject = Subject.query.get(subject_id)
                 if not subject:
                     return None, "Subject not found"
+                if getattr(class_, 'tenant_id', None) and getattr(subject, 'tenant_id', None):
+                    if getattr(class_, 'tenant_id', None) != getattr(subject, 'tenant_id', None):
+                        return None, "Subject is outside the selected class tenant context"
             else:
                 default_subject = Subject.query.first()
                 if not default_subject:
@@ -199,6 +205,9 @@ class AttendanceService:
                 subject = Subject.query.get(subject_id)
                 if not subject:
                     return None, "Subject not found"
+                if getattr(class_, 'tenant_id', None) and getattr(subject, 'tenant_id', None):
+                    if getattr(class_, 'tenant_id', None) != getattr(subject, 'tenant_id', None):
+                        return None, "Subject is outside the selected class tenant context"
             else:
                 default_subject = Subject.query.first()
                 if not default_subject:

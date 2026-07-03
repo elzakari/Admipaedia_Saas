@@ -26,6 +26,7 @@ def get_attendances():
     per_page = request.args.get('per_page', 20, type=int)
     class_id = request.args.get('class_id', type=int)
     student_id = request.args.get('student_id', type=int)
+    subject_id = request.args.get('subject_id', type=int)
     status = request.args.get('status', type=str)
     
     # Parse date parameters
@@ -45,7 +46,7 @@ def get_attendances():
             return jsonify({'success': False, 'message': 'Invalid date_to format. Use YYYY-MM-DD'}), 400
     
     paginated_attendances = AttendanceService.get_all_attendances(
-        page, per_page, class_id, student_id, date_from, date_to, status
+        page, per_page, class_id, student_id, subject_id, date_from, date_to, status
     )
     
     return jsonify({
