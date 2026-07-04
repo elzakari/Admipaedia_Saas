@@ -20,6 +20,18 @@ interface TimeSlotFormModalProps {
   onClose: () => void;
   slotData?: any;
   onSuccess?: () => void;
+  initialValues?: Partial<{
+    class_id: number;
+    term: string;
+    academic_year: string;
+    day_of_week: string;
+    period_id: number;
+    subject_id: number;
+    teacher_id: number;
+    room_id: string | number | null;
+  }>;
+  disableClassSelection?: boolean;
+  disableTermSelection?: boolean;
 }
 
 const dayOptions = [
@@ -33,12 +45,28 @@ const dayOptions = [
 ];
 
 const termOptions = [
-  { value: 'term1', label: 'Term 1' },
-  { value: 'term2', label: 'Term 2' },
-  { value: 'term3', label: 'Term 3' },
+  { value: 'Term 1', label: 'Term 1' },
+  { value: 'Term 2', label: 'Term 2' },
+  { value: 'Term 3', label: 'Term 3' },
 ];
 
-export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: TimeSlotFormModalProps) {
+const normalizeTimetableTerm = (term?: string) => {
+  const normalized = String(term || '').trim().toLowerCase();
+  if (normalized === 'term1' || normalized === 'term 1' || normalized === '1') return 'Term 1';
+  if (normalized === 'term2' || normalized === 'term 2' || normalized === '2') return 'Term 2';
+  if (normalized === 'term3' || normalized === 'term 3' || normalized === '3') return 'Term 3';
+  return 'Term 1';
+};
+
+export function TimeSlotFormModal({
+  isOpen,
+  onClose,
+  slotData,
+  onSuccess,
+  initialValues,
+  disableClassSelection = false,
+  disableTermSelection = false,
+}: TimeSlotFormModalProps) {
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { height, isVisible } = useMobileKeyboard();
   
@@ -50,7 +78,7 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
     teacher_id: 0,
     room_id: '',
     academic_year: new Date().getFullYear().toString(),
-    term: 'term1',
+    term: 'Term 1',
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,7 +90,7 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
     per_page: 200,
     is_active: true,
   });
-  const { data: teachersData } = useTeachers();
+  const { data: teachersData } = useTeachers({ page: 1, per_page: 200, status: 'active' });
   const { data: periodsData } = usePeriods();
   
   const createTimeSlot = useCreateTimeSlot();
@@ -101,7 +129,7 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
 
     const mappedTeachers = teachersData.teachers.map((teacher: any) => ({
       value: teacher.id.toString(),
-      label: `${teacher.first_name} ${teacher.last_name}`
+      label: `${teacher.user?.first_name || teacher.first_name || ''} ${teacher.user?.last_name || teacher.last_name || ''}`.trim() || `Teacher ${teacher.id}`
     }));
 
     if (allowedTeacherIds.size === 0) {
@@ -127,29 +155,29 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
         subject_id: slotData.subject_id || 0,
         class_id: slotData.class_id || 0,
         teacher_id: slotData.teacher_id || 0,
-        room_id: slotData.room_id || '',
+        room_id: slotData.room_id ?? slotData.room_number ?? '',
         academic_year: slotData.academic_year || new Date().getFullYear().toString(),
-        term: slotData.term || 'term1',
+        term: normalizeTimetableTerm(slotData.term),
       });
     } else {
       setFormData({
-        day_of_week: 'Monday',
-        period_id: 0,
-        subject_id: 0,
-        class_id: 0,
-        teacher_id: 0,
-        room_id: '',
-        academic_year: new Date().getFullYear().toString(),
-        term: 'term1',
+        day_of_week: initialValues?.day_of_week || 'Monday',
+        period_id: initialValues?.period_id || 0,
+        subject_id: initialValues?.subject_id || 0,
+        class_id: initialValues?.class_id || 0,
+        teacher_id: initialValues?.teacher_id || 0,
+        room_id: initialValues?.room_id?.toString() || '',
+        academic_year: initialValues?.academic_year || new Date().getFullYear().toString(),
+        term: normalizeTimetableTerm(initialValues?.term),
       });
     }
     setErrors({});
-  }, [slotData, isOpen]);
+  }, [slotData, isOpen, initialValues]);
   
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.period_id) newErrors.period_id = 'Period is required';
+    if (!formData.period_id) newErrors.period_id = 'Timeframe is required';
     if (!formData.subject_id) newErrors.subject_id = 'Subject is required';
     if (!formData.class_id) newErrors.class_id = 'Class is required';
     if (!formData.teacher_id) newErrors.teacher_id = 'Teacher is required';
@@ -265,17 +293,18 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
                     onChange={(value: string) => handleInputChange('term', value)}
                     options={termOptions}
                     leftIcon={<Hash className="h-4 w-4" />}
+                    disabled={disableTermSelection}
                   />
                 </FormField>
               </FormRow>
 
               <FormRow>
-                <FormField label="Period" htmlFor="period_id" error={errors.period_id} required>
+                <FormField label="Timeframe" htmlFor="period_id" error={errors.period_id} required>
                   <MobileOptimizedSelect
                     value={formData.period_id.toString()}
                     onChange={(value: string) => handleInputChange('period_id', parseInt(value))}
                     options={periodOptions}
-                    placeholder="Select Period"
+                    placeholder="Select Timeframe"
                     leftIcon={<Clock className="h-4 w-4" />}
                   />
                 </FormField>
@@ -301,6 +330,7 @@ export function TimeSlotFormModal({ isOpen, onClose, slotData, onSuccess }: Time
                     options={classOptions}
                     placeholder="Select Class"
                     leftIcon={<GraduationCap className="h-4 w-4" />}
+                    disabled={disableClassSelection}
                   />
                 </FormField>
                 

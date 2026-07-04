@@ -38,7 +38,7 @@ export interface CreateTimeSlotParams {
   subject_id: number;
   class_id: number;
   teacher_id: number;
-  room_number: string;
+  room_id?: number | null;
   academic_year: string;
   term: string;
 }

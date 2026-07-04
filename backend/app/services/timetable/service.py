@@ -9,6 +9,55 @@ from sqlalchemy import and_
 logger = structlog.get_logger()
 
 class TimetableService:
+    TERM_LABELS = {
+        'term1': 'Term 1',
+        'term 1': 'Term 1',
+        '1': 'Term 1',
+        'term2': 'Term 2',
+        'term 2': 'Term 2',
+        '2': 'Term 2',
+        'term3': 'Term 3',
+        'term 3': 'Term 3',
+        '3': 'Term 3',
+    }
+
+    @staticmethod
+    def normalize_term(term):
+        if term is None:
+            return None
+        term_value = str(term).strip()
+        if not term_value:
+            return None
+        return TimetableService.TERM_LABELS.get(term_value.lower(), term_value)
+
+    @staticmethod
+    def get_term_aliases(term):
+        canonical = TimetableService.normalize_term(term)
+        if canonical is None:
+            return []
+
+        aliases = {canonical}
+        for raw_value, normalized in TimetableService.TERM_LABELS.items():
+            if normalized == canonical:
+                aliases.add(raw_value)
+        return list(aliases)
+
+    @staticmethod
+    def normalize_slot_payload(data):
+        payload = dict(data or {})
+        payload['term'] = TimetableService.normalize_term(payload.get('term'))
+        return payload
+
+    @staticmethod
+    def get_teacher_display_name(teacher):
+        if not teacher:
+            return ''
+        user = getattr(teacher, 'user', None)
+        first_name = getattr(user, 'first_name', None) or getattr(teacher, 'first_name', None) or ''
+        last_name = getattr(user, 'last_name', None) or getattr(teacher, 'last_name', None) or ''
+        full_name = f"{first_name} {last_name}".strip()
+        return full_name or f"Teacher {teacher.id}"
+
     @staticmethod
     def validate_slot_relationships(data):
         class_obj = Class.query.get(data.get('class_id'))
@@ -51,30 +100,37 @@ class TimetableService:
     @staticmethod
     def create_slot(data):
         """Create a timetable slot with conflict checking."""
+        data = TimetableService.normalize_slot_payload(data)
         _, _, relationship_error = TimetableService.validate_slot_relationships(data)
         if relationship_error:
             return None, relationship_error
 
+        term_aliases = TimetableService.get_term_aliases(data.get('term'))
+
         # 1. Check for Class Conflict (Class already booked at this time)
-        class_conflict = TimetableSlot.query.filter_by(
+        class_conflict_query = TimetableSlot.query.filter_by(
             class_id=data['class_id'],
             day_of_week=data['day_of_week'],
             period_id=data['period_id'],
-            term=data['term'],
             academic_year=data['academic_year']
-        ).first()
+        )
+        if term_aliases:
+            class_conflict_query = class_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+        class_conflict = class_conflict_query.first()
         
         if class_conflict:
             return None, f"Class already has a lesson at this time ({class_conflict.subject.name})"
 
         # 2. Check for Teacher Conflict (Teacher already teaching elsewhere)
-        teacher_conflict = TimetableSlot.query.filter_by(
+        teacher_conflict_query = TimetableSlot.query.filter_by(
             teacher_id=data['teacher_id'],
             day_of_week=data['day_of_week'],
             period_id=data['period_id'],
-            term=data['term'],
             academic_year=data['academic_year']
-        ).first()
+        )
+        if term_aliases:
+            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+        teacher_conflict = teacher_conflict_query.first()
         
         if teacher_conflict:
             return None, f"Teacher is already teaching {teacher_conflict.class_.name} at this time"
@@ -91,11 +147,13 @@ class TimetableService:
     @staticmethod
     def get_class_timetable(class_id, term, academic_year):
         """Get weekly timetable for a class."""
-        slots = TimetableSlot.query.filter_by(
-            class_id=class_id,
-            term=term,
-            academic_year=academic_year
-        ).all()
+        query = TimetableSlot.query.filter_by(class_id=class_id)
+        if academic_year:
+            query = query.filter_by(academic_year=academic_year)
+        term_aliases = TimetableService.get_term_aliases(term)
+        if term_aliases:
+            query = query.filter(TimetableSlot.term.in_(term_aliases))
+        slots = query.all()
         
         # Structure: {Day: {PeriodID: {Subject, Teacher}}}
         timetable = {}
@@ -106,7 +164,7 @@ class TimetableService:
             timetable[slot.day_of_week][slot.period_id] = {
                 'id': slot.id,
                 'subject': slot.subject.name,
-                'teacher': f"{slot.teacher.user.first_name} {slot.teacher.user.last_name}",
+                'teacher': TimetableService.get_teacher_display_name(slot.teacher),
                 'room': slot.room_id,
                 'start_time': str(slot.period.start_time),
                 'end_time': str(slot.period.end_time)
@@ -121,7 +179,7 @@ class TimetableService:
             if filters.get('academic_year'):
                 query = query.filter_by(academic_year=filters['academic_year'])
             if filters.get('term'):
-                query = query.filter_by(term=filters['term'])
+                query = query.filter(TimetableSlot.term.in_(TimetableService.get_term_aliases(filters['term'])))
             if filters.get('class_id'):
                 query = query.filter_by(class_id=filters['class_id'])
             if filters.get('teacher_id'):
@@ -139,10 +197,10 @@ class TimetableService:
             'class_id': slot.class_id,
             'class_name': slot.class_.name,
             'teacher_id': slot.teacher_id,
-            'teacher_name': f"{slot.teacher.user.first_name} {slot.teacher.user.last_name}",
+            'teacher_name': TimetableService.get_teacher_display_name(slot.teacher),
             'room_number': str(slot.room_id or ''),
             'academic_year': slot.academic_year,
-            'term': slot.term,
+            'term': TimetableService.normalize_term(slot.term) or slot.term,
             'created_at': slot.created_at.isoformat() if slot.created_at else None
         } for slot in slots]
 
@@ -168,13 +226,14 @@ class TimetableService:
             if not slot:
                 return None, "Slot not found"
 
+            data = TimetableService.normalize_slot_payload(data)
             payload = {
                 'class_id': data.get('class_id', slot.class_id),
                 'subject_id': data.get('subject_id', slot.subject_id),
                 'teacher_id': data.get('teacher_id', slot.teacher_id),
                 'day_of_week': data.get('day_of_week', slot.day_of_week),
                 'period_id': data.get('period_id', slot.period_id),
-                'term': data.get('term', slot.term),
+                'term': data.get('term', TimetableService.normalize_term(slot.term) or slot.term),
                 'academic_year': data.get('academic_year', slot.academic_year),
             }
 
@@ -200,16 +259,20 @@ class TimetableService:
     @staticmethod
     def check_conflicts(data):
         """Check for timetable conflicts."""
+        data = TimetableService.normalize_slot_payload(data)
         conflicts = []
+        term_aliases = TimetableService.get_term_aliases(data.get('term'))
         
         # 1. Class Conflict
-        class_conflict = TimetableSlot.query.filter_by(
+        class_conflict_query = TimetableSlot.query.filter_by(
             class_id=data['class_id'],
             day_of_week=data['day_of_week'],
             period_id=data['period_id'],
-            term=data['term'],
             academic_year=data['academic_year']
-        ).first()
+        )
+        if term_aliases:
+            class_conflict_query = class_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+        class_conflict = class_conflict_query.first()
         if class_conflict and class_conflict.id != data.get('id'):
             conflicts.append({
                 'type': 'class',
@@ -217,13 +280,15 @@ class TimetableService:
             })
 
         # 2. Teacher Conflict
-        teacher_conflict = TimetableSlot.query.filter_by(
+        teacher_conflict_query = TimetableSlot.query.filter_by(
             teacher_id=data['teacher_id'],
             day_of_week=data['day_of_week'],
             period_id=data['period_id'],
-            term=data['term'],
             academic_year=data['academic_year']
-        ).first()
+        )
+        if term_aliases:
+            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+        teacher_conflict = teacher_conflict_query.first()
         if teacher_conflict and teacher_conflict.id != data.get('id'):
             conflicts.append({
                 'type': 'teacher',
@@ -235,11 +300,13 @@ class TimetableService:
     @staticmethod
     def get_teacher_timetable(teacher_id, term, academic_year):
         """Get weekly timetable for a teacher."""
-        slots = TimetableSlot.query.filter_by(
-            teacher_id=teacher_id,
-            term=term,
-            academic_year=academic_year
-        ).all()
+        query = TimetableSlot.query.filter_by(teacher_id=teacher_id)
+        if academic_year:
+            query = query.filter_by(academic_year=academic_year)
+        term_aliases = TimetableService.get_term_aliases(term)
+        if term_aliases:
+            query = query.filter(TimetableSlot.term.in_(term_aliases))
+        slots = query.all()
         
         timetable = {}
         for slot in slots:
@@ -249,6 +316,7 @@ class TimetableService:
             timetable[slot.day_of_week][slot.period_id] = {
                 'subject': slot.subject.name,
                 'class': slot.class_.name,
+                'teacher': TimetableService.get_teacher_display_name(slot.teacher),
                 'room': slot.room_id
             }
         return timetable, None

@@ -8,8 +8,7 @@ import {
   Filter,
   MapPin,
   Plus,
-  Save,
-  X
+  Save
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../lib/api'
@@ -22,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../../components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Textarea } from '../../components/ui/textarea'
+import { TimeSlotFormModal } from '../../components/academics/TimeSlotFormModal'
 import calendarService from '../../services/calendarService'
 import examService, { DEFAULT_EXAM_VALUES, extractExamRows } from '../../services/examService'
 
@@ -41,13 +41,6 @@ type SubjectItem = {
   id: number
   name: string
   teachers?: Array<{ id: number; name?: string }>
-}
-
-type TeacherItem = {
-  id: number
-  first_name?: string
-  last_name?: string
-  user?: { first_name?: string; last_name?: string }
 }
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
@@ -90,13 +83,6 @@ const SchedulePage: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState(() => new Date())
 
   const [lessonOpen, setLessonOpen] = useState(false)
-  const [lessonForm, setLessonForm] = useState({
-    day_of_week: 'Monday',
-    period_id: '',
-    subject_id: '',
-    teacher_id: '',
-    room_id: ''
-  })
 
   const [examOpen, setExamOpen] = useState(false)
   const [examForm, setExamForm] = useState({
@@ -166,51 +152,9 @@ const SchedulePage: React.FC = () => {
     return Array.isArray(list) ? list : []
   }, [subjectsResp])
 
-  const selectedLessonSubject = useMemo(() => {
-    return subjects.find((subject) => subject.id === Number(lessonForm.subject_id)) || null
-  }, [subjects, lessonForm.subject_id])
-
-  const allowedTeacherIds = useMemo(() => {
-    return new Set((selectedLessonSubject?.teachers || []).map((teacher) => Number(teacher.id)))
-  }, [selectedLessonSubject])
-
-  const { data: teachersResp } = useQuery({
-    queryKey: ['schedule', 'teachers'],
-    queryFn: async () => {
-      const res = await api.get('/teachers', { params: { per_page: 200 } })
-      return res.data
-    }
-  })
-
-  const teachers: TeacherItem[] = useMemo(() => {
-    const list = teachersResp?.teachers
-    const rawTeachers = Array.isArray(list) ? list : []
-    if (allowedTeacherIds.size === 0) {
-      return rawTeachers
-    }
-    return rawTeachers.filter((teacher) => allowedTeacherIds.has(Number(teacher.id)))
-  }, [teachersResp, allowedTeacherIds])
-
   React.useEffect(() => {
-    setLessonForm((prev) => ({ ...prev, subject_id: '', teacher_id: '' }))
     setExamForm((prev) => ({ ...prev, subject_id: '' }))
   }, [selectedClassId])
-
-  React.useEffect(() => {
-    if (!selectedLessonSubject) {
-      return
-    }
-
-    const teacherIds = (selectedLessonSubject.teachers || []).map((teacher) => Number(teacher.id))
-    if (teacherIds.length === 1) {
-      setLessonForm((prev) => ({ ...prev, teacher_id: String(teacherIds[0]) }))
-      return
-    }
-
-    if (lessonForm.teacher_id && !teacherIds.includes(Number(lessonForm.teacher_id))) {
-      setLessonForm((prev) => ({ ...prev, teacher_id: '' }))
-    }
-  }, [selectedLessonSubject, lessonForm.teacher_id])
 
   const { data: timetableResp } = useQuery({
     queryKey: ['schedule', 'timetable', selectedClassId, academicYear, term],
@@ -281,36 +225,6 @@ const SchedulePage: React.FC = () => {
   const selectedDayEvents = useMemo(() => {
     return events.filter((e: any) => String(e.date).slice(0, 10) === selectedDayKey)
   }, [events, selectedDayKey])
-
-  const createLessonMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedClassId) throw new Error('Select a class')
-      const period_id = Number(lessonForm.period_id)
-      const subject_id = Number(lessonForm.subject_id)
-      const teacher_id = Number(lessonForm.teacher_id)
-      if (!period_id || !subject_id || !teacher_id) throw new Error('Fill all required fields')
-
-      const room_id_val = lessonForm.room_id ? Number(lessonForm.room_id) : null
-      const payload: any = {
-        class_id: selectedClassId,
-        day_of_week: lessonForm.day_of_week,
-        period_id,
-        subject_id,
-        teacher_id,
-        term,
-        academic_year: academicYear
-      }
-      if (room_id_val && Number.isFinite(room_id_val)) payload.room_id = room_id_val
-      const res = await api.post('/timetable/slots', payload)
-      return res.data
-    },
-    onSuccess: () => {
-      toast.success('Lesson added')
-      setLessonOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['schedule', 'timetable'] })
-    },
-    onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to add lesson')
-  })
 
   const createExamMutation = useMutation({
     mutationFn: async () => {
@@ -385,7 +299,6 @@ const SchedulePage: React.FC = () => {
   }
 
   const openLesson = () => {
-    setLessonForm({ day_of_week: 'Monday', period_id: '', subject_id: '', teacher_id: '', room_id: '' })
     setLessonOpen(true)
   }
 
@@ -736,92 +649,21 @@ const SchedulePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={lessonOpen} onOpenChange={setLessonOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add lesson</DialogTitle>
-            <DialogDescription>Create a timetable slot for the selected class.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Day</Label>
-              <Select value={lessonForm.day_of_week} onValueChange={(v) => setLessonForm((p) => ({ ...p, day_of_week: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {days.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Period</Label>
-              <Select value={lessonForm.period_id} onValueChange={(v) => setLessonForm((p) => ({ ...p, period_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {periods.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name} ({p.start}-{p.end})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Subject</Label>
-              <Select value={lessonForm.subject_id} onValueChange={(v) => setLessonForm((p) => ({ ...p, subject_id: v, teacher_id: '' }))}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedClassId && subjects.length === 0 ? (
-                <p className="text-xs text-amber-700">
-                  No subjects are assigned to this class yet. Configure them in Settings &gt; Academic &gt; Subjects first.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Teacher</Label>
-              <Select value={lessonForm.teacher_id} onValueChange={(v) => setLessonForm((p) => ({ ...p, teacher_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {teachers.map((t) => {
-                    const fn = t.user?.first_name || t.first_name || ''
-                    const ln = t.user?.last_name || t.last_name || ''
-                    const label = `${fn} ${ln}`.trim() || `Teacher ${t.id}`
-                    return (
-                      <SelectItem key={t.id} value={String(t.id)}>{label}</SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-              {lessonForm.subject_id && teachers.length === 0 ? (
-                <p className="text-xs text-amber-700">
-                  No teachers are assigned to this subject yet. Update the subject setup before saving the slot.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Room (optional)</Label>
-              <Input value={lessonForm.room_id} onChange={(e) => setLessonForm((p) => ({ ...p, room_id: e.target.value }))} placeholder="101" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLessonOpen(false)}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={createLessonMutation.isPending} onClick={() => createLessonMutation.mutate()}>
-              {createLessonMutation.isPending ? 'Saving…' : 'Save lesson'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TimeSlotFormModal
+        isOpen={lessonOpen}
+        onClose={() => setLessonOpen(false)}
+        initialValues={{
+          class_id: selectedClassId || 0,
+          academic_year: academicYear,
+          term
+        }}
+        disableClassSelection={Boolean(selectedClassId)}
+        disableTermSelection
+        onSuccess={() => {
+          setLessonOpen(false)
+          queryClient.invalidateQueries({ queryKey: ['schedule', 'timetable'] })
+        }}
+      />
 
       <Dialog open={examOpen} onOpenChange={setExamOpen}>
         <DialogContent className="max-w-2xl">
