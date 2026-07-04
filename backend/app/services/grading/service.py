@@ -72,9 +72,10 @@ class GradingService:
             academic_year=academic_year
         ).all()
         
-        # Structure for frontend: {student_id: {assessment_name: score, ...}}
+        # Structure for frontend: keyed by a stable assessment identity so
+        # duplicate names across categories can still round-trip correctly.
         gradebook = {}
-        assessments = set()
+        assessments = {}
         
         for grade in grades:
             if grade.student_id not in gradebook:
@@ -84,18 +85,36 @@ class GradingService:
                     'admission_number': student.admission_number,
                     'grades': {}
                 }
-            
-            gradebook[grade.student_id]['grades'][grade.assessment_name] = {
+            assessment_key = f"{grade.assessment_type_id}:{grade.assessment_name}"
+            assessments[assessment_key] = {
+                'assessment_key': assessment_key,
+                'assessment_name': grade.assessment_name,
+                'assessment_type_id': grade.assessment_type_id,
+                'total_marks': grade.total_marks,
+                'assessment_date': grade.assessment_date.isoformat() if grade.assessment_date else None,
+            }
+
+            gradebook[grade.student_id]['grades'][assessment_key] = {
                 'score': grade.raw_score,
                 'total': grade.total_marks,
                 'percentage': grade.percentage,
-                'grade': grade.grade_symbol
+                'grade': grade.grade_symbol,
+                'remark': grade.teacher_comments,
+                'assessment_name': grade.assessment_name,
+                'assessment_type_id': grade.assessment_type_id,
+                'assessment_date': grade.assessment_date.isoformat() if grade.assessment_date else None,
             }
-            assessments.add(grade.assessment_name)
-            
+
         return {
             'students': gradebook,
-            'assessments': list(assessments)
+            'assessments': sorted(
+                assessments.values(),
+                key=lambda item: (
+                    item.get('assessment_date') or '',
+                    item.get('assessment_name') or '',
+                    item.get('assessment_type_id') or 0,
+                ),
+            )
         }, None
 
     @staticmethod

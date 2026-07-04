@@ -5,7 +5,9 @@ from app.utils.rbac_decorators import require_permission, require_role
 from app.extensions import db
 from app.models.exam import Exam
 from app.models.grade import Grade
+from app.models.grading_system import EnhancedGrade, FinalGrade
 from app.models.student import Student
+from app.models.subject import Subject
 from app.models.user import User
 from app.schemas.grade import GradeSchema
 from app.services.identity_resolver import IdentityResolver
@@ -113,9 +115,10 @@ def bulk_enter_exam_grades():
 
 @grades_bp.route('/gradebook', methods=['GET'])
 @jwt_required()
-@require_permission('grade.read')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def get_gradebook():
     """Get the gradebook for a class/subject."""
+    user_id = get_jwt_identity()
     class_id = request.args.get('class_id', type=int)
     subject_id = request.args.get('subject_id', type=int)
     term = request.args.get('term')
@@ -123,6 +126,12 @@ def get_gradebook():
     
     if not all([class_id, subject_id, term, academic_year]):
         return jsonify({'success': False, 'message': 'Missing required parameters'}), 400
+
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         
     gradebook, error = GradingService.get_gradebook(class_id, subject_id, term, academic_year)
     
@@ -133,10 +142,26 @@ def get_gradebook():
 
 @grades_bp.route('/entry', methods=['POST'])
 @jwt_required()
-@require_permission('grade.create')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def enter_grades():
     """Enter grades (single or bulk)."""
+    user_id = get_jwt_identity()
     data = request.json
+
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    payload_items = data if isinstance(data, list) else [data]
+    class_ids = {item.get('class_id') for item in payload_items if isinstance(item, dict) and item.get('class_id')}
+    if not class_ids:
+        return jsonify({'success': False, 'message': 'class_id is required for grade entry'}), 400
+    if len(class_ids) > 1:
+        return jsonify({'success': False, 'message': 'All grades in a single request must belong to one class'}), 400
+
+    class_id = next(iter(class_ids))
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
     
     if isinstance(data, list):
         grades, error = GradingService.bulk_enter_grades(data)
@@ -151,14 +176,21 @@ def enter_grades():
 
 @grades_bp.route('/calculate-final', methods=['POST'])
 @jwt_required()
-@require_permission('grade.update')
+@require_role(['admin', 'school_admin', 'super_admin', 'teacher'])
 def calculate_final_grades():
     """Trigger calculation of final grades."""
+    user_id = get_jwt_identity()
     data = request.json
     class_id = data.get('class_id')
     subject_id = data.get('subject_id')
     term = data.get('term')
     academic_year = data.get('academic_year')
+
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
     
     success, error = GradingService.calculate_final_grades(class_id, subject_id, term, academic_year)
     
@@ -193,17 +225,13 @@ def get_class_grade_analytics(class_id):
     term = request.args.get('term')
     academic_year = request.args.get('academic_year')
 
-    query = Grade.query.filter(Grade.class_id == class_id)
-    if subject_id:
-        query = query.filter(Grade.subject_id == subject_id)
-    if term:
-        query = query.filter(Grade.term == term)
-    if academic_year:
-        query = query.filter(Grade.academic_year == academic_year)
+    current_user = User.query.get(get_jwt_identity())
+    if not current_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+    if current_user.role == 'teacher' and not IdentityResolver.can_user_access_class(current_user.id, class_id):
+        return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
-    grades = query.order_by(Grade.created_at.asc(), Grade.id.asc()).all()
-
-    if not grades:
+    def _empty():
         analytics = {
             'class_id': class_id,
             'subject_id': subject_id,
@@ -215,6 +243,93 @@ def get_class_grade_analytics(class_id):
             'total_grades': 0,
         }
         return jsonify({'success': True, 'analytics': analytics}), 200
+
+    final_query = FinalGrade.query.filter(FinalGrade.class_id == class_id)
+    if subject_id:
+        final_query = final_query.filter(FinalGrade.subject_id == subject_id)
+    if term:
+        final_query = final_query.filter(FinalGrade.term == term)
+    if academic_year:
+        final_query = final_query.filter(FinalGrade.academic_year == academic_year)
+
+    final_grades = final_query.order_by(FinalGrade.computed_at.asc(), FinalGrade.id.asc()).all()
+    if final_grades:
+        distribution = {}
+        for grade in final_grades:
+            symbol = grade.final_grade_symbol or 'N/A'
+            distribution[symbol] = distribution.get(symbol, 0) + 1
+
+        running_total = 0.0
+        trends = []
+        for index, grade in enumerate(final_grades, start=1):
+            running_total += float(grade.final_percentage or 0)
+            trends.append({
+                'assessment_index': index,
+                'average_score': round(running_total / index, 2),
+                'grade_id': grade.id,
+            })
+
+        analytics = {
+            'class_id': class_id,
+            'subject_id': subject_id,
+            'term': term,
+            'academic_year': academic_year,
+            'class_average': round(sum(float(grade.final_percentage or 0) for grade in final_grades) / len(final_grades), 2),
+            'grade_distribution': distribution,
+            'performance_trends': trends,
+            'total_grades': len(final_grades),
+        }
+        return jsonify({'success': True, 'analytics': analytics}), 200
+
+    enhanced_query = EnhancedGrade.query.filter(EnhancedGrade.class_id == class_id)
+    if subject_id:
+        enhanced_query = enhanced_query.filter(EnhancedGrade.subject_id == subject_id)
+    if term:
+        enhanced_query = enhanced_query.filter(EnhancedGrade.term == term)
+    if academic_year:
+        enhanced_query = enhanced_query.filter(EnhancedGrade.academic_year == academic_year)
+
+    enhanced_grades = enhanced_query.order_by(EnhancedGrade.assessment_date.asc(), EnhancedGrade.id.asc()).all()
+    if enhanced_grades:
+        distribution = {}
+        for grade in enhanced_grades:
+            symbol = grade.grade_symbol or 'N/A'
+            distribution[symbol] = distribution.get(symbol, 0) + 1
+
+        running_total = 0.0
+        trends = []
+        for index, grade in enumerate(enhanced_grades, start=1):
+            running_total += float(grade.raw_score or 0)
+            trends.append({
+                'assessment_index': index,
+                'average_score': round(running_total / index, 2),
+                'grade_id': grade.id,
+            })
+
+        analytics = {
+            'class_id': class_id,
+            'subject_id': subject_id,
+            'term': term,
+            'academic_year': academic_year,
+            'class_average': round(sum(float(grade.raw_score or 0) for grade in enhanced_grades) / len(enhanced_grades), 2),
+            'grade_distribution': distribution,
+            'performance_trends': trends,
+            'total_grades': len(enhanced_grades),
+        }
+        return jsonify({'success': True, 'analytics': analytics}), 200
+
+    query = Grade.query.filter(Grade.class_id == class_id)
+    if subject_id:
+        query = query.filter(Grade.subject_id == subject_id)
+    if term:
+        query = query.filter(Grade.term == term)
+    if academic_year:
+        query = query.filter(Grade.academic_year == academic_year)
+
+    grades = query.order_by(Grade.created_at.asc(), Grade.id.asc()).all()
+
+    if not grades:
+        return _empty()
 
     def _grade_symbol(percentage):
         if percentage >= 90:

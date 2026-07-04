@@ -48,6 +48,39 @@ class EnhancedGradingService:
             'interpretation': 'Fail',
             'is_passing': False
         }
+
+    @staticmethod
+    def _get_final_grade_analytics(student_id: int, academic_year: str, term: Optional[str] = None) -> List[FinalGrade]:
+        query = FinalGrade.query.options(
+            joinedload(FinalGrade.subject)
+        ).filter(
+            and_(
+                FinalGrade.student_id == student_id,
+                FinalGrade.academic_year == academic_year
+            )
+        )
+        if term:
+            query = query.filter(FinalGrade.term == term)
+        return query.order_by(FinalGrade.computed_at.asc(), FinalGrade.id.asc()).all()
+
+    @staticmethod
+    def _get_class_final_grade_analytics(
+        class_id: int,
+        subject_id: Optional[int] = None,
+        term: Optional[str] = None,
+        academic_year: Optional[str] = None
+    ) -> List[FinalGrade]:
+        query = FinalGrade.query.options(
+            joinedload(FinalGrade.student),
+            joinedload(FinalGrade.subject),
+        ).filter(FinalGrade.class_id == class_id)
+        if subject_id:
+            query = query.filter(FinalGrade.subject_id == subject_id)
+        if term:
+            query = query.filter(FinalGrade.term == term)
+        if academic_year:
+            query = query.filter(FinalGrade.academic_year == academic_year)
+        return query.order_by(FinalGrade.computed_at.asc(), FinalGrade.id.asc()).all()
     
     @staticmethod
     def create_enhanced_grade(
@@ -97,8 +130,7 @@ class EnhancedGradingService:
                 total_marks=total_marks,
                 percentage=percentage,
                 weight=weight,
-                teacher_comments=teacher_comments,
-                created_at=datetime.utcnow()
+                teacher_comments=teacher_comments
             )
             enhanced_grade.grading_scheme = scheme
             
@@ -248,6 +280,57 @@ class EnhancedGradingService:
     ) -> Dict[str, any]:
         """Get comprehensive performance analytics for a student"""
         try:
+            final_grades = EnhancedGradingService._get_final_grade_analytics(student_id, academic_year, term)
+            if final_grades:
+                total_assessments = len(final_grades)
+                average_percentage = sum((grade.final_percentage or 0) for grade in final_grades) / total_assessments
+
+                grade_distribution: Dict[str, int] = {}
+                subject_performance = {}
+                performance_trend = []
+                strengths = []
+                areas_for_improvement = []
+
+                for grade in final_grades:
+                    symbol = grade.final_grade_symbol or 'N/A'
+                    grade_distribution[symbol] = grade_distribution.get(symbol, 0) + 1
+
+                    subject_name = grade.subject.name if grade.subject else f"Subject {grade.subject_id}"
+                    subject_performance[subject_name] = {
+                        'average_percentage': round(float(grade.final_percentage or 0), 2),
+                        'total_assessments': 1,
+                        'best_grade': symbol,
+                        'latest_grade': symbol
+                    }
+
+                    trend_date = grade.computed_at.date().isoformat() if grade.computed_at else academic_year
+                    performance_trend.append({
+                        'date': trend_date,
+                        'percentage': float(grade.final_percentage or 0),
+                        'grade_symbol': symbol,
+                        'subject': subject_name
+                    })
+
+                    if float(grade.final_percentage or 0) >= 70:
+                        strengths.append(subject_name)
+                    elif float(grade.final_percentage or 0) < 50:
+                        areas_for_improvement.append(subject_name)
+
+                return {
+                    'student_id': student_id,
+                    'academic_year': academic_year,
+                    'term': term,
+                    'total_assessments': total_assessments,
+                    'average_percentage': round(average_percentage, 2),
+                    'overall_grade': EnhancedGradingService.calculate_ges_grade(average_percentage)['grade_symbol'],
+                    'grade_distribution': grade_distribution,
+                    'subject_performance': subject_performance,
+                    'performance_trend': performance_trend[-10:],
+                    'strengths': strengths,
+                    'areas_for_improvement': areas_for_improvement,
+                    'passing_rate': len([g for g in final_grades if g.is_passing]) / total_assessments * 100
+                }
+
             # Build base query
             query = EnhancedGrade.query.filter(
                 and_(
@@ -354,6 +437,94 @@ class EnhancedGradingService:
     ) -> Dict[str, any]:
         """Get comprehensive performance analytics for a class"""
         try:
+            final_grades = EnhancedGradingService._get_class_final_grade_analytics(
+                class_id=class_id,
+                subject_id=subject_id,
+                term=term,
+                academic_year=academic_year
+            )
+            if final_grades:
+                unique_students = list(set(grade.student_id for grade in final_grades))
+                total_students = len(unique_students)
+                total_assessments = len(final_grades)
+                class_average = sum((grade.final_percentage or 0) for grade in final_grades) / total_assessments
+
+                performance_distribution = {
+                    'excellent': 0,
+                    'very_good': 0,
+                    'good': 0,
+                    'average': 0,
+                    'below_average': 0
+                }
+
+                student_performance = {}
+                for grade in final_grades:
+                    percentage = float(grade.final_percentage or 0)
+                    if percentage >= 80:
+                        performance_distribution['excellent'] += 1
+                    elif percentage >= 70:
+                        performance_distribution['very_good'] += 1
+                    elif percentage >= 60:
+                        performance_distribution['good'] += 1
+                    elif percentage >= 50:
+                        performance_distribution['average'] += 1
+                    else:
+                        performance_distribution['below_average'] += 1
+
+                    if grade.student_id not in student_performance:
+                        student_performance[grade.student_id] = {
+                            'grades': [],
+                            'student_name': f"{grade.student.first_name} {grade.student.last_name}" if grade.student else f"Student {grade.student_id}"
+                        }
+                    student_performance[grade.student_id]['grades'].append(grade)
+
+                for student_data in student_performance.values():
+                    student_grades = student_data['grades']
+                    student_data['average'] = sum(float(g.final_percentage or 0) for g in student_grades) / len(student_grades)
+                    student_data['total_assessments'] = len(student_grades)
+
+                top_performers = sorted(
+                    student_performance.items(),
+                    key=lambda x: x[1]['average'],
+                    reverse=True
+                )[:5]
+
+                top_performers_list = [
+                    {
+                        'student_id': student_id,
+                        'student_name': data['student_name'],
+                        'average_percentage': round(data['average'], 2),
+                        'grade_symbol': EnhancedGradingService.calculate_ges_grade(data['average'])['grade_symbol']
+                    }
+                    for student_id, data in top_performers
+                ]
+
+                students_needing_support = [
+                    {
+                        'student_id': student_id,
+                        'student_name': data['student_name'],
+                        'average_percentage': round(data['average'], 2),
+                        'grade_symbol': EnhancedGradingService.calculate_ges_grade(data['average'])['grade_symbol']
+                    }
+                    for student_id, data in student_performance.items()
+                    if data['average'] < 50
+                ]
+
+                return {
+                    'class_id': class_id,
+                    'subject_id': subject_id,
+                    'term': term,
+                    'academic_year': academic_year,
+                    'total_students': total_students,
+                    'total_assessments': total_assessments,
+                    'class_average': round(class_average, 2),
+                    'overall_grade': EnhancedGradingService.calculate_ges_grade(class_average)['grade_symbol'],
+                    'performance_distribution': performance_distribution,
+                    'top_performers': top_performers_list,
+                    'students_needing_support': students_needing_support,
+                    'passing_rate': len([g for g in final_grades if g.is_passing]) / total_assessments * 100
+                }
+
             # Build base query
             query = EnhancedGrade.query.filter(EnhancedGrade.class_id == class_id)
             

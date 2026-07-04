@@ -26,6 +26,171 @@ from app.services.report_service import ReportService
 from app.services.email_service import send_email
 
 
+def _get_report_card_subject_results(student_id, term, academic_year):
+    """Return one subject outcome per term, preferring computed FinalGrade rows."""
+    final_grades = db.session.query(
+        Subject.name.label('subject_name'),
+        FinalGrade.final_percentage.label('average_score'),
+        FinalGrade.final_grade_symbol.label('grade'),
+        FinalGrade.final_grade_points.label('grade_point'),
+        FinalGrade.teacher_remarks.label('remarks')
+    ).join(
+        FinalGrade, Subject.id == FinalGrade.subject_id
+    ).filter(
+        FinalGrade.student_id == student_id,
+        FinalGrade.term == term,
+        FinalGrade.academic_year == academic_year
+    ).order_by(Subject.name.asc()).all()
+
+    if final_grades:
+        return final_grades
+
+    enhanced_grades = db.session.query(
+        Subject.name.label('subject_name'),
+        func.avg(EnhancedGrade.raw_score).label('average_score'),
+        func.max(EnhancedGrade.grade_symbol).label('grade'),
+        func.avg(EnhancedGrade.grade_points).label('grade_point'),
+        func.max(EnhancedGrade.teacher_comments).label('remarks')
+    ).join(
+        EnhancedGrade, Subject.id == EnhancedGrade.subject_id
+    ).filter(
+        EnhancedGrade.student_id == student_id,
+        EnhancedGrade.term == term,
+        EnhancedGrade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name).all()
+
+    if enhanced_grades:
+        return enhanced_grades
+
+    return db.session.query(
+        Subject.name.label('subject_name'),
+        func.avg(Grade.percentage).label('average_score'),
+        func.max(Grade.grade_letter).label('grade'),
+        func.avg(Grade.percentage / 25).label('grade_point'),
+        func.max(Grade.remarks).label('remarks')
+    ).join(
+        Grade, Subject.id == Grade.subject_id
+    ).filter(
+        Grade.student_id == student_id,
+        Grade.term == term,
+        Grade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name).all()
+
+
+def _get_term_gpa(student_id, term, academic_year):
+    final_gpa = db.session.query(
+        func.avg(FinalGrade.final_grade_points)
+    ).filter(
+        FinalGrade.student_id == student_id,
+        FinalGrade.term == term,
+        FinalGrade.academic_year == academic_year
+    ).scalar()
+    if final_gpa is not None:
+        return round(final_gpa, 2)
+
+    enhanced_gpa = db.session.query(
+        func.avg(EnhancedGrade.grade_points)
+    ).filter(
+        EnhancedGrade.student_id == student_id,
+        EnhancedGrade.term == term,
+        EnhancedGrade.academic_year == academic_year
+    ).scalar()
+    if enhanced_gpa is not None:
+        return round(enhanced_gpa, 2)
+
+    grade_gpa = db.session.query(
+        func.avg(Grade.percentage / 25)
+    ).filter(
+        Grade.student_id == student_id,
+        Grade.term == term,
+        Grade.academic_year == academic_year
+    ).scalar()
+    return round(grade_gpa, 2) if grade_gpa is not None else 0.0
+
+
+def _get_transcript_year_subject_results(student_id, academic_year):
+    """Return yearly transcript subject outcomes, preferring FinalGrade."""
+    final_grades = db.session.query(
+        Subject.name.label('subject_name'),
+        Subject.code.label('subject_code'),
+        func.avg(FinalGrade.final_percentage).label('average_score'),
+        func.max(FinalGrade.final_grade_symbol).label('grade'),
+        func.avg(FinalGrade.final_grade_points).label('grade_point')
+    ).join(
+        FinalGrade, Subject.id == FinalGrade.subject_id
+    ).filter(
+        FinalGrade.student_id == student_id,
+        FinalGrade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name, Subject.code).all()
+
+    if final_grades:
+        return final_grades
+
+    enhanced_grades = db.session.query(
+        Subject.name.label('subject_name'),
+        Subject.code.label('subject_code'),
+        func.avg(EnhancedGrade.raw_score).label('average_score'),
+        func.max(EnhancedGrade.grade_symbol).label('grade'),
+        func.avg(EnhancedGrade.grade_points).label('grade_point')
+    ).join(
+        EnhancedGrade, Subject.id == EnhancedGrade.subject_id
+    ).filter(
+        EnhancedGrade.student_id == student_id,
+        EnhancedGrade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name, Subject.code).all()
+
+    if enhanced_grades:
+        return enhanced_grades
+
+    return db.session.query(
+        Subject.name.label('subject_name'),
+        Subject.code.label('subject_code'),
+        func.avg(Grade.percentage).label('average_score'),
+        func.max(Grade.grade_letter).label('grade'),
+        func.avg(Grade.percentage / 25).label('grade_point')
+    ).join(
+        Grade, Subject.id == Grade.subject_id
+    ).filter(
+        Grade.student_id == student_id,
+        Grade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name, Subject.code).all()
+
+
+def _get_class_subject_performance(class_id, term, academic_year):
+    final_grades = db.session.query(
+        Subject.name.label('subject_name'),
+        func.avg(FinalGrade.final_percentage).label('class_average'),
+        func.max(FinalGrade.final_percentage).label('highest_score'),
+        func.min(FinalGrade.final_percentage).label('lowest_score'),
+        func.count(FinalGrade.id).label('student_count')
+    ).join(
+        FinalGrade, Subject.id == FinalGrade.subject_id
+    ).filter(
+        FinalGrade.class_id == class_id,
+        FinalGrade.term == term,
+        FinalGrade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name).all()
+
+    if final_grades:
+        return final_grades
+
+    return db.session.query(
+        Subject.name.label('subject_name'),
+        func.avg(EnhancedGrade.raw_score).label('class_average'),
+        func.max(EnhancedGrade.raw_score).label('highest_score'),
+        func.min(EnhancedGrade.raw_score).label('lowest_score'),
+        func.count(EnhancedGrade.id).label('student_count')
+    ).join(
+        EnhancedGrade, Subject.id == EnhancedGrade.subject_id
+    ).join(
+        Student, EnhancedGrade.student_id == Student.id
+    ).filter(
+        Student.class_id == class_id,
+        EnhancedGrade.term == term,
+        EnhancedGrade.academic_year == academic_year
+    ).group_by(Subject.id, Subject.name).all()
+
+
 @reports_bp.route('/academic-years', methods=['GET'])
 @jwt_required()
 @teacher_required
@@ -250,35 +415,7 @@ def generate_student_report_card(student_id):
                 is_active=True
             ).first()
         
-        # Get grades for the term (fallback to standard Grade model if EnhancedGrade is empty)
-        grades = db.session.query(
-            Subject.name.label('subject_name'),
-            func.avg(EnhancedGrade.raw_score).label('average_score'),
-            func.max(EnhancedGrade.grade_symbol).label('grade'),
-            func.avg(EnhancedGrade.grade_points).label('grade_point')
-        ).join(
-            EnhancedGrade, Subject.id == EnhancedGrade.subject_id
-        ).filter(
-            EnhancedGrade.student_id == student_id,
-            EnhancedGrade.term == term,
-            EnhancedGrade.academic_year == academic_year
-        ).group_by(Subject.id, Subject.name).all()
-
-        if not grades:
-            # Try standard Grade model
-            grades = db.session.query(
-                Subject.name.label('subject_name'),
-                func.avg(Grade.percentage).label('average_score'),
-                func.max(Grade.grade_letter).label('grade'),
-                # Calculate simple grade point from percentage (e.g., / 25 for 4.0 scale)
-                func.avg(Grade.percentage / 25).label('grade_point')
-            ).join(
-                Grade, Subject.id == Grade.subject_id
-            ).filter(
-                Grade.student_id == student_id,
-                Grade.term == term,
-                Grade.academic_year == academic_year
-            ).group_by(Subject.id, Subject.name).all()
+        grades = _get_report_card_subject_results(student_id, term, academic_year)
         
         # Get attendance data
         # Handle different academic year formats (e.g., '2024/2025' or '2024-2025')
@@ -366,25 +503,7 @@ def generate_student_report_card(student_id):
                 historical_gpas.append(gpa)
                 continue
             
-            # Fetch GPA for other terms in the same year
-            term_grades = db.session.query(
-                func.avg(EnhancedGrade.grade_points).label('gpa')
-            ).filter(
-                EnhancedGrade.student_id == student_id,
-                EnhancedGrade.term == t,
-                EnhancedGrade.academic_year == academic_year
-            ).scalar()
-            
-            if not term_grades:
-                term_grades = db.session.query(
-                    func.avg(Grade.percentage / 25).label('gpa')
-                ).filter(
-                    Grade.student_id == student_id,
-                    Grade.term == t,
-                    Grade.academic_year == academic_year
-                ).scalar()
-            
-            historical_gpas.append(round(term_grades, 2) if term_grades else 0.0)
+            historical_gpas.append(_get_term_gpa(student_id, t, academic_year))
 
         # Determine class position (simplified)
         class_students = Student.query.filter_by(class_id=student.class_id).count()
@@ -406,7 +525,7 @@ def generate_student_report_card(student_id):
                     'score': round(grade.average_score, 1) if grade.average_score else 0,
                     'grade': grade.grade or 'N/A',
                     'grade_point': round(grade.grade_point, 2) if grade.grade_point else 0.0,
-                    'remarks': _get_grade_remarks(grade.grade)
+                    'remarks': getattr(grade, 'remarks', None) or _get_grade_remarks(grade.grade)
                 } for grade in grades],
                 'overall_gpa': gpa,
                 'historical_gpas': historical_gpas,
@@ -431,7 +550,7 @@ def generate_student_report_card(student_id):
             'principal_comments': _generate_principal_comments(gpa),
             'grading_scheme': {
                 'name': grading_scheme.name if grading_scheme else 'Standard',
-                'scale': grading_scheme.grading_standard.name if grading_scheme and grading_scheme.grading_standard else 'Ghana Education Service'
+                'scale': grading_scheme.standard.value if grading_scheme and grading_scheme.standard else 'Ghana Education Service'
             }
         }
         
@@ -491,18 +610,7 @@ def generate_student_transcript(student_id):
         
         for progression in progressions:
             # Get grades for this academic year
-            year_grades = db.session.query(
-                Subject.name.label('subject_name'),
-                Subject.code.label('subject_code'),
-                func.avg(EnhancedGrade.raw_score).label('average_score'),
-                func.max(EnhancedGrade.grade_symbol).label('grade'),
-                func.avg(EnhancedGrade.grade_points).label('grade_point')
-            ).join(
-                EnhancedGrade, Subject.id == EnhancedGrade.subject_id
-            ).filter(
-                EnhancedGrade.student_id == student_id,
-                EnhancedGrade.academic_year == progression.academic_year
-            ).group_by(Subject.id, Subject.name, Subject.code).all()
+            year_grades = _get_transcript_year_subject_results(student_id, progression.academic_year)
             
             year_gpa = sum([grade.grade_point or 0 for grade in year_grades]) / len(year_grades) if year_grades else 0
             total_gpa_points += year_gpa
@@ -559,21 +667,7 @@ def generate_class_performance_summary(class_id):
             }), 404
         
         # Get class performance data
-        class_grades = db.session.query(
-            Subject.name.label('subject_name'),
-            func.avg(EnhancedGrade.raw_score).label('class_average'),
-            func.max(EnhancedGrade.raw_score).label('highest_score'),
-            func.min(EnhancedGrade.raw_score).label('lowest_score'),
-            func.count(EnhancedGrade.id).label('student_count')
-        ).join(
-            EnhancedGrade, Subject.id == EnhancedGrade.subject_id
-        ).join(
-            Student, EnhancedGrade.student_id == Student.id
-        ).filter(
-            Student.class_id == class_id,
-            EnhancedGrade.term == term,
-            EnhancedGrade.academic_year == academic_year
-        ).group_by(Subject.id, Subject.name).all()
+        class_grades = _get_class_subject_performance(class_id, term, academic_year)
         
         # Get attendance summary
         attendance_summary = db.session.query(
