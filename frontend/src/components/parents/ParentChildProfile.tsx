@@ -5,14 +5,14 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import parentService from "../../services/parentService";
+import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
 
 interface ParentChildProfileProps {
   currentChild: any;
   currentAcademicData: any;
   currentAttendanceData: any;
   currentFeeData: any;
+  currency: string;
   onIdCardClick?: () => void; // Add this prop
   onFullProfileClick?: () => void; // Add this prop
 }
@@ -22,17 +22,11 @@ const ParentChildProfile = ({
   currentAcademicData,
   currentAttendanceData,
   currentFeeData,
+  currency,
   onIdCardClick,
   onFullProfileClick
 }: ParentChildProfileProps) => {
   const { t } = useTranslation();
-
-  const { data: dashboardData } = useQuery({
-    queryKey: ['parent-dashboard'],
-    queryFn: () => parentService.getMyDashboard(),
-    staleTime: 30_000
-  });
-  const currency = dashboardData?.currency || 'GHS';
 
   return (
     <Card className="glass-card overflow-hidden border border-indigo-100 sticky top-4">
@@ -92,7 +86,7 @@ const ParentChildProfile = ({
         <Button
           type="button"
           variant="outline"
-          className="w-full flex items-center justify-center glass-button-outline"
+          className={`w-full ${parentPortalSecondaryButtonClass}`}
           onClick={onIdCardClick}
           disabled={!onIdCardClick}
           aria-label="Open student ID card"
@@ -104,7 +98,7 @@ const ParentChildProfile = ({
 
         <Button
           type="button"
-          className="w-full flex items-center justify-center glass-button"
+          className={`w-full ${parentPortalPrimaryButtonClass}`}
           onClick={onFullProfileClick}
           disabled={!onFullProfileClick}
           aria-label="Open full profile"

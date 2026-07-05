@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Search, Filter, Star, Trash, Reply, Mail, MailOpen, Archive } from "lucide-react";
 import { Input } from "../../components/ui/input";
+import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
 
 interface MessagesTabProps {
   messagesData: any[];
@@ -17,8 +18,27 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const normalizedMessages = messagesData.map((message, index) => {
+    const isoDate = typeof message.date === "string" ? message.date : "";
+    const parsedDate = isoDate ? new Date(isoDate) : null;
+    const hasValidDate = !!parsedDate && !Number.isNaN(parsedDate.getTime());
+
+    return {
+      id: String(message.id ?? index),
+      from: message.from || message.sender || "School",
+      subject: message.subject || "Message",
+      content: message.content || message.message || "",
+      date: hasValidDate ? parsedDate.toLocaleDateString() : (isoDate || "Unknown date"),
+      time: hasValidDate ? parsedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+      read: Boolean(message.read),
+      archived: Boolean(message.archived),
+      starred: Boolean(message.starred),
+      avatar: message.avatar || undefined,
+    };
+  });
+
   // Filter messages based on active folder and search query
-  const filteredMessages = messagesData.filter(message => {
+  const filteredMessages = normalizedMessages.filter(message => {
     const matchesSearch = 
       message.subject.toLowerCase().includes(searchQuery.toLowerCase()) || 
       message.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -30,14 +50,14 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
     return matchesSearch;
   });
 
-  const currentMessage = messagesData.find(m => m.id === selectedMessage);
+  const currentMessage = normalizedMessages.find(m => m.id === selectedMessage);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-indigo-900">Messages</h2>
         <Button 
-          className="glass-button"
+          className={parentPortalPrimaryButtonClass}
           onClick={onComposeClick} // Use the prop here
         >
           Compose New Message
@@ -61,7 +81,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                   <Mail className="h-4 w-4 mr-2" />
                   <span>Inbox</span>
                 </div>
-                <Badge variant="outline">{messagesData.filter(m => !m.archived).length}</Badge>
+                <Badge variant="outline">{normalizedMessages.filter(m => !m.archived).length}</Badge>
               </button>
               
               <button 
@@ -76,7 +96,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                   <Star className="h-4 w-4 mr-2" />
                   <span>Starred</span>
                 </div>
-                <Badge variant="outline">{messagesData.filter(m => m.starred).length}</Badge>
+                <Badge variant="outline">{normalizedMessages.filter(m => m.starred).length}</Badge>
               </button>
               
               <button 
@@ -91,7 +111,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                   <Archive className="h-4 w-4 mr-2" />
                   <span>Archived</span>
                 </div>
-                <Badge variant="outline">{messagesData.filter(m => m.archived).length}</Badge>
+                <Badge variant="outline">{normalizedMessages.filter(m => m.archived).length}</Badge>
               </button>
             </div>
           </CardContent>
@@ -114,7 +134,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
-                    <Button variant="outline" size="icon" className="glass-button-outline">
+                    <Button variant="outline" size="icon" className={parentPortalSecondaryButtonClass}>
                       <Filter className="h-4 w-4" />
                     </Button>
                   </div>
@@ -199,7 +219,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                         <div>
                           <p className="font-medium text-indigo-900">{currentMessage.from}</p>
                           <p className="text-xs text-indigo-500">
-                            To: You • {currentMessage.date} at {currentMessage.time}
+                            To: You • {currentMessage.date}{currentMessage.time ? ` at ${currentMessage.time}` : ""}
                           </p>
                         </div>
                       </div>

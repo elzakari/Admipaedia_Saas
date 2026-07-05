@@ -11,6 +11,7 @@ interface AcademicsTabProps {
 const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
   // Combine recent and upcoming exams or use just one of them
   const exams = [...(currentAcademicData.recentExams || []), ...(currentAcademicData.upcomingExams || [])];
+  const subjects = Array.isArray(currentAcademicData.subjects) ? currentAcademicData.subjects : [];
   
   return (
     <>
@@ -22,26 +23,34 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
             <CardDescription>Current Term Subject Scores</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {currentAcademicData.subjects.map((subject: any, index: number) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex justify-between items-center">
+            {subjects.length > 0 ? (
+              <div className="space-y-4">
+                {subjects.map((subject: any, index: number) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center">
+                        <Book className="h-4 w-4 mr-2 text-indigo-700" />
+                        <span className="text-sm font-medium text-indigo-900">{subject.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline">{subject.grade || "N/A"}</Badge>
+                        <span className="text-sm font-bold text-indigo-900">{subject.score ?? 0}%</span>
+                      </div>
+                    </div>
                     <div className="flex items-center">
-                      <Book className="h-4 w-4 mr-2 text-indigo-700" />
-                      <span className="text-sm font-medium text-indigo-900">{subject.name}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline">{subject.grade}</Badge>
-                      <span className="text-sm font-bold text-indigo-900">{subject.score}%</span>
+                      <Progress value={subject.score ?? 0} className="flex-grow mr-4" />
+                      <span className="text-xs text-indigo-700">
+                        {subject.teacher || "Teacher unavailable"}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center">
-                    <Progress value={subject.score} className="flex-grow mr-4" />
-                    <span className="text-xs text-indigo-700">Class Avg: {subject.classAverage}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
+                No subject scores are available for this child yet.
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -104,26 +113,32 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
           <CardTitle className="text-lg">Exams & Assessments</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {exams.map((exam: any, index: number) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white bg-opacity-20">
-                <div className="flex items-center">
-                  <div className={`p-2 rounded-full ${
-                    exam.score ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
-                  }`}>
-                    <FileText className="h-5 w-5" />
+          {exams.length > 0 ? (
+            <div className="space-y-4">
+              {exams.map((exam: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white bg-opacity-20">
+                  <div className="flex items-center">
+                    <div className={`p-2 rounded-full ${
+                      exam.score ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
+                    }`}>
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-indigo-900">{exam.name}</p>
+                      <p className="text-xs text-indigo-700">{exam.date || "Date unavailable"}</p>
+                    </div>
                   </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-indigo-900">{exam.name}</p>
-                    <p className="text-xs text-indigo-700">{exam.date}</p>
-                  </div>
+                  <Badge variant={exam.score ? "success" : "outline"}>
+                    {exam.score ? `${exam.score}/${exam.maxScore ?? 100}` : "Upcoming"}
+                  </Badge>
                 </div>
-                <Badge variant={exam.score ? "success" : "outline"}>
-                  {exam.score ? `${exam.score}/${exam.maxScore}` : "Upcoming"}
-                </Badge>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
+              No exams or assessments are available yet.
+            </div>
+          )}
         </CardContent>
       </Card>
     </>

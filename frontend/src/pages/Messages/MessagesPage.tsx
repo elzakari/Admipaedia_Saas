@@ -48,6 +48,7 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
+import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from '../../lib/parentPortalUi';
 
 // Define interfaces for conversation objects
 interface ConversationGroup {
@@ -69,6 +70,14 @@ interface AttachmentFile {
   size: string;
   url: string;
   file?: File;
+}
+
+interface RecipientOption {
+  id?: number | string;
+  value: string;
+  label: string;
+  ref?: string;
+  subtitle?: string;
 }
 
 const getMessageParticipant = (message: Message, currentUserId?: number | null) => {
@@ -127,6 +136,7 @@ export function MessagesPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeRecipientType, setComposeRecipientType] = useState<'admin' | 'teacher' | 'student' | 'parent' | 'class'>('teacher');
   const [composeRecipientId, setComposeRecipientId] = useState<string>('');
+  const [composeClassId, setComposeClassId] = useState<string>('');
   const [composeSubject, setComposeSubject] = useState<string>('');
   const [composeContent, setComposeContent] = useState<string>('');
   const [composeAttachments, setComposeAttachments] = useState<File[]>([]);
@@ -218,68 +228,54 @@ export function MessagesPage() {
     })) as ConversationGroup[];
   }, [(messagesData as any)?.messages, (messagesData as any)?.data, filter]);
 
-  const { data: recipientOptions } = useQuery({
-    queryKey: ['message-recipients', composeRecipientType, composeSearch],
+  const { data: recipientOptions, isFetching: recipientsLoading } = useQuery({
+    queryKey: ['message-recipients', composeRecipientType, composeSearch, composeClassId],
     queryFn: async () => {
       if (!composeOpen) return [];
-      const q = composeSearch.trim().toLowerCase();
-      if (composeRecipientType === 'class') {
-        const res = await api.get('/classes', { params: { per_page: 200 } });
-        const classes = Array.isArray(res.data?.classes) ? res.data.classes : [];
-        return classes
-          .map((c: any) => ({ id: c.id, label: c.name || `Class ${c.id}` }))
-          .filter((x: any) => !q || x.label.toLowerCase().includes(q));
+      const params: Record<string, string | number> = { type: composeRecipientType };
+      if (composeSearch.trim()) {
+        params.search = composeSearch.trim();
       }
-      if (composeRecipientType === 'student') {
-        const res = await api.get('/students', { params: { per_page: 200 } });
-        const students = Array.isArray(res.data?.students) ? res.data.students : [];
-        return students
-          .map((s: any) => ({
-            id: s.id,
-            label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || `Student ${s.id}`
-          }))
-          .filter((x: any) => !q || x.label.toLowerCase().includes(q));
+      if (composeRecipientType === 'teacher' && composeClassId) {
+        params.class_id = composeClassId;
       }
-      if (composeRecipientType === 'teacher') {
-        try {
-          const res = await api.get('/teachers', { params: { per_page: 200, search: composeSearch.trim() || undefined } });
-          const teachers = Array.isArray(res.data?.teachers) ? res.data.teachers : [];
-          return teachers
-            .map((t: any) => ({
-              id: t.id,
-              label: `${t.first_name || ''} ${t.last_name || ''}`.trim() || `Teacher ${t.id}`
-            }))
-            .filter((x: any) => !q || x.label.toLowerCase().includes(q));
-        } catch {
-          return [];
-        }
+
+      try {
+        const res = await api.get('/messages/recipients', { params });
+        const recipients = Array.isArray(res.data?.data?.recipients)
+          ? res.data.data.recipients
+          : Array.isArray(res.data?.recipients)
+            ? res.data.recipients
+            : [];
+
+        return recipients.map((recipient: any) => ({
+          id: recipient.id,
+          value: recipient.ref || String(recipient.id),
+          label: recipient.label || `Recipient ${recipient.id}`,
+          ref: recipient.ref,
+          subtitle: recipient.subtitle
+        })) as RecipientOption[];
+      } catch {
+        return [];
       }
-      if (composeRecipientType === 'parent') {
-        if (user?.role !== 'admin' && user?.role !== 'super_admin') return [];
-        try {
-          const res = await api.get('/parents', { params: { per_page: 200, search: composeSearch.trim() || undefined } });
-          const parents = Array.isArray(res.data?.data?.parents)
-            ? res.data.data.parents
-            : Array.isArray(res.data?.parents)
-              ? res.data.parents
-              : [];
-          return parents
-            .map((p: any) => ({
-              id: p.id,
-              label: `${p.first_name || ''} ${p.last_name || ''}`.trim() || `Parent ${p.id}`
-            }))
-            .filter((x: any) => !q || x.label.toLowerCase().includes(q));
-        } catch {
-          return [];
-        }
-      }
-      return [];
     },
     enabled: composeOpen
   });
 
-  const recipientList = Array.isArray(recipientOptions) ? recipientOptions : [];
-  const selectedRecipientLabel = recipientList.find((r: any) => String(r.id) === String(composeRecipientId))?.label;
+  const recipientList = Array.isArray(recipientOptions) ? recipientOptions as RecipientOption[] : [];
+  const selectedRecipientOption = recipientList.find((r) => r.value === composeRecipientId)
+    || recipientList.find((r) => String(r.id) === String(composeRecipientId));
+  const selectedRecipientLabel = selectedRecipientOption?.label;
+
+  useEffect(() => {
+    if (!composeRecipientId || recipientList.length === 0) return;
+    if (recipientList.some((r) => r.value === composeRecipientId)) return;
+
+    const legacyMatch = recipientList.find((r) => String(r.id) === String(composeRecipientId));
+    if (legacyMatch) {
+      setComposeRecipientId(legacyMatch.value);
+    }
+  }, [composeRecipientId, recipientList]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -320,6 +316,7 @@ export function MessagesPage() {
   const handleOpenCompose = () => {
     setComposeRecipientType('teacher');
     setComposeRecipientId('');
+    setComposeClassId('');
     setComposeSubject('');
     setComposeContent('');
     setComposeAttachments([]);
@@ -332,34 +329,57 @@ export function MessagesPage() {
     if (!compose) return;
     const recipient_type = (searchParams.get('recipient_type') || 'teacher') as any;
     const recipient_id = searchParams.get('recipient_id') || '';
+    const class_id = searchParams.get('class_id') || '';
     const subject = searchParams.get('subject') || '';
 
     setComposeRecipientType(recipient_type);
     setComposeRecipientId(recipient_id);
+    setComposeClassId(class_id);
     setComposeSubject(subject);
     setComposeOpen(true);
 
     const next = new URLSearchParams(searchParams);
     next.delete('compose');
+    next.delete('recipient_type');
+    next.delete('recipient_id');
+    next.delete('class_id');
+    next.delete('subject');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const sendNewMessageMutation = useMutation({
     mutationFn: async () => {
-      const rid = Number(composeRecipientId);
-      if (!composeRecipientType || !Number.isFinite(rid) || rid <= 0) {
+      if (!composeRecipientType || !composeRecipientId) {
         throw new Error('Select a valid recipient');
       }
       const content = (composeContent || '').trim();
       if (!content && composeAttachments.length === 0) {
         throw new Error('Message cannot be empty');
       }
-      return communicationService.createMessage({
-        recipient_id: rid,
-        recipient_type: composeRecipientType,
+
+      const basePayload = {
         subject: (composeSubject || '').trim() || 'Message',
         content: composeContent,
         attachments: composeAttachments
+      };
+
+      const recipientRef = selectedRecipientOption?.ref || (composeRecipientId.includes(':') ? composeRecipientId : undefined);
+      if (recipientRef) {
+        return communicationService.createMessage({
+          ...basePayload,
+          recipient_ref: recipientRef
+        } as any);
+      }
+
+      const rid = Number(composeRecipientId);
+      if (!Number.isFinite(rid) || rid <= 0) {
+        throw new Error('Select a valid recipient');
+      }
+
+      return communicationService.createMessage({
+        ...basePayload,
+        recipient_id: rid,
+        recipient_type: composeRecipientType,
       } as any);
     },
     onSuccess: () => {
@@ -543,14 +563,14 @@ export function MessagesPage() {
             <div className="flex items-center space-x-3">
               <button 
                 onClick={() => navigate('/dashboard')}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
+                className={parentPortalSecondaryButtonClass}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {t('parent_messages.back_dashboard', 'Back to Dashboard')}
               </button>
               <button
                 onClick={handleOpenCompose}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-slate-800"
+                className={parentPortalPrimaryButtonClass}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 {t('parent_messages.new_message', 'New Message')}
@@ -925,6 +945,9 @@ export function MessagesPage() {
                     setComposeRecipientType(v as any);
                     setComposeRecipientId('');
                     setComposeSearch('');
+                    if (v !== 'teacher') {
+                      setComposeClassId('');
+                    }
                   }}
                 >
                   <SelectTrigger>
@@ -948,7 +971,11 @@ export function MessagesPage() {
                   ) : null}
                 </div>
 
-                {recipientList.length > 0 ? (
+                {recipientsLoading ? (
+                  <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+                    {t('parent_messages.loading_recipients', 'Loading recipients...')}
+                  </div>
+                ) : recipientList.length > 0 ? (
                   <div className="space-y-2">
                     <Input
                       value={composeSearch}
@@ -960,8 +987,8 @@ export function MessagesPage() {
                         <SelectValue placeholder={t('parent_messages.select_recipient', 'Select…')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {recipientList.map((r: any) => (
-                          <SelectItem key={r.id} value={String(r.id)}>
+                        {recipientList.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
                             {r.label}
                           </SelectItem>
                         ))}
@@ -970,14 +997,8 @@ export function MessagesPage() {
                     <div className="text-xs text-muted-foreground">{t('parent_messages.not_seeing_hint', 'Not seeing someone? Change type or search by name.')}</div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Input
-                      value={composeRecipientId}
-                      onChange={(e) => setComposeRecipientId(e.target.value)}
-                      placeholder={t('parent_messages.recipient_id_placeholder', 'Enter recipient ID')}
-                      inputMode="numeric"
-                    />
-                    <div className="text-xs text-muted-foreground">{t('parent_messages.admin_tip', 'Tip: admins can search users; otherwise use the numeric ID.')}</div>
+                  <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                    {t('parent_messages.no_recipients_available', 'No recipients match this filter yet. Try another recipient type or remove the class filter.')}
                   </div>
                 )}
               </div>
@@ -1005,7 +1026,7 @@ export function MessagesPage() {
                       e.currentTarget.value = '';
                     }}
                   />
-                  <Button variant="outline" onClick={() => document.getElementById('compose-files')?.click()}>
+                  <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={() => document.getElementById('compose-files')?.click()}>
                     <Paperclip className="h-4 w-4 mr-2" />
                     {t('parent_messages.add_files', 'Add files')}
                   </Button>
@@ -1051,11 +1072,11 @@ export function MessagesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setComposeOpen(false)}>
+            <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={() => setComposeOpen(false)}>
               {t('parent_messages.cancel', 'Cancel')}
             </Button>
             <Button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className={parentPortalPrimaryButtonClass}
               disabled={sendNewMessageMutation.isPending}
               onClick={() => sendNewMessageMutation.mutate()}
             >

@@ -11,20 +11,17 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
   // Calculate total days
   const totalDays = currentAttendanceData.present + currentAttendanceData.absent + currentAttendanceData.late;
   
-  // Create attendance records from recentAbsences and add some present days
-  const recentRecords = [
-    // Add some present days (you can adjust this as needed)
-    { date: "2023-05-22", time: "7:55 AM", status: "Present" },
-    { date: "2023-05-21", time: "7:50 AM", status: "Present" },
-    { date: "2023-05-19", time: "8:05 AM", status: "Late" },
-    // Map absences to the format expected by the component
-    ...currentAttendanceData.recentAbsences.map((absence: any) => ({
-      date: absence.date,
-      time: "--:--",
-      status: "Absent",
-      reason: absence.reason
-    }))
-  ];
+  const monthlyAttendance = Array.isArray(currentAttendanceData.monthlyAttendance)
+    ? currentAttendanceData.monthlyAttendance
+    : [];
+  const recentRecords = Array.isArray(currentAttendanceData.recentAbsences)
+    ? currentAttendanceData.recentAbsences.map((absence: any) => ({
+        date: absence.date,
+        time: "--:--",
+        status: absence.status === "Excused" ? "Excused" : "Absent",
+        reason: absence.reason
+      }))
+    : [];
   
   return (
     <>
@@ -36,45 +33,41 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
             <CardDescription>Recent attendance records</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentRecords.map((record: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white bg-opacity-20">
-                  <div className="flex items-center">
-                    <div className={`p-2 rounded-full ${
-                      record.status === "Present" 
-                        ? "bg-green-100 text-green-600" 
-                        : record.status === "Late"
-                          ? "bg-amber-100 text-amber-600"
+            {recentRecords.length > 0 ? (
+              <div className="space-y-4">
+                {recentRecords.map((record: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-white bg-opacity-20">
+                    <div className="flex items-center">
+                      <div className={`p-2 rounded-full ${
+                        record.status === "Excused"
+                          ? "bg-blue-100 text-blue-600"
                           : "bg-red-100 text-red-600"
-                    }`}>
-                      {record.status === "Present" ? (
-                        <CheckCircle className="h-5 w-5" />
-                      ) : record.status === "Late" ? (
-                        <Clock className="h-5 w-5" />
-                      ) : (
-                        <XCircle className="h-5 w-5" />
-                      )}
+                      }`}>
+                        {record.status === "Excused" ? (
+                          <CheckCircle className="h-5 w-5" />
+                        ) : (
+                          <XCircle className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-indigo-900">{record.date}</p>
+                        <p className="text-xs text-indigo-700">{record.time}</p>
+                        {record.reason && (
+                          <p className="text-xs text-indigo-700">Reason: {record.reason}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-indigo-900">{record.date}</p>
-                      <p className="text-xs text-indigo-700">{record.time}</p>
-                      {record.reason && (
-                        <p className="text-xs text-indigo-700">Reason: {record.reason}</p>
-                      )}
-                    </div>
+                    <Badge variant={record.status === "Excused" ? "secondary" : "destructive"}>
+                      {record.status}
+                    </Badge>
                   </div>
-                  <Badge variant={
-                    record.status === "Present" 
-                      ? "success" 
-                      : record.status === "Late"
-                        ? "warning"
-                        : "destructive"
-                  }>
-                    {record.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
+                No recent attendance exceptions are available.
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -143,11 +136,12 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
           <CardTitle className="text-lg">Monthly Attendance Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[200px] flex items-end justify-between">
-            {currentAttendanceData.monthlyAttendance.map((month: any, index: number) => {
+          {monthlyAttendance.length > 0 ? (
+            <div className="h-[200px] flex items-end justify-between">
+              {monthlyAttendance.map((month: any, index: number) => {
               // Calculate percentage for each month
               const total = month.present + month.absent + month.late;
-              const percentage = Math.round((month.present / total) * 100);
+              const percentage = total > 0 ? Math.round((month.present / total) * 100) : 0;
               
               return (
                 <div key={index} className="flex flex-col items-center">
@@ -159,8 +153,13 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
                   <p className="text-xs text-indigo-700">{percentage}%</p>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
+              No monthly attendance breakdown is available yet.
+            </div>
+          )}
         </CardContent>
       </Card>
     </>

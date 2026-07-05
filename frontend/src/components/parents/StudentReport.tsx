@@ -1,292 +1,370 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { FileText, Download, Printer, Mail, Calendar } from "lucide-react";
+import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
+import { FileText, Download, Printer, RefreshCw, X, CalendarDays, ClipboardList } from "lucide-react";
+import enhancedReportsService, { type GESReportCard } from "../../services/enhancedReportsService";
+import attendanceService from "../../services/attendanceService";
+import { useToast } from "../ui/use-toast";
+import { cn } from "../../lib/utils";
+import { parentPortalIconButtonClass, parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
 
 interface StudentReportProps {
   currentChild: any;
   currentAcademicData: any;
   currentAttendanceData: any;
-  currentBehaviorData: any;
+  currentBehaviorData?: any;
+  onClose: () => void;
+  className?: string;
 }
+
+type ReportMode = "report_card" | "attendance";
+
+const FALLBACK_YEARS = ["2025/2026", "2024/2025", "2023/2024"];
 
 const StudentReport = ({
   currentChild,
   currentAcademicData,
   currentAttendanceData,
-  currentBehaviorData,
+  onClose,
+  className,
 }: StudentReportProps) => {
-  const [reportType, setReportType] = useState("academic");
-  const [reportPeriod, setReportPeriod] = useState("term1");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [reportGenerated, setReportGenerated] = useState(false);
+  const { toast } = useToast();
+  const studentId = Number(currentChild?.id || currentChild?.studentId || 0);
+  const [reportMode, setReportMode] = useState<ReportMode>("report_card");
+  const [term, setTerm] = useState("Term 1");
+  const [academicYear, setAcademicYear] = useState(FALLBACK_YEARS[0]);
+  const [availableYears, setAvailableYears] = useState<string[]>(FALLBACK_YEARS);
+  const [loadingYears, setLoadingYears] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [reportCard, setReportCard] = useState<GESReportCard | null>(null);
+  const [attendanceSummary, setAttendanceSummary] = useState<any | null>(null);
+  const [error, setError] = useState<string>("");
 
-  const handleGenerateReport = () => {
-    setIsGenerating(true);
-    // Simulate report generation
-    setTimeout(() => {
-      setIsGenerating(false);
-      setReportGenerated(true);
-    }, 2000);
+  useEffect(() => {
+    let active = true;
+
+    const loadYears = async () => {
+      setLoadingYears(true);
+      try {
+        const years = await enhancedReportsService.getAvailableAcademicYears();
+        if (!active || !Array.isArray(years) || years.length === 0) return;
+        setAvailableYears(years);
+        setAcademicYear((current) => current || years[0]);
+      } finally {
+        if (active) {
+          setLoadingYears(false);
+        }
+      }
+    };
+
+    void loadYears();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleGenerateReport = async () => {
+    if (!Number.isFinite(studentId) || studentId <= 0) {
+      setError("Student context is missing.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      if (reportMode === "report_card") {
+        const response = await enhancedReportsService.generateReportCard(studentId, term, academicYear, "json");
+        setReportCard(response);
+        setAttendanceSummary(null);
+      } else {
+        const response = await attendanceService.getStudentAttendanceSummary(studentId);
+        setAttendanceSummary(response);
+        setReportCard(null);
+      }
+    } catch (err: any) {
+      console.error("Failed to generate parent report:", err);
+      setError(err?.message || "Unable to generate report right now.");
+      setReportCard(null);
+      setAttendanceSummary(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const renderReportContent = () => {
-    if (isGenerating) {
-      return (
-        <div className="flex flex-col items-center justify-center py-10">
-          <div className="w-full max-w-md">
-            <p className="text-center text-indigo-700 mb-4">Generating report...</p>
-            <Progress value={65} className="h-2" />
+  const attendanceView = useMemo(() => {
+    const summary = attendanceSummary?.summary || {};
+    return {
+      percentage: attendanceSummary?.attendance_percentage ?? currentAttendanceData?.attendancePercentage ?? currentAttendanceData?.percentage ?? 0,
+      present: summary.present ?? currentAttendanceData?.present ?? 0,
+      absent: summary.absent ?? currentAttendanceData?.absent ?? 0,
+      late: summary.late ?? currentAttendanceData?.late ?? 0,
+      excused: summary.excused ?? currentAttendanceData?.excused ?? 0,
+      monthly: Array.isArray(attendanceSummary?.monthly) ? attendanceSummary.monthly : currentAttendanceData?.monthlyAttendance ?? [],
+    };
+  }, [attendanceSummary, currentAttendanceData]);
+
+  const handleDownloadPdf = async () => {
+    try {
+      const blob = await enhancedReportsService.downloadReportCardPDF(studentId, term, academicYear);
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${(currentChild?.name || "student").replace(/\s+/g, "_")}_report_card.pdf`;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({
+        title: "Download failed",
+        description: err?.message || "Unable to download the report card.",
+        variant: "destructive",
+        id: "",
+      });
+    }
+  };
+
+  const handlePrint = async () => {
+    try {
+      await enhancedReportsService.printReportCard(studentId, term, academicYear);
+    } catch (err: any) {
+      toast({
+        title: "Print failed",
+        description: err?.message || "Unable to print the report card.",
+        variant: "destructive",
+        id: "",
+      });
+    }
+  };
+
+  return (
+    <Card className={cn("glass-card overflow-hidden border border-indigo-100", className)}>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-indigo-100/70">
+        <div className="space-y-2">
+          <CardTitle className="text-indigo-950">Student Reports</CardTitle>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-indigo-700">
+            <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />
+              {currentChild?.class || "Class unavailable"}
+            </Badge>
+            <Badge variant="outline" className="border-indigo-200 bg-white text-indigo-700">
+              {currentChild?.name || "Student"}
+            </Badge>
+          </div>
+          <p className="text-sm text-indigo-600">
+            Generate the current child&apos;s live academic report card or attendance summary.
+          </p>
+        </div>
+        <Button type="button" variant="ghost" size="icon" className={parentPortalIconButtonClass} onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </CardHeader>
+
+      <CardContent className="space-y-6 p-6">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr_auto]">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-indigo-700">Report Type</label>
+            <Select value={reportMode} onValueChange={(value) => setReportMode(value as ReportMode)}>
+              <SelectTrigger className="border-indigo-200 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="report_card">Report Card</SelectItem>
+                <SelectItem value="attendance">Attendance Summary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-indigo-700">Term</label>
+            <Select value={term} onValueChange={setTerm}>
+              <SelectTrigger className="border-indigo-200 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {enhancedReportsService.getAvailableTerms().map((termOption) => (
+                  <SelectItem key={termOption} value={termOption}>
+                    {termOption}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-indigo-700">Academic Year</label>
+            <Select value={academicYear} onValueChange={setAcademicYear} disabled={loadingYears}>
+              <SelectTrigger className="border-indigo-200 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-end">
+            <Button className={parentPortalPrimaryButtonClass} onClick={handleGenerateReport} disabled={isLoading}>
+              {isLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+              {isLoading ? "Generating..." : "Generate"}
+            </Button>
           </div>
         </div>
-      );
-    }
 
-    if (!reportGenerated) {
-      return (
-        <div className="flex flex-col items-center justify-center py-10">
-          <FileText className="h-16 w-16 text-indigo-300 mb-4" />
-          <p className="text-indigo-700 text-center">Select report type and period, then click Generate Report</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="bg-white bg-opacity-50 p-6 rounded-lg border border-indigo-100">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-xl font-bold text-indigo-900">{reportType === "academic" ? "Academic Report" : reportType === "attendance" ? "Attendance Report" : "Behavior Report"}</h3>
-              <p className="text-sm text-indigo-700">{reportPeriod === "term1" ? "Term 1" : reportPeriod === "term2" ? "Term 2" : "Annual"} - {new Date().getFullYear()}</p>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" className="flex items-center glass-button-outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-              <Button variant="outline" size="sm" className="flex items-center glass-button-outline">
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button variant="outline" size="sm" className="flex items-center glass-button-outline">
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </Button>
-            </div>
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
           </div>
+        ) : null}
 
-          {reportType === "academic" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Overall GPA</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentAcademicData.overallGPA}</p>
-                </div>
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Class Rank</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentAcademicData.rank}</p>
-                </div>
+        {reportCard ? (
+          <div className="space-y-6 rounded-xl border border-indigo-100 bg-white/80 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-indigo-950">Academic Report Card</h3>
+                <p className="text-sm text-indigo-600">
+                  {reportCard.student_info.term} • {reportCard.student_info.academic_year}
+                </p>
               </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={handleDownloadPdf}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+                <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
+                </Button>
+              </div>
+            </div>
 
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-indigo-100">
-                    <th className="p-2 text-left text-indigo-900">Subject</th>
-                    <th className="p-2 text-left text-indigo-900">Grade</th>
-                    <th className="p-2 text-left text-indigo-900">Score</th>
-                    <th className="p-2 text-left text-indigo-900">Teacher</th>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Overall GPA</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.academic_performance.overall_gpa ?? currentAcademicData?.overallGPA ?? 0}</p>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Class Position</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.academic_performance.class_position || currentAcademicData?.rank || "N/A"}</p>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Attendance Rate</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.attendance.attendance_rate}%</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-indigo-100">
+              <table className="min-w-full divide-y divide-indigo-100 text-sm">
+                <thead className="bg-indigo-50 text-left text-indigo-800">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Subject</th>
+                    <th className="px-4 py-3 font-semibold">Score</th>
+                    <th className="px-4 py-3 font-semibold">Grade</th>
+                    <th className="px-4 py-3 font-semibold">Remarks</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {currentAcademicData.subjects.map((subject: any, index: number) => (
-                    <tr key={index} className={index % 2 === 0 ? "bg-white bg-opacity-50" : "bg-indigo-50 bg-opacity-50"}>
-                      <td className="p-2 text-indigo-900">{subject.name}</td>
-                      <td className="p-2 text-indigo-900">{subject.grade}</td>
-                      <td className="p-2 text-indigo-900">{subject.score}%</td>
-                      <td className="p-2 text-indigo-900">{subject.teacher}</td>
+                <tbody className="divide-y divide-indigo-50 bg-white">
+                  {reportCard.academic_performance.subjects.map((subject) => (
+                    <tr key={subject.name}>
+                      <td className="px-4 py-3 font-medium text-indigo-950">{subject.name}</td>
+                      <td className="px-4 py-3 text-indigo-700">{subject.score}</td>
+                      <td className="px-4 py-3 text-indigo-700">{subject.grade}</td>
+                      <td className="px-4 py-3 text-indigo-600">{subject.remarks}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
 
-              <div className="p-4 bg-white bg-opacity-70 rounded-md border border-indigo-100">
-                <h4 className="font-medium text-indigo-900 mb-2">Teacher's Comments</h4>
-                <p className="text-indigo-700">
-                  {currentChild.name} has shown {currentAcademicData.overallGPA >= 3.5 ? "excellent" : "good"} academic performance this term. 
-                  {currentAcademicData.overallGPA >= 3.5 
-                    ? " Consistently demonstrates strong understanding of concepts across all subjects." 
-                    : " Shows potential for improvement with more focused study habits."}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-sm font-semibold text-indigo-800">Teacher Comments</p>
+                <p className="mt-2 text-sm text-indigo-700">{reportCard.teacher_comments || "No teacher comments yet."}</p>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-sm font-semibold text-indigo-800">Promotion Status</p>
+                <p className="mt-2 text-sm text-indigo-700">{reportCard.progression_status.promotion_status}</p>
+                <p className="mt-1 text-xs text-indigo-500">Next level: {reportCard.progression_status.next_level}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {attendanceSummary || reportMode === "attendance" ? (
+          <div className="space-y-6 rounded-xl border border-indigo-100 bg-white/80 p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-indigo-950">Attendance Summary</h3>
+                <p className="text-sm text-indigo-600">
+                  Monthly attendance overview for {currentChild?.name || "the selected student"}.
                 </p>
               </div>
+              <ClipboardList className="h-5 w-5 text-indigo-500" />
             </div>
-          )}
 
-          {reportType === "attendance" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Present</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentAttendanceData.present} days</p>
-                </div>
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Absent</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentAttendanceData.absent} days</p>
-                </div>
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Late</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentAttendanceData.late} days</p>
-                </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Attendance Rate</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.percentage}%</p>
               </div>
-
-              <div className="p-4 bg-white bg-opacity-70 rounded-md border border-indigo-100">
-                <h4 className="font-medium text-indigo-900 mb-2">Attendance Summary</h4>
-                <div className="flex items-center mb-2">
-                  <div className="w-full mr-4">
-                    <Progress value={currentAttendanceData.attendancePercentage} className="h-2" />
-                  </div>
-                  <span className="font-medium text-indigo-900">{currentAttendanceData.attendancePercentage}%</span>
-                </div>
-                <p className="text-indigo-700">
-                  {currentChild.name} has maintained {currentAttendanceData.attendancePercentage >= 95 ? "excellent" : "good"} attendance this term.
-                </p>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Present</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.present}</p>
               </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Absent</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.absent}</p>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+                <p className="text-sm font-medium text-indigo-700">Late</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.late}</p>
+              </div>
+            </div>
 
-              {currentAttendanceData.recentAbsences.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-indigo-900 mb-2">Absence Details</h4>
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-indigo-100">
-                        <th className="p-2 text-left text-indigo-900">Date</th>
-                        <th className="p-2 text-left text-indigo-900">Reason</th>
-                        <th className="p-2 text-left text-indigo-900">Status</th>
+            <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-indigo-800">Overall Attendance Progress</p>
+                <span className="text-sm font-semibold text-indigo-900">{attendanceView.percentage}%</span>
+              </div>
+              <Progress value={attendanceView.percentage} className="h-2" />
+            </div>
+
+            {attendanceView.monthly.length > 0 ? (
+              <div className="overflow-x-auto rounded-lg border border-indigo-100">
+                <table className="min-w-full divide-y divide-indigo-100 text-sm">
+                  <thead className="bg-indigo-50 text-left text-indigo-800">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Month</th>
+                      <th className="px-4 py-3 font-semibold">Present</th>
+                      <th className="px-4 py-3 font-semibold">Absent</th>
+                      <th className="px-4 py-3 font-semibold">Late</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-indigo-50 bg-white">
+                    {attendanceView.monthly.map((row: any, index: number) => (
+                      <tr key={`${row.month}-${index}`}>
+                        <td className="px-4 py-3 font-medium text-indigo-950">{row.month}</td>
+                        <td className="px-4 py-3 text-indigo-700">{row.present ?? 0}</td>
+                        <td className="px-4 py-3 text-indigo-700">{row.absent ?? 0}</td>
+                        <td className="px-4 py-3 text-indigo-700">{row.late ?? 0}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {currentAttendanceData.recentAbsences.map((absence: any, index: number) => (
-                        <tr key={index} className={index % 2 === 0 ? "bg-white bg-opacity-50" : "bg-indigo-50 bg-opacity-50"}>
-                          <td className="p-2 text-indigo-900">{absence.date}</td>
-                          <td className="p-2 text-indigo-900">{absence.reason}</td>
-                          <td className="p-2 text-indigo-900">
-                            <span className={`px-2 py-1 rounded-full text-xs ${absence.status === "Excused" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                              {absence.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {reportType === "behavior" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Overall Behavior</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentBehaviorData.overallBehavior}</p>
-                </div>
-                <div className="p-4 bg-indigo-50 rounded-md">
-                  <p className="text-sm font-medium text-indigo-700">Merit Points</p>
-                  <p className="text-2xl font-bold text-indigo-900">{currentBehaviorData.merits}</p>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {currentBehaviorData.teacherComments.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-indigo-900 mb-2">Teacher Comments</h4>
-                  {currentBehaviorData.teacherComments.map((comment: any, index: number) => (
-                    <div key={index} className="p-3 bg-white bg-opacity-70 rounded-md border border-indigo-100 mb-2">
-                      <div className="flex justify-between mb-1">
-                        <p className="text-sm font-medium text-indigo-900">{comment.teacher}</p>
-                        <p className="text-xs text-indigo-700">{comment.date}</p>
-                      </div>
-                      <p className="text-indigo-700">{comment.comment}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {currentBehaviorData.recentIncidents.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-indigo-900 mb-2">Incidents</h4>
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-indigo-100">
-                        <th className="p-2 text-left text-indigo-900">Date</th>
-                        <th className="p-2 text-left text-indigo-900">Description</th>
-                        <th className="p-2 text-left text-indigo-900">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentBehaviorData.recentIncidents.map((incident: any, index: number) => (
-                        <tr key={index} className={index % 2 === 0 ? "bg-white bg-opacity-50" : "bg-indigo-50 bg-opacity-50"}>
-                          <td className="p-2 text-indigo-900">{incident.date}</td>
-                          <td className="p-2 text-indigo-900">{incident.description}</td>
-                          <td className="p-2 text-indigo-900">{incident.action}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <Card className="glass-card overflow-hidden border border-indigo-100">
-      <CardHeader>
-        <CardTitle className="text-indigo-900">Student Report</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="space-y-2 flex-1">
-            <label className="text-sm font-medium text-indigo-700">Report Type</label>
-            <Select value={reportType} onValueChange={setReportType}>
-              <SelectTrigger className="glass-button-outline">
-                <SelectValue placeholder="Select report type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="academic">Academic Report</SelectItem>
-                <SelectItem value="attendance">Attendance Report</SelectItem>
-                <SelectItem value="behavior">Behavior Report</SelectItem>
-              </SelectContent>
-            </Select>
+            ) : (
+              <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-6 text-sm text-indigo-600">
+                Generate the attendance summary to view detailed monthly data.
+              </div>
+            )}
           </div>
-          
-          <div className="space-y-2 flex-1">
-            <label className="text-sm font-medium text-indigo-700">Period</label>
-            <Select value={reportPeriod} onValueChange={setReportPeriod}>
-              <SelectTrigger className="glass-button-outline">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="term1">Term 1</SelectItem>
-                <SelectItem value="term2">Term 2</SelectItem>
-                <SelectItem value="annual">Annual</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <Button 
-            className="glass-button" 
-            onClick={handleGenerateReport}
-            disabled={isGenerating}
-          >
-            {isGenerating ? "Generating..." : "Generate Report"}
-          </Button>
-        </div>
-
-        {renderReportContent()}
+        ) : null}
       </CardContent>
     </Card>
   );

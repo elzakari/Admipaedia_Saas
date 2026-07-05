@@ -7,15 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { TouchFriendlyButton } from "../../components/common/TouchFriendlyButton";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "../../contexts/AuthContext";
 import parentService from "../../services/parentService";
-
-// Import mock data
-import { 
-  messagesData, 
-  schoolEvents 
-} from "../../data/parents-data";
+import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
 
 type ParentChild = any;
 type AcademicRecord = any;
@@ -48,12 +44,12 @@ import StudentTelemetryTabs from "../../components/parents/StudentTelemetryTabs"
 // Import modal components
 import StudentIdCard from "../../components/parents/StudentIdCard";
 import StudentFullProfile from "../../components/parents/StudentFullProfile";
-import MessageTeacher from "../../components/parents/MessageTeacher";
-import ReportForm from "../../components/parents/ReportForm";
-import ComposeMessage from "../../components/parents/ComposeMessage";
+import StudentReport from "../../components/parents/StudentReport";
 
 export default function ParentsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offlineMode, setOfflineMode] = useState(false);
   const [selectedChild, setSelectedChild] = useState("");
@@ -62,16 +58,23 @@ export default function ParentsPage() {
   // Modal states
   const [showIdCard, setShowIdCard] = useState(false);
   const [showFullProfile, setShowFullProfile] = useState(false);
-  const [showMessageTeacher, setShowMessageTeacher] = useState(false);
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [showComposeMessage, setShowComposeMessage] = useState(false);
+  const [showStudentReport, setShowStudentReport] = useState(false);
 
   // Live children API query
   const { data: childrenData, isLoading: childrenLoading } = useQuery({
     queryKey: ['parent-children'],
     queryFn: () => parentService.getMyChildren(),
-    staleTime: 30_000
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
   });
+
+  const { data: parentDashboardData } = useQuery({
+    queryKey: ['parent-dashboard'],
+    queryFn: () => parentService.getMyDashboard(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
+  });
+  const dashboardCurrency = parentDashboardData?.currency || 'GHS';
 
   const childrenList = useMemo(() => childrenData || [], [childrenData]);
   const childrenIdsKey = useMemo(() => {
@@ -91,7 +94,9 @@ export default function ParentsPage() {
     queryKey: ['child-detailed-summary', selectedChild],
     queryFn: () => parentService.getChildDetailedSummary(Number(selectedChild)),
     enabled: !!selectedChild,
-    staleTime: 30_000
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
   });
 
   // Get current child's data with proper type handling and transformation
@@ -100,6 +105,53 @@ export default function ParentsPage() {
     if (!selectedChild) return list[0] || null;
     return list.find((child: any) => String(child.id) === selectedChild) || list[0] || null;
   }, [childrenData, selectedChild]);
+  const currentChildId = Number(currentChildRaw?.id ?? 0);
+  const currentParentId = Number(currentChildRaw?.parent_id ?? user?.id ?? 0);
+
+  const { data: childAcademicResponse } = useQuery({
+    queryKey: ['parent-child-academic', currentChildId],
+    queryFn: () => parentService.getChildAcademicData(currentChildId),
+    enabled: Number.isFinite(currentChildId) && currentChildId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
+
+  const { data: childAttendanceResponse } = useQuery({
+    queryKey: ['parent-child-attendance', currentChildId],
+    queryFn: () => parentService.getChildAttendanceData(currentChildId),
+    enabled: Number.isFinite(currentChildId) && currentChildId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
+
+  const { data: childFeeResponse } = useQuery({
+    queryKey: ['parent-child-fees', currentChildId],
+    queryFn: () => parentService.getChildFeeData(currentChildId),
+    enabled: Number.isFinite(currentChildId) && currentChildId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
+
+  const { data: childHomeworkResponse } = useQuery({
+    queryKey: ['parent-child-homework', currentChildId],
+    queryFn: () => parentService.getChildHomeworkData(currentChildId),
+    enabled: Number.isFinite(currentChildId) && currentChildId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
+
+  const { data: parentMessagesResponse } = useQuery({
+    queryKey: ['parent-messages', currentParentId],
+    queryFn: () => parentService.getParentMessages(currentParentId),
+    enabled: Number.isFinite(currentParentId) && currentParentId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
 
   // 🌟 Defensive Injection Blueprint
   const matchedGrade = useMemo(() => {
@@ -137,6 +189,8 @@ export default function ParentsPage() {
       dob: String(currentChildRaw.dateOfBirth ?? currentChildRaw.date_of_birth ?? ""),
       email: currentChildRaw.email || `${name.toLowerCase().replace(/\s+/g, ".")}@school.edu`,
       id: String(summaryChild?.id ?? currentChildRaw.id ?? "0"),
+      class_id: summaryChild?.classroom?.id ?? currentChildRaw.class_id ?? null,
+      parent_id: currentChildRaw.parent_id ?? null,
       name: name,
       photo: currentChildRaw.photo ?? currentChildRaw.profile_picture ?? "",
       age: summaryChild?.age ?? (typeof currentChildRaw.age === "number" ? currentChildRaw.age : 0),
@@ -154,29 +208,47 @@ export default function ParentsPage() {
         : []
     };
   }, [currentChildRaw, childSummary, matchedGrade]);
+  const showSummarySkeleton = summaryLoading && !currentChild;
 
   const currentAcademicData = useMemo(() => {
     const avg = childSummary?.summary?.academic_average ?? null;
     const position = childSummary?.rank?.position ?? 0;
     const total = childSummary?.rank?.total_students ?? 0;
-    
-    const subjects = avg !== null ? [
-      { name: t('subjects.mathematics', 'Mathematics'), score: avg, grade: avg >= 90 ? 'A' : avg >= 80 ? 'B' : avg >= 70 ? 'C' : 'F', classAverage: Math.round(avg * 0.95), progress: avg, teacher: t('parent_portal.my_children.class_teacher_name', 'Class Teacher') },
-      { name: t('subjects.science', 'Science'), score: Math.min(100, Math.round(avg * 1.02)), grade: avg >= 90 ? 'A' : avg >= 80 ? 'B' : avg >= 70 ? 'C' : 'F', classAverage: Math.round(avg * 0.93), progress: Math.min(100, Math.round(avg * 1.02)), teacher: t('parent_portal.my_children.class_teacher_name', 'Class Teacher') },
-      { name: t('subjects.english', 'English Language'), score: Math.max(0, Math.round(avg * 0.98)), grade: avg >= 90 ? 'A' : avg >= 80 ? 'B' : avg >= 70 ? 'C' : 'F', classAverage: Math.round(avg * 0.96), progress: Math.max(0, Math.round(avg * 0.98)), teacher: t('parent_portal.my_children.class_teacher_name', 'Class Teacher') },
-      { name: t('subjects.social_studies', 'Social Studies'), score: Math.min(100, Math.round(avg * 1.05)), grade: avg >= 90 ? 'A' : avg >= 80 ? 'B' : avg >= 70 ? 'C' : 'F', classAverage: Math.round(avg * 0.94), progress: Math.min(100, Math.round(avg * 1.05)), teacher: t('parent_portal.my_children.class_teacher_name', 'Class Teacher') }
-    ] : [];
+    const subjects = Array.isArray(childAcademicResponse?.subject_grades)
+      ? childAcademicResponse.subject_grades.map((subject) => {
+          const score = Number(subject?.grade ?? 0);
+          const letterGrade =
+            score >= 80 ? 'A' :
+            score >= 70 ? 'B' :
+            score >= 60 ? 'C' :
+            score >= 50 ? 'D' :
+            'F';
+
+          return {
+            name: subject.subject || t('subjects.subject', 'Subject'),
+            score,
+            grade: letterGrade,
+            teacher: subject.teacher || t('parent_portal.my_children.class_teacher_name', 'Class Teacher')
+          };
+        })
+      : [];
+
+    const recentExams = Array.isArray(childAcademicResponse?.recent_exams)
+      ? childAcademicResponse.recent_exams.map((exam) => ({
+          name: exam.exam_name || exam.subject || t('parent_portal.my_children.assessment', 'Assessment'),
+          score: Number(exam.score ?? 0),
+          maxScore: 100,
+          date: exam.date || ''
+        }))
+      : [];
 
     return {
       overallGrade: childSummary?.classroom?.name ?? "N/A",
       subjects,
-      recentExams: avg !== null ? [
-        { name: t('parent_portal.my_children.midterm_exam', 'Midterm Exam'), score: Math.round(avg * 0.98), maxScore: 100, date: '2026-04-15' },
-        { name: t('parent_portal.my_children.quiz_1', 'Continuous Assessment 1'), score: Math.round(avg * 1.02), maxScore: 100, date: '2026-04-02' }
-      ] : [],
+      recentExams,
       upcomingExams: [],
       overallGPA: avg ? parseFloat((avg / 25).toFixed(2)) : 0,
-      overallPercentage: avg ?? 0,
+      overallPercentage: avg ?? Number(childAcademicResponse?.overall_grade ?? 0),
       rank: position ? `${position} of ${total}` : "N/A",
       classRank: position,
       totalStudents: total,
@@ -184,44 +256,61 @@ export default function ParentsPage() {
       classTeacher: t('parent_portal.my_children.class_teacher_name', 'Class Teacher'),
       currentGrade: childSummary?.classroom?.name ?? "N/A"
     };
-  }, [childSummary, t]);
+  }, [childAcademicResponse, childSummary, t]);
 
   const currentAttendanceData = useMemo(() => {
-    const rate = childSummary?.summary?.attendance_rate ?? 0;
-    const present = Math.round(30 * (rate / 100));
-    const absent = 30 - present;
-    
+    const monthlyBreakdown = Array.isArray(childAttendanceResponse?.monthly_breakdown)
+      ? childAttendanceResponse.monthly_breakdown
+      : [];
+    const present = monthlyBreakdown.reduce((sum, month) => sum + Number(month.present_days ?? 0), 0);
+    const totalDays = monthlyBreakdown.reduce((sum, month) => sum + Number(month.total_days ?? 0), 0);
+    const absent = Math.max(0, totalDays - present);
+    const recentAbsences = Array.isArray(childAttendanceResponse?.recent_absences)
+      ? childAttendanceResponse.recent_absences.map((absence) => ({
+          date: absence.date,
+          reason: absence.reason || '',
+          status: absence.excused ? 'Excused' : 'Unexcused'
+        }))
+      : [];
+    const excused = recentAbsences.filter((absence) => absence.status === 'Excused').length;
+    const rate = childAttendanceResponse?.overall_rate ?? childSummary?.summary?.attendance_rate ?? 0;
+
     return {
       percentage: rate,
       daysPresent: String(present),
       present,
       absent,
       late: 0,
-      excused: 0,
+      excused,
       attendancePercentage: rate,
-      monthlyAttendance: [
-        { month: 'April', present, absent, late: 0 }
-      ],
-      recentAbsences: []
+      monthlyAttendance: monthlyBreakdown.map((month) => ({
+        month: month.month,
+        present: Number(month.present_days ?? 0),
+        absent: Math.max(0, Number(month.total_days ?? 0) - Number(month.present_days ?? 0)),
+        late: 0
+      })),
+      recentAbsences
     };
-  }, [childSummary]);
+  }, [childAttendanceResponse, childSummary]);
 
   const currentFeeData = useMemo(() => {
     const balance = childSummary?.summary?.pending_balance ?? 0;
-    const status = childSummary?.summary?.fee_status ?? 'paid';
-    const totalFee = balance ? balance * 1.5 : 3000;
-    const paid = balance ? balance * 0.5 : 3000;
+    const totalFee = Number(childFeeResponse?.total_fees ?? balance);
+    const paid = Number(childFeeResponse?.paid_amount ?? Math.max(0, totalFee - balance));
+    const pending = Number(childFeeResponse?.pending_amount ?? balance);
+    const feeStructure = Array.isArray(childFeeResponse?.fee_structure) ? childFeeResponse.fee_structure : [];
+    const paymentHistory = Array.isArray(childFeeResponse?.payment_history) ? childFeeResponse.payment_history : [];
     
     return {
-      amount: balance,
-      balance,
-      due: balance,
-      status,
+      amount: pending,
+      balance: pending,
+      due: pending,
+      status: childSummary?.summary?.fee_status ?? (pending > 0 ? 'pending' : 'paid'),
       total_fees: totalFee,
       paid_amount: paid,
-      pending_amount: balance,
-      fee_structure: [],
-      payment_history: [],
+      pending_amount: pending,
+      fee_structure: feeStructure,
+      payment_history: paymentHistory,
       
       // Exact FeeData interface fields
       tuitionFee: totalFee,
@@ -229,44 +318,34 @@ export default function ParentsPage() {
       libraryFee: 0,
       computerLabFee: 0,
       activityFee: 0,
-      totalFee: totalFee,
+      totalFee,
       paid: paid,
-      dueDate: '2026-06-15',
-      paymentHistory: [
-        {
-          id: '1',
-          date: '2026-04-10',
-          amount: paid,
-          method: 'Bank Transfer',
-          status: 'completed'
-        }
-      ],
-      upcomingPayments: balance > 0 ? [
-        {
-          id: '1',
-          dueDate: '2026-06-15',
-          amount: balance,
-          description: t('parent_portal.my_children.tuition_fees', 'Tuition Fees')
-        }
-      ] : []
+      dueDate: feeStructure.find((item) => item.due_date)?.due_date || '',
+      paymentHistory: paymentHistory.map((payment, index) => ({
+        id: String(index + 1),
+        date: payment.date,
+        amount: Number(payment.amount ?? 0),
+        method: payment.method || 'Payment',
+        status: 'completed'
+      })),
+      upcomingPayments: feeStructure
+        .filter((item) => item.status !== 'paid')
+        .map((item, index) => ({
+          id: String(index + 1),
+          dueDate: item.due_date,
+          amount: Number(item.amount ?? 0),
+          description: item.category || t('parent_portal.my_children.fees', 'Fees')
+        }))
     };
-  }, [childSummary, t]);
+  }, [childFeeResponse, childSummary, t]);
 
   const currentHomeworkData = useMemo(() => {
-    const count = childSummary?.summary?.pending_assignments ?? 0;
-    const items = [];
-    for (let i = 1; i <= count; i++) {
-      items.push({
-        id: i,
-        title: t('parent_portal.my_children.hw_title', 'Homework Assignment {{index}}', { index: i }),
-        subject: i === 1 ? 'Mathematics' : i === 2 ? 'Science' : 'English',
-        due_date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'pending' as const,
-        description: t('parent_portal.my_children.hw_desc', 'Please complete the assigned exercises.')
-      });
-    }
-    return items;
-  }, [childSummary, t]);
+    return Array.isArray(childHomeworkResponse) ? childHomeworkResponse : [];
+  }, [childHomeworkResponse]);
+
+  const currentMessagesData = useMemo(() => {
+    return Array.isArray(parentMessagesResponse) ? parentMessagesResponse : [];
+  }, [parentMessagesResponse]);
 
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam && ALLOWED_TABS.includes(tabParam) ? tabParam : 'dashboard';
@@ -291,6 +370,7 @@ export default function ParentsPage() {
 
   // Loading state
   const isLoading = childrenLoading;
+  const showPageSkeleton = isLoading && !currentChildRaw;
 
   // Handle offline mode
   useEffect(() => {
@@ -360,7 +440,7 @@ export default function ParentsPage() {
   );
 
   // Loading state
-  if (isLoading) {
+  if (showPageSkeleton) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4 animate-pulse"></div>
@@ -400,10 +480,18 @@ export default function ParentsPage() {
     );
   }
 
-  // Handle sending a new message
-  const handleSendMessage = (message: unknown) => {
-    void message;
-    // In a real app, you would update the messages data here
+  const openMessagesCompose = (options?: { recipientType?: string; classId?: string | number | null; subject?: string }) => {
+    const params = new URLSearchParams({ compose: '1' });
+    if (options?.recipientType) {
+      params.set('recipient_type', options.recipientType);
+    }
+    if (options?.classId) {
+      params.set('class_id', String(options.classId));
+    }
+    if (options?.subject) {
+      params.set('subject', options.subject);
+    }
+    navigate(`/messages?${params.toString()}`);
   };
 
   return (
@@ -435,6 +523,11 @@ export default function ParentsPage() {
           <p className="mt-1 text-sm text-indigo-700">
             {t('parent_portal.my_children.subtitle', "Monitor your child's academic journey and school activities")}
           </p>
+          {summaryLoading && currentChild && (
+            <p className="mt-2 text-xs font-medium text-indigo-500">
+              {t('parent_portal.my_children.refreshing', 'Refreshing child summary...')}
+            </p>
+          )}
         </div>
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
           <Select value={selectedChild} onValueChange={setSelectedChild}>
@@ -460,8 +553,8 @@ export default function ParentsPage() {
             </SelectContent>
           </Select>
           <TouchFriendlyButton 
-            className="flex items-center glass-button"
-            onClick={() => setShowReportForm(true)}
+            className={`flex items-center ${parentPortalPrimaryButtonClass}`}
+            onClick={() => setShowStudentReport(true)}
             icon={<FileText className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
@@ -469,8 +562,12 @@ export default function ParentsPage() {
           </TouchFriendlyButton>
           <TouchFriendlyButton 
             variant="outline" 
-            className="flex items-center glass-button-outline"
-            onClick={() => setShowMessageTeacher(true)}
+            className={`flex items-center ${parentPortalSecondaryButtonClass}`}
+            onClick={() => openMessagesCompose({
+              recipientType: 'teacher',
+              classId: currentChild?.class_id,
+              subject: currentChild?.name ? `Regarding ${currentChild.name}` : undefined
+            })}
             icon={<MessageSquare className="h-4 w-4" />}
             size={isMobile ? "lg" : "md"}
           >
@@ -480,7 +577,7 @@ export default function ParentsPage() {
       </div>
 
       {/* Main content */}
-      {summaryLoading ? (
+      {showSummarySkeleton ? (
         renderSkeletons()
       ) : (
         <div className="flex flex-col lg:flex-row gap-6">
@@ -491,6 +588,7 @@ export default function ParentsPage() {
               currentAcademicData={currentAcademicData}
               currentAttendanceData={currentAttendanceData}
               currentFeeData={currentFeeData}
+              currency={dashboardCurrency}
               onIdCardClick={() => setShowIdCard(true)}
               onFullProfileClick={() => setShowFullProfile(true)}
             />
@@ -508,8 +606,7 @@ export default function ParentsPage() {
                   currentAttendanceData={currentAttendanceData}
                   currentFeeData={currentFeeData}
                   currentHomeworkData={currentHomeworkData}
-                  messagesData={messagesData}
-                  schoolEvents={schoolEvents}
+                  currency={dashboardCurrency}
                 />
               </TabsContent>
               
@@ -531,8 +628,8 @@ export default function ParentsPage() {
               
               <TabsContent value="messages">
                 <MessagesTab
-                  messagesData={messagesData || []}
-                  onComposeClick={() => setShowComposeMessage(true)}
+                  messagesData={currentMessagesData}
+                  onComposeClick={() => openMessagesCompose()}
                 />
               </TabsContent>
             </Tabs>
@@ -560,25 +657,13 @@ export default function ParentsPage() {
         />
       )}
       
-      {showMessageTeacher && (
-        <MessageTeacher 
+      {showStudentReport && (
+        <StudentReport
           currentChild={currentChild}
           currentAcademicData={currentAcademicData}
-          onClose={() => setShowMessageTeacher(false)}
-        />
-      )}
-      
-      {showReportForm && (
-        <ReportForm
-          currentChild={currentChild}
-          onClose={() => setShowReportForm(false)}
-        />
-      )}
-      
-      {showComposeMessage && (
-        <ComposeMessage 
-          onClose={() => setShowComposeMessage(false)}
-          onSend={handleSendMessage}
+          currentAttendanceData={currentAttendanceData}
+          onClose={() => setShowStudentReport(false)}
+          className="mt-6"
         />
       )}
     </div>

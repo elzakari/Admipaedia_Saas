@@ -12,9 +12,7 @@ import { useEffect } from 'react';
 import parentService from '../../services/parentService';
 import { useWebSocket } from '../../services/websocketService';
 import { useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 
 interface DashboardTabProps {
   currentChild: any;
@@ -22,8 +20,7 @@ interface DashboardTabProps {
   currentAttendanceData: any;
   currentFeeData: any;
   currentHomeworkData: any[];
-  schoolEvents: any[];
-  messagesData: any[];
+  currency: string;
 }
 
 function DashboardTab({
@@ -32,19 +29,10 @@ function DashboardTab({
   currentAttendanceData: initialAttendanceData,
   currentFeeData: initialFeeData,
   currentHomeworkData: initialHomeworkData,
-  schoolEvents: initialSchoolEvents,
-  messagesData: initialMessagesData
+  currency
 }: DashboardTabProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
   const { t } = useTranslation();
-  
-  const { data: parentDashboardData } = useQuery({
-    queryKey: ['parent-dashboard'],
-    queryFn: () => parentService.getMyDashboard(),
-    staleTime: 30_000
-  });
-  const currency = parentDashboardData?.currency || 'GHS';
   
   // Enhanced API call for dashboard data
   const {
@@ -65,9 +53,7 @@ function DashboardTab({
           academicData: initialAcademicData,
           attendanceData: initialAttendanceData,
           feeData: initialFeeData,
-          homeworkData: initialHomeworkData,
-          events: initialSchoolEvents,
-          messages: initialMessagesData
+          homeworkData: initialHomeworkData
         });
       }
 
@@ -76,20 +62,16 @@ function DashboardTab({
           parentService.getChildAcademicData(childId),
           parentService.getChildAttendanceData(childId),
           parentService.getChildFeeData(childId),
-          parentService.getChildHomeworkData(childId),
-          parentService.getSchoolEvents(),
-          parentService.getParentMessages((currentChild?.parent_id as number) || (user?.id as number) || 0)
+          parentService.getChildHomeworkData(childId)
         ]);
 
-        const [academicRes, attendanceRes, feeRes, homeworkRes, eventsRes, messagesRes] = results;
+        const [academicRes, attendanceRes, feeRes, homeworkRes] = results;
 
         return {
           academicData: academicRes.status === 'fulfilled' ? academicRes.value : initialAcademicData,
           attendanceData: attendanceRes.status === 'fulfilled' ? attendanceRes.value : initialAttendanceData,
           feeData: feeRes.status === 'fulfilled' ? feeRes.value : initialFeeData,
-          homeworkData: homeworkRes.status === 'fulfilled' ? homeworkRes.value : initialHomeworkData,
-          events: eventsRes.status === 'fulfilled' ? eventsRes.value : initialSchoolEvents,
-          messages: messagesRes.status === 'fulfilled' ? messagesRes.value : initialMessagesData
+          homeworkData: homeworkRes.status === 'fulfilled' ? homeworkRes.value : initialHomeworkData
         };
       } catch (err) {
         console.warn("⚠️ Background metrics fetch partially failed:", err);
@@ -97,9 +79,7 @@ function DashboardTab({
           academicData: initialAcademicData,
           attendanceData: initialAttendanceData,
           feeData: initialFeeData,
-          homeworkData: initialHomeworkData,
-          events: initialSchoolEvents,
-          messages: initialMessagesData
+          homeworkData: initialHomeworkData
         };
       }
     },
@@ -115,9 +95,7 @@ function DashboardTab({
         academicData: initialAcademicData,
         attendanceData: initialAttendanceData,
         feeData: initialFeeData,
-        homeworkData: initialHomeworkData,
-        events: initialSchoolEvents,
-        messages: initialMessagesData
+        homeworkData: initialHomeworkData
       }
     }
   );
@@ -221,6 +199,9 @@ function DashboardTab({
     ...(dashboardData?.feeData ?? {})
   };
   const homeworkData = dashboardData?.homeworkData ?? initialHomeworkData;
+  const pendingHomeworkCount = Array.isArray(homeworkData)
+    ? homeworkData.filter((item: any) => item.status === 'pending').length
+    : 0;
   
   return (
     <>
@@ -290,7 +271,9 @@ function DashboardTab({
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                {t('parent_portal.my_children.pending_label', 'Pending')}
+                {pendingHomeworkCount > 0
+                  ? `${pendingHomeworkCount} ${t('parent_portal.my_children.pending_label', 'Pending')}`
+                  : t('parent_portal.my_children.assignments_label', 'Assignments')}
               </Badge>
             </div>
             <div className="mt-3">
@@ -301,8 +284,56 @@ function DashboardTab({
         </Card>
       </div>
 
-      {/* Removed connection status indicator (isConnected/AlertCircle) */}
-      {/* Additional dashboard content can be added here */}
+      <Card className="glass-card">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-indigo-900">Assignment Progress</h3>
+              <p className="text-sm text-indigo-700">Track homework status and grading for this child.</p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {homeworkData?.length || 0} total
+            </Badge>
+          </div>
+
+          {Array.isArray(homeworkData) && homeworkData.length > 0 ? (
+            <div className="space-y-3">
+              {homeworkData.slice(0, 5).map((assignment: any) => (
+                <div key={assignment.id} className="rounded-lg bg-white bg-opacity-20 p-3 border border-white border-opacity-20">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-semibold text-indigo-900">{assignment.title}</div>
+                      <div className="text-xs text-indigo-700">
+                        {assignment.subject} • Due {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '—'}
+                      </div>
+                    </div>
+                    <Badge
+                      variant={
+                        assignment.status === 'graded'
+                          ? 'success'
+                          : assignment.status === 'submitted'
+                            ? 'secondary'
+                            : 'outline'
+                      }
+                      className="capitalize"
+                    >
+                      {assignment.status}
+                    </Badge>
+                  </div>
+                  {assignment.score != null ? (
+                    <div className="mt-2 text-xs text-indigo-700">Score: {assignment.score}</div>
+                  ) : null}
+                  {assignment.feedback ? (
+                    <div className="mt-2 text-xs text-indigo-700">Feedback: {assignment.feedback}</div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-indigo-700">No assignments available for this child yet.</div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 };
