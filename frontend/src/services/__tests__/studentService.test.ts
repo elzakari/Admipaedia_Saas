@@ -20,7 +20,7 @@ vi.mock('@/lib/api', () => ({
 // Now import the services using aliases
 import api from '@/lib/api';
 import studentService from '@/services/studentService';
-const { getStudents, createStudent, updateStudent, deleteStudent } = studentService;
+const { getStudents, getStudentById, createStudent, updateStudent, deleteStudent } = studentService;
 
 describe('Student Service', () => {
   beforeEach(() => {
@@ -82,6 +82,13 @@ describe('Student Service', () => {
     });
   });
 
+  describe('getStudentById', () => {
+    it('rejects invalid student ids before calling the API', async () => {
+      await expect(getStudentById(Number.NaN)).rejects.toThrow();
+      expect(api.get).not.toHaveBeenCalled();
+    });
+  });
+
   describe('assignment workflow helpers', () => {
     it('finds a student assignment by id from the live assignments list', async () => {
       (api.get as any).mockResolvedValue({
@@ -100,6 +107,8 @@ describe('Student Service', () => {
     });
 
     it('submits a student assignment through the live API', async () => {
+      const file = new File(['worksheet body'], 'worksheet.pdf', { type: 'application/pdf' });
+
       (api.post as any).mockResolvedValue({
         data: {
           submission: {
@@ -113,12 +122,17 @@ describe('Student Service', () => {
 
       const result = await studentService.submitAssignment(8, {
         content: 'Please find my answer attached.',
-        file_path: 'worksheet.pdf'
+        file
       });
 
-      expect(api.post).toHaveBeenCalledWith('/student/assignments/8/submit', {
-        content: 'Please find my answer attached.',
-        file_path: 'worksheet.pdf'
+      expect(api.post).toHaveBeenCalledTimes(1);
+      const [url, formData, config] = (api.post as any).mock.calls[0];
+      expect(url).toBe('/student/assignments/8/submit');
+      expect(formData).toBeInstanceOf(FormData);
+      expect(formData.get('content')).toBe('Please find my answer attached.');
+      expect(formData.get('file')).toBe(file);
+      expect(config).toEqual({
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       expect(result).toEqual({
         id: 91,

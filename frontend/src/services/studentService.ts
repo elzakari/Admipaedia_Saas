@@ -92,6 +92,10 @@ export interface StudentAssignment {
   score: number | null;
   max_points: number;
   feedback: string | null;
+  attachments?: Array<{ id: string; filename: string; download_url: string }>;
+  submission_attachments?: Array<{ id: string; filename: string; download_url: string }>;
+  submission_date?: string | null;
+  submitted_file_path?: string | null;
 }
 
 export interface StudentAssignmentSubmission {
@@ -99,6 +103,9 @@ export interface StudentAssignmentSubmission {
   assignment_id: number;
   student_id: number;
   status: string;
+  submission_date?: string | null;
+  file_path?: string | null;
+  attachments?: Array<{ id: string; filename: string; download_url: string }>;
 }
 
 export interface StudentGrade {
@@ -180,10 +187,25 @@ const studentService = {
 
   submitAssignment: async (
     assignmentId: number,
-    payload: { content?: string; file_path?: string }
+    payload: { content?: string; file?: File | null }
   ): Promise<StudentAssignmentSubmission> => {
-    const response = await api.post(`/student/assignments/${assignmentId}/submit`, payload);
+    const formData = new FormData();
+    if (payload.content) {
+      formData.append('content', payload.content);
+    }
+    if (payload.file) {
+      formData.append('file', payload.file);
+    }
+    const response = await api.post(`/student/assignments/${assignmentId}/submit`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return (response.data?.submission || response.data?.data?.submission) as StudentAssignmentSubmission;
+  },
+
+  downloadAttachment: async (downloadUrl: string): Promise<Blob> => {
+    const relativeUrl = downloadUrl.startsWith('/api/v1') ? downloadUrl.replace('/api/v1', '') : downloadUrl;
+    const response = await api.get(relativeUrl, { responseType: 'blob' });
+    return response.data as Blob;
   },
 
   getOwnProfile: async (): Promise<StudentProfile> => {
@@ -248,6 +270,9 @@ const studentService = {
   // Get a specific student by ID
   getStudentById: async (studentId: number): Promise<StandardApiResponse<Student>> => {
     try {
+      if (!Number.isInteger(studentId) || studentId <= 0) {
+        throw new StudentServiceError('Invalid student id supplied', 400, 'INVALID_STUDENT_ID');
+      }
       const response = await api.get(`/students/${studentId}`);
       return ApiResponseStandardizer.standardizeSingleResponse<Student>(response, 'student');
     } catch (error) {

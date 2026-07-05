@@ -16,6 +16,7 @@ import { FormProgressIndicator } from "./FormProgressIndicator";
 import { FormQuickNav } from "./FormQuickNav";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
+import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "@/lib/adminUi";
 
 // Format phone number function
 const formatPhoneNumber = (value: string): string => {
@@ -457,10 +458,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
   // Form steps configuration
   const steps = [
-    { id: 0, title: 'Basic Info', description: 'Student personal information', icon: User },
-    { id: 1, title: 'Contact Info', description: 'Contact details', icon: Phone },
+    { id: 0, title: 'Personal', description: 'Student personal information', icon: User },
+    { id: 1, title: 'Contact', description: 'Address and contact details', icon: Phone },
     { id: 2, title: 'Medical Info', description: 'Medical history and needs', icon: Heart },
-    { id: 3, title: 'Education', description: 'Academic background', icon: GraduationCap },
+    { id: 3, title: 'Enrollment', description: 'Academic background and class placement', icon: GraduationCap },
     { id: 4, title: 'Parent/Guardian', description: 'Parent or guardian details', icon: Users },
     { id: 5, title: 'Review', description: 'Review and submit', icon: Check }
   ];
@@ -1674,7 +1675,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           <DialogDescription>
             {student 
               ? `Update details for ${student.first_name} ${student.last_name}` 
-              : 'Enter information for the new student record'}
+              : 'Enter information for the new student record using the same intake flow as admissions, with admin-only enrollment fields.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -1733,7 +1734,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               variant="outline"
               onClick={prevStep}
               disabled={currentStep === 0}
-              className="flex items-center gap-2"
+              className={`flex items-center gap-2 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
             >
               <ChevronLeft className="h-4 w-4" />
               Previous
@@ -1744,7 +1745,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 type="button"
                 variant="ghost"
                 onClick={saveProgress}
-                className="text-sm"
+                className={`text-sm ${ADMIN_SECONDARY_BUTTON_CLASS}`}
               >
                 Save Progress
               </TouchFriendlyButton>
@@ -1753,6 +1754,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 type="button"
                 variant="ghost"
                 onClick={onClose}
+                className={ADMIN_SECONDARY_BUTTON_CLASS}
               >
                 Cancel
               </TouchFriendlyButton>
@@ -1762,7 +1764,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               <TouchFriendlyButton
                 type="button"
                 onClick={nextStep}
-                className="flex items-center gap-2"
+                className={`flex items-center gap-2 ${ADMIN_PRIMARY_BUTTON_CLASS}`}
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
@@ -1772,7 +1774,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex items-center gap-2 min-w-[120px]"
+                className={`flex items-center gap-2 min-w-[120px] ${ADMIN_PRIMARY_BUTTON_CLASS}`}
               >
                 {isSubmitting ? (
                   <>

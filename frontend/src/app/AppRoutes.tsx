@@ -680,6 +680,21 @@ export default function AppRoutes() {
             )
         } 
       />
+
+      <Route
+        path="/students/new"
+        element={
+          user?.role === 'teacher'
+            ? <Navigate to="/teacher/classes" replace />
+            : (
+              <ProtectedRoute
+                element={<StudentsPage />}
+                allowedRoles={['admin', 'school_admin']}
+                componentName="Students Management"
+              />
+            )
+        }
+      />
       
       <Route 
         path="/students/:id" 

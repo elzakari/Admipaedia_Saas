@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { studentService } from '../../services/studentService';
 import StudentPrintView from '../../components/students/StudentPrintView';
 import { Label } from '../../components/ui/label';
+import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
 
 interface StudentProfile {
   emergency_contact_name: string;
@@ -100,11 +101,18 @@ const StudentProfilePage: React.FC = () => {
   useEffect(() => {
     const fetchStudentData = async () => {
       if (!id) return;
+      const studentId = Number(id);
+
+      if (!Number.isInteger(studentId) || studentId <= 0) {
+        setError('Invalid student record');
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
         // Fetch student details
-        const studentResp: any = await studentService.getStudentById(parseInt(id));
+        const studentResp: any = await studentService.getStudentById(studentId);
         const studentData: any = studentResp?.data || {};
         
         // Transform Student to StudentProfile by adding missing fields
@@ -194,7 +202,7 @@ const StudentProfilePage: React.FC = () => {
         <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-red-500 mb-2">Error</h2>
         <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={() => navigate('/students')} variant="outline">
+        <Button onClick={() => navigate('/students')} variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Students
         </Button>
@@ -208,7 +216,7 @@ const StudentProfilePage: React.FC = () => {
         <XCircle className="h-16 w-16 text-gray-400 mb-4" />
         <h2 className="text-2xl font-bold text-gray-600 mb-2">Student Not Found</h2>
         <p className="text-gray-500 mb-4">The requested student could not be found.</p>
-        <Button onClick={() => navigate('/students')} variant="outline">
+        <Button onClick={() => navigate('/students')} variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Students
         </Button>
@@ -245,7 +253,7 @@ const StudentProfilePage: React.FC = () => {
             variant="ghost" 
             size="icon" 
             onClick={() => navigate('/students')}
-            className="mr-3 print:hidden"
+            className={`mr-3 print:hidden ${ADMIN_SECONDARY_BUTTON_CLASS}`}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -261,21 +269,21 @@ const StudentProfilePage: React.FC = () => {
               variant="default" 
               onClick={handleGenerateSetupLink}
               disabled={generatingLink}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all"
+              className={ADMIN_PRIMARY_BUTTON_CLASS}
             >
               <Link2 className="h-4 w-4 mr-2" />
               {copied ? 'Link Copied!' : generatingLink ? 'Generating...' : 'Generate Setup Link'}
             </Button>
           )}
-          <Button variant="outline" onClick={handlePrint}>
+          <Button variant="outline" onClick={handlePrint} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={handleExport} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/students/${student.id}/edit`)}>
+          <Button variant="outline" onClick={() => navigate(`/students/${student.id}/edit`)} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>

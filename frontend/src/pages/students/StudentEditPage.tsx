@@ -9,6 +9,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import studentService from '../../services/studentService';
 import { useToast } from '../../components/ui/use-toast';
+import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
 
 const StudentEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,10 +23,22 @@ const StudentEditPage: React.FC = () => {
   useEffect(() => {
     const fetchStudent = async () => {
       if (!id) return;
+      const studentId = Number(id);
+
+      if (!Number.isInteger(studentId) || studentId <= 0) {
+        setLoading(false);
+        toast({
+          title: "Error",
+          description: "Invalid student record",
+          variant: "destructive"
+        });
+        navigate('/students', { replace: true });
+        return;
+      }
       
       try {
         setLoading(true);
-        const studentResp: any = await studentService.getStudentById(parseInt(id));
+        const studentResp: any = await studentService.getStudentById(studentId);
         const studentData: any = studentResp?.data || {};
         setStudent(studentData);
         setFormData(studentData);
@@ -52,10 +65,12 @@ const StudentEditPage: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!id) return;
+    const studentId = Number(id);
+    if (!Number.isInteger(studentId) || studentId <= 0) return;
     
     try {
       setSaving(true);
-      await studentService.updateStudent(parseInt(id), formData);
+      await studentService.updateStudent(studentId, formData);
       toast({
         title: "Success",
         description: "Student updated successfully",
@@ -85,7 +100,7 @@ const StudentEditPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <h2 className="text-2xl font-bold text-gray-600 mb-2">Student Not Found</h2>
-        <Button onClick={() => navigate('/students')} variant="outline">
+        <Button onClick={() => navigate('/students')} variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Students
         </Button>
@@ -102,7 +117,7 @@ const StudentEditPage: React.FC = () => {
             variant="ghost" 
             size="icon" 
             onClick={() => navigate(`/students/${id}`)}
-            className="mr-3"
+            className={`mr-3 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -113,11 +128,11 @@ const StudentEditPage: React.FC = () => {
         </div>
         
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => navigate(`/students/${id}`)}>
+          <Button variant="outline" onClick={() => navigate(`/students/${id}`)} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          <Button onClick={handleSubmit} disabled={saving} className={ADMIN_PRIMARY_BUTTON_CLASS}>
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>

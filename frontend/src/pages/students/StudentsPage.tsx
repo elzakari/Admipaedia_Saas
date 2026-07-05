@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
   Users,
@@ -71,12 +72,15 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import ApiDebugPanel from '../../components/debug/ApiDebugPanel';
 import { useTranslation } from 'react-i18next';
 import { getNormalizedGradeLevel } from "../../utils/formatters";
+import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "../../lib/adminUi";
 
 export function StudentsPage() {
   const { t } = useTranslation();
   useTheme();
   const { toast } = useToast();
   const isMobile = useMediaQuery('(max-width: 640px)');
+  const navigate = useNavigate();
+  const location = useLocation();
   
   // === State Management ===
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,6 +101,7 @@ export function StudentsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [printStudentData, setPrintStudentData] = useState<StudentProfile | null>(null);
   const [isImportExportDialogOpen, setIsImportExportDialogOpen] = useState(false);
+  const isCreateRoute = location.pathname === '/students/new';
 
   // === Data Fetching ===
   const {
@@ -136,6 +141,18 @@ export function StudentsPage() {
       setViewMode('grid');
     }
   }, [isMobile, viewMode]);
+
+  useEffect(() => {
+    if (isCreateRoute) {
+      setSelectedStudentForEdit(null);
+      setIsStudentFormOpen(true);
+      return;
+    }
+
+    if (!selectedStudentForEdit) {
+      setIsStudentFormOpen(false);
+    }
+  }, [isCreateRoute, selectedStudentForEdit]);
 
   // === Helper Functions and Handlers ===
 
@@ -294,12 +311,28 @@ export function StudentsPage() {
     ? students.find((s: TransformedStudent) => s.id === selectedStudent) || null 
     : null;
 
+  const handleOpenCreateStudent = () => {
+    setSelectedStudentForEdit(null);
+    if (!isCreateRoute) {
+      navigate('/students/new');
+      return;
+    }
+    setIsStudentFormOpen(true);
+  };
+
+  const handleCloseStudentForm = () => {
+    setIsStudentFormOpen(false);
+    setSelectedStudentForEdit(null);
+    if (isCreateRoute) {
+      navigate('/students', { replace: true });
+    }
+  };
+
   // Quick actions (Add, Export, Print, Share)
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'add':
-        setSelectedStudentForEdit(null);
-        setIsStudentFormOpen(true);
+        handleOpenCreateStudent();
         break;
       case 'export':
         setIsImportExportDialogOpen(true);
@@ -554,7 +587,7 @@ export function StudentsPage() {
         size="sm"
         variant="primary"
         onClick={() => handleQuickAction('add')}
-        className="flex items-center gap-2"
+        className={`flex items-center gap-2 ${ADMIN_PRIMARY_BUTTON_CLASS}`}
       >
         <Plus className="h-4 w-4" />
         {t('students_page.add_student', 'Add Student')}
@@ -563,7 +596,7 @@ export function StudentsPage() {
         size="sm"
         variant="outline"
         onClick={() => handleQuickAction('export')}
-        className="flex items-center gap-2"
+        className={`flex items-center gap-2 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
       >
         <Download className="h-4 w-4" />
         {t('common.export', 'Export')}
@@ -572,7 +605,7 @@ export function StudentsPage() {
         size="sm"
         variant="outline"
         onClick={() => handleQuickAction('print')}
-        className="flex items-center gap-2"
+        className={`flex items-center gap-2 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
       >
         <Printer className="h-4 w-4" />
         {t('common.print', 'Print')}
@@ -581,7 +614,7 @@ export function StudentsPage() {
         size="sm"
         variant="outline"
         onClick={() => handleQuickAction('share')}
-        className="flex items-center gap-2"
+        className={`flex items-center gap-2 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
       >
         <Share2 className="h-4 w-4" />
         {t('common.share', 'Share')}
@@ -635,6 +668,7 @@ export function StudentsPage() {
             setSelectedStatus('All');
             setActiveTab('all');
           }}
+          className={ADMIN_SECONDARY_BUTTON_CLASS}
         >
           {t('common.reset', 'Reset')}
         </Button>
@@ -654,7 +688,7 @@ export function StudentsPage() {
               {t('students_page.management_desc', 'Track linked guardians, contact readiness, and students who need follow-up.')}
             </p>
           </div>
-          <Button variant="outline" onClick={() => refetch()}>
+          <Button variant="outline" onClick={() => refetch()} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {t('common.refresh', 'Refresh')}
           </Button>
@@ -1029,7 +1063,7 @@ export function StudentsPage() {
         {/* Student Form Modal */}
         <StudentFormModal
           isOpen={isStudentFormOpen}
-          onClose={() => setIsStudentFormOpen(false)}
+          onClose={handleCloseStudentForm}
           student={selectedStudentForEdit ? {
             ...selectedStudentForEdit,
             // Ensure all optional string properties have fallback empty strings
@@ -1092,8 +1126,7 @@ export function StudentsPage() {
             status: (selectedStudentForEdit.status as "active" | "inactive" | "graduated" | "transferred") || "active"
           } : null}
           onSuccess={() => {
-            setIsStudentFormOpen(false);
-            setSelectedStudentForEdit(null);
+            handleCloseStudentForm();
           }}
         />
 
@@ -1110,6 +1143,7 @@ export function StudentsPage() {
               <Button
                 variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
+                className={ADMIN_SECONDARY_BUTTON_CLASS}
               >
                 {t('common.cancel', 'Cancel')}
               </Button>
