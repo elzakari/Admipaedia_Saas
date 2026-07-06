@@ -42,6 +42,28 @@ class Class(db.Model):
     
     def __repr__(self):
         return f'<Class {self.name}>'
+
+    @property
+    def normalized_section(self):
+        section = (self.section or '').strip()
+        return section or None
+
+    @property
+    def display_name(self):
+        """Return a stream-aware display name like 'Class 1 A' when section exists."""
+        base_name = (self.name or self.grade_level or '').strip()
+        section = self.normalized_section
+
+        if not base_name:
+            return section or ''
+        if not section:
+            return base_name
+
+        base_tokens = base_name.split()
+        if base_tokens and base_tokens[-1].lower() == section.lower():
+            return base_name
+
+        return f"{base_name} {section}"
     
     @property
     def key_phase(self):

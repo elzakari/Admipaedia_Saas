@@ -16,6 +16,7 @@ import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
 import { Badge } from "../../components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { resolveStudentAvatar } from "../../utils/avatar";
 
 interface StudentProfileProps {
   student: any;
@@ -31,7 +32,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({ student, onClose }) => 
         <div className="flex justify-between items-start">
           <div className="flex items-center space-x-4">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={student.profileImage} alt={student.name} />
+              <AvatarImage src={resolveStudentAvatar(student)} alt={student.name} />
               <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>

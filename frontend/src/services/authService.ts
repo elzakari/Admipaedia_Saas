@@ -9,6 +9,7 @@ export interface User {
   role: 'super_admin' | 'super_manager' | 'admin' | 'school_admin' | 'teacher' | 'student' | 'parent' | 'user';
   is_active?: boolean;
   profile_image?: string;
+  avatar_url?: string | null;
   phone?: string;
   created_at?: string;
   updated_at?: string;

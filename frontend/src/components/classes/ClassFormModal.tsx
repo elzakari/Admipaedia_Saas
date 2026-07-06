@@ -18,6 +18,7 @@ import authService, { User } from '../../services/authService';
 interface ClassFormData {
   name: string;
   grade_level: string;
+  section: string;
   academic_year: string;
   room_number: string;
   capacity: string;
@@ -42,6 +43,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [formData, setFormData] = useState<ClassFormData>({
     name: '',
     grade_level: '',
+    section: '',
     academic_year: '',
     room_number: '',
     capacity: '',
@@ -110,6 +112,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     setFormData({
       name: '',
       grade_level: '',
+      section: '',
       academic_year: '',
       room_number: '',
       capacity: '',
@@ -157,6 +160,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
         setFormData({
           name: classData.name || '',
           grade_level: classData.grade_level || '',
+          section: classData.section || '',
           academic_year: classData.academic_year || '',
           room_number: classData.room_number || '',
           capacity: classData.capacity?.toString() || '',
@@ -270,6 +274,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       const base = {
         name: formData.name.trim(),
         grade_level: formData.grade_level.trim(),
+        section: formData.section.trim() || null,
         academic_year: formData.academic_year.trim(),
       };
       console.log('Base payload constructed:', base);
@@ -418,6 +423,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name}</p>
             )}
+            <p className="text-xs text-gray-500">
+              Use the base class name here. Add the stream below for setups like `Class 1 A` and `Class 1 B`.
+            </p>
           </div>
 
           {/* Grade Level */}
@@ -462,6 +470,21 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             {errors.grade_level && (
               <p className="text-sm text-red-500">{errors.grade_level}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="section">Section / Stream</Label>
+            <Input
+              id="section"
+              value={formData.section}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, section: e.target.value }));
+              }}
+              placeholder="e.g., A, B, Science, Arts"
+            />
+            <p className="text-xs text-gray-500">
+              Display preview: {[formData.name.trim(), formData.section.trim()].filter(Boolean).join(' ') || 'Class preview'}
+            </p>
           </div>
 
           {/* Academic Year */}

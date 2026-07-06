@@ -52,3 +52,40 @@ export const getNormalizedGradeLevel = (dataEntity: any): string => {
 
   return "Unassigned";
 };
+
+export const getClassDisplayName = (classEntity: any): string => {
+  if (!classEntity) return "Unassigned Class";
+
+  const explicitDisplayName =
+    classEntity.display_name ||
+    classEntity.displayName ||
+    classEntity.class_display_name ||
+    classEntity.classDisplayName;
+
+  if (typeof explicitDisplayName === 'string' && explicitDisplayName.trim()) {
+    return explicitDisplayName.trim();
+  }
+
+  const baseName =
+    (typeof classEntity.name === 'string' && classEntity.name.trim() && classEntity.name) ||
+    (typeof classEntity.class_name === 'string' && classEntity.class_name.trim() && classEntity.class_name) ||
+    (typeof classEntity.className === 'string' && classEntity.className.trim() && classEntity.className) ||
+    getNormalizedGradeLevel(classEntity);
+
+  const section =
+    (typeof classEntity.section === 'string' && classEntity.section.trim() && classEntity.section.trim()) ||
+    (typeof classEntity.section_name === 'string' && classEntity.section_name.trim() && classEntity.section_name.trim()) ||
+    (typeof classEntity.stream === 'string' && classEntity.stream.trim() && classEntity.stream.trim()) ||
+    '';
+
+  if (!section) {
+    return baseName;
+  }
+
+  const baseTokens = String(baseName).trim().split(/\s+/);
+  if (baseTokens[baseTokens.length - 1]?.toLowerCase() === section.toLowerCase()) {
+    return String(baseName).trim();
+  }
+
+  return `${String(baseName).trim()} ${section}`.trim();
+};

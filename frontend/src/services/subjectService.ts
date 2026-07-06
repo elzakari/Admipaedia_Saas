@@ -11,7 +11,7 @@ export interface Subject {
   credit_hours?: number;
   credits?: number;
   is_active: boolean;
-  classes?: Array<{ id: number; name: string }>;
+  classes?: Array<{ id: number; name: string; display_name?: string; section?: string | null }>;
   teachers?: Array<{ id: number; name: string }>;
   created_at: string;
   updated_at: string;

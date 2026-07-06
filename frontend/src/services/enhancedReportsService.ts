@@ -9,6 +9,7 @@ export interface GESReportCard {
     educational_level: string;
     academic_year: string;
     term: string;
+    profile_picture?: string;
   };
   academic_performance: {
     subjects: Array<{

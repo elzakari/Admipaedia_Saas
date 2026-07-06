@@ -324,6 +324,15 @@ const studentService = {
     }
   },
 
+  uploadProfilePicture: async (studentId: number, file: File): Promise<{ profile_picture_url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/enhanced-students/${studentId}/profile-picture`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data?.data || response.data;
+  },
+
   // Delete a student
   deleteStudent: async (studentId: number): Promise<StandardApiResponse<void>> => {
     try {

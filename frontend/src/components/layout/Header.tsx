@@ -5,6 +5,7 @@ import ThemeToggle from '../common/ThemeToggle';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
+import { resolveAvatarUrl } from '../../utils/avatar';
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -36,8 +37,12 @@ const Header: React.FC = () => {
           <Settings size={20} />
         </Link>
         <Link to="/profile" className="flex items-center space-x-2">
-          <div className="h-7 w-7 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-200 shadow-inner">
-            <User size={14} />
+          <div className="h-7 w-7 rounded-full overflow-hidden bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-200 shadow-inner">
+            {resolveAvatarUrl(user?.avatar_url) ? (
+              <img src={resolveAvatarUrl(user?.avatar_url)} alt={user?.username || 'User'} className="h-full w-full object-cover" />
+            ) : (
+              <User size={14} />
+            )}
           </div>
         </Link>
       </div>

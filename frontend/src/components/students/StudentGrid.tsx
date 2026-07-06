@@ -15,6 +15,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 import { TransformedStudent } from '../../types/student';
+import { resolveAvatarUrl } from '../../utils/avatar';
 
 // Fix the interface to use TransformedStudent consistently
 interface StudentGridProps {
@@ -51,7 +52,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
           <CardContent className="p-6">
             <div className="flex items-center space-x-4">
               <Avatar className="h-16 w-16">
-                <AvatarImage src={student.profileImage} alt={student.display_name} />
+                <AvatarImage src={resolveAvatarUrl(student.profileImage)} alt={student.display_name} />
                 <AvatarFallback>{getStudentInitials(student)}</AvatarFallback>
               </Avatar>
               <div>

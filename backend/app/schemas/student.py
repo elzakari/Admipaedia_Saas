@@ -1,6 +1,7 @@
 from marshmallow import Schema, fields, validate, validates, ValidationError, pre_load
 from datetime import datetime
 from app.schemas.educational_level import GradeLevelMinimalSchema
+from flask import has_app_context
 
 
 def _extract_parent_name_parts_from_user(user):
@@ -98,15 +99,55 @@ def _resolve_student_parent_identity(obj):
 def _resolve_student_class_name(obj):
     if isinstance(obj, dict):
         return (
-            obj.get('class_name')
+            obj.get('class_display_name')
+            or obj.get('class_name')
+            or (
+                f"{obj.get('class_name')} {obj.get('section')}".strip()
+                if obj.get('class_name') and obj.get('section')
+                else None
+            )
             or obj.get('grade_level_name')
             or ''
         )
 
     class_record = getattr(obj, 'class_', None)
-    if class_record and getattr(class_record, 'name', None):
-        return class_record.name
+    if class_record:
+        display_name = getattr(class_record, 'display_name', None)
+        if display_name:
+            return display_name
+        if getattr(class_record, 'name', None):
+            return class_record.name
     return getattr(obj, 'grade_level_name', None) or ''
+
+
+def _resolve_student_profile_picture(obj):
+    raw_value = None
+    if isinstance(obj, dict):
+        raw_value = (
+            obj.get('profile_picture')
+            or obj.get('profile_picture_url')
+            or obj.get('profile_image')
+            or obj.get('profileImage')
+        )
+    else:
+        raw_value = getattr(obj, 'profile_picture', None)
+
+    if not raw_value:
+        return None
+
+    picture = str(raw_value).strip()
+    if not picture:
+        return None
+
+    if picture.startswith(('http://', 'https://', '/api/', '/uploads/')):
+        return picture
+
+    normalized = picture.replace('\\', '/')
+    if normalized.startswith('uploads/profile_pictures/'):
+        filename = normalized.split('uploads/profile_pictures/', 1)[1]
+        return f'/api/v1/enhanced-students/profile-picture/{filename}'
+
+    return picture
 
 # Add these fields to StudentSchema, StudentCreateSchema, and StudentUpdateSchema
 # Example for StudentSchema:
@@ -183,7 +224,8 @@ class StudentSchema(Schema):
     
     # Legacy fields
     address = fields.String(validate=validate.Length(max=255), allow_none=True)
-    profile_picture = fields.String(validate=validate.Length(max=255), allow_none=True)
+    profile_picture = fields.Method("get_profile_picture", deserialize="load_profile_picture")
+    profile_picture_locked = fields.Boolean(load_default=False)
     class_id = fields.Integer(allow_none=True)
     parent_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(dump_only=True)
@@ -283,6 +325,12 @@ class StudentSchema(Schema):
     def get_parent_phone(self, obj):
         return _resolve_student_parent_identity(obj).get('phone')
 
+    def get_profile_picture(self, obj):
+        return _resolve_student_profile_picture(obj)
+
+    def load_profile_picture(self, value):
+        return value
+
 class StudentCreateSchema(Schema):
     """Schema for creating new students"""
     # Personal Details
@@ -351,6 +399,7 @@ class StudentCreateSchema(Schema):
     # Legacy fields
     address = fields.String(validate=validate.Length(max=255), allow_none=True)
     profile_picture = fields.String(validate=validate.Length(max=255), allow_none=True)
+    profile_picture_locked = fields.Boolean(load_default=False)
     class_id = fields.Integer(allow_none=True)
     parent_id = fields.Integer(allow_none=True)
     
@@ -457,6 +506,7 @@ class StudentUpdateSchema(Schema):
     # Legacy fields
     address = fields.String(validate=validate.Length(max=255), allow_none=True)
     profile_picture = fields.String(validate=validate.Length(max=255), allow_none=True)
+    profile_picture_locked = fields.Boolean(allow_none=True)
     class_id = fields.Integer(allow_none=True)
     parent_id = fields.Integer(allow_none=True)
     
@@ -512,6 +562,8 @@ class StudentListSchema(Schema):
     email = fields.Email(allow_none=True)
     phone = fields.String(allow_none=True)
     status = fields.String()
+    profile_picture = fields.Method("get_profile_picture", dump_only=True)
+    profile_picture_locked = fields.Boolean()
     class_name = fields.Method("get_class_name", dump_only=True)
     parent_name = fields.Method("get_parent_name", dump_only=True)
     parent_email = fields.Method("get_parent_email", dump_only=True)
@@ -531,6 +583,9 @@ class StudentListSchema(Schema):
     def get_display_name(self, obj):
         """Get the display name of the student"""
         return obj.display_name
+
+    def get_profile_picture(self, obj):
+        return _resolve_student_profile_picture(obj)
 
     def get_grade_level(self, obj):
         if isinstance(obj, dict):

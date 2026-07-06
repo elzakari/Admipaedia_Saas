@@ -23,6 +23,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from app.services.report_service import ReportService
+from app.services.enhanced_student_service import EnhancedStudentService
 from app.services.email_service import send_email
 
 
@@ -514,10 +515,11 @@ def generate_student_report_card(student_id):
             'student_info': {
                 'name': f'{student.first_name} {student.last_name}',
                 'admission_number': student.admission_number,
-                'class': student.class_.name if student.class_ else 'N/A',
+                'class': getattr(student.class_, 'display_name', None) or (student.class_.name if student.class_ else 'N/A'),
                 'educational_level': educational_level.level_name,
                 'academic_year': academic_year,
-                'term': term
+                'term': term,
+                'profile_picture': EnhancedStudentService.build_profile_picture_url(student.profile_picture),
             },
             'academic_performance': {
                 'subjects': [{

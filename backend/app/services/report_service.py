@@ -1,6 +1,7 @@
 import io
 import csv
 import json
+import os
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 from sqlalchemy import func, and_
@@ -13,6 +14,7 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Group, Ellipse
 from reportlab.graphics.charts.spider import SpiderChart
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from flask import current_app
 
 from app.extensions import db
 from app.models.student import Student
@@ -38,6 +40,29 @@ class ReportService:
     ORANGE = colors.HexColor('#c97a0a')
     GOLD = colors.HexColor('#dfa832')
     BORDER_COLOR = colors.HexColor('#b8dece')
+
+    @staticmethod
+    def _resolve_student_photo_for_pdf(photo_value: Optional[str]) -> Optional[str]:
+        if not photo_value:
+            return None
+
+        normalized = str(photo_value).replace('\\', '/').strip()
+        if not normalized:
+            return None
+
+        if normalized.startswith('uploads/profile_pictures/'):
+            candidate = os.path.join(current_app.root_path, normalized.replace('/', os.sep))
+            return candidate if os.path.isfile(candidate) else None
+
+        if normalized.startswith('/api/v1/enhanced-students/profile-picture/'):
+            filename = normalized.split('/api/v1/enhanced-students/profile-picture/', 1)[1]
+            candidate = os.path.join(current_app.root_path, 'uploads', 'profile_pictures', filename)
+            return candidate if os.path.isfile(candidate) else None
+
+        if os.path.isabs(normalized) and os.path.isfile(normalized):
+            return normalized
+
+        return None
     TEXT_COLOR = colors.HexColor('#17202a')
     MUTED_COLOR = colors.HexColor('#52626f')
     WHITE = colors.whitesmoke
@@ -424,6 +449,15 @@ class ReportService:
         elements.append(Paragraph("STUDENT PROGRESS REPORT", ParagraphStyle('RT', parent=pill_badge_style, fontSize=7, tracking=1.5)))
         elements.append(Spacer(1, 0.05*inch))
         
+        photo_path = ReportService._resolve_student_photo_for_pdf(info.get('profile_picture'))
+        photo_cell = (
+            Image(photo_path, width=0.85 * inch, height=0.95 * inch)
+            if photo_path
+            else Table([[Paragraph("PHOTO", ParagraphStyle('PS', fontSize=5.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))]],
+                colWidths=[0.85*inch], rowHeights=[0.95*inch],
+                style=[('BOX', (0,0), (-1,-1), 1, ReportService.BORDER_COLOR), ('BACKGROUND', (0,0), (-1,-1), ReportService.LIGHT_BG), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')])
+        )
+
         student_panel_data = [
             [
                 Table([
@@ -437,9 +471,7 @@ class ReportService:
                     [Paragraph(info.get('academic_year', 'N/A'), ParagraphStyle('SV', fontSize=8.5, fontName='Helvetica-Bold')), 
                      Paragraph(info.get('term', 'N/A'), ParagraphStyle('SV', fontSize=8.5, fontName='Helvetica-Bold'))]
                 ], colWidths=[1.6*inch, 1.2*inch]),
-                Table([[Paragraph("PHOTO", ParagraphStyle('PS', fontSize=5.5, alignment=TA_CENTER, fontName='Helvetica-Bold'))]], 
-                      colWidths=[0.85*inch], rowHeights=[0.95*inch],
-                      style=[('BOX', (0,0), (-1,-1), 1, ReportService.BORDER_COLOR), ('BACKGROUND', (0,0), (-1,-1), ReportService.LIGHT_BG), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]),
+                photo_cell,
                 Table([
                     [Paragraph("LEVEL:", ParagraphStyle('SL', fontSize=6.5, fontName='Helvetica-Bold', textColor=ReportService.MUTED_COLOR)), 
                      Paragraph("ADM NO:", ParagraphStyle('SL', fontSize=6.5, fontName='Helvetica-Bold', textColor=ReportService.MUTED_COLOR, alignment=TA_RIGHT))],

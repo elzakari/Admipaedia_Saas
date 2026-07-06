@@ -18,6 +18,7 @@ import subjectService from '../../../services/subjectService'
 import { Plus, Edit, Trash2, Eye, RefreshCw, Link2 } from 'lucide-react'
 import { useDebounce } from '../../../hooks/useDebounce'
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../../lib/adminUi'
+import { getClassDisplayName } from '../../../utils/formatters'
 
 const PAGE_SIZES = [10, 25, 50, 100]
 type SubjectFormData = Partial<Subject> & {
@@ -66,12 +67,17 @@ export default function SubjectsManagement() {
       .filter((teacherId) => !desiredTeacherIds.has(teacherId))
       .map((teacherId) => subjectService.removeTeacher(subjectId, teacherId))
 
-    await Promise.all([
+    const results = await Promise.allSettled([
       ...classAssignments,
       ...classRemovals,
       ...teacherAssignments,
       ...teacherRemovals,
     ])
+
+    const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failures.length > 0) {
+      throw new Error(failures[0]?.reason?.message || 'Some subject assignment changes could not be saved')
+    }
   }
 
   const handleCreate = (data: Partial<Subject>) => {
@@ -228,7 +234,7 @@ export default function SubjectsManagement() {
                 <TableRow key={s.id}>
                   <TableCell className="font-medium cursor-pointer" onClick={() => { setSelectedId(s.id); setIsDetailOpen(true) }}>{s.name}</TableCell>
                   <TableCell>{s.code}</TableCell>
-                  <TableCell>{s.department || '-'}</TableCell>
+                  <TableCell>{s.department_name || s.department || '-'}</TableCell>
                   <TableCell>{(s as any).credits ?? s.credit_hours ?? '-'}</TableCell>
                   <TableCell>{s.is_active ? <Badge>{t('common.active', 'Active')}</Badge> : <Badge variant="secondary">{t('common.inactive', 'Inactive')}</Badge>}</TableCell>
                   <TableCell className="text-right">
@@ -282,14 +288,14 @@ export default function SubjectsManagement() {
             <div className="space-y-2 text-sm">
               <div><span className="font-medium">{t('common.name', 'Name')}:</span> {detailQuery.data.name}</div>
               <div><span className="font-medium">{t('common.code', 'Code')}:</span> {detailQuery.data.code}</div>
-              <div><span className="font-medium">{t('common.department', 'Department')}:</span> {detailQuery.data.department || '-'}</div>
+              <div><span className="font-medium">{t('common.department', 'Department')}:</span> {detailQuery.data.department_name || detailQuery.data.department || '-'}</div>
               <div><span className="font-medium">{t('admin_settings.credits', 'Credits')}:</span> {(detailQuery.data as any).credits ?? detailQuery.data.credit_hours ?? '-'}</div>
               <div><span className="font-medium">{t('super_admin.users.table.status', 'Status')}:</span> {detailQuery.data.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</div>
               <div><span className="font-medium">{t('common.description', 'Description')}:</span> {detailQuery.data.description || '-'}</div>
               <div>
                 <span className="font-medium">Assigned classes:</span>{' '}
                 {(detailQuery.data.classes || []).length > 0
-                  ? detailQuery.data.classes?.map((item) => item.name).join(', ')
+                  ? detailQuery.data.classes?.map((item) => item.display_name || item.name).join(', ')
                   : 'None'}
               </div>
               <div>
@@ -344,6 +350,8 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
     assigned_class_ids: editing?.classes?.map((item) => item.id) || [],
     assigned_teacher_ids: editing?.teachers?.map((item) => item.id) || [],
   })
+  const [classSearch, setClassSearch] = useState('')
+  const [teacherSearch, setTeacherSearch] = useState('')
 
   useEffect(() => {
     const source = detailQuery.data || editing
@@ -361,6 +369,51 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
 
   const classOptions = Array.isArray(classesData?.data) ? classesData.data : []
   const teacherOptions = Array.isArray(teachersData?.teachers) ? teachersData.teachers : []
+  const normalizedClassSearch = classSearch.trim().toLowerCase()
+  const normalizedTeacherSearch = teacherSearch.trim().toLowerCase()
+
+  const filteredClassOptions = useMemo(() => {
+    return classOptions.filter((classOption: any) => {
+      const label = getClassDisplayName(classOption).toLowerCase()
+      const gradeLevel = typeof classOption.grade_level === 'object' && classOption.grade_level !== null
+        ? String(classOption.grade_level.name || '')
+        : String(classOption.grade_level || '')
+      return !normalizedClassSearch || label.includes(normalizedClassSearch) || gradeLevel.toLowerCase().includes(normalizedClassSearch)
+    })
+  }, [classOptions, normalizedClassSearch])
+
+  const filteredTeacherOptions = useMemo(() => {
+    return teacherOptions.filter((teacher: any) => {
+      const label =
+        teacher.full_name ||
+        teacher.name ||
+        `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() ||
+        `Teacher ${teacher.id}`
+      return !normalizedTeacherSearch || label.toLowerCase().includes(normalizedTeacherSearch)
+    })
+  }, [teacherOptions, normalizedTeacherSearch])
+
+  const selectedClassLabels = useMemo(() => {
+    return classOptions
+      .filter((classOption: any) => (data.assigned_class_ids || []).includes(classOption.id))
+      .map((classOption: any) => ({
+        id: classOption.id,
+        label: getClassDisplayName(classOption),
+      }))
+  }, [classOptions, data.assigned_class_ids])
+
+  const selectedTeacherLabels = useMemo(() => {
+    return teacherOptions
+      .filter((teacher: any) => (data.assigned_teacher_ids || []).includes(teacher.id))
+      .map((teacher: any) => ({
+        id: teacher.id,
+        label:
+          teacher.full_name ||
+          teacher.name ||
+          `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() ||
+          `Teacher ${teacher.id}`,
+      }))
+  }, [teacherOptions, data.assigned_teacher_ids])
 
   const toggleMultiSelect = (field: 'assigned_class_ids' | 'assigned_teacher_ids', value: number) => {
     setData((current) => {
@@ -408,32 +461,58 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
         </div>
         <div className="md:col-span-2 space-y-2">
           <Label>Assigned Classes</Label>
+          <Input
+            value={classSearch}
+            onChange={(e) => setClassSearch(e.target.value)}
+            placeholder="Search classes or streams..."
+          />
+          {selectedClassLabels.length > 0 && (
+            <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">
+              {selectedClassLabels.map((classItem) => (
+                <Badge key={classItem.id} variant="secondary">{classItem.label}</Badge>
+              ))}
+            </div>
+          )}
           <div className="max-h-40 overflow-y-auto rounded-md border border-input p-3">
-            {classOptions.length > 0 ? (
+            {filteredClassOptions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {classOptions.map((cls: any) => (
+                {filteredClassOptions.map((cls: any) => (
                   <label key={cls.id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={(data.assigned_class_ids || []).includes(cls.id)}
                       onChange={() => toggleMultiSelect('assigned_class_ids', cls.id)}
                     />
-                    <span>{cls.name || `Class ${cls.id}`}</span>
+                    <span>{getClassDisplayName(cls)}</span>
                   </label>
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No classes available</div>
+              <div className="text-sm text-muted-foreground">
+                {classOptions.length > 0 ? 'No classes match this search' : 'No classes available'}
+              </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">Only assigned classes can use this subject in timetable setup.</p>
+          <p className="text-xs text-muted-foreground">Only assigned classes or streams can use this subject in timetable setup.</p>
         </div>
         <div className="md:col-span-2 space-y-2">
           <Label>Assigned Teachers</Label>
+          <Input
+            value={teacherSearch}
+            onChange={(e) => setTeacherSearch(e.target.value)}
+            placeholder="Search teachers..."
+          />
+          {selectedTeacherLabels.length > 0 && (
+            <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">
+              {selectedTeacherLabels.map((teacherItem) => (
+                <Badge key={teacherItem.id} variant="secondary">{teacherItem.label}</Badge>
+              ))}
+            </div>
+          )}
           <div className="max-h-48 overflow-y-auto rounded-md border border-input p-3">
-            {teacherOptions.length > 0 ? (
+            {filteredTeacherOptions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {teacherOptions.map((teacher: any) => {
+                {filteredTeacherOptions.map((teacher: any) => {
                   const label = teacher.full_name || teacher.name || `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() || `Teacher ${teacher.id}`
                   return (
                     <label key={teacher.id} className="flex items-center gap-2 text-sm">
@@ -448,7 +527,9 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
                 })}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">No teachers available</div>
+              <div className="text-sm text-muted-foreground">
+                {teacherOptions.length > 0 ? 'No teachers match this search' : 'No teachers available'}
+              </div>
             )}
           </div>
           <p className="text-xs text-muted-foreground">Only assigned teachers can be selected for timetable slots under this subject.</p>

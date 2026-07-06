@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, g
 from app.services.portal.service import ParentPortalService
+from app.services.enhanced_student_service import EnhancedStudentService
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils.rbac_decorators import require_role
 from app.utils.tenant_context import tenant_required
@@ -23,7 +24,8 @@ def get_children():
             'id': c.id,
             'name': f"{c.first_name} {c.last_name}",
             'admission_number': c.admission_number,
-            'class': c.class_.name if c.class_ else None
+            'class': getattr(c.class_, 'display_name', None) or (c.class_.name if c.class_ else None),
+            'profile_picture': EnhancedStudentService.build_profile_picture_url(c.profile_picture),
         } for c in children]
     }), 200
 

@@ -72,7 +72,9 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import ApiDebugPanel from '../../components/debug/ApiDebugPanel';
 import { useTranslation } from 'react-i18next';
 import { getNormalizedGradeLevel } from "../../utils/formatters";
+import { getClassDisplayName } from '../../utils/formatters';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "../../lib/adminUi";
+import { resolveStudentAvatar } from '../../utils/avatar';
 
 export function StudentsPage() {
   const { t } = useTranslation();
@@ -185,7 +187,7 @@ export function StudentsPage() {
           ? `Enrolled ${new Date(student.created_at).toLocaleDateString()}`
           : "No recent activity",
       updatedAt: (student as any).updatedAt || (student as any).updated_at || student.created_at,
-      profileImage: student.profile_image || student.profileImage || "",
+      profileImage: resolveStudentAvatar(student) || "",
       recentGrades: [],
       subjects: [],
       pendingAssignments: Number((student as any).pending_assignments_count || 0),
@@ -225,7 +227,7 @@ export function StudentsPage() {
     const classes = classesResponse?.data || [];
     return classes.map((classRecord) => ({
       value: String(classRecord.id),
-      label: classRecord.name || [classRecord.grade_level, classRecord.section].filter(Boolean).join(' ')
+      label: getClassDisplayName(classRecord)
     }));
   }, [classesResponse?.data]);
 

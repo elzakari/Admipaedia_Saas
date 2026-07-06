@@ -473,6 +473,7 @@ def get_current_user():
                 "username": user.username,
                 "email": user.email,
                 "role": user.role,
+                "avatar_url": getattr(getattr(user, 'profile', None), 'avatar_url', None),
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "password_changed_at": user.password_changed_at.isoformat() if hasattr(user, 'password_changed_at') and user.password_changed_at else None
@@ -921,4 +922,3 @@ def claim_account():
         db.session.rollback()
         logger.error("account_claim_error", error=str(err))
         return jsonify({"success": False, "error": "Account activation failed"}), 500
-

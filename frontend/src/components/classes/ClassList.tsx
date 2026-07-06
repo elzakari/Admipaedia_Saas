@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Badge } from '../ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Edit, Trash2, Eye } from 'lucide-react';
+import { getClassDisplayName } from '../../utils/formatters';
 
 interface ClassListProps {
   gradeFilter?: string;
@@ -75,7 +76,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
   const columns = [
     {
       header: 'Class Name',
-      accessor: (classItem: any) => classItem.name,
+      accessor: (classItem: any) => getClassDisplayName(classItem),
       mobileLabel: 'Class',
       priority: 'high' as const
     },
@@ -93,15 +94,15 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
     },
     {
       header: 'Students',
-      accessor: (classItem: any) => classItem.student_count || 0,
+      accessor: (classItem: any) => classItem.student_count || classItem.current_enrollment || 0,
       mobileLabel: 'Students',
       priority: 'medium' as const
     },
     {
       header: 'Status',
       accessor: (classItem: any) => (
-        <Badge variant={classItem.is_active ? 'success' : 'secondary'}>
-          {classItem.is_active ? 'Active' : 'Inactive'}
+        <Badge variant={(classItem.is_active ?? classItem.status === 'active') ? 'success' : 'secondary'}>
+          {(classItem.is_active ?? classItem.status === 'active') ? 'Active' : 'Inactive'}
         </Badge>
       ),
       mobileLabel: 'Status',

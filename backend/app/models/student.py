@@ -85,6 +85,7 @@ class Student(db.Model):
     # Legacy fields
     address = db.Column(db.String(255))  # Keep for backward compatibility
     profile_picture = db.Column(db.String(255), nullable=True)
+    profile_picture_locked = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text('false'))
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True, index=True)
     parent_id = db.Column(db.Integer, db.ForeignKey('parents.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

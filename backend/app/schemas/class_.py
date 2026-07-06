@@ -9,6 +9,7 @@ class ClassSchema(Schema):
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level", deserialize="load_grade_level")
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
+    display_name = fields.Method("get_display_name", dump_only=True)
     academic_year = fields.String(required=True, validate=validate.Length(min=4, max=20))
     capacity = fields.Integer(allow_none=True)
     teacher_id = fields.Integer(allow_none=True)
@@ -57,6 +58,19 @@ class ClassSchema(Schema):
             return value.get("name") or value.get("id") or ""
         return str(value)
 
+    def get_display_name(self, obj):
+        if isinstance(obj, dict):
+            base_name = str(obj.get("name") or obj.get("grade_level_name") or obj.get("grade_level") or "").strip()
+            section = str(obj.get("section") or "").strip()
+            if not base_name:
+                return section
+            if not section:
+                return base_name
+            if base_name.split() and base_name.split()[-1].lower() == section.lower():
+                return base_name
+            return f"{base_name} {section}"
+        return getattr(obj, "display_name", None) or getattr(obj, "name", None)
+
 class ClassCreateSchema(Schema):
     """Schema for creating a new class"""
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
@@ -97,6 +111,7 @@ class ClassListSchema(Schema):
     grade_level_name = fields.String(dump_only=True)
     grade_level = fields.Method("get_grade_level")
     section = fields.String()
+    display_name = fields.Method("get_display_name", dump_only=True)
     academic_year = fields.String()
     teacher_id = fields.Integer(allow_none=True)
     start_time = fields.String()
@@ -132,3 +147,16 @@ class ClassListSchema(Schema):
             "name": obj.grade_level or "Unassigned",
             "code": None
         }
+
+    def get_display_name(self, obj):
+        if isinstance(obj, dict):
+            base_name = str(obj.get("name") or obj.get("grade_level_name") or obj.get("grade_level") or "").strip()
+            section = str(obj.get("section") or "").strip()
+            if not base_name:
+                return section
+            if not section:
+                return base_name
+            if base_name.split() and base_name.split()[-1].lower() == section.lower():
+                return base_name
+            return f"{base_name} {section}"
+        return getattr(obj, "display_name", None) or getattr(obj, "name", None)

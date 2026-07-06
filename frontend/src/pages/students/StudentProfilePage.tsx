@@ -16,6 +16,7 @@ import { studentService } from '../../services/studentService';
 import StudentPrintView from '../../components/students/StudentPrintView';
 import { Label } from '../../components/ui/label';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
+import { resolveStudentAvatar } from '../../utils/avatar';
 
 interface StudentProfile {
   emergency_contact_name: string;
@@ -295,7 +296,7 @@ const StudentProfilePage: React.FC = () => {
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
             <Avatar className="h-24 w-24">
-              <AvatarImage src={student.profile_picture} alt={student.display_name} />
+              <AvatarImage src={resolveStudentAvatar(student)} alt={student.display_name} />
               <AvatarFallback className="text-2xl">
                 {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
               </AvatarFallback>

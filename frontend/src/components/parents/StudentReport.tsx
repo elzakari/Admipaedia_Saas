@@ -4,12 +4,14 @@ import { Button } from "../../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { FileText, Download, Printer, RefreshCw, X, CalendarDays, ClipboardList } from "lucide-react";
 import enhancedReportsService, { type GESReportCard } from "../../services/enhancedReportsService";
 import attendanceService from "../../services/attendanceService";
 import { useToast } from "../ui/use-toast";
 import { cn } from "../../lib/utils";
 import { parentPortalIconButtonClass, parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
+import { resolveAvatarUrl } from "../../utils/avatar";
 
 interface StudentReportProps {
   currentChild: any;
@@ -226,11 +228,23 @@ const StudentReport = ({
         {reportCard ? (
           <div className="space-y-6 rounded-xl border border-indigo-100 bg-white/80 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border border-indigo-100">
+                  <AvatarImage
+                    src={resolveAvatarUrl(reportCard.student_info.profile_picture || currentChild?.photo || currentChild?.profile_picture)}
+                    alt={reportCard.student_info.name}
+                  />
+                  <AvatarFallback>{reportCard.student_info.name?.charAt(0) || 'S'}</AvatarFallback>
+                </Avatar>
+                <div>
                 <h3 className="text-xl font-semibold text-indigo-950">Academic Report Card</h3>
                 <p className="text-sm text-indigo-600">
                   {reportCard.student_info.term} • {reportCard.student_info.academic_year}
                 </p>
+                <p className="text-sm text-indigo-700">
+                  {reportCard.student_info.name} • {reportCard.student_info.class}
+                </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={handleDownloadPdf}>

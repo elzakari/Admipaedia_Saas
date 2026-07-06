@@ -6,9 +6,10 @@ import { ApiResponseStandardizer } from '../lib/apiResponseStandardizer';
 export interface Class {
   id: number;
   name: string;
+  display_name?: string;
   grade_level: string;
   academic_year: string;
-  section: string;
+  section?: string | null;
   capacity: number;
   current_enrollment: number;
   teacher_id?: number;

@@ -280,7 +280,7 @@ class SubjectService:
             
             # Check if the teacher is already assigned to this subject
             if teacher in subject.teachers:
-                return subject, "Teacher already assigned to this subject"
+                return subject, None
             
             # Add the teacher to the subject's teachers
             subject.teachers.append(teacher)
@@ -317,11 +317,12 @@ class SubjectService:
             
             # Check if the teacher is assigned to this subject
             if teacher not in subject.teachers:
-                return subject, "Teacher not assigned to this subject"
+                return subject, None
             
             # Remove the teacher from the subject's teachers
             subject.teachers.remove(teacher)
             db.session.commit()
+            cache_service.delete(f"subject:dto:{subject_id}")
             
             logger.info("Teacher removed from subject", subject_id=subject.id, teacher_id=teacher_id)
             return subject, None
@@ -406,7 +407,7 @@ class SubjectService:
             )
             existing = db.session.execute(stmt).first()
             if existing:
-                return subject, "Class already assigned to this subject"
+                return subject, None
             
             # Insert a new row in the association table
             stmt = class_subjects.insert().values(
@@ -416,6 +417,7 @@ class SubjectService:
             )
             db.session.execute(stmt)
             db.session.commit()
+            cache_service.delete(f"subject:dto:{subject_id}")
             
             logger.info("Class assigned to subject", subject_id=subject_id, class_id=class_id)
             return subject, None
@@ -446,7 +448,7 @@ class SubjectService:
             )
             existing = db.session.execute(stmt).first()
             if not existing:
-                return subject, "Class not assigned to this subject"
+                return subject, None
             
             # Delete the row from the association table
             stmt = class_subjects.delete().where(
@@ -455,6 +457,7 @@ class SubjectService:
             )
             db.session.execute(stmt)
             db.session.commit()
+            cache_service.delete(f"subject:dto:{subject_id}")
             
             logger.info("Class removed from subject", subject_id=subject_id, class_id=class_id)
             return subject, None

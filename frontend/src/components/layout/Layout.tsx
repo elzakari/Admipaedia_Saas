@@ -29,6 +29,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useHeader } from '../../contexts/HeaderContext';
 import { useSaasTenant } from '../../hooks/useSaasTenant';
 import OnboardingWizard from '../onboarding/OnboardingWizard';
+import { resolveAvatarUrl } from '../../utils/avatar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -337,8 +338,16 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                       aria-expanded={profileDropdownOpen}
                       aria-label={t('common.user_menu', 'User menu')}
                     >
-                      <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-[11px] font-black text-white">
-                        {user?.username?.substring(0, 2).toUpperCase() || 'AD'}
+                      <div className="h-8 w-8 rounded-xl overflow-hidden bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-[11px] font-black text-white">
+                        {resolveAvatarUrl(user?.avatar_url) ? (
+                          <img
+                            src={resolveAvatarUrl(user?.avatar_url)}
+                            alt={user?.username || 'User'}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          user?.username?.substring(0, 2).toUpperCase() || 'AD'
+                        )}
                       </div>
                       <span className={cn(
                         "text-sm font-semibold hidden sm:inline-block",

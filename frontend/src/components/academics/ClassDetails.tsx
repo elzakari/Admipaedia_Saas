@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { resolveStudentAvatar } from '../../utils/avatar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeft, 
@@ -659,7 +660,7 @@ export default function ClassDetails({ classId, onBack }: ClassDetailsProps) {
                     <div key={student.id} className="flex items-center justify-between p-4 hover:bg-muted/50">
                       <div className="flex items-center gap-4">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={student.profile_picture} />
+                          <AvatarImage src={resolveStudentAvatar(student)} />
                           <AvatarFallback>{student.first_name[0]}{student.last_name[0]}</AvatarFallback>
                         </Avatar>
                         <div>

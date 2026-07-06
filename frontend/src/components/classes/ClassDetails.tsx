@@ -2,6 +2,7 @@ import React from 'react';
 import { useClass } from '../../hooks/useClasses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Skeleton } from '../ui/skeleton';
+import { getClassDisplayName } from '../../utils/formatters';
 
 interface ClassDetailsProps {
   classId: number;
@@ -43,8 +44,11 @@ export function ClassDetails({ classId }: ClassDetailsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{classData.name}</CardTitle>
-        <CardDescription>Grade {typeof classData.grade_level === 'object' && classData.grade_level !== null ? (classData.grade_level as any).name : classData.grade_level} - Section {classData.section}</CardDescription>
+        <CardTitle>{getClassDisplayName(classData)}</CardTitle>
+        <CardDescription>
+          Grade {typeof classData.grade_level === 'object' && classData.grade_level !== null ? (classData.grade_level as any).name : classData.grade_level}
+          {classData.section ? ` - Section ${classData.section}` : ''}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">

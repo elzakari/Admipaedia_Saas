@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, useRef } from "react";
 import { useCreateStudent, useUpdateStudent } from "@/hooks/useStudents";
 import { useToast } from "@/components/ui/use-toast";
 import type { Student } from "@/types/student.types";
@@ -10,13 +10,17 @@ import MobileOptimizedTextarea from "../common/MobileOptimizedTextarea";
 import { FormValidationProvider } from "../common/FormValidationProvider";
 import { useMobileKeyboard } from "@/hooks/useMobileKeyboard";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { Loader2, AlertCircle, ChevronRight, ChevronLeft, Check, User, Phone, Mail, MapPin, Heart, GraduationCap, Users } from "lucide-react";
+import { Loader2, AlertCircle, ChevronRight, ChevronLeft, Check, User, Phone, Mail, MapPin, Heart, GraduationCap, Users, Camera, Lock } from "lucide-react";
 import { Alert, AlertDescription } from "../ui/alert";
 import { FormProgressIndicator } from "./FormProgressIndicator";
 import { FormQuickNav } from "./FormQuickNav";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "@/lib/adminUi";
+import { getClassDisplayName } from "@/utils/formatters";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import studentService from "@/services/studentService";
+import { resolveAvatarUrl, resolveStudentAvatar } from "@/utils/avatar";
 
 // Format phone number function
 const formatPhoneNumber = (value: string): string => {
@@ -105,6 +109,7 @@ interface FormData {
 
   guardianName: string;
   guardianContact: string;
+  profile_picture_locked: boolean;
 }
 
 type FormErrors = {
@@ -158,6 +163,8 @@ interface StudentCreate {
   mother_workplace?: string;
   guardian_name?: string;
   guardian_contact?: string;
+  profile_picture?: string | null;
+  profile_picture_locked?: boolean;
   password: string;
   force_password_reset: boolean;
 }
@@ -165,7 +172,7 @@ interface StudentCreate {
 const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   const { student, isOpen, onClose, onSuccess } = props;
   const { toast } = useToast();
-  const { mutate: createStudent } = useCreateStudent();
+  const { mutateAsync: createStudentAsync } = useCreateStudent();
   const updateStudentMutation = useUpdateStudent();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -228,13 +235,17 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [classOptions, setClassOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [parentOptions, setParentOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     api.get('/classes', { params: { per_page: 200 } })
       .then((res) => {
         const classes = Array.isArray(res.data?.classes) ? res.data.classes : [];
-        setClassOptions(classes.map((c: any) => ({ value: String(c.id), label: c.name || `Class ${c.id}` })));
+        setClassOptions(classes.map((c: any) => ({ value: String(c.id), label: getClassDisplayName(c) || `Class ${c.id}` })));
       })
       .catch(() => setClassOptions([]));
 
@@ -391,8 +402,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         motherWorkplace: (student as any).mother_workplace || '',
 
         guardianName: (student as any).guardian_name || '',
-        guardianContact: (student as any).guardian_contact || ''
+        guardianContact: (student as any).guardian_contact || '',
+        profile_picture_locked: Boolean((student as any).profile_picture_locked)
       });
+      setPhotoPreview(resolveStudentAvatar(student) || '');
+      setPhotoFile(null);
+      setPhotoRemoved(false);
     } else {
       // Reset form when no student is provided (for creating new student)
       setFormData({
@@ -444,8 +459,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         motherProfession: '',
         motherWorkplace: '',
         guardianName: '',
-        guardianContact: ''
+        guardianContact: '',
+        profile_picture_locked: false
       });
+      setPhotoPreview('');
+      setPhotoFile(null);
+      setPhotoRemoved(false);
     }
   }, [student]);
 
@@ -876,15 +895,27 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         mother_workplace: formData.motherWorkplace?.trim() || null,
 
         guardian_name: formData.guardianName?.trim() || null,
-        guardian_contact: formData.guardianContact?.trim() || null
+        guardian_contact: formData.guardianContact?.trim() || null,
+        profile_picture_locked: Boolean(formData.profile_picture_locked),
+        ...(student && photoRemoved && !photoFile ? { profile_picture: null } : {})
       };
+
+      let savedStudentId: number | undefined;
 
       if (student) {
         // Update existing student
-        await updateStudentMutation.mutateAsync({
+        const updateResponse = await updateStudentMutation.mutateAsync({
           id: student.id,
           data: transformedData
         });
+        savedStudentId = Number(updateResponse?.data?.id || student.id);
+
+        if (photoFile && savedStudentId) {
+          const uploadResponse = await studentService.uploadProfilePicture(savedStudentId, photoFile);
+          setPhotoPreview(resolveAvatarUrl(uploadResponse?.profile_picture_url) || '');
+          setPhotoFile(null);
+          setPhotoRemoved(false);
+        }
         
         toast({
           title: "Success",
@@ -898,61 +929,21 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           password: generatePassword(),
           force_password_reset: true
         };
-        
-        createStudent(createData, {
-          onSuccess: () => {
-            toast({
-              title: "Success",
-              description: "Student created successfully!",
-              id: ""
-            });
-            onSuccess?.();
-            onClose();
-          },
-          onError: (error: any) => {
-            console.error('Error creating student:', error);
-            
-            // Handle validation errors from backend
-            if (error?.response?.data?.errors) {
-              const backendErrors = error.response.data.errors;
-              const newErrors: Record<string, string> = {};
-              
-              Object.entries(backendErrors).forEach(([backendField, errorMessages]) => {
-                const frontendField = backendToFrontendFieldMap[backendField] || backendField;
-                if (Array.isArray(errorMessages) && errorMessages.length > 0) {
-                  newErrors[frontendField] = errorMessages[0];
-                } else if (typeof errorMessages === 'string') {
-                  newErrors[frontendField] = errorMessages;
-                }
-              });
-              
-              setErrors(prev => ({ ...prev, ...newErrors }));
-              
-              toast({
-                title: "Validation Error",
-                description: "Please check the form for errors and try again.",
-                id: ""
-              });
-            } else if (error?.response?.status === 409) {
-              toast({
-                title: "Conflict Error",
-                description: "A student with this admission number already exists.",
-                id: ""
-              });
-            } else if (error?.response?.status === 403) {
-              toast({
-                title: "Permission Error",
-                description: "You don't have permission to perform this action.",
-                id: ""
-              });
-            } else {
-              toast({
-                title: "Error",
-                description: error?.message || "Failed to create student. Please try again.",
-                id: ""
-              });
-            }
-          }
+
+        const createResponse = await createStudentAsync(createData);
+        savedStudentId = Number(createResponse?.data?.id);
+
+        if (photoFile && savedStudentId) {
+          const uploadResponse = await studentService.uploadProfilePicture(savedStudentId, photoFile);
+          setPhotoPreview(resolveAvatarUrl(uploadResponse?.profile_picture_url) || '');
+          setPhotoFile(null);
+          setPhotoRemoved(false);
+        }
+
+        toast({
+          title: "Success",
+          description: "Student created successfully!",
+          id: ""
         });
       }
       
@@ -1013,6 +1004,82 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       case 0: // Basic Information
         return (
           <div className="space-y-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                <Avatar className="h-24 w-24 border border-slate-200">
+                  <AvatarImage src={photoPreview} alt={formData.first_name || formData.last_name ? `${formData.first_name} ${formData.last_name}`.trim() : 'Student photo'} />
+                  <AvatarFallback className="text-lg font-semibold">
+                    {(formData.first_name?.charAt(0) || '')}{(formData.last_name?.charAt(0) || '') || 'S'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">Profile Picture</h3>
+                    <p className="text-xs text-slate-500">
+                      Admin can set the student profile picture here and lock it from regular changes. This photo also appears on the academic terminal report.
+                    </p>
+                  </div>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) {
+                        toast({
+                          title: "Image Too Large",
+                          description: "Student profile picture must be 2MB or less.",
+                          id: ""
+                        });
+                        e.target.value = '';
+                        return;
+                      }
+                      setPhotoFile(file);
+                      setPhotoRemoved(false);
+                      setPhotoPreview(URL.createObjectURL(file));
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <TouchFriendlyButton
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      className={ADMIN_SECONDARY_BUTTON_CLASS}
+                      icon={<Camera className="h-4 w-4" />}
+                    >
+                      {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                    </TouchFriendlyButton>
+                    <TouchFriendlyButton
+                      type="button"
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setPhotoPreview('');
+                        setPhotoRemoved(true);
+                      }}
+                      className={ADMIN_SECONDARY_BUTTON_CLASS}
+                      disabled={!photoPreview}
+                    >
+                      Remove Photo
+                    </TouchFriendlyButton>
+                  </div>
+                  {photoFile && (
+                    <p className="text-xs text-slate-500">Selected file: {photoFile.name}</p>
+                  )}
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={formData.profile_picture_locked}
+                      onChange={(e) => setFormData(prev => ({ ...prev, profile_picture_locked: e.target.checked }))}
+                    />
+                    <Lock className="h-4 w-4 text-slate-500" />
+                    <span>Lock student profile picture from non-admin changes</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedInput
                 label="First Name"

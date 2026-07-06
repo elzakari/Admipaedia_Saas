@@ -40,7 +40,12 @@ class SubjectSchema(Schema):
     def get_classes(self, obj):
         try:
             classes = getattr(obj, "classes", None) or []
-            return [{'id': item.id, 'name': getattr(item, 'name', f'Class {item.id}')} for item in classes]
+            return [{
+                'id': item.id,
+                'name': getattr(item, 'display_name', None) or getattr(item, 'name', f'Class {item.id}'),
+                'display_name': getattr(item, 'display_name', None) or getattr(item, 'name', f'Class {item.id}'),
+                'section': getattr(item, 'section', None),
+            } for item in classes]
         except Exception:
             return []
 
@@ -104,7 +109,12 @@ class SubjectListSchema(Schema):
     def get_classes(self, obj):
         try:
             classes = getattr(obj, "classes", None) or []
-            return [{'id': item.id, 'name': getattr(item, 'name', f'Class {item.id}')} for item in classes]
+            return [{
+                'id': item.id,
+                'name': getattr(item, 'display_name', None) or getattr(item, 'name', f'Class {item.id}'),
+                'display_name': getattr(item, 'display_name', None) or getattr(item, 'name', f'Class {item.id}'),
+                'section': getattr(item, 'section', None),
+            } for item in classes]
         except Exception:
             return []
 

@@ -17,6 +17,8 @@ export interface Student {
     section?: string;
     enrollment_date: string;
     status: 'active' | 'inactive' | 'graduated' | 'transferred';
+    profile_picture?: string;
+    profile_picture_locked?: boolean;
     profile_image?: string;
 
     // Contact Information
@@ -129,6 +131,7 @@ export interface StudentCreate {
     mother_workplace?: string;
     mother_email?: string;
     profile_picture?: string;
+    profile_picture_locked?: boolean;
 }
 
 export interface StudentUpdate extends Partial<StudentCreate> { }

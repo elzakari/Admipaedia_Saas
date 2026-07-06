@@ -1,13 +1,15 @@
-from flask import Blueprint, request, jsonify, current_app, g
+from flask import Blueprint, request, jsonify, current_app, g, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 import os
 import tempfile
 from app.services.enhanced_student_service import EnhancedStudentService
 from app.schemas.student import StudentSchema, StudentCreateSchema
+from app.models.student import Student
 from app.utils.decorators import role_required
 from app.utils.tenant_context import tenant_required
 from app.utils.response import success_response, error_response
+from app.utils.auth_utils import admin_required
 import structlog
 
 logger = structlog.get_logger()
@@ -54,7 +56,8 @@ def create_student_with_user():
 
 @enhanced_students_bp.route('/<int:student_id>/profile-picture', methods=['POST'])
 @jwt_required()
-@role_required(['admin', 'teacher', 'student'])
+@admin_required
+@tenant_required
 def upload_profile_picture(student_id):
     """Upload profile picture for a student."""
     try:
@@ -63,6 +66,10 @@ def upload_profile_picture(student_id):
         file = request.files['file']
         if file.filename == '':
             return error_response("No file selected", 400)
+
+        student = Student.query.get(student_id)
+        if not student or getattr(student, 'tenant_id', None) != getattr(g, 'tenant_id', None):
+            return error_response("Student not found", 404)
 
         file_path, error = EnhancedStudentService.upload_profile_picture(student_id, file)
         if error:
@@ -76,6 +83,12 @@ def upload_profile_picture(student_id):
     except Exception as e:
         logger.error("Error uploading profile picture", error=str(e))
         return error_response("Internal server error", 500)
+
+
+@enhanced_students_bp.route('/profile-picture/<path:filename>', methods=['GET'])
+def serve_profile_picture(filename):
+    upload_dir = os.path.join(current_app.root_path, EnhancedStudentService.UPLOAD_FOLDER)
+    return send_from_directory(upload_dir, secure_filename(filename))
 
 
 @enhanced_students_bp.route('/export', methods=['GET'])

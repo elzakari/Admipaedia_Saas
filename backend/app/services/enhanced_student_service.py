@@ -29,6 +29,21 @@ class EnhancedStudentService(StudentService):
         """Check if file extension is allowed."""
         return '.' in filename and \
                filename.rsplit('.', 1)[1].lower() in EnhancedStudentService.ALLOWED_EXTENSIONS
+
+    @staticmethod
+    def build_profile_picture_url(stored_path):
+        if not stored_path:
+            return None
+
+        path_value = str(stored_path).replace('\\', '/').strip()
+        if not path_value:
+            return None
+        if path_value.startswith(('http://', 'https://', '/api/')):
+            return path_value
+        if path_value.startswith('uploads/profile_pictures/'):
+            filename = path_value.split('uploads/profile_pictures/', 1)[1]
+            return f"/api/v1/enhanced-students/profile-picture/{filename}"
+        return path_value
     
     @staticmethod
     def create_student_with_user(student_data, user_data=None, tenant_id=None):
@@ -105,7 +120,7 @@ class EnhancedStudentService(StudentService):
                 db.session.commit()
                 
                 logger.info("Profile picture uploaded", student_id=student_id, filename=unique_filename)
-                return student.profile_picture, None
+                return EnhancedStudentService.build_profile_picture_url(student.profile_picture), None
             
             return None, "Invalid file type. Only PNG, JPG, JPEG, and GIF files are allowed."
             

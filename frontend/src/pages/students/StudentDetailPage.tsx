@@ -12,6 +12,7 @@ import { useApiCall } from '../../hooks/useApiCall';
 import studentService from '../../services/studentService';
 import { getNormalizedGradeLevel } from '../../utils/formatters';
 import type { Student } from '../../types/student.types';
+import { resolveStudentAvatar } from '../../utils/avatar';
 
 const StudentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,8 +61,8 @@ const StudentDetailPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-            {student.profile_image ? (
-              <img src={student.profile_image} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
+            {resolveStudentAvatar(student) ? (
+              <img src={resolveStudentAvatar(student)} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
             ) : (
               <User className="h-8 w-8 text-gray-500" />
             )}

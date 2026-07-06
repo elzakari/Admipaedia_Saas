@@ -15,6 +15,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 import { TransformedStudent } from '../../types/student';
+import { resolveAvatarUrl } from '../../utils/avatar';
 
 // Remove local Student interface and use the centralized one
 interface StudentListProps {
@@ -96,7 +97,7 @@ const StudentList: React.FC<StudentListProps> = ({
               <td className="p-4">
                 <div className="flex items-center">
                   <Avatar className="h-10 w-10 mr-4">
-                    <AvatarImage src={student.profileImage} alt={student.display_name || student.full_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student'} />
+                    <AvatarImage src={resolveAvatarUrl(student.profileImage)} alt={student.display_name || student.full_name || student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student'} />
                     <AvatarFallback>
                       {student.first_name && student.last_name 
                         ? `${student.first_name.charAt(0)}${student.last_name.charAt(0)}` 

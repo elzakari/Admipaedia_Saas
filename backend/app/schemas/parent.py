@@ -45,7 +45,7 @@ class ParentSchema(Schema):
                 "id": s.id,
                 "first_name": s.first_name,
                 "last_name": s.last_name,
-                "class_name": s.class_.name if s.class_ else None
+                "class_name": (getattr(s.class_, 'display_name', None) or s.class_.name) if s.class_ else None
             }
             for s in students
         ]

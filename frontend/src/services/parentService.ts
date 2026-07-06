@@ -1,6 +1,7 @@
 // Top-level imports
 import api from '../lib/api';
 import { Pagination, StandardApiResponse } from '../types';
+import { resolveAvatarUrl } from '../utils/avatar';
 
 // Define interfaces for parent data
 export interface Parent {
@@ -511,9 +512,11 @@ const parentService = {
       section: backendChild?.section ?? backendChild?.section_name ?? undefined,
       age: backendChild?.age ?? backendChild?.years ?? undefined,
       photo:
-        backendChild?.photo ??
-        backendChild?.profile_picture ??
-        backendChild?.profileImage ??
+        resolveAvatarUrl(
+          backendChild?.photo ??
+          backendChild?.profile_picture ??
+          backendChild?.profileImage
+        ) ??
         undefined,
       admissionNumber:
         backendChild?.admission_number ??
