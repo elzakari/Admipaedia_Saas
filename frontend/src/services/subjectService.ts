@@ -44,6 +44,7 @@ const subjectService = {
     department?: string | undefined;
     is_active?: boolean | undefined;
     class_id?: number | undefined;
+    search?: string | undefined;
   }): Promise<{ subjects: Subject[]; pagination: any }> => {
     try {
       const response = await api.get('/subjects', { params });

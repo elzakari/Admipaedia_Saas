@@ -15,6 +15,8 @@ export interface Class {
   class_teacher?: string;
   room_number?: string;
   room?: string;
+  start_time?: string | null;
+  end_time?: string | null;
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
@@ -27,6 +29,8 @@ export interface ClassCreate {
   section?: string | null;
   capacity?: number | null;
   teacher_id?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
   room?: string | null;
   description?: string | null;
   status?: 'active' | 'inactive';
@@ -39,6 +43,8 @@ export interface ClassUpdate {
   section?: string | null;
   capacity?: number | null;
   teacher_id?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
   room?: string | null;
   description?: string | null;
   status?: 'active' | 'inactive';

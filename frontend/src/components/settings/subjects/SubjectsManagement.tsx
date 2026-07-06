@@ -16,6 +16,8 @@ import { useClasses } from '../../../hooks/useClasses'
 import { useTeachers } from '../../../hooks/useTeachers'
 import subjectService from '../../../services/subjectService'
 import { Plus, Edit, Trash2, Eye, RefreshCw, Link2 } from 'lucide-react'
+import { useDebounce } from '../../../hooks/useDebounce'
+import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../../lib/adminUi'
 
 const PAGE_SIZES = [10, 25, 50, 100]
 type SubjectFormData = Partial<Subject> & {
@@ -35,7 +37,7 @@ export default function SubjectsManagement() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [editing, setEditing] = useState<Subject | null>(null)
 
-  const debouncedSearch = useMemo(() => search, [search])
+  const debouncedSearch = useDebounce(search, 300)
   const query = useSubjects({ ...filters, search: debouncedSearch })
 
   const createMutation = useCreateSubject()
@@ -51,26 +53,25 @@ export default function SubjectsManagement() {
     const desiredClassIds = new Set(data.assigned_class_ids || [])
     const desiredTeacherIds = new Set(data.assigned_teacher_ids || [])
 
-    for (const classId of desiredClassIds) {
-      if (!currentClassIds.has(classId)) {
-        await subjectService.assignClass(subjectId, classId)
-      }
-    }
-    for (const classId of currentClassIds) {
-      if (!desiredClassIds.has(classId)) {
-        await subjectService.removeClass(subjectId, classId)
-      }
-    }
-    for (const teacherId of desiredTeacherIds) {
-      if (!currentTeacherIds.has(teacherId)) {
-        await subjectService.assignTeacher(subjectId, teacherId)
-      }
-    }
-    for (const teacherId of currentTeacherIds) {
-      if (!desiredTeacherIds.has(teacherId)) {
-        await subjectService.removeTeacher(subjectId, teacherId)
-      }
-    }
+    const classAssignments = Array.from(desiredClassIds)
+      .filter((classId) => !currentClassIds.has(classId))
+      .map((classId) => subjectService.assignClass(subjectId, classId))
+    const classRemovals = Array.from(currentClassIds)
+      .filter((classId) => !desiredClassIds.has(classId))
+      .map((classId) => subjectService.removeClass(subjectId, classId))
+    const teacherAssignments = Array.from(desiredTeacherIds)
+      .filter((teacherId) => !currentTeacherIds.has(teacherId))
+      .map((teacherId) => subjectService.assignTeacher(subjectId, teacherId))
+    const teacherRemovals = Array.from(currentTeacherIds)
+      .filter((teacherId) => !desiredTeacherIds.has(teacherId))
+      .map((teacherId) => subjectService.removeTeacher(subjectId, teacherId))
+
+    await Promise.all([
+      ...classAssignments,
+      ...classRemovals,
+      ...teacherAssignments,
+      ...teacherRemovals,
+    ])
   }
 
   const handleCreate = (data: Partial<Subject>) => {
@@ -193,7 +194,7 @@ export default function SubjectsManagement() {
                 <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => { setEditing(null); setIsFormOpen(true) }} className="flex items-center gap-2">
+            <Button onClick={() => { setEditing(null); setIsFormOpen(true) }} className={`flex items-center gap-2 ${ADMIN_PRIMARY_BUTTON_CLASS}`}>
               <Plus className="h-4 w-4" />{t('admin_settings.add_subject', 'Add Subject')}
             </Button>
           </div>
@@ -253,15 +254,15 @@ export default function SubjectsManagement() {
         <div className="mt-4 flex items-center justify-between">
           <div className="text-sm text-muted-foreground">{t('common.total', 'Total:')} {pagination?.total ?? 0}</div>
           <div className="flex gap-2 items-center">
-            <Button variant="outline" disabled={!pagination?.prev} onClick={() => setFilters((f) => ({ ...f, page: Math.max(1, (pagination?.prev || 1)) }))}>{t('common.prev', 'Prev')}</Button>
+                      <Button variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS} disabled={!pagination?.prev} onClick={() => setFilters((f) => ({ ...f, page: Math.max(1, (pagination?.prev || 1)) }))}>{t('common.prev', 'Prev')}</Button>
             <span className="text-sm">{t('common.page_display', 'Page {{page}} / {{pages}}', { page: pagination?.page ?? 1, pages: pagination?.pages ?? 1 })}</span>
-            <Button variant="outline" disabled={!pagination?.next} onClick={() => setFilters((f) => ({ ...f, page: (pagination?.next || (pagination?.page || 1)) }))}>{t('common.next', 'Next')}</Button>
+            <Button variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS} disabled={!pagination?.next} onClick={() => setFilters((f) => ({ ...f, page: (pagination?.next || (pagination?.page || 1)) }))}>{t('common.next', 'Next')}</Button>
           </div>
         </div>
       </CardContent>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editing ? t('admin_settings.edit_subject', 'Edit Subject') : t('admin_settings.add_subject', 'Add Subject')}</DialogTitle>
             <DialogDescription>{t('admin_settings.subject_details_desc', 'Provide subject details')}</DialogDescription>
@@ -455,8 +456,8 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>{t('common.cancel', 'Cancel')}</Button>
-        <Button onClick={() => onSubmit(data)} disabled={submitting}>{submitting ? t('common.saving', 'Saving...') : t('common.save', 'Save')}</Button>
+        <Button variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS} onClick={onCancel}>{t('common.cancel', 'Cancel')}</Button>
+        <Button className={ADMIN_PRIMARY_BUTTON_CLASS} onClick={() => onSubmit(data)} disabled={submitting}>{submitting ? t('common.saving', 'Saving...') : t('common.save', 'Save')}</Button>
       </div>
     </div>
   )

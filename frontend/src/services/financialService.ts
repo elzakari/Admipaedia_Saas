@@ -140,6 +140,53 @@ export interface FinancialSummary {
   }>;
 }
 
+const normalizeBudget = (budget: any): Budget => ({
+  id: Number(budget?.id || 0),
+  category: String(budget?.category || budget?.name || 'other'),
+  allocated_amount: Number(budget?.allocated_amount ?? budget?.total_amount ?? 0),
+  spent_amount: Number(budget?.spent_amount ?? 0),
+  academic_year: String(budget?.academic_year || budget?.fiscal_year || budget?.budget_year || ''),
+  description: budget?.description || undefined,
+  created_at: String(budget?.created_at || ''),
+  updated_at: String(budget?.updated_at || ''),
+});
+
+const normalizeTransaction = (transaction: any): Transaction => ({
+  id: Number(transaction?.id || 0),
+  type: (transaction?.type || transaction?.transaction_type || 'income') as 'income' | 'expense',
+  amount: Number(transaction?.amount ?? 0),
+  description: String(transaction?.description || ''),
+  category: String(transaction?.category || ''),
+  reference_number: String(transaction?.reference_number || ''),
+  date: String(transaction?.date || transaction?.transaction_date || ''),
+  created_by: Number(transaction?.created_by || 0),
+  created_at: String(transaction?.created_at || ''),
+  updated_at: String(transaction?.updated_at || ''),
+});
+
+const normalizeFeeRecord = (record: any): FeeRecord => ({
+  id: Number(record?.id || 0),
+  student_id: Number(record?.student_id || record?.student?.id || 0),
+  fee_structure_id: Number(record?.fee_structure_id || 0),
+  academic_year: String(record?.academic_year || record?.structure?.academic_year || ''),
+  total_amount: Number(record?.total_amount ?? record?.final_amount ?? 0),
+  paid_amount: Number(record?.paid_amount ?? 0),
+  balance: Number(record?.balance ?? 0),
+  status: (record?.status || 'pending') as FeeRecord['status'],
+  due_date: String(record?.due_date || record?.structure?.due_date || ''),
+  created_at: String(record?.created_at || ''),
+  updated_at: String(record?.updated_at || ''),
+});
+
+const normalizeFinancialSummary = (payload: any): FinancialSummary => ({
+  total_revenue: Number(payload?.total_revenue ?? payload?.total_income ?? payload?.total_fee_collections ?? 0),
+  total_expenses: Number(payload?.total_expenses ?? 0),
+  net_income: Number(payload?.net_income ?? payload?.net_balance ?? 0),
+  outstanding_fees: Number(payload?.outstanding_fees ?? 0),
+  collection_rate: Number(payload?.collection_rate ?? 0),
+  monthly_trends: Array.isArray(payload?.monthly_trends) ? payload.monthly_trends : [],
+});
+
 // Financial Service
 const financialService = {
   // Budget Management
@@ -150,22 +197,28 @@ const financialService = {
     per_page?: number;
   } = {}): Promise<PaginatedResponse<Budget>> => {
     const response = await api.get('/administration/budgets', { params: filters });
-    return response.data;
+    const budgets = Array.isArray(response.data?.budgets) ? response.data.budgets.map(normalizeBudget) : [];
+    return {
+      ...(response.data || {}),
+      data: budgets,
+      budgets,
+      pagination: response.data?.pagination || null,
+    } as PaginatedResponse<Budget>;
   },
 
   getBudgetById: async (id: number): Promise<Budget> => {
     const response = await api.get(`/administration/budgets/${id}`);
-    return response.data;
+    return normalizeBudget(response.data?.budget ?? response.data);
   },
 
   createBudget: async (budgetData: BudgetCreate): Promise<Budget> => {
     const response = await api.post('/administration/budgets', budgetData);
-    return response.data;
+    return normalizeBudget(response.data?.budget ?? response.data);
   },
 
   updateBudget: async (id: number, budgetData: BudgetUpdate): Promise<Budget> => {
     const response = await api.put(`/administration/budgets/${id}`, budgetData);
-    return response.data;
+    return normalizeBudget(response.data?.budget ?? response.data);
   },
 
   deleteBudget: async (id: number): Promise<void> => {
@@ -182,22 +235,28 @@ const financialService = {
     per_page?: number;
   } = {}): Promise<PaginatedResponse<Transaction>> => {
     const response = await api.get('/administration/transactions', { params: filters });
-    return response.data;
+    const transactions = Array.isArray(response.data?.transactions) ? response.data.transactions.map(normalizeTransaction) : [];
+    return {
+      ...(response.data || {}),
+      data: transactions,
+      transactions,
+      pagination: response.data?.pagination || null,
+    } as PaginatedResponse<Transaction>;
   },
 
   getTransactionById: async (id: number): Promise<Transaction> => {
     const response = await api.get(`/administration/transactions/${id}`);
-    return response.data;
+    return normalizeTransaction(response.data?.transaction ?? response.data);
   },
 
   createTransaction: async (transactionData: TransactionCreate): Promise<Transaction> => {
     const response = await api.post('/administration/transactions', transactionData);
-    return response.data;
+    return normalizeTransaction(response.data?.transaction ?? response.data);
   },
 
   updateTransaction: async (id: number, transactionData: Partial<TransactionCreate>): Promise<Transaction> => {
     const response = await api.put(`/administration/transactions/${id}`, transactionData);
-    return response.data;
+    return normalizeTransaction(response.data?.transaction ?? response.data);
   },
 
   deleteTransaction: async (id: number): Promise<void> => {
@@ -243,22 +302,28 @@ const financialService = {
     per_page?: number;
   } = {}): Promise<PaginatedResponse<FeeRecord>> => {
     const response = await api.get('/administration/fee-records', { params: filters });
-    return response.data;
+    const feeRecords = Array.isArray(response.data?.fee_records) ? response.data.fee_records.map(normalizeFeeRecord) : [];
+    return {
+      ...(response.data || {}),
+      data: feeRecords,
+      fee_records: feeRecords,
+      pagination: response.data?.pagination || null,
+    } as PaginatedResponse<FeeRecord>;
   },
 
   getFeeRecordById: async (id: number): Promise<FeeRecord> => {
     const response = await api.get(`/administration/fee-records/${id}`);
-    return response.data;
+    return normalizeFeeRecord(response.data?.fee_record ?? response.data);
   },
 
   createFeeRecord: async (feeRecordData: FeeRecordCreate): Promise<FeeRecord> => {
     const response = await api.post('/administration/fee-records', feeRecordData);
-    return response.data;
+    return normalizeFeeRecord(response.data?.fee_record ?? response.data);
   },
 
   updateFeeRecord: async (id: number, feeRecordData: Partial<FeeRecordCreate>): Promise<FeeRecord> => {
     const response = await api.put(`/administration/fee-records/${id}`, feeRecordData);
-    return response.data;
+    return normalizeFeeRecord(response.data?.fee_record ?? response.data);
   },
 
   deleteFeeRecord: async (id: number): Promise<void> => {
@@ -298,7 +363,7 @@ const financialService = {
     if (dateTo) params.date_to = dateTo;
     if (academicYear) params.academic_year = academicYear;
     const response = await api.get('/administration/financial-summary', { params });
-    return response.data;
+    return normalizeFinancialSummary(response.data?.financial_summary ?? response.data);
   },
 
   generateFinancialReport: async (

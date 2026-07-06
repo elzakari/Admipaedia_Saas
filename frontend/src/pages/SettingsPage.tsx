@@ -7,7 +7,6 @@ import GeneralSettings from '../components/settings/GeneralSettings';
 import UserRoleManagement from '../components/settings/UserRoleManagement';
 import AcademicConfiguration from '../components/settings/AcademicConfiguration';
 import NotificationSettings from '../components/settings/NotificationSettings';
-import AISettings from '../components/settings/AISettings';
 import IntegrationSettings from '../components/settings/IntegrationSettings';
 import SecuritySettings from '../components/settings/SecuritySettings';
 import BackupSettings from '../components/settings/BackupSettings';
@@ -37,7 +36,7 @@ const SettingsPage = () => {
     if (user?.role === 'parent') return ['general', 'notifications', 'theme', 'privacy'] as const;
     if (user?.role === 'student') return ['profile', 'preferences', 'security'] as const;
     if (user?.role === 'teacher') return ['general', 'notifications', 'theme', 'privacy', 'security'] as const;
-    return ['general', 'users', 'academic', 'admissions', 'notifications', 'notification-logs', 'ai', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
+    return ['general', 'users', 'academic', 'admissions', 'notifications', 'notification-logs', 'integrations', 'security', 'backup', 'theme', 'audit'] as const;
   }, [user?.role]);
 
   const paramTab = searchParams.get('tab');
@@ -93,7 +92,6 @@ const SettingsPage = () => {
       { id: 'admissions', name: 'Admissions', icon: 'file' },
       { id: 'notifications', name: 'Notifications', icon: 'bell' },
       { id: 'notification-logs', name: 'Notification Logs', icon: 'notification-logs' },
-      { id: 'ai', name: 'AI Assistant', icon: 'cpu' },
       { id: 'integrations', name: 'Integrations', icon: 'integrations' },
       { id: 'security', name: 'Security', icon: 'lock' },
       { id: 'backup', name: 'Backup & Restore', icon: 'database' },
@@ -162,9 +160,6 @@ const SettingsPage = () => {
                     : user?.role === 'teacher'
                       ? <TeacherNotificationPreferences />
                     : <NotificationSettings />}
-                </TabsContent>
-                <TabsContent value="ai" className="p-6 m-0">
-                  <AISettings />
                 </TabsContent>
                 <TabsContent value="integrations" className="p-6 m-0">
                   <IntegrationSettings />

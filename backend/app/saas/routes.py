@@ -11,6 +11,7 @@ from app.models.teacher import Teacher
 from app.utils.tenant_context import tenant_required
 from decimal import Decimal
 from app.extensions import db
+from sqlalchemy import case, func
 import gc
 import uuid
 
@@ -699,10 +700,6 @@ def get_notification_logs():
     if not tenant_id:
         return jsonify({"success": False, "message": "Tenant context not found."}), 400
         
-    branch_id = getattr(g, 'branch_id', None)
-    if not branch_id:
-        return jsonify({"success": False, "message": "Branch context not resolved."}), 400
-        
     channel = request.args.get('channel')
     status = request.args.get('status')
     page = request.args.get('page', 1, type=int)
@@ -734,17 +731,25 @@ def get_notification_logs():
             "created_at": log.created_at.isoformat() if log.created_at else None
         })
         
-    # Aggregate summaries for charts
-    total_sms = NotificationLog.query_scoped().filter_by(channel='sms').count()
-    total_email = NotificationLog.query_scoped().filter_by(channel='email').count()
-    total_success = NotificationLog.query_scoped().filter_by(status='sent').count()
-    total_failed = NotificationLog.query_scoped().filter_by(status='failed').count()
+    summary_row = db.session.query(
+        func.count(NotificationLog.id),
+        func.sum(case((NotificationLog.channel == 'sms', 1), else_=0)),
+        func.sum(case((NotificationLog.channel == 'email', 1), else_=0)),
+        func.sum(case((NotificationLog.status == 'sent', 1), else_=0)),
+        func.sum(case((NotificationLog.status == 'failed', 1), else_=0)),
+    ).select_from(query.subquery()).one()
+
+    total_count = int(summary_row[0] or 0)
+    total_sms = int(summary_row[1] or 0)
+    total_email = int(summary_row[2] or 0)
+    total_success = int(summary_row[3] or 0)
+    total_failed = int(summary_row[4] or 0)
     
     return jsonify({
         "success": True,
         "logs": result,
         "summary": {
-            "total_count": paginated.total,
+            "total_count": total_count,
             "total_sms": total_sms,
             "total_email": total_email,
             "total_success": total_success,
@@ -832,7 +837,6 @@ def get_saas_grade_levels():
     except Exception as e:
         logger.error(f"Error retrieving standard grade levels in saas: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 
 

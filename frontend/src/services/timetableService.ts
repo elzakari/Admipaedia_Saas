@@ -43,6 +43,28 @@ export interface CreateTimeSlotParams {
   term: string;
 }
 
+export interface PeriodOption {
+  id: number;
+  name: string;
+  start: string;
+  end: string;
+  label?: string;
+  disabled?: boolean;
+  blocked_reason?: string | null;
+  span_period_ids?: number[];
+}
+
+export interface PeriodOptionsResponse {
+  success: boolean;
+  data: PeriodOption[];
+  meta?: {
+    class_start_time?: string;
+    required_period_count?: number;
+    subject_credit_hours?: number | null;
+    recommended_period_id?: number | null;
+  };
+}
+
 export interface TimetableConflict {
   type: 'teacher' | 'room' | 'class';
   message: string;
@@ -141,6 +163,24 @@ class TimetableService {
       return response.data.conflicts || [];
     } catch (error) {
       console.error('Error checking conflicts:', error);
+      throw error;
+    }
+  }
+
+  async getPeriodOptions(params?: {
+    class_id?: number;
+    subject_id?: number;
+    teacher_id?: number;
+    day_of_week?: string;
+    term?: string;
+    academic_year?: string;
+    slot_id?: number;
+  }): Promise<PeriodOptionsResponse> {
+    try {
+      const response = await api.get('/timetable/periods', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching period options:', error);
       throw error;
     }
   }

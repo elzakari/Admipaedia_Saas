@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, CreditCard, Download, FileText, Send } from 'lucide-react';
 import { feesService } from '../../services/feesService';
+import financialService from '../../services/financialService';
 
 const FeesDashboard = () => {
   const { t } = useTranslation();
@@ -20,8 +21,31 @@ const FeesDashboard = () => {
     queryKey: ['fees', 'payments', 'recent'],
     queryFn: () => feesService.getPayments({ page: 1, per_page: 5 })
   });
+  const { data: feeRecordsResp } = useQuery({
+    queryKey: ['fees', 'records', 'dashboard'],
+    queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 100 })
+  });
+  const { data: overdueResp } = useQuery({
+    queryKey: ['fees', 'overdue', 'dashboard'],
+    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 10 })
+  });
+  const { data: summaryResp } = useQuery({
+    queryKey: ['fees', 'summary', 'dashboard'],
+    queryFn: () => financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString())
+  });
 
   const recentPayments = Array.isArray(paymentsResp?.payments) ? paymentsResp!.payments : [];
+  const feeRecords = Array.isArray(feeRecordsResp?.fee_records) ? feeRecordsResp.fee_records : [];
+  const overdueFees = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees : [];
+  const paymentMethodCounts = recentPayments.reduce<Record<string, number>>((acc, payment) => {
+    const key = String(payment.payment_method || 'other');
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const totalExpected = feeRecords.reduce((sum, record) => sum + Number(record.total_amount ?? record.final_amount ?? 0), 0);
+  const totalCollected = Number(summaryResp?.total_revenue ?? 0);
+  const outstandingFees = Number(summaryResp?.outstanding_fees ?? 0);
+  const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : Number(summaryResp?.collection_rate ?? 0);
 
   return (
     <div className="space-y-6">
@@ -32,8 +56,39 @@ const FeesDashboard = () => {
           <CardDescription>{t('admin_fees.revenue_overview_desc', 'Fee collection trends for the current term')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-            <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.revenue_chart_placeholder', 'Revenue chart will be rendered here')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+              <div className="text-xs font-medium text-emerald-700">Collected</div>
+              <div className="mt-2 text-2xl font-bold text-emerald-900">{Number(totalCollected || 0).toLocaleString()}</div>
+            </div>
+            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+              <div className="text-xs font-medium text-amber-700">Outstanding</div>
+              <div className="mt-2 text-2xl font-bold text-amber-900">{Number(outstandingFees || 0).toLocaleString()}</div>
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+              <div className="text-xs font-medium text-blue-700">Expected</div>
+              <div className="mt-2 text-2xl font-bold text-blue-900">{Number(totalExpected || 0).toLocaleString()}</div>
+            </div>
+            <div className="rounded-lg border border-purple-100 bg-purple-50 p-4">
+              <div className="text-xs font-medium text-purple-700">Collection Rate</div>
+              <div className="mt-2 text-2xl font-bold text-purple-900">{collectionRate}%</div>
+            </div>
+          </div>
+          <div className="mt-6 rounded-lg border bg-slate-50 p-4">
+            <div className="text-sm font-semibold text-slate-900">Recent payment flow</div>
+            {recentPayments.length === 0 ? (
+              <div className="mt-2 text-sm text-slate-500">Payments will appear here as collections are recorded.</div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {recentPayments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between text-sm">
+                    <div className="font-medium text-slate-700">{payment.student_name || 'Student'}</div>
+                    <div className="text-slate-500">{payment.payment_method}</div>
+                    <div className="font-semibold text-slate-900">{Number(payment.amount || 0).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -43,13 +98,29 @@ const FeesDashboard = () => {
         {/* Collection by Class */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('admin_fees.collection_by_class', 'Collection by Class')}</CardTitle>
-            <CardDescription>{t('admin_fees.collection_by_class_desc', 'Fee collection breakdown by class')}</CardDescription>
+            <CardTitle>{t('admin_fees.collection_by_class', 'Outstanding Balances')}</CardTitle>
+            <CardDescription>{t('admin_fees.collection_by_class_desc', 'Students and records that still need follow-up')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.class_chart_placeholder', 'Class-wise collection chart will be rendered here')}</p>
-            </div>
+            {overdueFees.length === 0 ? (
+              <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-slate-700 dark:text-gray-400">
+                No overdue balances yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {overdueFees.slice(0, 5).map((item) => (
+                  <div key={item.id} className="rounded-lg border border-gray-200 p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">{item.student_name || 'Student'}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{item.class_name || 'Class'} • {item.days_overdue} day(s) overdue</div>
+                      </div>
+                      <div className="text-sm font-semibold text-red-600">{Number(item.balance || 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -60,9 +131,28 @@ const FeesDashboard = () => {
             <CardDescription>{t('admin_fees.payment_methods_desc', 'Distribution by payment method')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.methods_chart_placeholder', 'Payment methods chart will be rendered here')}</p>
-            </div>
+            {Object.keys(paymentMethodCounts).length === 0 ? (
+              <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-slate-700 dark:text-gray-400">
+                Payment method trends will appear after collections start coming in.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(paymentMethodCounts).map(([method, count]) => (
+                  <div key={method}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="font-medium capitalize text-gray-700 dark:text-gray-200">{method.replace('_', ' ')}</span>
+                      <span className="text-gray-500 dark:text-gray-400">{count}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 dark:bg-slate-700">
+                      <div
+                        className="h-2 rounded-full bg-indigo-600"
+                        style={{ width: `${Math.min(100, (count / Math.max(recentPayments.length, 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

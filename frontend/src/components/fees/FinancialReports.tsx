@@ -1,9 +1,30 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Download, Calendar, Filter, ChevronDown, BarChart4, PieChart, TrendingUp, FileText, Printer } from 'lucide-react';
+import { feesService } from '../../services/feesService';
+import financialService from '../../services/financialService';
 
 const FinancialReports = () => {
   const [reportPeriod, setReportPeriod] = useState('current-term');
+  const { data: summary } = useQuery({
+    queryKey: ['fees', 'reports', 'summary'],
+    queryFn: () => financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString())
+  });
+  const { data: overdueResp } = useQuery({
+    queryKey: ['fees', 'reports', 'overdue'],
+    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 100 })
+  });
+  const { data: paymentsResp } = useQuery({
+    queryKey: ['fees', 'reports', 'payments'],
+    queryFn: () => feesService.getPayments({ page: 1, per_page: 100 })
+  });
+
+  const totalRevenue = Number(summary?.total_revenue ?? 0);
+  const outstanding = Number(summary?.outstanding_fees ?? 0);
+  const collectionRate = Number(summary?.collection_rate ?? 0);
+  const defaulterCount = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees.length : 0;
+  const recentPaymentsCount = Array.isArray(paymentsResp?.payments) ? paymentsResp.payments.length : 0;
   
   return (
     <div className="space-y-6">
@@ -44,7 +65,7 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Revenue</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">$245,000</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{totalRevenue.toLocaleString()}</p>
                 </div>
                 <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -56,7 +77,7 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Outstanding</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">$68,500</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{outstanding.toLocaleString()}</p>
                 </div>
                 <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -68,7 +89,7 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Collection Rate</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">78%</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{collectionRate}%</p>
                 </div>
                 <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                   <PieChart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -80,13 +101,16 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Defaulters</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">12</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{defaulterCount}</p>
                 </div>
                 <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
                   <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
               </div>
             </div>
+          </div>
+          <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            Recent payments tracked in this report view: <span className="font-semibold">{recentPaymentsCount}</span>
           </div>
           
           {/* Report Sections */}

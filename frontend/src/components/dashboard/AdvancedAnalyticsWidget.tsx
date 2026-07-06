@@ -68,7 +68,7 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
 }) => {
   const { current } = useSaasTenant();
   const activeTenant = current?.tenant;
-  const { insights, loading, refetch } = useSchoolAIInsights();
+  const { insights, loading, error, refetch } = useSchoolAIInsights();
   const [activeTab, setActiveTab] = useState('performance');
   const isRefreshing = loading;
 
@@ -496,6 +496,11 @@ const AdvancedAnalyticsWidget: React.FC<AdvancedAnalyticsWidgetProps> = ({
         </div>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Live AI insights are temporarily unavailable. The dashboard is showing the best available academic telemetry instead.
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="performance">Performance</TabsTrigger>

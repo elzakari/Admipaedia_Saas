@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, time
+import math
+
 from app.extensions import db
 from app.models.timetable import TimetableSlot, Period
 from app.models.class_ import Class
@@ -81,6 +84,251 @@ class TimetableService:
         return class_obj, subject, None
 
     @staticmethod
+    def parse_time_string(value):
+        if value is None:
+            return None
+
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+
+        for time_format in ('%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p'):
+            try:
+                return datetime.strptime(normalized, time_format).time()
+            except ValueError:
+                continue
+        return None
+
+    @staticmethod
+    def format_time_value(value):
+        return value.strftime('%H:%M') if value else ''
+
+    @staticmethod
+    def get_class_schedule_bounds(class_obj=None):
+        default_start = time(8, 0)
+        default_end = time(16, 0)
+        if not class_obj:
+            return default_start, default_end
+
+        start_time = TimetableService.parse_time_string(getattr(class_obj, 'start_time', None)) or default_start
+        end_time = TimetableService.parse_time_string(getattr(class_obj, 'end_time', None))
+        if end_time and end_time > start_time:
+            return start_time, end_time
+
+        derived_end = datetime.combine(datetime.utcnow().date(), start_time) + timedelta(hours=8)
+        return start_time, derived_end.time()
+
+    @staticmethod
+    def ensure_periods_for_class(class_id=None):
+        periods = Period.query.order_by(Period.order_index).all()
+        if periods:
+            return periods
+
+        class_obj = Class.query.get(class_id) if class_id else Class.query.order_by(Class.id).first()
+        start_time, end_time = TimetableService.get_class_schedule_bounds(class_obj)
+        current_time = datetime.combine(datetime.utcnow().date(), start_time)
+        end_datetime = datetime.combine(datetime.utcnow().date(), end_time)
+
+        generated_periods = []
+        order_index = 1
+        while current_time < end_datetime and order_index <= 12:
+            next_time = current_time + timedelta(hours=1)
+            period = Period(
+                name=f'Period {order_index}',
+                start_time=current_time.time(),
+                end_time=min(next_time, end_datetime).time(),
+                order_index=order_index,
+                is_break=False,
+            )
+            generated_periods.append(period)
+            current_time = next_time
+            order_index += 1
+
+        if not generated_periods:
+            fallback_start = datetime.combine(datetime.utcnow().date(), default_start := time(8, 0))
+            for order_index in range(1, 9):
+                next_time = fallback_start + timedelta(hours=1)
+                generated_periods.append(
+                    Period(
+                        name=f'Period {order_index}',
+                        start_time=fallback_start.time(),
+                        end_time=next_time.time(),
+                        order_index=order_index,
+                        is_break=False,
+                    )
+                )
+                fallback_start = next_time
+
+        db.session.add_all(generated_periods)
+        db.session.commit()
+        return Period.query.order_by(Period.order_index).all()
+
+    @staticmethod
+    def calculate_required_period_count(subject):
+        credit_hours = getattr(subject, 'credit_hours', None)
+        if credit_hours is None:
+            return 1
+
+        try:
+            return max(1, int(math.ceil(float(credit_hours))))
+        except (TypeError, ValueError):
+            return 1
+
+    @staticmethod
+    def get_ordered_periods(class_id=None):
+        return TimetableService.ensure_periods_for_class(class_id)
+
+    @staticmethod
+    def get_consecutive_period_block(start_period_id, required_period_count, periods=None):
+        periods = periods or TimetableService.get_ordered_periods()
+        ordered_periods = sorted(periods, key=lambda period: period.order_index)
+        start_index = next((index for index, period in enumerate(ordered_periods) if period.id == start_period_id), None)
+        if start_index is None:
+            return []
+
+        block = []
+        for offset in range(required_period_count):
+            period_index = start_index + offset
+            if period_index >= len(ordered_periods):
+                return []
+
+            period = ordered_periods[period_index]
+            if getattr(period, 'is_break', False):
+                return []
+
+            if block and period.order_index != block[-1].order_index + 1:
+                return []
+
+            block.append(period)
+
+        return block
+
+    @staticmethod
+    def get_conflict_records(data, current_slot_id=None, required_period_count=None):
+        normalized_data = TimetableService.normalize_slot_payload(data)
+        term_aliases = TimetableService.get_term_aliases(normalized_data.get('term'))
+        periods = TimetableService.get_ordered_periods(normalized_data.get('class_id'))
+
+        if required_period_count is None:
+            if current_slot_id:
+                required_period_count = 1
+            else:
+                subject = Subject.query.get(normalized_data.get('subject_id'))
+                required_period_count = TimetableService.calculate_required_period_count(subject)
+
+        period_block = TimetableService.get_consecutive_period_block(
+            normalized_data.get('period_id'),
+            required_period_count,
+            periods,
+        )
+
+        if not period_block:
+            return {
+                'period_block': [],
+                'class_conflict': None,
+                'teacher_conflict': None,
+                'required_period_count': required_period_count,
+            }
+
+        period_ids = [period.id for period in period_block]
+
+        class_conflict_query = TimetableSlot.query.filter(
+            TimetableSlot.class_id == normalized_data['class_id'],
+            TimetableSlot.day_of_week == normalized_data['day_of_week'],
+            TimetableSlot.academic_year == normalized_data['academic_year'],
+            TimetableSlot.period_id.in_(period_ids),
+        )
+        teacher_conflict_query = TimetableSlot.query.filter(
+            TimetableSlot.teacher_id == normalized_data['teacher_id'],
+            TimetableSlot.day_of_week == normalized_data['day_of_week'],
+            TimetableSlot.academic_year == normalized_data['academic_year'],
+            TimetableSlot.period_id.in_(period_ids),
+        )
+
+        if term_aliases:
+            class_conflict_query = class_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
+
+        if current_slot_id:
+            class_conflict_query = class_conflict_query.filter(TimetableSlot.id != current_slot_id)
+            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.id != current_slot_id)
+
+        return {
+            'period_block': period_block,
+            'class_conflict': class_conflict_query.order_by(TimetableSlot.period_id).first(),
+            'teacher_conflict': teacher_conflict_query.order_by(TimetableSlot.period_id).first(),
+            'required_period_count': required_period_count,
+        }
+
+    @staticmethod
+    def get_period_option_payload(class_id=None, subject_id=None, teacher_id=None, day_of_week=None, term=None, academic_year=None, current_slot_id=None):
+        class_obj = Class.query.get(class_id) if class_id else None
+        periods = TimetableService.get_ordered_periods(class_id)
+        subject = Subject.query.get(subject_id) if subject_id else None
+        required_period_count = 1 if current_slot_id else TimetableService.calculate_required_period_count(subject)
+        class_start_time, _ = TimetableService.get_class_schedule_bounds(class_obj)
+        recommended_period_id = None
+        serialized_periods = []
+
+        for period in periods:
+            period_block = TimetableService.get_consecutive_period_block(period.id, required_period_count, periods)
+            blocked_reason = None
+            disabled = False
+
+            if getattr(period, 'is_break', False):
+                disabled = True
+                blocked_reason = 'Break periods cannot be assigned to lessons.'
+            elif not period_block:
+                disabled = True
+                blocked_reason = f'Requires {required_period_count} consecutive timeframe(s).'
+            elif class_id and day_of_week and academic_year:
+                conflict_result = TimetableService.get_conflict_records(
+                    {
+                        'class_id': class_id,
+                        'subject_id': subject_id or 0,
+                        'teacher_id': teacher_id or 0,
+                        'day_of_week': day_of_week,
+                        'period_id': period.id,
+                        'term': term,
+                        'academic_year': academic_year,
+                    },
+                    current_slot_id=current_slot_id,
+                    required_period_count=required_period_count,
+                )
+                if conflict_result['class_conflict']:
+                    disabled = True
+                    blocked_reason = f"Already assigned to {conflict_result['class_conflict'].subject.name} for this class."
+                elif teacher_id and conflict_result['teacher_conflict']:
+                    disabled = True
+                    blocked_reason = f"Teacher is already assigned to {conflict_result['teacher_conflict'].class_.name} at this timeframe."
+
+            block_start = period_block[0].start_time if period_block else period.start_time
+            block_end = period_block[-1].end_time if period_block else period.end_time
+            if recommended_period_id is None and not disabled and block_start >= class_start_time:
+                recommended_period_id = period.id
+
+            serialized_periods.append({
+                'id': period.id,
+                'name': period.name,
+                'start': TimetableService.format_time_value(period.start_time),
+                'end': TimetableService.format_time_value(period.end_time),
+                'label': f"{TimetableService.format_time_value(block_start)} - {TimetableService.format_time_value(block_end)}",
+                'disabled': disabled,
+                'blocked_reason': blocked_reason,
+                'span_period_ids': [item.id for item in period_block] if period_block else [],
+            })
+
+        return {
+            'periods': serialized_periods,
+            'meta': {
+                'class_start_time': TimetableService.format_time_value(class_start_time),
+                'required_period_count': required_period_count,
+                'subject_credit_hours': getattr(subject, 'credit_hours', None),
+                'recommended_period_id': recommended_period_id,
+            }
+        }
+
+    @staticmethod
     def create_period(data):
         """Create a time slot definition."""
         try:
@@ -95,51 +343,45 @@ class TimetableService:
     @staticmethod
     def get_periods():
         """Get all periods ordered by index."""
-        return Period.query.order_by(Period.order_index).all()
+        return TimetableService.ensure_periods_for_class()
 
     @staticmethod
     def create_slot(data):
         """Create a timetable slot with conflict checking."""
         data = TimetableService.normalize_slot_payload(data)
-        _, _, relationship_error = TimetableService.validate_slot_relationships(data)
+        class_obj, subject, relationship_error = TimetableService.validate_slot_relationships(data)
         if relationship_error:
             return None, relationship_error
+        required_period_count = TimetableService.calculate_required_period_count(subject)
+        conflict_result = TimetableService.get_conflict_records(data, required_period_count=required_period_count)
+        period_block = conflict_result['period_block']
 
-        term_aliases = TimetableService.get_term_aliases(data.get('term'))
+        if not period_block:
+            return None, f"Selected timeframe does not provide {required_period_count} consecutive hourly slot(s) from the class start schedule."
 
-        # 1. Check for Class Conflict (Class already booked at this time)
-        class_conflict_query = TimetableSlot.query.filter_by(
-            class_id=data['class_id'],
-            day_of_week=data['day_of_week'],
-            period_id=data['period_id'],
-            academic_year=data['academic_year']
-        )
-        if term_aliases:
-            class_conflict_query = class_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
-        class_conflict = class_conflict_query.first()
-        
-        if class_conflict:
-            return None, f"Class already has a lesson at this time ({class_conflict.subject.name})"
+        if conflict_result['class_conflict']:
+            return None, f"Class already has a lesson at this timeframe ({conflict_result['class_conflict'].subject.name})"
 
-        # 2. Check for Teacher Conflict (Teacher already teaching elsewhere)
-        teacher_conflict_query = TimetableSlot.query.filter_by(
-            teacher_id=data['teacher_id'],
-            day_of_week=data['day_of_week'],
-            period_id=data['period_id'],
-            academic_year=data['academic_year']
-        )
-        if term_aliases:
-            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
-        teacher_conflict = teacher_conflict_query.first()
-        
-        if teacher_conflict:
-            return None, f"Teacher is already teaching {teacher_conflict.class_.name} at this time"
+        if conflict_result['teacher_conflict']:
+            return None, f"Teacher is already teaching {conflict_result['teacher_conflict'].class_.name} at this timeframe"
 
         try:
-            slot = TimetableSlot(**data)
-            db.session.add(slot)
+            created_slots = []
+            for period in period_block:
+                slot = TimetableSlot(
+                    class_id=class_obj.id,
+                    subject_id=subject.id,
+                    teacher_id=data['teacher_id'],
+                    period_id=period.id,
+                    day_of_week=data['day_of_week'],
+                    term=data['term'],
+                    academic_year=data['academic_year'],
+                    room_id=data.get('room_id'),
+                )
+                db.session.add(slot)
+                created_slots.append(slot)
             db.session.commit()
-            return slot, None
+            return created_slots[0], None
         except Exception as e:
             db.session.rollback()
             return None, str(e)
@@ -261,35 +503,24 @@ class TimetableService:
         """Check for timetable conflicts."""
         data = TimetableService.normalize_slot_payload(data)
         conflicts = []
-        term_aliases = TimetableService.get_term_aliases(data.get('term'))
-        
-        # 1. Class Conflict
-        class_conflict_query = TimetableSlot.query.filter_by(
-            class_id=data['class_id'],
-            day_of_week=data['day_of_week'],
-            period_id=data['period_id'],
-            academic_year=data['academic_year']
-        )
-        if term_aliases:
-            class_conflict_query = class_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
-        class_conflict = class_conflict_query.first()
-        if class_conflict and class_conflict.id != data.get('id'):
+        conflict_result = TimetableService.get_conflict_records(data, current_slot_id=data.get('id'))
+
+        if not conflict_result['period_block']:
+            conflicts.append({
+                'type': 'timeframe',
+                'message': f"Selected timeframe does not provide {conflict_result['required_period_count']} consecutive hourly slot(s)."
+            })
+            return conflicts
+
+        class_conflict = conflict_result['class_conflict']
+        if class_conflict:
             conflicts.append({
                 'type': 'class',
                 'message': f"Class already has a lesson: {class_conflict.subject.name}"
             })
 
-        # 2. Teacher Conflict
-        teacher_conflict_query = TimetableSlot.query.filter_by(
-            teacher_id=data['teacher_id'],
-            day_of_week=data['day_of_week'],
-            period_id=data['period_id'],
-            academic_year=data['academic_year']
-        )
-        if term_aliases:
-            teacher_conflict_query = teacher_conflict_query.filter(TimetableSlot.term.in_(term_aliases))
-        teacher_conflict = teacher_conflict_query.first()
-        if teacher_conflict and teacher_conflict.id != data.get('id'):
+        teacher_conflict = conflict_result['teacher_conflict']
+        if teacher_conflict:
             conflicts.append({
                 'type': 'teacher',
                 'message': f"Teacher is already teaching {teacher_conflict.class_.name}"

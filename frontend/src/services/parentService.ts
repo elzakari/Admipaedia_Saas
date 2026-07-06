@@ -264,7 +264,7 @@ const parentService = {
   getChildFeeData: async (childId: number): Promise<ChildFeeData> => {
     try {
       const response = await api.get(`/parents/children/${childId}/fees`);
-      return response.data;
+      return response.data?.data ?? response.data;
     } catch (error) {
       console.error(`Error fetching fee data for child ${childId}:`, error);
       throw error;
@@ -337,10 +337,16 @@ const parentService = {
     status: 'pending' | 'submitted' | 'graded';
     description?: string;
     score?: number;
+    feedback?: string;
+    attachments?: Array<{ id: string; filename: string; download_url: string }>;
+    submission_attachments?: Array<{ id: string; filename: string; download_url: string }>;
   }>> => {
     try {
       const response = await api.get(`/parents/children/${childId}/homework`);
-      return unwrapParentCollection(response.data, 'homework');
+      return unwrapParentCollection<any>(response.data, 'homework').map((item) => ({
+        ...item,
+        subject: item.subject || item.subject_name || 'Subject',
+      }));
     } catch (error) {
       console.error(`Error fetching homework data for child ${childId}:`, error);
       throw error;
@@ -687,4 +693,3 @@ export interface ChildDetailedSummary {
     pending_assignments: number;
   };
 }
-

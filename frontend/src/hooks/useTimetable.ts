@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import timetableService, { CreateTimeSlotParams } from '../services/timetableService';
-import api from '../lib/api';
 
 export const useClassTimetable = (classId: number, academicYear?: string, term?: string) => {
   return useQuery({
@@ -25,13 +24,18 @@ export const useAllTimetables = (academicYear?: string, term?: string) => {
   });
 };
 
-export const usePeriods = () => {
+export const usePeriods = (params?: {
+  class_id?: number;
+  subject_id?: number;
+  teacher_id?: number;
+  day_of_week?: string;
+  term?: string;
+  academic_year?: string;
+  slot_id?: number;
+}) => {
   return useQuery({
-    queryKey: ['timetable', 'periods'],
-    queryFn: async () => {
-      const response = await api.get('/timetable/periods');
-      return response.data;
-    },
+    queryKey: ['timetable', 'periods', params],
+    queryFn: () => timetableService.getPeriodOptions(params),
   });
 };
 

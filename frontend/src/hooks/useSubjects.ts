@@ -18,6 +18,7 @@ export function useSubjects(filters: SubjectFilters = {}) {
         department: filters.department,
         is_active: filters.is_active,
         class_id: filters.class_id,
+        search: filters.search,
       });
       return {
         subjects: result.subjects,

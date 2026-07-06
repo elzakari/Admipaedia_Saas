@@ -54,7 +54,7 @@ const SmartReminderPanel = () => {
       return res.data
     },
     onSuccess: (data: any) => {
-      toast.success(`Reminder sent (${data?.count || 0} recipients)`) 
+      toast.success(`Reminder batch prepared for ${data?.count || 0} recipient(s)`) 
       setSendOpen(false)
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to send reminders')
@@ -75,12 +75,12 @@ const SmartReminderPanel = () => {
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
           <div>
             <CardTitle>Smart Reminders</CardTitle>
-            <CardDescription>Automate fee payment reminders and notifications</CardDescription>
+            <CardDescription>Prepare and review manual reminder batches for outstanding fee balances</CardDescription>
           </div>
           <div className="flex items-center space-x-3">
             <Button variant="outline" className="bg-white dark:bg-slate-800" onClick={() => setSendOpen(true)}>
               <Send className="h-4 w-4 mr-2" />
-              Send Manual Reminder
+              Run Reminder Batch
             </Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => {
               window.dispatchEvent(new CustomEvent('fees:navigate', { detail: { tab: 'settings' } }))
@@ -101,8 +101,8 @@ const SmartReminderPanel = () => {
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Send manual reminder</DialogTitle>
-            <DialogDescription>Send a reminder to students with outstanding balances.</DialogDescription>
+            <DialogTitle>Run reminder batch</DialogTitle>
+            <DialogDescription>Prepare reminders for students with outstanding balances using the configured channels.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -113,7 +113,7 @@ const SmartReminderPanel = () => {
                   <SelectItem value="overdue">Overdue fees</SelectItem>
                 </SelectContent>
               </Select>
-              <div className="text-xs text-muted-foreground">Recipients: {overdueCount}</div>
+              <div className="text-xs text-muted-foreground">Eligible recipients: {overdueCount}</div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -135,7 +135,7 @@ const SmartReminderPanel = () => {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSendOpen(false)}>Cancel</Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700" disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()}>
-              Send
+              Run Batch
             </Button>
           </DialogFooter>
         </DialogContent>

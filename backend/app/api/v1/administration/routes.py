@@ -25,8 +25,10 @@ from datetime import datetime, date
 from app.models.system_setting import SystemSetting
 from app.models.finance import FeeCategory, FeeStructure, StudentFee, Payment, PaymentAllocation
 from app.models.student import Student
+from app.models.administration import Budget, Transaction, BudgetCategory, TransactionType
 from sqlalchemy import func
 import uuid
+from decimal import Decimal
 
 # Initialize schemas
 budget_schema = BudgetSchema()
@@ -77,6 +79,57 @@ administration_service = AdministrationService(db.session)
 ADMINISTRATION_ALLOWED_ROLES = ['admin', 'school_admin', 'super_admin', 'super_manager']
 ADMINISTRATION_FEATURE_KEYS = ['roles.basic', 'finance.basic', 'fees.basic']
 ADMINISTRATION_FALLBACK_PLANS = ['trial', 'basic', 'pro', 'enterprise', 'ultimate']
+
+
+def _serialize_budget(budget):
+    return {
+        'id': budget.id,
+        'category': getattr(budget.category, 'value', budget.category),
+        'allocated_amount': float(budget.allocated_amount or 0),
+        'spent_amount': float(budget.spent_amount or 0),
+        'remaining_amount': float(budget.remaining_amount or 0),
+        'academic_year': getattr(budget, 'fiscal_year', None),
+        'description': budget.description,
+        'quarter': getattr(budget, 'quarter', None),
+        'department': getattr(budget, 'department', None),
+        'created_by': budget.created_by,
+        'created_at': budget.created_at.isoformat() if budget.created_at else None,
+        'updated_at': budget.updated_at.isoformat() if budget.updated_at else None,
+    }
+
+
+def _parse_budget_category(raw_value):
+    normalized = str(raw_value or 'other').strip().lower().replace(' ', '_')
+    for category in BudgetCategory:
+        if category.value == normalized:
+            return category
+    return BudgetCategory.OTHER
+
+
+def _serialize_transaction(transaction):
+    return {
+        'id': transaction.id,
+        'type': getattr(transaction.transaction_type, 'value', transaction.transaction_type),
+        'transaction_type': getattr(transaction.transaction_type, 'value', transaction.transaction_type),
+        'category': transaction.category,
+        'description': transaction.description,
+        'amount': float(transaction.amount or 0),
+        'reference_number': transaction.reference_number,
+        'payment_method': transaction.payment_method,
+        'date': transaction.transaction_date.isoformat() if transaction.transaction_date else None,
+        'transaction_date': transaction.transaction_date.isoformat() if transaction.transaction_date else None,
+        'created_by': transaction.created_by,
+        'created_at': transaction.created_at.isoformat() if transaction.created_at else None,
+        'updated_at': transaction.updated_at.isoformat() if transaction.updated_at else None,
+    }
+
+
+def _parse_transaction_type(raw_value):
+    normalized = str(raw_value or 'income').strip().lower()
+    for transaction_type in TransactionType:
+        if transaction_type.value == normalized:
+            return transaction_type
+    return TransactionType.INCOME
 
 
 def administration_access_required(fn):
@@ -623,7 +676,7 @@ def get_budgets():
         
         return jsonify({
             'success': True,
-            'budgets': budgets_schema.dump(paginated_budgets.items),
+            'budgets': [_serialize_budget(budget) for budget in paginated_budgets.items],
             'pagination': {
                 'total': paginated_budgets.total,
                 'pages': paginated_budgets.pages,
@@ -652,7 +705,7 @@ def get_budget(budget_id):
         
         return jsonify({
             'success': True,
-            'budget': budget_schema.dump(budget)
+            'budget': _serialize_budget(budget)
         }), 200
     except Exception as e:
         current_app.logger.error(f"Error getting budget {budget_id}: {str(e)}")
@@ -667,27 +720,40 @@ def get_budget(budget_id):
 def create_budget():
     """Create a new budget."""
     try:
-        current_app.logger.debug(f"Create budget request data: {request.json}")
-        
-        data = budget_create_schema.load(request.json)
-        budget, error = administration_service.create_budget(data)
-        
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
-        
+        data = request.get_json() or {}
+        category = _parse_budget_category(data.get('category') or data.get('name'))
+        academic_year = str(data.get('academic_year') or data.get('fiscal_year') or data.get('budget_year') or datetime.utcnow().year)
+        allocated_amount = Decimal(str(data.get('allocated_amount') or data.get('total_amount') or 0))
+        description = (data.get('description') or str(category.value).replace('_', ' ').title()).strip()
+
+        if allocated_amount <= 0:
+            return jsonify({'success': False, 'message': 'Allocated amount must be greater than zero'}), 400
+
+        existing_budget = Budget.query.filter_by(category=category, fiscal_year=academic_year).first()
+        if existing_budget:
+            return jsonify({'success': False, 'message': f'Budget for {category.value} in {academic_year} already exists'}), 400
+
+        budget = Budget(
+            category=category,
+            description=description,
+            allocated_amount=allocated_amount,
+            spent_amount=Decimal('0'),
+            remaining_amount=allocated_amount,
+            fiscal_year=academic_year,
+            quarter=data.get('quarter'),
+            department=data.get('department'),
+            created_by=get_jwt_identity()
+        )
+        db.session.add(budget)
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Budget created successfully',
-            'budget': budget_schema.dump(budget)
+            'budget': _serialize_budget(budget)
         }), 201
-        
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Validation error',
-            'errors': e.messages
-        }), 400
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error creating budget: {str(e)}")
         return jsonify({
             'success': False,
@@ -699,25 +765,35 @@ def create_budget():
 def update_budget(budget_id):
     """Update a budget."""
     try:
-        data = budget_update_schema.load(request.json)
-        budget, error = administration_service.update_budget(budget_id, data)
-        
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
-        
+        budget = Budget.query.get(budget_id)
+        if not budget:
+            return jsonify({'success': False, 'message': 'Budget not found'}), 404
+
+        data = request.get_json() or {}
+
+        if 'category' in data or 'name' in data:
+            budget.category = _parse_budget_category(data.get('category') or data.get('name'))
+        if 'description' in data:
+            budget.description = (data.get('description') or '').strip() or budget.description
+        if 'academic_year' in data or 'fiscal_year' in data or 'budget_year' in data:
+            budget.fiscal_year = str(data.get('academic_year') or data.get('fiscal_year') or data.get('budget_year'))
+        if 'allocated_amount' in data or 'total_amount' in data:
+            budget.allocated_amount = Decimal(str(data.get('allocated_amount') or data.get('total_amount') or budget.allocated_amount))
+            budget.remaining_amount = max(Decimal('0'), budget.allocated_amount - Decimal(str(budget.spent_amount or 0)))
+        if 'quarter' in data:
+            budget.quarter = data.get('quarter')
+        if 'department' in data:
+            budget.department = data.get('department')
+
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Budget updated successfully',
-            'budget': budget_schema.dump(budget)
+            'budget': _serialize_budget(budget)
         }), 200
-        
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Validation error',
-            'errors': e.messages
-        }), 400
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error updating budget {budget_id}: {str(e)}")
         return jsonify({
             'success': False,
@@ -756,8 +832,8 @@ def get_transactions():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         transaction_type = request.args.get('type', type=str)
-        start_date_str = request.args.get('start_date', type=str)
-        end_date_str = request.args.get('end_date', type=str)
+        start_date_str = request.args.get('start_date', type=str) or request.args.get('date_from', type=str)
+        end_date_str = request.args.get('end_date', type=str) or request.args.get('date_to', type=str)
         
         start_date = None
         end_date = None
@@ -773,7 +849,7 @@ def get_transactions():
         
         return jsonify({
             'success': True,
-            'transactions': transactions_schema.dump(paginated_transactions.items),
+            'transactions': [_serialize_transaction(transaction) for transaction in paginated_transactions.items],
             'pagination': {
                 'total': paginated_transactions.total,
                 'pages': paginated_transactions.pages,
@@ -802,7 +878,7 @@ def get_transaction(transaction_id):
         
         return jsonify({
             'success': True,
-            'transaction': transaction_schema.dump(transaction)
+            'transaction': _serialize_transaction(transaction)
         }), 200
     except Exception as e:
         current_app.logger.error(f"Error getting transaction {transaction_id}: {str(e)}")
@@ -817,27 +893,46 @@ def get_transaction(transaction_id):
 def create_transaction():
     """Create a new transaction."""
     try:
-        current_app.logger.debug(f"Create transaction request data: {request.json}")
-        
-        data = transaction_create_schema.load(request.json)
-        transaction, error = administration_service.create_transaction(data)
-        
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
-        
+        data = request.get_json() or {}
+        amount = Decimal(str(data.get('amount') or 0))
+        description = str(data.get('description') or '').strip()
+        category = str(data.get('category') or '').strip()
+        transaction_date_raw = data.get('date') or data.get('transaction_date')
+        transaction_type = _parse_transaction_type(data.get('type') or data.get('transaction_type'))
+
+        if amount <= 0:
+            return jsonify({'success': False, 'message': 'Amount must be greater than zero'}), 400
+        if not description or not category:
+            return jsonify({'success': False, 'message': 'Description and category are required'}), 400
+
+        transaction_date = date.today()
+        if transaction_date_raw:
+            try:
+                transaction_date = datetime.fromisoformat(str(transaction_date_raw).replace('Z', '+00:00')).date()
+            except Exception:
+                transaction_date = date.today()
+
+        transaction = Transaction(
+            transaction_type=transaction_type,
+            category=category,
+            description=description,
+            amount=amount,
+            transaction_date=transaction_date,
+            reference_number=str(data.get('reference_number') or f"TXN-{uuid.uuid4().hex[:10].upper()}"),
+            payment_method=(data.get('payment_method') or 'cash'),
+            budget_id=data.get('budget_id'),
+            created_by=get_jwt_identity()
+        )
+        db.session.add(transaction)
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Transaction created successfully',
-            'transaction': transaction_schema.dump(transaction)
+            'transaction': _serialize_transaction(transaction)
         }), 201
-        
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Validation error',
-            'errors': e.messages
-        }), 400
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Error creating transaction: {str(e)}")
         return jsonify({
             'success': False,

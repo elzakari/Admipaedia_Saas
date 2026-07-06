@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -36,22 +36,36 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
   const [insights, setInsights] = useState<TeacherAIInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("performance");
+  const { toast } = useToast();
+
+  const loadInsights = useCallback(async (showToast = false) => {
+    try {
+      setLoading(true);
+      const data = await AITeacherService.generateTeacherInsights(teacherId);
+      setInsights(data);
+      if (showToast) {
+        toast({
+          title: "Insights updated",
+          description: "The latest AI insights are now available."
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load AI insights:', error);
+      if (showToast) {
+        toast({
+          title: "Refresh failed",
+          description: "Unable to refresh AI insights right now.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [teacherId, toast]);
 
   useEffect(() => {
-    const loadInsights = async () => {
-      try {
-        setLoading(true);
-        const data = await AITeacherService.generateTeacherInsights(teacherId);
-        setInsights(data);
-      } catch (error) {
-        console.error('Failed to load AI insights:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadInsights();
-  }, [teacherId]);
+  }, [loadInsights]);
 
   if (loading) {
     return (
@@ -68,18 +82,11 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
       </div>
     );
   }
-
-  const { toast } = useToast();
-
   // Handle quick actions
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'refresh':
-        toast({
-          title: "Refreshing Insights",
-          description: "Generating new AI insights..."
-        });
-        // Here you would typically call the loadInsights function again
+        loadInsights(true);
         break;
       case 'export':
         // Generate and download CSV of analytics data
@@ -150,7 +157,7 @@ export function AIAnalyticsTab({ teacherId }: AIAnalyticsTabProps) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-indigo-900">AI-Powered Analytics</h3>
-        <Button className="glass-button">
+        <Button className="glass-button" onClick={() => loadInsights(true)}>
           <Brain className="h-4 w-4 mr-2" />
           Generate New Insights
         </Button>

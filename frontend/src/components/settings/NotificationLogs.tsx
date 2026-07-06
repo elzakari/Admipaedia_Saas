@@ -22,12 +22,13 @@ import {
 } from 'lucide-react';
 import { settingsService } from '../../services';
 import { format } from 'date-fns';
+import { ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
 
 const NotificationLogs = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -128,32 +129,21 @@ const NotificationLogs = () => {
     );
   }
 
-  if (isError) {
-    return (
-      <Alert variant="destructive" className="my-4">
-        <AlertCircle className="h-5 w-5" />
-        <AlertDescription>
-          {t('admin_settings.failed_load_logs', 'Failed to load parent notification gateway logs. Please verify your connection or try again.')}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Premium Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-gray-800 pb-5">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t('admin_settings.notification_logs_title', 'Parent Notification Gateway Logs')}</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t('admin_settings.notification_logs_title', 'Notification Delivery Logs')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {t('admin_settings.notification_logs_subtitle', 'Monitor outbound absence alerts dispatched to parents via SMS and Email.')}
+            {t('admin_settings.notification_logs_subtitle', 'Monitor branch-level SMS and email delivery activity without leaving settings.')}
           </p>
         </div>
         <Button 
           onClick={handleRefresh}
           disabled={isRefreshing}
           variant="outline"
-          className="flex items-center gap-2 self-stretch sm:self-auto shadow-sm"
+          className={`flex items-center gap-2 self-stretch sm:self-auto shadow-sm ${ADMIN_SECONDARY_BUTTON_CLASS}`}
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           {t('common.refresh', 'Refresh')}
@@ -211,12 +201,21 @@ const NotificationLogs = () => {
         </Card>
       </div>
 
+      {isError && (
+        <Alert variant="destructive" className="my-4">
+          <AlertCircle className="h-5 w-5" />
+          <AlertDescription>
+            {t('admin_settings.failed_load_logs', 'Notification logs are temporarily unavailable. Check branch context or refresh to retry.')}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Filters Panel */}
       <Card className="border-gray-100 dark:border-gray-800 shadow-sm">
         <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-2 text-gray-500 self-start md:self-auto">
             <Filter className="h-4.5 w-4.5 text-indigo-500" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.filter_by', 'Filter Gateway Logs:')}</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.filter_by', 'Filter logs:')}</span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -229,6 +228,19 @@ const NotificationLogs = () => {
                   <SelectItem value="all">{t('common.all_channels', 'All Channels')}</SelectItem>
                   <SelectItem value="sms">{t('common.sms', 'SMS Gateway')}</SelectItem>
                   <SelectItem value="email">{t('common.email', 'Email SMTP')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-48">
+              <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                  <SelectValue placeholder={t('common.page_size', 'Page size')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 / page</SelectItem>
+                  <SelectItem value="20">20 / page</SelectItem>
+                  <SelectItem value="50">50 / page</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -258,10 +270,10 @@ const NotificationLogs = () => {
                 <Info className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold text-center">
-                {t('admin_settings.no_notif_logs_found', 'No parent notification logs found.')}
+                {t('admin_settings.no_notif_logs_found', 'No notification logs found.')}
               </p>
               <p className="text-gray-400 text-xs text-center max-w-sm">
-                {t('admin_settings.no_notif_logs_desc', 'Dispatched logs appear here after attendance systems trigger parental alerts on absent states.')}
+                {t('admin_settings.no_notif_logs_desc', 'Sent and failed branch notifications appear here after SMS or email delivery attempts.' )}
               </p>
             </div>
           ) : (
@@ -341,7 +353,7 @@ const NotificationLogs = () => {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="h-8 px-2.5"
+              className={`h-8 px-2.5 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
             >
               <ChevronLeft className="h-4 w-4" />
               <span className="sr-only">Previous Page</span>
@@ -351,7 +363,7 @@ const NotificationLogs = () => {
               size="sm"
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
               disabled={currentPage === pagination.pages}
-              className="h-8 px-2.5"
+              className={`h-8 px-2.5 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
             >
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Next Page</span>

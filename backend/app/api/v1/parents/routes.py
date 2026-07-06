@@ -576,6 +576,8 @@ def get_child_homework(child_id):
         
         from app.models.student import Student
         from app.models.assignment import Assignment
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.services.assignment_service import AssignmentService
         
         child = Student.query.get(child_id)
         if not child or not child.class_id:
@@ -585,9 +587,17 @@ def get_child_homework(child_id):
             query = Assignment.query.filter_by(class_id=child.class_id, status='active')
             total = query.count()
             items = query.order_by(Assignment.due_date.desc()).offset((page - 1) * per_page).limit(per_page).all()
+            submissions = AssignmentSubmission.query.filter_by(student_id=child.id).all()
+            submission_map = {submission.assignment_id: submission for submission in submissions}
+            assignment_attachment_map = AssignmentService.get_attachment_map('assignment', [assignment.id for assignment in items])
+            submission_attachment_map = AssignmentService.get_attachment_map('assignment_submission', [submission.id for submission in submissions])
             
             homework = []
             for a in items:
+                submission = submission_map.get(a.id)
+                status = 'pending'
+                if submission:
+                    status = 'graded' if submission.status == 'graded' or submission.score is not None else 'submitted'
                 homework.append({
                     'id': a.id,
                     'title': a.title,
@@ -597,7 +607,13 @@ def get_child_homework(child_id):
                     'dueAt': a.due_date.isoformat(),
                     'subject_name': a.subject.name if a.subject else 'Subject',
                     'assignment_type': a.assignment_type,
-                    'total_points': a.total_points
+                    'total_points': a.total_points,
+                    'status': status,
+                    'score': submission.score if submission else None,
+                    'feedback': submission.feedback if submission else None,
+                    'submission_date': submission.submission_date.isoformat() if submission and submission.submission_date else None,
+                    'attachments': assignment_attachment_map.get(str(a.id), []),
+                    'submission_attachments': submission_attachment_map.get(str(submission.id), []) if submission else [],
                 })
         
         return success_response(
@@ -634,14 +650,21 @@ def get_child_fees(child_id):
         if child_id not in child_ids:
             return error_response(message="Child not found or access denied", status_code=403)
 
-        # Early structural existence check
-        from app.models.finance import StudentFee
-        has_records = StudentFee.query.filter_by(student_id=child_id).first() is not None
+        from app.models.finance import StudentFee, Payment
+        from math import ceil
+        fee_query = StudentFee.query_scoped().filter_by(student_id=child_id)
+        fee_records = fee_query.order_by(StudentFee.created_at.desc()).all()
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
-        if not has_records:
+        if not fee_records:
             return success_response(
                 data={
+                    'student_id': child_id,
+                    'total_fees': 0,
+                    'paid_amount': 0,
+                    'pending_amount': 0,
+                    'fee_structure': [],
+                    'payment_history': [],
                     'fees': [],
                     'pagination': {
                         'page': page,
@@ -653,18 +676,60 @@ def get_child_fees(child_id):
                 message="Fee records retrieved successfully"
             )
         
-        # Get fee records
-        fees = []
-        total = 0
+        total_count = len(fee_records)
+        start_index = max(0, (page - 1) * per_page)
+        end_index = start_index + per_page
+        page_fee_records = fee_records[start_index:end_index]
+        today = datetime.utcnow().date()
+
+        def serialize_fee_record(record):
+            structure = getattr(record, 'structure', None)
+            category = getattr(getattr(structure, 'category', None), 'name', None) or 'Fee'
+            due_date = getattr(structure, 'due_date', None)
+            balance = float(record.balance or 0)
+            status = record.status or 'pending'
+            if due_date and due_date < today and balance > 0:
+                status = 'overdue'
+
+            return {
+                'id': record.id,
+                'category': category,
+                'amount': float(record.final_amount or 0),
+                'paid_amount': float(record.paid_amount or 0),
+                'balance': balance,
+                'due_date': due_date.isoformat() if due_date else '',
+                'status': status
+            }
+
+        serialized_fees = [serialize_fee_record(record) for record in page_fee_records]
+        fee_structure = [serialize_fee_record(record) for record in fee_records]
+
+        payments = Payment.query.filter_by(student_id=child_id).order_by(Payment.paid_at.desc()).all()
+        payment_history = [{
+            'date': payment.paid_at.date().isoformat() if payment.paid_at else '',
+            'amount': float(payment.amount or 0),
+            'method': payment.payment_method or 'payment',
+            'receipt_number': payment.receipt_number or payment.transaction_id or ''
+        } for payment in payments]
+
+        total_fees = sum(float(record.final_amount or 0) for record in fee_records)
+        paid_amount = sum(float(record.paid_amount or 0) for record in fee_records)
+        pending_amount = sum(float(record.balance or 0) for record in fee_records)
         
         return success_response(
             data={
-                'fees': fees,
+                'student_id': child_id,
+                'total_fees': total_fees,
+                'paid_amount': paid_amount,
+                'pending_amount': pending_amount,
+                'fee_structure': fee_structure,
+                'payment_history': payment_history,
+                'fees': serialized_fees,
                 'pagination': {
                     'page': page,
                     'per_page': per_page,
-                    'total': total,
-                    'pages': 0
+                    'total': total_count,
+                    'pages': ceil(total_count / per_page) if total_count else 0
                 }
             },
             message="Fee records retrieved successfully"

@@ -24,6 +24,7 @@ def get_subjects():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     department = request.args.get('department', type=str)
+    search = request.args.get('search', type=str)
     is_active = request.args.get('is_active', type=lambda v: v.lower() == 'true' if v else None)
     
     if class_id:
@@ -62,6 +63,13 @@ def get_subjects():
         query = Subject.query.filter_by(is_active=True)
         if g.tenant_id is not None:
             query = query.filter(Subject.tenant_id == g.tenant_id)
+        if search:
+            search_term = f"%{search.strip()}%"
+            query = query.filter(
+                (Subject.name.ilike(search_term)) |
+                (Subject.code.ilike(search_term)) |
+                (Subject.description.ilike(search_term))
+            )
         subjects_list = query.order_by(Subject.name).all()
         return jsonify({
             'success': True,
@@ -76,7 +84,14 @@ def get_subjects():
             }
         }), 200
         
-    paginated_subjects = SubjectService.get_all_subjects(page, per_page, department, is_active, tenant_id=g.tenant_id)
+    paginated_subjects = SubjectService.get_all_subjects(
+        page,
+        per_page,
+        department,
+        is_active,
+        tenant_id=g.tenant_id,
+        search=search,
+    )
     
     return jsonify({
         'success': True,

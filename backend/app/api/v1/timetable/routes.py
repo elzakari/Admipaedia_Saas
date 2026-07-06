@@ -16,10 +16,26 @@ def manage_periods():
             return jsonify({'success': False, 'message': error}), 400
         return jsonify({'success': True, 'id': period.id}), 201
     else:
-        periods = TimetableService.get_periods()
+        class_id = request.args.get('class_id', type=int)
+        subject_id = request.args.get('subject_id', type=int)
+        teacher_id = request.args.get('teacher_id', type=int)
+        day_of_week = request.args.get('day_of_week')
+        term = request.args.get('term')
+        academic_year = request.args.get('academic_year')
+        current_slot_id = request.args.get('slot_id', type=int)
+        period_payload = TimetableService.get_period_option_payload(
+            class_id=class_id,
+            subject_id=subject_id,
+            teacher_id=teacher_id,
+            day_of_week=day_of_week,
+            term=term,
+            academic_year=academic_year,
+            current_slot_id=current_slot_id,
+        )
         return jsonify({
-            'success': True, 
-            'data': [{'id': p.id, 'name': p.name, 'start': str(p.start_time), 'end': str(p.end_time)} for p in periods]
+            'success': True,
+            'data': period_payload['periods'],
+            'meta': period_payload['meta'],
         }), 200
 
 @timetable_bp.route('', methods=['GET'])

@@ -21,6 +21,24 @@ type LedgerPayment = {
   ref: string;
 };
 
+type ParentFeePayload = {
+  total_fees: number;
+  paid_amount: number;
+  pending_amount: number;
+  fee_structure: Array<{
+    category: string;
+    amount: number;
+    due_date: string;
+    status: string;
+  }>;
+  payment_history: Array<{
+    date: string;
+    amount: number;
+    method: string;
+    receipt_number: string;
+  }>;
+};
+
 function formatDateIso(dateIso?: string | null) {
   if (!dateIso) return '';
   const d = new Date(dateIso);
@@ -80,6 +98,43 @@ function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayme
   };
 }
 
+function toFeeDataFromParentFees(payload: ParentFeePayload): FeeData {
+  const totalFee = Number(payload.total_fees || 0);
+  const paid = Number(payload.paid_amount || 0);
+  const due = Number(payload.pending_amount || 0);
+
+  const upcomingPayments = (payload.fee_structure || [])
+    .filter((item) => item.status !== 'paid')
+    .map((item, index) => ({
+      id: String(index + 1),
+      dueDate: formatDateIso(item.due_date),
+      amount: Number(item.amount || 0),
+      description: String(item.category || 'Fee')
+    }));
+
+  const paymentHistory = (payload.payment_history || []).map((payment, index) => ({
+    id: String(index + 1),
+    date: formatDateIso(payment.date),
+    amount: Number(payment.amount || 0),
+    method: String(payment.method || 'payment'),
+    status: 'completed'
+  }));
+
+  return {
+    tuitionFee: totalFee,
+    transportFee: 0,
+    libraryFee: 0,
+    computerLabFee: 0,
+    activityFee: 0,
+    totalFee,
+    paid,
+    due,
+    dueDate: upcomingPayments[0]?.dueDate || '',
+    paymentHistory,
+    upcomingPayments
+  };
+}
+
 export default function ConnectedFeesTab(props: { childId: string; fallbackFeeData: FeeData }) {
   const { childId, fallbackFeeData } = props;
 
@@ -100,6 +155,14 @@ export default function ConnectedFeesTab(props: { childId: string; fallbackFeeDa
       }
 
       try {
+        const feesRes = await api.get(`/parents/children/${numericChildId}/fees`);
+        const parentFees = feesRes.data?.data as ParentFeePayload | undefined;
+
+        if (parentFees && Array.isArray(parentFees.fee_structure)) {
+          if (!cancelled) setFeeData(toFeeDataFromParentFees(parentFees));
+          return;
+        }
+
         const [ledgerRes, balanceRes] = await Promise.all([
           api.get(`/finance/students/${numericChildId}/ledger`),
           api.get(`/finance/students/${numericChildId}/balance`)

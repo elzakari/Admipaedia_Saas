@@ -15,6 +15,13 @@ import { FormValidationProvider } from '../common/FormValidationProvider';
 import { Clock, BookOpen, GraduationCap, User, MapPin, Calendar, Hash } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errorHandling';
 
+const formatCreditHours = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '1';
+  }
+  return Number.isInteger(Number(value)) ? String(Number(value)) : Number(value).toFixed(1);
+};
+
 interface TimeSlotFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -91,7 +98,19 @@ export function TimeSlotFormModal({
     is_active: true,
   });
   const { data: teachersData } = useTeachers({ page: 1, per_page: 200, status: 'active' });
-  const { data: periodsData } = usePeriods();
+  const selectedClass = useMemo(
+    () => (classesData?.data || []).find((cls: any) => Number(cls.id) === Number(formData.class_id)),
+    [classesData, formData.class_id]
+  );
+  const { data: periodsData } = usePeriods({
+    class_id: formData.class_id || undefined,
+    subject_id: formData.subject_id || undefined,
+    teacher_id: formData.teacher_id || undefined,
+    day_of_week: formData.day_of_week || undefined,
+    term: formData.term || undefined,
+    academic_year: formData.academic_year || undefined,
+    slot_id: slotData?.id || undefined,
+  });
   
   const createTimeSlot = useCreateTimeSlot();
   const updateTimeSlot = useUpdateTimeSlot();
@@ -143,9 +162,12 @@ export function TimeSlotFormModal({
     if (!periodsData?.data) return [];
     return periodsData.data.map((p: any) => ({
       value: p.id.toString(),
-      label: `${p.name} (${p.start} - ${p.end})`
+      label: p.disabled && p.blocked_reason ? `${p.label || `${p.start} - ${p.end}`} • ${p.blocked_reason}` : (p.label || `${p.name} (${p.start} - ${p.end})`),
+      disabled: Boolean(p.disabled),
     }));
   }, [periodsData]);
+
+  const periodMeta = periodsData?.meta;
 
   useEffect(() => {
     if (slotData) {
@@ -218,6 +240,22 @@ export function TimeSlotFormModal({
       setFormData((prev) => ({ ...prev, teacher_id: 0 }));
     }
   }, [selectedSubject, formData.teacher_id]);
+
+  useEffect(() => {
+    if (!isOpen || slotData || !periodMeta?.recommended_period_id) {
+      return;
+    }
+
+    const selectedOption = periodsData?.data?.find((option: any) => Number(option.id) === Number(formData.period_id));
+    if (formData.period_id && selectedOption && !selectedOption.disabled) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      period_id: Number(periodMeta.recommended_period_id) || prev.period_id,
+    }));
+  }, [isOpen, slotData, periodMeta?.recommended_period_id, periodsData?.data, formData.period_id]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,6 +345,11 @@ export function TimeSlotFormModal({
                     placeholder="Select Timeframe"
                     leftIcon={<Clock className="h-4 w-4" />}
                   />
+                  <div className="mt-2 text-xs text-slate-500">
+                    {formData.class_id
+                      ? `Class start: ${selectedClass?.start_time || periodMeta?.class_start_time || '08:00'} • Subject credit hours: ${formatCreditHours(selectedSubject?.credit_hours)} • Required hourly slots: ${periodMeta?.required_period_count || 1}`
+                      : 'Select a class and subject to automate the available timeframe options.'}
+                  </div>
                 </FormField>
                 
                 <FormField label="Room Number" htmlFor="room_id" error={errors.room_id}>
@@ -342,6 +385,11 @@ export function TimeSlotFormModal({
                     placeholder={formData.class_id ? "Select Subject" : "Select class first"}
                     leftIcon={<BookOpen className="h-4 w-4" />}
                   />
+                  {selectedSubject && (
+                    <div className="mt-2 text-xs text-slate-500">
+                      This subject uses {formatCreditHours(selectedSubject.credit_hours)} credit hour(s), so matching consecutive timeframe slots are locked automatically to avoid clashes.
+                    </div>
+                  )}
                 </FormField>
               </FormRow>
 

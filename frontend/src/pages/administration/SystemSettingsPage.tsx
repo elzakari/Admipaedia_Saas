@@ -1094,6 +1094,9 @@ const SystemSettingsPage: React.FC = () => {
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
                 The Email Integration below is the authoritative outbound delivery source for password resets, registration invites, and platform transactional emails. Save the provider first, then run a live test against the current draft configuration.
               </div>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
+                AI settings now live only in Super Admin settings. Configure the platform provider here, then distribute monthly AI usage through plan token allowances so each subscription gets the right quota.
+              </div>
               {providersLoading ? (
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading integration providers…

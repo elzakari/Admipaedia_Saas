@@ -12,7 +12,7 @@ def success_response(data=None, message="Success", status_code=200):
     
     return jsonify(response), status_code
 
-def error_response(message="An error occurred", status_code=400, errors=None):
+def error_response(message="An error occurred", status_code=400, errors=None, **extra):
     """Create a standardized error response."""
     response = {
         "success": False,
@@ -21,6 +21,10 @@ def error_response(message="An error occurred", status_code=400, errors=None):
     
     if errors:
         response["errors"] = errors
+
+    for key, value in extra.items():
+        if value is not None:
+            response[key] = value
     
     return jsonify(response), status_code
 

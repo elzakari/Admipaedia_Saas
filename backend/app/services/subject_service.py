@@ -8,6 +8,7 @@ from app.models.teacher import Teacher
 from app.models.associations import teacher_subjects, class_subjects
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_
 
 
 logger = structlog.get_logger()
@@ -18,7 +19,7 @@ class SubjectService:
     """Service for subject-related operations."""
     
     @staticmethod
-    def get_all_subjects(page=1, per_page=20, department=None, is_active=None, tenant_id=None):
+    def get_all_subjects(page=1, per_page=20, department=None, is_active=None, tenant_id=None, search=None):
         """Get all subjects with optional filtering and pagination."""
         query = Subject.query
         if tenant_id is not None and hasattr(Subject, 'tenant_id'):
@@ -33,6 +34,16 @@ class SubjectService:
             
         if is_active is not None:
             query = query.filter(Subject.is_active == is_active)
+
+        if search:
+            search_term = f"%{str(search).strip()}%"
+            query = query.filter(
+                or_(
+                    Subject.name.ilike(search_term),
+                    Subject.code.ilike(search_term),
+                    Subject.description.ilike(search_term),
+                )
+            )
             
         return query.order_by(Subject.name).paginate(page=page, per_page=per_page)
     

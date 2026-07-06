@@ -89,6 +89,7 @@ class SubjectListSchema(Schema):
     code            = fields.String(required=True)
     department_id   = fields.Integer(allow_none=True)
     department_name = fields.Method("get_department_name", dump_only=True)
+    credit_hours    = fields.Float(allow_none=True)
     is_active       = fields.Boolean()
     classes         = fields.Method("get_classes", dump_only=True)
     teachers        = fields.Method("get_teachers", dump_only=True)

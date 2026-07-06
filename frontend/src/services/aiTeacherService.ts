@@ -173,10 +173,10 @@ export class AITeacherService {
 
   static async predictStudentOutcomes(teacherId: number, classId: number) {
     try {
-      const response = await api.get(`/ai/teacher/${teacherId}/predict-outcomes`, {
-        params: { class_id: classId }
+      const response = await api.get(`/ai-analytics/predictions/class/${classId}`, {
+        params: { teacher_id: teacherId }
       });
-      return response.data;
+      return response.data?.data ?? response.data;
     } catch (error: unknown) {
       console.error('Error predicting student outcomes:', error);
       throw error;
