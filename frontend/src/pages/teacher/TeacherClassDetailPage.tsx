@@ -10,6 +10,8 @@ import { TeacherClassGradebookTab } from './components/TeacherClassGradebookTab'
 import { TeacherClassAssignmentsTab } from './components/TeacherClassAssignmentsTab';
 import { TeacherClassAnnouncementsTab } from './components/TeacherClassAnnouncementsTab';
 import api from '../../lib/api';
+import { getClassDisplayName } from '../../utils/formatters';
+import { resolveStudentAvatar } from '../../utils/avatar';
 
 const TeacherClassDetailPage: React.FC = () => {
   const { t } = useTranslation();
@@ -39,7 +41,8 @@ const TeacherClassDetailPage: React.FC = () => {
           setRoster(studentsData.map((s: any) => ({
             id: s.id.toString(),
             name: s.full_name || `${s.first_name} ${s.last_name}`,
-            status: s.status || 'active'
+            status: s.status || 'active',
+            avatar: resolveStudentAvatar(s)
           })));
         }
       } catch (err: any) {
@@ -70,7 +73,7 @@ const TeacherClassDetailPage: React.FC = () => {
     if (!classInfo) return null;
     return {
       id: classId!,
-      className: classInfo.name,
+      className: getClassDisplayName(classInfo),
       subject: classInfo.grade_level_name || 'Class Workspace',
       room: classInfo.room || classInfo.room_number,
       term: classInfo.academic_year,

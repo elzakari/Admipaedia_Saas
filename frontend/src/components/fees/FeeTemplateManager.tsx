@@ -11,6 +11,8 @@ import { Download, Edit, Eye, Plus, Search, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../lib/api'
 import { feesService, FeeTemplateGroup } from '../../services/feesService'
+import { formatCurrency } from '../../lib/utils'
+import { getClassDisplayName } from '../../utils/formatters'
 
 const FeeTemplateManager: React.FC = () => {
   const queryClient = useQueryClient()
@@ -53,7 +55,7 @@ const FeeTemplateManager: React.FC = () => {
 
   const classNameById = useMemo(() => {
     const map = new Map<number, string>()
-    for (const c of classes) map.set(c.id, c.name || `Class ${c.id}`)
+    for (const c of classes) map.set(c.id, getClassDisplayName(c))
     return map
   }, [classes])
 
@@ -155,7 +157,8 @@ const FeeTemplateManager: React.FC = () => {
         term: t.term,
         class_id: t.class_id ?? '',
         due_date: t.due_date ?? '',
-        total_amount: t.total_amount
+        total_amount: t.total_amount,
+        currency: t.currency
       })))
       toast.success('Exported templates')
     }
@@ -185,7 +188,8 @@ const FeeTemplateManager: React.FC = () => {
                   term: t.term,
                   class_id: t.class_id ?? '',
                   due_date: t.due_date ?? '',
-                  total_amount: t.total_amount
+                  total_amount: t.total_amount,
+                  currency: t.currency
                 })))
                 toast.success('Exported templates')
               }}
@@ -224,11 +228,12 @@ const FeeTemplateManager: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-medium truncate">{t.academic_year} • {t.term}</h3>
                       <Badge className="bg-indigo-100 text-indigo-800">{t.class_id ? classNameById.get(t.class_id) || `Class ${t.class_id}` : 'All classes'}</Badge>
-                      <Badge className="bg-emerald-100 text-emerald-800">Total: {t.total_amount}</Badge>
+                      <Badge className="bg-slate-100 text-slate-700">{t.currency}</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-800">Total: {formatCurrency(Number(t.total_amount || 0), t.currency)}</Badge>
                     </div>
                     <div className="text-sm text-gray-600 mt-2">
                       {(t.items || []).slice(0, 4).map((i) => (
-                        <span key={i.fee_structure_id} className="inline-block mr-3">{i.category}: <span className="font-medium">{i.amount}</span></span>
+                        <span key={i.fee_structure_id} className="inline-block mr-3">{i.category}: <span className="font-medium">{formatCurrency(Number(i.amount || 0), i.currency || t.currency)}</span></span>
                       ))}
                       {(t.items || []).length > 4 ? <span className="text-gray-500">+{(t.items || []).length - 4} more</span> : null}
                     </div>
@@ -289,7 +294,8 @@ const FeeTemplateManager: React.FC = () => {
                   <Badge className="bg-indigo-100 text-indigo-800">{selected.academic_year}</Badge>
                   <Badge className="bg-indigo-100 text-indigo-800">{selected.term}</Badge>
                   <Badge className="bg-slate-100 text-slate-800">{selected.class_id ? classNameById.get(selected.class_id) || `Class ${selected.class_id}` : 'All classes'}</Badge>
-                  <Badge className="bg-emerald-100 text-emerald-800">Total: {selected.total_amount}</Badge>
+                  <Badge className="bg-slate-100 text-slate-700">{selected.currency}</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-800">Total: {formatCurrency(Number(selected.total_amount || 0), selected.currency)}</Badge>
                 </div>
                 <div className="text-sm text-gray-600">Due date: {selected.due_date || '—'}</div>
                 <div className="border rounded-lg overflow-hidden">
@@ -304,12 +310,12 @@ const FeeTemplateManager: React.FC = () => {
                       {(selected.items || []).map((it) => (
                         <tr key={it.fee_structure_id}>
                           <td className="px-4 py-3 text-sm">{it.category}</td>
-                          <td className="px-4 py-3 text-sm text-right font-medium">{it.amount}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">{formatCurrency(Number(it.amount || 0), it.currency || selected.currency)}</td>
                         </tr>
                       ))}
                       <tr className="bg-gray-50">
                         <td className="px-4 py-3 text-sm font-medium">Total</td>
-                        <td className="px-4 py-3 text-sm text-right font-bold">{selected.total_amount}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold">{formatCurrency(Number(selected.total_amount || 0), selected.currency)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -352,7 +358,7 @@ const FeeTemplateManager: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="0">All classes</SelectItem>
                       {classes.map((c: any) => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name || `Class ${c.id}`}</SelectItem>
+                        <SelectItem key={c.id} value={String(c.id)}>{getClassDisplayName(c)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

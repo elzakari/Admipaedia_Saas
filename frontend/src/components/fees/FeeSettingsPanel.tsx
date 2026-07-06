@@ -5,13 +5,12 @@ import { Switch } from '../ui/switch'
 import { Label } from '../ui/label'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Loader2, RotateCcw, Save } from 'lucide-react'
 import api from '../../lib/api'
 import { toast } from 'sonner'
+import { useSaasTenant } from '../../hooks/useSaasTenant'
 
 type FeeSettings = {
-  currency: string
   allowPartialPayments: boolean
   lateFeeEnabled: boolean
   lateFeePercent: number
@@ -20,7 +19,6 @@ type FeeSettings = {
 }
 
 const keys = [
-  'fees.currency',
   'fees.allow_partial_payments',
   'fees.late_fee_enabled',
   'fees.late_fee_percent',
@@ -29,7 +27,6 @@ const keys = [
 ]
 
 const defaults: FeeSettings = {
-  currency: 'GHS',
   allowPartialPayments: true,
   lateFeeEnabled: false,
   lateFeePercent: 0,
@@ -54,6 +51,8 @@ const asNumber = (v: any, fallback: number) => {
 const FeeSettingsPanel: React.FC = () => {
   const queryClient = useQueryClient()
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const { current } = useSaasTenant()
+  const schoolCurrency = String(current?.tenant?.currency || 'USD').toUpperCase()
 
   const { data, isLoading } = useQuery({
     queryKey: ['fees', 'settings'],
@@ -65,7 +64,6 @@ const FeeSettingsPanel: React.FC = () => {
 
   const settings: FeeSettings = useMemo(() => {
     return {
-      currency: String(data?.['fees.currency'] ?? defaults.currency),
       allowPartialPayments: asBool(data?.['fees.allow_partial_payments'], defaults.allowPartialPayments),
       lateFeeEnabled: asBool(data?.['fees.late_fee_enabled'], defaults.lateFeeEnabled),
       lateFeePercent: asNumber(data?.['fees.late_fee_percent'], defaults.lateFeePercent),
@@ -109,29 +107,14 @@ const FeeSettingsPanel: React.FC = () => {
       <Card className="border-0 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">General</CardTitle>
-          <CardDescription>Defaults used across fees, invoices and payments</CardDescription>
+          <CardDescription>Defaults used across fees, invoices and payments. Currency follows the school profile automatically.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Currency</Label>
-              <Select
-                value={settings.currency}
-                onValueChange={(v) => {
-                  setSetting('fees.currency', v, 'string')
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GHS">GHS</SelectItem>
-                  <SelectItem value="NGN">NGN</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                </SelectContent>
-              </Select>
-              {savingKey === 'fees.currency' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />Saving…</div> : null}
+              <Label>School currency</Label>
+              <Input value={schoolCurrency} disabled readOnly />
+              <div className="text-xs text-muted-foreground">Update the school profile currency to change fees, templates, invoices, and parent balances platform-wide.</div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-4">
@@ -153,7 +136,6 @@ const FeeSettingsPanel: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setSetting('fees.currency', defaults.currency, 'string')
                 setSetting('fees.allow_partial_payments', defaults.allowPartialPayments ? 'true' : 'false', 'boolean')
               }}
             >

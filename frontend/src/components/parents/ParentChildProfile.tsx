@@ -6,6 +6,8 @@ import { Button } from "../../components/ui/button";
 import { Progress } from "../../components/ui/progress";
 import { useTranslation } from "react-i18next";
 import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
+import { resolveStudentAvatar } from "../../utils/avatar";
+import { formatCurrency } from "../../lib/utils";
 
 interface ParentChildProfileProps {
   currentChild: any;
@@ -33,7 +35,7 @@ const ParentChildProfile = ({
       <CardHeader className="pb-2">
         <div className="flex flex-col items-center text-center">
           <Avatar className="h-24 w-24 mb-4">
-            <AvatarImage src={currentChild.photo} alt={currentChild.name} />
+            <AvatarImage src={resolveStudentAvatar(currentChild)} alt={currentChild.name} />
             <AvatarFallback>{currentChild.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <CardTitle className="text-indigo-900">{currentChild.name}</CardTitle>
@@ -69,7 +71,7 @@ const ParentChildProfile = ({
           </div>
           <div className="flex items-center">
             <CreditCard className="h-4 w-4 mr-2 text-indigo-700" />
-            <span className="text-sm text-indigo-900">{t('parent_portal.my_children.fees_balance', 'Fees Balance')}: {currency} {currentFeeData.balance || currentFeeData.due}</span>
+            <span className="text-sm text-indigo-900">{t('parent_portal.my_children.fees_balance', 'Fees Balance')}: {formatCurrency(Number(currentFeeData.balance || currentFeeData.due || 0), currency || currentFeeData.currency || 'USD')}</span>
           </div>
         </div>
 

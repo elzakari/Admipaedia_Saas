@@ -4,7 +4,7 @@ export type TeacherClass = {
   subject: string;
   room?: string;
   term?: string;
-  roster: Array<{ id: string; name: string; status: 'active' | 'inactive' }>;
+  roster: Array<{ id: string; name: string; status: 'active' | 'inactive'; avatar?: string }>;
 };
 
 export type TeacherTimetableItem = {

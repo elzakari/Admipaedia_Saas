@@ -13,6 +13,7 @@ from app.services.message_service import MessageService
 from app.utils.auth_utils import admin_required, teacher_required, parent_required
 from app.utils.tenant_context import tenant_required
 from app.utils.response import success_response, error_response, paginated_response
+from app.models.tenant import Tenant
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
@@ -32,6 +33,15 @@ grades_schema = GradeSchema(many=True)
 messages_schema = MessageSchema(many=True)
 notification_schema = NotificationSchema()
 notifications_schema = NotificationSchema(many=True)
+
+
+def _resolve_school_currency(student=None, fallback='USD'):
+    tenant_id = getattr(g, 'tenant_id', None) or getattr(student, 'tenant_id', None)
+    if tenant_id:
+        tenant = Tenant.query.filter_by(id=tenant_id).first()
+        if tenant and getattr(tenant, 'currency', None):
+            return str(tenant.currency).upper()
+    return str(fallback or 'USD').upper()
 
 @parents_bp.route('', methods=['GET'])
 @jwt_required()
@@ -652,6 +662,8 @@ def get_child_fees(child_id):
 
         from app.models.finance import StudentFee, Payment
         from math import ceil
+        child = next((item for item in children if item.id == child_id), None)
+        currency = _resolve_school_currency(child)
         fee_query = StudentFee.query_scoped().filter_by(student_id=child_id)
         fee_records = fee_query.order_by(StudentFee.created_at.desc()).all()
         page = request.args.get('page', 1, type=int)
@@ -660,6 +672,7 @@ def get_child_fees(child_id):
             return success_response(
                 data={
                     'student_id': child_id,
+                    'currency': currency,
                     'total_fees': 0,
                     'paid_amount': 0,
                     'pending_amount': 0,
@@ -688,15 +701,23 @@ def get_child_fees(child_id):
             due_date = getattr(structure, 'due_date', None)
             balance = float(record.balance or 0)
             status = record.status or 'pending'
+            structure_class = getattr(structure, 'class_', None)
             if due_date and due_date < today and balance > 0:
                 status = 'overdue'
 
             return {
                 'id': record.id,
+                'fee_structure_id': getattr(structure, 'id', None),
+                'template_group_id': f"{getattr(structure, 'academic_year', '')}__{getattr(structure, 'term', '')}__{getattr(structure, 'class_id', None) or 0}" if structure else None,
                 'category': category,
                 'amount': float(record.final_amount or 0),
                 'paid_amount': float(record.paid_amount or 0),
                 'balance': balance,
+                'currency': currency,
+                'academic_year': getattr(structure, 'academic_year', None),
+                'term': getattr(structure, 'term', None),
+                'class_id': getattr(structure, 'class_id', None),
+                'class_name': (getattr(structure_class, 'display_name', None) or getattr(structure_class, 'name', None)) if structure_class else None,
                 'due_date': due_date.isoformat() if due_date else '',
                 'status': status
             }
@@ -708,6 +729,7 @@ def get_child_fees(child_id):
         payment_history = [{
             'date': payment.paid_at.date().isoformat() if payment.paid_at else '',
             'amount': float(payment.amount or 0),
+            'currency': currency,
             'method': payment.payment_method or 'payment',
             'receipt_number': payment.receipt_number or payment.transaction_id or ''
         } for payment in payments]
@@ -719,6 +741,7 @@ def get_child_fees(child_id):
         return success_response(
             data={
                 'student_id': child_id,
+                'currency': currency,
                 'total_fees': total_fees,
                 'paid_amount': paid_amount,
                 'pending_amount': pending_amount,

@@ -569,18 +569,30 @@ export interface ChildAttendanceData {
 
 export interface ChildFeeData {
   student_id: number;
+  currency?: string;
   total_fees: number;
   paid_amount: number;
   pending_amount: number;
   fee_structure: Array<{
+    id?: number;
+    fee_structure_id?: number;
+    template_group_id?: string | null;
     category: string;
     amount: number;
+    paid_amount?: number;
+    balance?: number;
+    currency?: string;
+    academic_year?: string | null;
+    term?: string | null;
+    class_id?: number | null;
+    class_name?: string | null;
     due_date: string;
     status: 'paid' | 'pending' | 'overdue';
   }>;
   payment_history: Array<{
     date: string;
     amount: number;
+    currency?: string;
     method: string;
     receipt_number: string;
   }>;

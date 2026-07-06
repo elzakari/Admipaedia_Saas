@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { X, Printer, Download, Phone, Mail, MapPin, CalendarDays, User, Heart, BookOpen, Clock } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
+import { resolveStudentAvatar } from "../../utils/avatar";
 
 interface StudentData {
   studentId: string;
@@ -156,7 +157,7 @@ const StudentFullProfile = ({
             {/* Student Photo and Basic Info */}
             <div className="md:w-1/3 flex flex-col items-center text-center">
               <Avatar className="h-32 w-32 mb-4">
-                <AvatarImage src={currentChild.photo} alt={currentChild.name} />
+                <AvatarImage src={resolveStudentAvatar(currentChild)} alt={currentChild.name} />
                 <AvatarFallback>{currentChild.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <h2 className="text-xl font-bold text-indigo-900">{currentChild.name}</h2>

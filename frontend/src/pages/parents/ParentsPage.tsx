@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import parentService from "../../services/parentService";
 import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
+import { resolveStudentAvatar } from "../../utils/avatar";
 
 type ParentChild = any;
 type AcademicRecord = any;
@@ -192,7 +193,7 @@ export default function ParentsPage() {
       class_id: summaryChild?.classroom?.id ?? currentChildRaw.class_id ?? null,
       parent_id: currentChildRaw.parent_id ?? null,
       name: name,
-      photo: currentChildRaw.photo ?? currentChildRaw.profile_picture ?? "",
+      photo: resolveStudentAvatar(currentChildRaw) || "",
       age: summaryChild?.age ?? (typeof currentChildRaw.age === "number" ? currentChildRaw.age : 0),
       gender: currentChildRaw.gender ?? "Unknown",
       class: classVal,
@@ -295,6 +296,7 @@ export default function ParentsPage() {
 
   const currentFeeData = useMemo(() => {
     const balance = childSummary?.summary?.pending_balance ?? 0;
+    const currency = String(childFeeResponse?.currency || childSummary?.currency || dashboardCurrency || 'USD').toUpperCase();
     const totalFee = Number(childFeeResponse?.total_fees ?? balance);
     const paid = Number(childFeeResponse?.paid_amount ?? Math.max(0, totalFee - balance));
     const pending = Number(childFeeResponse?.pending_amount ?? balance);
@@ -302,6 +304,7 @@ export default function ParentsPage() {
     const paymentHistory = Array.isArray(childFeeResponse?.payment_history) ? childFeeResponse.payment_history : [];
     
     return {
+      currency,
       amount: pending,
       balance: pending,
       due: pending,
@@ -311,6 +314,13 @@ export default function ParentsPage() {
       pending_amount: pending,
       fee_structure: feeStructure,
       payment_history: paymentHistory,
+      breakdownItems: feeStructure.map((item) => ({
+        item: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || item.category || t('parent_portal.my_children.fees', 'Fees'),
+        amount: Number(item.amount ?? 0),
+        balance: Number(item.balance ?? 0),
+        status: item.status,
+        dueDate: item.due_date,
+      })),
       
       // Exact FeeData interface fields
       tuitionFee: totalFee,
@@ -333,11 +343,11 @@ export default function ParentsPage() {
         .map((item, index) => ({
           id: String(index + 1),
           dueDate: item.due_date,
-          amount: Number(item.amount ?? 0),
-          description: item.category || t('parent_portal.my_children.fees', 'Fees')
+          amount: Number(item.balance ?? item.amount ?? 0),
+          description: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || t('parent_portal.my_children.fees', 'Fees')
         }))
     };
-  }, [childFeeResponse, childSummary, t]);
+  }, [childFeeResponse, childSummary, dashboardCurrency, t]);
 
   const currentHomeworkData = useMemo(() => {
     return Array.isArray(childHomeworkResponse) ? childHomeworkResponse : [];

@@ -4,11 +4,15 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Separator } from "../../components/ui/separator";
 import { toast } from "react-hot-toast";
+import { formatCurrency } from "../../lib/utils";
 
 // Define proper TypeScript interfaces for better type safety
 interface FeeItem {
   item: string;
   amount: number;
+  balance?: number;
+  status?: string;
+  dueDate?: string;
 }
 
 interface PaymentHistoryItem {
@@ -27,6 +31,8 @@ interface UpcomingPayment {
 }
 
 interface FeeData {
+  currency?: string;
+  breakdownItems?: FeeItem[];
   tuitionFee: number;
   transportFee: number;
   libraryFee: number;
@@ -55,13 +61,16 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
   }
 
   // Create a feeBreakdown array from the individual fee properties
-  const feeBreakdown: FeeItem[] = [
-    { item: "Tuition Fee", amount: currentFeeData.tuitionFee },
-    { item: "Transport Fee", amount: currentFeeData.transportFee },
-    { item: "Library Fee", amount: currentFeeData.libraryFee },
-    { item: "Computer Lab Fee", amount: currentFeeData.computerLabFee },
-    { item: "Activity Fee", amount: currentFeeData.activityFee },
-  ];
+  const currency = currentFeeData.currency || 'USD';
+  const feeBreakdown: FeeItem[] = Array.isArray(currentFeeData.breakdownItems) && currentFeeData.breakdownItems.length > 0
+    ? currentFeeData.breakdownItems
+    : [
+        { item: "Tuition Fee", amount: currentFeeData.tuitionFee },
+        { item: "Transport Fee", amount: currentFeeData.transportFee },
+        { item: "Library Fee", amount: currentFeeData.libraryFee },
+        { item: "Computer Lab Fee", amount: currentFeeData.computerLabFee },
+        { item: "Activity Fee", amount: currentFeeData.activityFee },
+      ].filter((fee) => Number(fee.amount || 0) > 0);
 
   const totalFeeSafe = Number.isFinite(currentFeeData.totalFee) ? Math.max(0, currentFeeData.totalFee) : 0;
   const paidSafe = Number.isFinite(currentFeeData.paid) ? Math.max(0, currentFeeData.paid) : 0;
@@ -88,23 +97,30 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
                     <div className="p-2 rounded-full bg-indigo-100 text-indigo-600">
                       <Receipt className="h-5 w-5" />
                     </div>
-                    <span className="ml-3 text-sm font-medium text-indigo-900">{fee.item}</span>
+                    <div className="ml-3">
+                      <span className="text-sm font-medium text-indigo-900">{fee.item}</span>
+                      {fee.dueDate || fee.status ? (
+                        <p className="text-xs text-indigo-700">
+                          {[fee.dueDate ? `Due ${fee.dueDate}` : '', fee.status ? String(fee.status).replace(/_/g, ' ') : ''].filter(Boolean).join(' • ')}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                <span className="text-sm font-bold text-indigo-900">${Number(fee.amount || 0).toFixed(2)}</span>
+                <span className="text-sm font-bold text-indigo-900">{formatCurrency(Number(fee.amount || 0), currency)}</span>
                 </div>
               ))}
               <Separator />
               <div className="flex justify-between items-center p-3">
                 <span className="text-sm font-medium text-indigo-900">Total Fees</span>
-                <span className="text-sm font-bold text-indigo-900">${totalFeeSafe.toFixed(2)}</span>
+                <span className="text-sm font-bold text-indigo-900">{formatCurrency(totalFeeSafe, currency)}</span>
               </div>
               <div className="flex justify-between items-center p-3">
                 <span className="text-sm font-medium text-indigo-900">Amount Paid</span>
-                <span className="text-sm font-bold text-green-600">${paidSafe.toFixed(2)}</span>
+                <span className="text-sm font-bold text-green-600">{formatCurrency(paidSafe, currency)}</span>
               </div>
               <div className="flex justify-between items-center p-3">
                 <span className="text-sm font-medium text-indigo-900">Balance Due</span>
-                <span className="text-sm font-bold text-red-600">${dueSafe.toFixed(2)}</span>
+                <span className="text-sm font-bold text-red-600">{formatCurrency(dueSafe, currency)}</span>
               </div>
             </div>
           </CardContent>
@@ -190,7 +206,7 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <span className="text-sm font-bold text-indigo-900 mr-3">${Number(payment.amount || 0).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-indigo-900 mr-3">{formatCurrency(Number(payment.amount || 0), currency)}</span>
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -229,7 +245,7 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
                       <p className="text-xs text-indigo-700">Due: {payment.dueDate}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-indigo-900">${Number(payment.amount || 0).toFixed(2)}</span>
+                  <span className="text-sm font-bold text-indigo-900">{formatCurrency(Number(payment.amount || 0), currency)}</span>
                 </div>
               ))}
             </div>

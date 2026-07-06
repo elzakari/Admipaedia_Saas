@@ -22,20 +22,31 @@ type LedgerPayment = {
 };
 
 type ParentFeePayload = {
+  currency?: string;
   total_fees: number;
   paid_amount: number;
   pending_amount: number;
   fee_structure: Array<{
+    id?: number;
+    fee_structure_id?: number;
+    template_group_id?: string | null;
     category: string;
     amount: number;
+    paid_amount?: number;
+    balance?: number;
     due_date: string;
     status: string;
+    academic_year?: string | null;
+    term?: string | null;
+    class_name?: string | null;
+    currency?: string;
   }>;
   payment_history: Array<{
     date: string;
     amount: number;
     method: string;
     receipt_number: string;
+    currency?: string;
   }>;
 };
 
@@ -46,7 +57,7 @@ function formatDateIso(dateIso?: string | null) {
   return d.toISOString().slice(0, 10);
 }
 
-function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayment[] }): FeeData {
+function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayment[] }, currency: string): FeeData {
   const totalFee = payload.fees.reduce((sum, f) => sum + Number(f.amount || 0), 0);
   const paid = payload.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const due = Math.max(0, totalFee - paid);
@@ -84,6 +95,14 @@ function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayme
     }));
 
   return {
+    currency,
+    breakdownItems: payload.fees.map((fee) => ({
+      item: String(fee.category || 'Fee'),
+      amount: Number(fee.amount || 0),
+      balance: Number(fee.balance || 0),
+      status: fee.status,
+      dueDate: formatDateIso(fee.due_date),
+    })),
     tuitionFee: totalFee,
     transportFee: 0,
     libraryFee: 0,
@@ -99,6 +118,7 @@ function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayme
 }
 
 function toFeeDataFromParentFees(payload: ParentFeePayload): FeeData {
+  const currency = String(payload.currency || 'USD').toUpperCase();
   const totalFee = Number(payload.total_fees || 0);
   const paid = Number(payload.paid_amount || 0);
   const due = Number(payload.pending_amount || 0);
@@ -108,8 +128,8 @@ function toFeeDataFromParentFees(payload: ParentFeePayload): FeeData {
     .map((item, index) => ({
       id: String(index + 1),
       dueDate: formatDateIso(item.due_date),
-      amount: Number(item.amount || 0),
-      description: String(item.category || 'Fee')
+      amount: Number(item.balance || item.amount || 0),
+      description: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || 'Fee'
     }));
 
   const paymentHistory = (payload.payment_history || []).map((payment, index) => ({
@@ -121,6 +141,14 @@ function toFeeDataFromParentFees(payload: ParentFeePayload): FeeData {
   }));
 
   return {
+    currency,
+    breakdownItems: (payload.fee_structure || []).map((item) => ({
+      item: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || String(item.category || 'Fee'),
+      amount: Number(item.amount || 0),
+      balance: Number(item.balance || 0),
+      status: item.status,
+      dueDate: formatDateIso(item.due_date),
+    })),
     tuitionFee: totalFee,
     transportFee: 0,
     libraryFee: 0,
@@ -176,7 +204,7 @@ export default function ConnectedFeesTab(props: { childId: string; fallbackFeeDa
           return;
         }
 
-        const mapped = toFeeDataFromLedger({ fees: ledger.fees || [], payments: ledger.payments || [] });
+        const mapped = toFeeDataFromLedger({ fees: ledger.fees || [], payments: ledger.payments || [] }, fallbackFeeData.currency || 'USD');
         const adjusted = {
           ...mapped,
           due: typeof balance?.balance === 'number' ? Number(balance.balance) : mapped.due

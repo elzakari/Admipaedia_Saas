@@ -5,6 +5,7 @@ export type FeeTemplateItem = {
   category_id: number
   category: string
   amount: number
+  currency?: string
 }
 
 export type FeeTemplateGroup = {
@@ -12,6 +13,7 @@ export type FeeTemplateGroup = {
   class_id: number | null
   academic_year: string
   term: string
+  currency: string
   due_date: string | null
   items: FeeTemplateItem[]
   total_amount: number
@@ -55,6 +57,7 @@ export type FeePayment = {
   student_name?: string | null
   fee_record_id?: number
   amount: number
+  currency?: string | null
   payment_method: string
   reference_number?: string | null
   payment_date?: string | null

@@ -1,6 +1,6 @@
 from functools import wraps
 
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, g
 from flask_jwt_extended import get_jwt_identity
 from app.api.v1.administration import administration_bp
 from app.services.administration_service import AdministrationService
@@ -26,6 +26,7 @@ from app.models.system_setting import SystemSetting
 from app.models.finance import FeeCategory, FeeStructure, StudentFee, Payment, PaymentAllocation
 from app.models.student import Student
 from app.models.administration import Budget, Transaction, BudgetCategory, TransactionType
+from app.models.tenant import Tenant
 from sqlalchemy import func
 import uuid
 from decimal import Decimal
@@ -147,24 +148,36 @@ def administration_access_required(fn):
     return wrapper
 
 
+def _get_school_currency(fallback='USD'):
+    tenant_id = getattr(g, 'tenant_id', None)
+    if tenant_id:
+        tenant = Tenant.query.filter_by(id=tenant_id).first()
+        if tenant and getattr(tenant, 'currency', None):
+            return str(tenant.currency).upper()
+    return str(fallback or 'USD').upper()
+
+
 def _serialize_fee_template_group(group_rows, category_by_id):
     first = group_rows[0]
     academic_year = str(getattr(first, 'academic_year', None) or 'unknown')
     term = str(getattr(first, 'term', None) or 'unknown')
     class_id = getattr(first, 'class_id', None)
     total = sum(float(r.amount or 0) for r in group_rows)
+    currency = _get_school_currency(getattr(first, 'currency', None) or 'USD')
     return {
         'id': f"{academic_year}__{term}__{class_id or 0}",
         'class_id': class_id,
         'academic_year': academic_year,
         'term': term,
+        'currency': currency,
         'due_date': first.due_date.isoformat() if first.due_date else None,
         'items': [
             {
                 'fee_structure_id': r.id,
                 'category_id': r.fee_category_id,
                 'category': category_by_id.get(r.fee_category_id, 'Unknown'),
-                'amount': float(r.amount or 0)
+                'amount': float(r.amount or 0),
+                'currency': currency,
             }
             for r in sorted(group_rows, key=lambda x: category_by_id.get(x.fee_category_id, ''))
         ],
@@ -290,6 +303,7 @@ def create_fee_structure_group():
         ).delete(synchronize_session=False)
 
         created = []
+        school_currency = _get_school_currency()
         for it in items:
             name = (it.get('category') or it.get('category_name') or '').strip()
             amount = it.get('amount')
@@ -312,6 +326,7 @@ def create_fee_structure_group():
                 academic_year=academic_year,
                 term=term,
                 amount=amount_val,
+                currency=school_currency,
                 due_date=due_date
             )
             db.session.add(structure)
@@ -443,6 +458,7 @@ def get_fee_record_payments(fee_record_id):
                 'id': p.id,
                 'fee_record_id': fee.id,
                 'amount': float(a.amount_allocated or 0),
+                'currency': _get_school_currency(getattr(p, 'currency', None) or 'USD'),
                 'payment_method': p.payment_method,
                 'reference_number': p.transaction_id,
                 'payment_date': p.paid_at.date().isoformat() if p.paid_at else None,
@@ -483,6 +499,7 @@ def list_fee_payments():
                 'student_id': p.student_id,
                 'student_name': f"{getattr(s, 'first_name', '')} {getattr(s, 'last_name', '')}".strip() if s else None,
                 'amount': float(p.amount or 0),
+                'currency': _get_school_currency(getattr(p, 'currency', None) or 'USD'),
                 'payment_method': p.payment_method,
                 'reference_number': p.transaction_id,
                 'payment_date': p.paid_at.date().isoformat() if p.paid_at else None,
@@ -539,10 +556,12 @@ def create_fee_payment_v2():
                 paid_at = datetime.utcnow()
 
         user_id = get_jwt_identity()
+        payment_currency = _get_school_currency(getattr(getattr(fee, 'structure', None), 'currency', None) or 'USD')
         payment = Payment(
             transaction_id=reference_number,
             student_id=fee.student_id,
             amount=amount_val,
+            currency=payment_currency,
             payment_method=payment_method,
             payment_provider='manual',
             recorded_by=user_id,
@@ -566,6 +585,7 @@ def create_fee_payment_v2():
                 'id': payment.id,
                 'fee_record_id': fee.id,
                 'amount': float(allocation_amount),
+                'currency': payment_currency,
                 'payment_method': payment.payment_method,
                 'reference_number': payment.transaction_id,
                 'payment_date': payment.paid_at.date().isoformat() if payment.paid_at else None,
@@ -606,10 +626,11 @@ def get_overdue_fees_v2():
                 'id': r.id,
                 'student_id': r.student_id,
                 'student_name': f"{getattr(s, 'first_name', '')} {getattr(s, 'last_name', '')}".strip() if s else None,
-                'class_name': getattr(cls, 'name', None) if cls else None,
+                'class_name': (getattr(cls, 'display_name', None) or getattr(cls, 'name', None)) if cls else None,
                 'total_amount': float(r.final_amount or 0),
                 'paid_amount': float(r.paid_amount or 0),
                 'balance': float(r.balance or 0),
+                'currency': _get_school_currency(getattr(getattr(r, 'structure', None), 'currency', None) or 'USD'),
                 'due_date': due.isoformat(),
                 'days_overdue': (today - due).days,
                 'status': 'overdue'
