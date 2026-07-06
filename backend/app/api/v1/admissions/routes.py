@@ -1,16 +1,19 @@
-from flask import request, jsonify
+from flask import request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.admission import AdmissionApplication
 from app.models.parent import Parent
 from app.models.user import User
-from app.models.finance import Payment
 from app.models.system_setting import SystemSetting
 from app.models.class_ import Class
 from app.schemas.admission import AdmissionApplicationSchema, BuyFormSchema, SubmitFormSchema, SaveDraftSchema, ReviewApplicationSchema
-from app.utils.auth_utils import admin_required, parent_required
+from app.utils.auth_utils import admin_required, parent_required, ADMIN_COMPATIBLE_ROLES
 from datetime import datetime
-import uuid
+from sqlalchemy.orm import joinedload
+
+EDITABLE_PARENT_STATUSES = ('draft', 'returned')
+DISCARDABLE_PARENT_STATUSES = ('draft', 'returned', 'rejected')
+HIDDEN_ADMISSION_STATUSES = ('discarded',)
 
 admission_application_schema = AdmissionApplicationSchema()
 admission_applications_schema = AdmissionApplicationSchema(many=True)
@@ -19,11 +22,53 @@ submit_form_schema = SubmitFormSchema()
 save_draft_schema = SaveDraftSchema()
 review_application_schema = ReviewApplicationSchema()
 
+
+def _normalize_form_data(form_data):
+    if isinstance(form_data, dict):
+        return form_data
+    return {}
+
+
+def _has_meaningful_form_data(form_data):
+    payload = _normalize_form_data(form_data)
+    for key, value in payload.items():
+        if key == '_review':
+            continue
+        if isinstance(value, str) and value.strip():
+            return True
+        if isinstance(value, (list, tuple, set)) and len(value) > 0:
+            return True
+        if isinstance(value, dict) and _has_meaningful_form_data(value):
+            return True
+        if value not in (None, '', [], {}, ()):
+            return True
+    return False
+
+
+def _base_admission_query():
+    query = AdmissionApplication.query.options(
+        joinedload(AdmissionApplication.target_class),
+        joinedload(AdmissionApplication.parent).joinedload(Parent.user),
+    )
+    tenant_id = getattr(g, 'tenant_id', None)
+    if tenant_id:
+        query = query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(Parent.tenant_id == tenant_id)
+    return query
+
+
+def _normalize_name(value):
+    return ' '.join(str(value or '').strip().lower().split())
+
 @jwt_required()
 @admin_required
 def get_all_applications():
     """List all applications (admin only)."""
-    applications = AdmissionApplication.query.all()
+    applications = (
+        _base_admission_query()
+        .filter(~AdmissionApplication.status.in_(HIDDEN_ADMISSION_STATUSES))
+        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .all()
+    )
     return jsonify({
         'success': True,
         'data': admission_applications_schema.dump(applications)
@@ -48,7 +93,13 @@ def get_my_applications():
         if not parent:
             return jsonify({'success': True, 'data': []}), 200
         
-    applications = AdmissionApplication.query.filter_by(parent_id=parent.id).all()
+    applications = (
+        _base_admission_query()
+        .filter(AdmissionApplication.parent_id == parent.id)
+        .filter(~AdmissionApplication.status.in_(HIDDEN_ADMISSION_STATUSES))
+        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .all()
+    )
     return jsonify({
         'success': True,
         'data': admission_applications_schema.dump(applications)
@@ -77,7 +128,6 @@ def buy_admission_form():
       return jsonify({'success': False, 'message': 'Target class not found'}), 400
         
     # Fetch dynamic price and currency from tenant settings / tenant
-    from flask import g
     tenant_id = getattr(g, 'tenant_id', None) or (target_class.tenant_id if target_class else None)
     currency = 'GHS'
     admission_price = None
@@ -99,20 +149,54 @@ def buy_admission_form():
     if admission_price is None:
         admission_price = float(SystemSetting.get_value('admission_form_price', '100.00'))
     
-    # Simulate payment for now
-    # In a real app, this would involve a payment gateway integration
-    payment = Payment(
-        transaction_id=f"ADM-FORM-{uuid.uuid4().hex[:8].upper()}",
-        amount=admission_price,
-        currency=currency,
-        payment_method='card',
-        status='completed',
-        paid_at=datetime.utcnow()
+    editable_applications = (
+        AdmissionApplication.query.filter(
+            AdmissionApplication.parent_id == parent.id,
+            AdmissionApplication.payment_status == 'paid',
+            AdmissionApplication.status.in_(EDITABLE_PARENT_STATUSES),
+        )
+        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .all()
     )
-    # Note: Payment model currently requires student_id. 
-    # For admission form, we might need to update the Payment model or use a placeholder student_id.
-    # Since we don't have a student_id yet, let's assume we allow null student_id in Payment or use a system ID.
-    # Let's check Payment model again.
+
+    target_first_name = _normalize_name(data['student_first_name'])
+    target_last_name = _normalize_name(data['student_last_name'])
+
+    exact_match = next(
+        (
+            application for application in editable_applications
+            if _normalize_name(application.student_first_name) == target_first_name
+            and _normalize_name(application.student_last_name) == target_last_name
+            and application.target_class_id == data['target_class_id']
+        ),
+        None,
+    )
+    if exact_match:
+        exact_match.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': 'Existing editable admission form resumed',
+            'application_id': exact_match.id,
+            'reused_existing': True,
+        }), 200
+
+    blank_shell = next(
+        (application for application in editable_applications if not _has_meaningful_form_data(application.form_data)),
+        None,
+    )
+    if blank_shell:
+        blank_shell.student_first_name = data['student_first_name']
+        blank_shell.student_last_name = data['student_last_name']
+        blank_shell.target_class_id = data['target_class_id']
+        blank_shell.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': 'Existing draft form updated and resumed',
+            'application_id': blank_shell.id,
+            'reused_existing': True,
+        }), 200
     
     application = AdmissionApplication(
         parent_id=parent.id,
@@ -139,13 +223,15 @@ def get_application_details(id):
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
     
-    application = AdmissionApplication.query.get_or_404(id)
+    application = _base_admission_query().filter(AdmissionApplication.id == id).first_or_404()
     
     # Allow if user is admin or if they are the parent who created the application
-    if user.role != 'admin':
+    if user.role not in ADMIN_COMPATIBLE_ROLES:
         parent = Parent.query.filter_by(user_id=user_id).first()
         if not parent or application.parent_id != parent.id:
             return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    elif getattr(g, 'tenant_id', None) and application.parent and application.parent.tenant_id != getattr(g, 'tenant_id', None):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
     return jsonify({
         'success': True,
@@ -209,7 +295,7 @@ def save_admission_draft(id):
     if application.payment_status != 'paid':
         return jsonify({'success': False, 'message': 'Form not paid for'}), 400
 
-    if application.status not in ('draft', 'returned'):
+    if application.status not in EDITABLE_PARENT_STATUSES:
         return jsonify({'success': False, 'message': 'Cannot edit a submitted application'}), 400
 
     try:
@@ -217,13 +303,66 @@ def save_admission_draft(id):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 400
 
-    application.form_data = data['form_data']
+    if not data:
+        return jsonify({'success': False, 'message': 'No updates were provided'}), 400
+
+    if data.get('student_first_name'):
+        application.student_first_name = data['student_first_name']
+
+    if data.get('student_last_name'):
+        application.student_last_name = data['student_last_name']
+
+    if data.get('target_class_id') is not None:
+        target_class = Class.query.get(data['target_class_id'])
+        if not target_class:
+            return jsonify({'success': False, 'message': 'Target class not found'}), 400
+        application.target_class_id = target_class.id
+
+    if 'form_data' in data:
+        application.form_data = data['form_data']
+
     db.session.commit()
 
     return jsonify({
         'success': True,
         'message': 'Draft saved',
         'data': admission_application_schema.dump(application)
+    }), 200
+
+
+@jwt_required()
+def discard_application(id):
+    """Soft-discard an editable application (parent only)."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    application = AdmissionApplication.query.get_or_404(id)
+
+    if not user or user.role != 'parent':
+        return jsonify({'success': False, 'message': 'Only parents can discard applications'}), 403
+
+    parent = Parent.query.filter_by(user_id=user_id).first()
+    if not parent or application.parent_id != parent.id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    if application.status not in DISCARDABLE_PARENT_STATUSES:
+        return jsonify({'success': False, 'message': 'Only draft, returned, or rejected applications can be discarded'}), 400
+
+    form_data = _normalize_form_data(application.form_data)
+    review_block = form_data.get('_review', {}) if isinstance(form_data.get('_review'), dict) else {}
+    review_block.update({
+        'discarded_at': datetime.utcnow().isoformat(),
+        'discarded_by_parent': True,
+    })
+    form_data['_review'] = review_block
+    application.form_data = form_data
+    application.status = 'discarded'
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Application discarded successfully',
     }), 200
 
 

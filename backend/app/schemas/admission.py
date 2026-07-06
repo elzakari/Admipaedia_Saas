@@ -9,6 +9,7 @@ class AdmissionApplicationSchema(Schema):
     student_first_name = fields.String(validate=validate.Length(max=100))
     student_last_name = fields.String(validate=validate.Length(max=100))
     target_class_id = fields.Int()
+    target_class_name = fields.Method("get_target_class_name", dump_only=True)
     
     payment_status = fields.String(dump_only=True)
     payment_id = fields.Int(dump_only=True)
@@ -25,6 +26,11 @@ class AdmissionApplicationSchema(Schema):
     def get_parent_email(self, obj):
         if obj.parent and obj.parent.user:
             return obj.parent.user.email
+        return None
+
+    def get_target_class_name(self, obj):
+        if obj.target_class:
+            return obj.target_class.name
         return None
 
     def get_expected_username(self, obj):
@@ -85,10 +91,13 @@ class SubmitFormSchema(Schema):
 
 class SaveDraftSchema(Schema):
     """Schema for saving a draft form (without submission)."""
-    form_data = fields.Dict(required=True)
+    student_first_name = fields.String(required=False, validate=validate.Length(min=2, max=100))
+    student_last_name = fields.String(required=False, validate=validate.Length(min=2, max=100))
+    target_class_id = fields.Int(required=False)
+    form_data = fields.Dict(required=False)
 
 
 class ReviewApplicationSchema(Schema):
     """Schema for admin review actions."""
-    status = fields.String(required=True, validate=validate.OneOf(['under_review', 'approved', 'rejected']))
+    status = fields.String(required=True, validate=validate.OneOf(['under_review', 'approved', 'rejected', 'returned']))
     notes = fields.String(required=False, allow_none=True)

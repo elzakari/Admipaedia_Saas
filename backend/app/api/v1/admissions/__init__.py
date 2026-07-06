@@ -6,6 +6,7 @@ from .routes import (
     get_application_details,
     submit_admission_form,
     save_admission_draft,
+    discard_application,
     review_application
 )
 
@@ -17,4 +18,5 @@ admissions_bp.route('/buy-form', methods=['POST'])(buy_admission_form)
 admissions_bp.route('/application/<int:id>', methods=['GET'])(get_application_details)
 admissions_bp.route('/application/<int:id>/submit', methods=['POST'])(submit_admission_form)
 admissions_bp.route('/application/<int:id>', methods=['PUT'])(save_admission_draft)
+admissions_bp.route('/application/<int:id>', methods=['DELETE'])(discard_application)
 admissions_bp.route('/application/<int:id>/review', methods=['POST'])(review_application)

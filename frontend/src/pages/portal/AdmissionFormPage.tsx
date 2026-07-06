@@ -80,7 +80,9 @@ const AdmissionFormPage: React.FC = () => {
       const response = await api.get(`/admissions/application/${id}`);
       return response.data.data;
     },
-    enabled: !!id
+    enabled: !!id,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -103,6 +105,7 @@ const AdmissionFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['application', id] });
       queryClient.invalidateQueries({ queryKey: ['my-applications'] });
       queryClient.invalidateQueries({ queryKey: ['all-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-dashboard'] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to save draft');
@@ -120,6 +123,7 @@ const AdmissionFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['my-applications'] });
       queryClient.invalidateQueries({ queryKey: ['all-applications'] });
       queryClient.invalidateQueries({ queryKey: ['application', id] });
+      queryClient.invalidateQueries({ queryKey: ['parent-dashboard'] });
       navigate('/admissions');
     },
     onError: (error: any) => {

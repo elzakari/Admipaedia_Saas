@@ -368,7 +368,7 @@ class ParentService:
                 from app.models.admission import AdmissionApplication
                 active_applications = AdmissionApplication.query.filter(
                     AdmissionApplication.parent_id == parent_id,
-                    AdmissionApplication.status.in_(['draft', 'submitted', 'under_review'])
+                    AdmissionApplication.status.in_(['draft', 'submitted', 'under_review', 'returned'])
                 ).count()
             except Exception:
                 active_applications = 0
@@ -650,4 +650,3 @@ class ParentService:
         except Exception as e:
             logger.error(f"Error in get_child_detailed_summary: {str(e)}", exc_info=True)
             return None
-
