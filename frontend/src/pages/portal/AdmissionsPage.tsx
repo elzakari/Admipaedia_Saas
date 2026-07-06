@@ -279,10 +279,17 @@ const AdmissionsPage: React.FC = () => {
         {!isAdmin && (
           <Button
             onClick={handleOpenAdmissionManager}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all duration-200 flex items-center gap-2"
+            className="h-auto min-h-12 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all duration-200 flex items-center gap-3 rounded-xl px-4 py-3"
           >
-            <FilePlus2 size={18} />
-            {t('parent_admissions.buy_form', { price: priceLabel, defaultValue: 'Buy Admission Form ({{price}})' })}
+            <FilePlus2 size={18} className="shrink-0" />
+            <span className="flex items-center gap-3">
+              <span className="font-semibold">
+                {t('parent_admissions.buy_form', { defaultValue: 'Buy Admission Form' })}
+              </span>
+              <span className="rounded-full bg-white/18 px-3 py-1 text-sm font-semibold text-white ring-1 ring-white/20">
+                {priceLabel}
+              </span>
+            </span>
           </Button>
         )}
       </div>
@@ -350,7 +357,7 @@ const AdmissionsPage: React.FC = () => {
             <CardDescription>
               {editingApplication
                 ? t('parent_admissions.update_details', 'Adjust the student name or target class, then continue the existing form.')
-                : t('parent_admissions.enter_details', { price: priceLabel, defaultValue: 'Enter the basic details to purchase an admission form ({{price}})' })}
+                : t('parent_admissions.enter_details', { price: priceLabel, defaultValue: 'Enter the basic details to purchase an admission form priced at {{price}}.' })}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
