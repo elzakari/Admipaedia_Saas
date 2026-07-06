@@ -6,7 +6,9 @@ export interface Announcement {
   id: number;
   title: string;
   content: string;
-  class_id?: number;
+  scope?: 'global' | 'class_bound';
+  tenant_id?: string | null;
+  class_id?: number | null;
   class_name?: string | null;
   teacher_id?: number | null;
   recipients?: string;
@@ -42,6 +44,8 @@ export interface AnnouncementCreate {
 export interface AnnouncementUpdate {
   title?: string;
   content?: string;
+  scope?: 'global' | 'class_bound';
+  class_id?: number | null;
   send_email?: boolean;
   scheduled_date?: string | null;
   is_published?: boolean;
@@ -49,9 +53,10 @@ export interface AnnouncementUpdate {
 }
 
 export interface AdminAnnouncementCreate {
+  scope: 'global' | 'class_bound';
   title: string;
   content: string;
-  class_id: number;
+  class_id?: number | null;
   target_roles: string[];
   send_email?: boolean;
   scheduled_date?: string | null;
@@ -106,12 +111,20 @@ const announcementService = {
   },
 
   createGlobalAnnouncement: async (data: AdminAnnouncementCreate): Promise<any> => {
-    const response = await api.post('/announcements', data);
+    const response = await api.post('/announcements', {
+      ...data,
+      scope: 'global',
+      class_id: null,
+    });
     return response.data;
   },
 
   createClassAnnouncement: async (classId: number, data: Omit<AdminAnnouncementCreate, 'class_id'>): Promise<any> => {
-    const response = await api.post('/announcements', { ...data, class_id: classId });
+    const response = await api.post('/announcements', {
+      ...data,
+      scope: 'class_bound',
+      class_id: classId,
+    });
     return response.data;
   },
 

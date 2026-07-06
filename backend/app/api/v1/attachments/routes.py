@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.message import Message
 from app.models.dashboard import Notification
 from app.models.assignment import Assignment
+from app.models.assignment_submission import AssignmentSubmission
 from app.models.announcement import Announcement
 from app.models.student import Student
 from app.models.parent import Parent
@@ -91,6 +92,23 @@ def download_attachment(id):
                             if parent_profile:
                                 children = Student.query.filter_by(parent_id=parent_profile.id).all()
                                 if any(c.class_id == assignment.class_id for c in children):
+                                    authorized = True
+
+            elif entity_type == 'assignment_submission':
+                submission = AssignmentSubmission.query.get(entity_id)
+                if submission and submission.assignment:
+                    teacher_profile = Teacher.query.filter_by(user_id=current_user_id).first()
+                    if teacher_profile and submission.assignment.teacher_id == teacher_profile.id:
+                        authorized = True
+                    else:
+                        student_profile = Student.query.filter_by(user_id=current_user_id).first()
+                        if student_profile and submission.student_id == student_profile.id:
+                            authorized = True
+                        else:
+                            parent_profile = Parent.query.filter_by(user_id=current_user_id).first()
+                            if parent_profile:
+                                children = Student.query.filter_by(parent_id=parent_profile.id).all()
+                                if any(c.id == submission.student_id for c in children):
                                     authorized = True
                                     
             elif entity_type == 'announcement':

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
-import { ChevronRight, Loader2, UploadCloud } from 'lucide-react';
+import { ChevronRight, Loader2, UploadCloud, Download, Paperclip } from 'lucide-react';
 import studentService from '../../services/studentService';
 
 const StudentAssignmentDetailPage: React.FC = () => {
@@ -13,7 +13,7 @@ const StudentAssignmentDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const parsedAssignmentId = Number(assignmentId);
   const [submissionText, setSubmissionText] = useState('');
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [latestSubmissionAt, setLatestSubmissionAt] = useState<string | null>(null);
 
   const { data: assignment, isLoading, isError } = useQuery({
@@ -27,14 +27,28 @@ const StudentAssignmentDetailPage: React.FC = () => {
     mutationFn: () =>
       studentService.submitAssignment(parsedAssignmentId, {
         content: submissionText.trim() || undefined,
-        file_path: selectedFileName || undefined,
+        file: selectedFile,
       }),
-    onSuccess: () => {
-      setLatestSubmissionAt(new Date().toISOString());
+    onSuccess: (submission) => {
+      setLatestSubmissionAt(submission?.submission_date || new Date().toISOString());
+      setSelectedFile(null);
+      setSubmissionText('');
       queryClient.invalidateQueries({ queryKey: ['student-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['student-assignment-detail', parsedAssignmentId] });
     },
   });
+
+  const downloadAttachment = async (downloadUrl: string, filename: string) => {
+    const blob = await studentService.downloadAttachment(downloadUrl);
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return (
@@ -69,12 +83,12 @@ const StudentAssignmentDetailPage: React.FC = () => {
   }
 
   const isSubmitted = assignment.status === 'submitted' || assignment.status === 'graded' || submitMutation.isSuccess;
-  const submissionTimestamp = latestSubmissionAt;
+  const submissionTimestamp = latestSubmissionAt || assignment.submission_date || null;
   const canSubmit =
     !isSubmitted &&
     (assignment.status === 'open' || assignment.status === 'pending' || assignment.status === 'overdue') &&
     !submitMutation.isPending;
-  const selectedAttachmentName = selectedFileName;
+  const selectedAttachmentName = selectedFile?.name || null;
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -99,10 +113,37 @@ const StudentAssignmentDetailPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm text-slate-700 dark:text-slate-300">{assignment.description}</div>
+            {assignment.attachments && assignment.attachments.length > 0 ? (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Teacher attachments</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {assignment.attachments.map((attachment) => (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      key={attachment.id}
+                      className="rounded-full"
+                      onClick={() => downloadAttachment(attachment.download_url, attachment.filename)}
+                    >
+                      <Paperclip className="h-4 w-4 mr-2" />
+                      {attachment.filename}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {assignment.feedback ? (
               <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
                 <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Teacher feedback</div>
                 <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">{assignment.feedback}</div>
+              </div>
+            ) : null}
+            {assignment.score != null ? (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Grade</div>
+                <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                  {assignment.score}/{assignment.max_points}
+                </div>
               </div>
             ) : null}
           </CardContent>
@@ -122,6 +163,22 @@ const StudentAssignmentDetailPage: React.FC = () => {
                 ) : null}
                 {selectedAttachmentName ? (
                   <div className="text-sm text-slate-700 dark:text-slate-300 mt-2">File: {selectedAttachmentName}</div>
+                ) : null}
+                {assignment.submission_attachments && assignment.submission_attachments.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {assignment.submission_attachments.map((attachment) => (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        key={attachment.id}
+                        className="rounded-full"
+                        onClick={() => downloadAttachment(attachment.download_url, attachment.filename)}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {attachment.filename}
+                      </Button>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             ) : (
@@ -148,11 +205,11 @@ const StudentAssignmentDetailPage: React.FC = () => {
                 className="mt-3 block w-full text-sm"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  setSelectedFileName(f?.name || null);
+                  setSelectedFile(f || null);
                 }}
               />
               <div className="text-xs text-slate-500">
-                The current student submission API accepts submission text plus an optional file reference.
+                Attach your work file before submitting.
               </div>
               {submitMutation.isError ? (
                 <div className="text-sm text-red-600">

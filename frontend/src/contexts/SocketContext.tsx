@@ -10,23 +10,25 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
 
     useEffect(() => {
-        // Standard namespaces we want to keep alive globally
         const dashboardWs = WebSocketService.getInstance('/dashboard');
         const chatWs = WebSocketService.getInstance('/chat');
+        const shouldKeepDashboardAlive =
+            isAuthenticated && ['admin', 'school_admin', 'super_admin', 'super_manager'].includes(user?.role ?? '');
 
-        if (isAuthenticated) {
-            console.log('🔄 Auth detected, initializing global sockets...');
+        if (shouldKeepDashboardAlive) {
+            console.log('Initializing admin dashboard realtime socket...');
             dashboardWs.connect();
-            // chatWs.connect(); // Connect as needed
         } else {
-            console.log('🔄 No auth detected, disconnecting global sockets...');
             dashboardWs.disconnect();
+        }
+
+        if (!isAuthenticated) {
             chatWs.disconnect();
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, user?.role]);
 
     return (
         <SocketContext.Provider value={{}}>

@@ -697,7 +697,8 @@ def create_class_assignment(class_id):
             return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
             
         # Extract and format payload
-        payload = request.json or {}
+        payload = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
+        uploaded_attachments = request.files.getlist('attachments')
         title = payload.get('title')
         if not title or not title.strip():
             return jsonify({'success': False, 'message': 'Title is required'}), 400
@@ -761,7 +762,12 @@ def create_class_assignment(class_id):
             'status': status
         }
         
-        assignment, error = AssignmentService.create_assignment(assignment_data)
+        assignment, error = AssignmentService.create_assignment(
+            assignment_data,
+            attachments=uploaded_attachments,
+            uploader_id=user_id,
+            tenant_id=getattr(class_obj, 'tenant_id', None),
+        )
         if error:
             return jsonify({'success': False, 'message': error}), 400
             
@@ -778,7 +784,8 @@ def create_class_assignment(class_id):
                 'teacher_id': assignment.teacher_id,
                 'total_points': assignment.total_points,
                 'assignment_type': assignment.assignment_type,
-                'status': assignment.status
+                'status': assignment.status,
+                'attachments': getattr(assignment, 'attachments_payload', [])
             }
         }), 201
     except Exception as e:
@@ -790,7 +797,22 @@ def get_class_assignments(class_id):
     """Get assignments for a specific class."""
     try:
         from app.services.assignment_service import AssignmentService
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.extensions import db
+        from sqlalchemy import func
         assignments = AssignmentService.get_assignments_by_class(class_id, status='active')
+        assignment_ids = [assignment.id for assignment in assignments]
+        attachment_map = AssignmentService.get_attachment_map('assignment', assignment_ids)
+        submission_counts = {
+            assignment_id: total for assignment_id, total in db.session.query(
+                AssignmentSubmission.assignment_id,
+                func.count(AssignmentSubmission.id)
+            ).filter(
+                AssignmentSubmission.assignment_id.in_(assignment_ids)
+            ).group_by(
+                AssignmentSubmission.assignment_id
+            ).all()
+        } if assignment_ids else {}
         
         assignments_data = []
         for a in assignments:
@@ -804,7 +826,9 @@ def get_class_assignments(class_id):
                 'teacher_id': a.teacher_id,
                 'total_points': a.total_points,
                 'assignment_type': a.assignment_type,
-                'status': a.status
+                'status': a.status,
+                'attachments': attachment_map.get(str(a.id), []),
+                'submission_count': int(submission_counts.get(a.id, 0))
             })
             
         return jsonify({
@@ -825,6 +849,7 @@ def get_assignment_submissions(assignment_id):
         from app.models.assignment import Assignment
         from app.models.assignment_submission import AssignmentSubmission
         from app.models.user import User
+        from app.services.assignment_service import AssignmentService
         from app.services.identity_resolver import IdentityResolver
 
         user_id = int(get_jwt_identity())
@@ -848,6 +873,10 @@ def get_assignment_submissions(assignment_id):
             AssignmentSubmission.created_at.desc()
         ).all()
 
+        attachment_map = AssignmentService.get_attachment_map(
+            'assignment_submission',
+            [submission.id for submission in submissions]
+        )
         submissions_data = []
         for submission in submissions:
             student = submission.student
@@ -866,6 +895,7 @@ def get_assignment_submissions(assignment_id):
                 'student_name': student_name,
                 'content': submission.content,
                 'file_path': submission.file_path,
+                'attachments': attachment_map.get(str(submission.id), []),
                 'submission_date': submission.submission_date.isoformat() if submission.submission_date else None,
                 'score': submission.score,
                 'feedback': submission.feedback,

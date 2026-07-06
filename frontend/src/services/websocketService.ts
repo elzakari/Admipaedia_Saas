@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_BASE_URL } from '../config/constants';
+import { buildSocketAuthPayload } from './socketConnectionContext';
 
 // Message handler type
 type SubscriptionHandler = (data: any) => void;
@@ -45,22 +46,19 @@ class WebSocketService {
 
     this.setStatus('connecting');
 
-    // Get token from localStorage
-    const token = localStorage.getItem('token');
-    const tenantId = localStorage.getItem('saas_current_tenant_id');
-    const branchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+    const authPayload = buildSocketAuthPayload();
+    if (!authPayload) {
+      console.info(`Skipping socket connection for ${this.namespace} because no valid auth token is available`);
+      this.setStatus('disconnected');
+      return;
+    }
 
     // Construct full URL
     const url = `${SOCKET_BASE_URL}${this.namespace}`;
 
     this.socket = io(url, {
       path: '/socket.io',
-      auth: {
-        token,
-        tenant_id: tenantId,
-        branch_id: branchId,
-      },
-      query: token ? { token, tenant_id: tenantId, branch_id: branchId } : {},
+      auth: authPayload,
       transports: ['websocket', 'polling'],
       upgrade: true,
       reconnection: true,

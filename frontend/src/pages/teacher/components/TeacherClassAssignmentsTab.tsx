@@ -1,12 +1,20 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Paperclip, X, Calendar, Loader2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Paperclip, X, Calendar, Loader2, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
 import type { TeacherClass } from '../teacherMockData';
 import api from '../../../lib/api';
 import assignmentService, { AssignmentSubmission } from '../../../services/assignmentService';
 
-type Assignment = { id: string; title: string; dueAt: string; instructions: string; attachments?: string[] };
+type AssignmentAttachment = { id: string; filename: string; download_url: string };
+type Assignment = {
+  id: string;
+  title: string;
+  dueAt: string;
+  instructions: string;
+  attachments?: AssignmentAttachment[];
+  submissionCount?: number;
+};
 const assignmentsKey = (classId: string) => `admipaedia.teacher.assignments.v1.${classId}`;
 
 export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
@@ -14,7 +22,17 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
     try {
       const raw = localStorage.getItem(assignmentsKey(cls.id));
       if (!raw) return [];
-      return JSON.parse(raw) as Assignment[];
+      const parsed = JSON.parse(raw) as any[];
+      return parsed.map((item) => ({
+        ...item,
+        attachments: Array.isArray(item.attachments)
+          ? item.attachments.map((attachment: any, index: number) => (
+              typeof attachment === 'string'
+                ? { id: `legacy-${index}`, filename: attachment, download_url: '' }
+                : attachment
+            ))
+          : [],
+      }));
     } catch {
       return [];
     }
@@ -33,6 +51,7 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
   const [expandedAssignmentId, setExpandedAssignmentId] = useState<string | null>(null);
   const [loadingSubmissionsFor, setLoadingSubmissionsFor] = useState<string | null>(null);
   const [submissionsByAssignment, setSubmissionsByAssignment] = useState<Record<string, AssignmentSubmission[]>>({});
+  const [gradeDrafts, setGradeDrafts] = useState<Record<number, { score: string; feedback: string; saving?: boolean }>>({});
 
   useEffect(() => {
     let active = true;
@@ -53,7 +72,9 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
             id: a.id.toString(),
             title: a.title,
             dueAt: (a.due_date || '').slice(0, 10),
-            instructions: a.description || a.instructions || ''
+            instructions: a.description || a.instructions || '',
+            attachments: Array.isArray(a.attachments) ? a.attachments : [],
+            submissionCount: Number(a.submission_count || 0),
           }));
           setAssignments(loadedAssignments.length > 0 ? loadedAssignments : loadAssignments());
           setSubjects(subjectsList);
@@ -91,23 +112,25 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
     setCreating(true);
     setApiError(null);
     try {
-      const payload: any = {
-        title: newTitle.trim(),
-        instructions: newInstructions.trim(),
-        description: newInstructions.trim(),
-        due_date: newDue,
-        dueAt: newDue,
-        class_id: parseInt(cls.id),
-        total_points: 100,
-        total_marks: 100,
-        assignment_type: 'homework',
-        status: 'active'
-      };
+      const payload = new FormData();
+      payload.append('title', newTitle.trim());
+      payload.append('instructions', newInstructions.trim());
+      payload.append('description', newInstructions.trim());
+      payload.append('due_date', newDue);
+      payload.append('dueAt', newDue);
+      payload.append('class_id', cls.id);
+      payload.append('total_points', '100');
+      payload.append('total_marks', '100');
+      payload.append('assignment_type', 'homework');
+      payload.append('status', 'active');
       if (selectedSubjectId) {
-        payload.subject_id = selectedSubjectId;
+        payload.append('subject_id', String(selectedSubjectId));
       }
+      attachments.forEach((file) => payload.append('attachments', file));
 
-      const response = await api.post(`/classes/${cls.id}/assignments`, payload);
+      const response = await api.post(`/classes/${cls.id}/assignments`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       
       if (response.status === 201) {
         const created = response.data?.assignment;
@@ -117,7 +140,8 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
             title: created.title,
             dueAt: (created.due_date || '').slice(0, 10),
             instructions: created.description || created.instructions || '',
-            attachments: attachments.map(f => f.name)
+            attachments: Array.isArray(created.attachments) ? created.attachments : [],
+            submissionCount: Number(created.submission_count || 0),
           };
           const next = [a, ...assignments];
           setAssignments(next);
@@ -159,11 +183,89 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
         ...prev,
         [assignmentId]: Array.isArray(submissions) ? submissions : [],
       }));
+      setAssignments((prev) => prev.map((assignment) => (
+        assignment.id === assignmentId
+          ? { ...assignment, submissionCount: Array.isArray(submissions) ? submissions.length : 0 }
+          : assignment
+      )));
     } catch (error) {
       console.error(`Failed to load submissions for assignment ${assignmentId}`, error);
       setApiError('Failed to load student submissions for this assignment.');
     } finally {
       setLoadingSubmissionsFor(null);
+    }
+  };
+
+  const handleDownload = async (downloadUrl: string, filename: string) => {
+    try {
+      const blob = await assignmentService.downloadAttachment(downloadUrl);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download assignment attachment', error);
+      setApiError(`Failed to download ${filename}.`);
+    }
+  };
+
+  const updateGradeDraft = (submissionId: number, patch: Partial<{ score: string; feedback: string; saving: boolean }>) => {
+    setGradeDrafts((prev) => ({
+      ...prev,
+      [submissionId]: {
+        score: prev[submissionId]?.score ?? '',
+        feedback: prev[submissionId]?.feedback ?? '',
+        ...prev[submissionId],
+        ...patch,
+      },
+    }));
+  };
+
+  const handleGradeSubmission = async (assignmentId: string, submission: AssignmentSubmission) => {
+    const draft = gradeDrafts[submission.id];
+    const scoreValue = draft?.score ?? (submission.score != null ? String(submission.score) : '');
+    const feedbackValue = draft?.feedback ?? submission.feedback ?? '';
+
+    if (!scoreValue.trim()) {
+      setApiError('A score is required before grading a submission.');
+      return;
+    }
+
+    try {
+      updateGradeDraft(submission.id, { saving: true });
+      const response = await assignmentService.gradeSubmission(submission.id, {
+        score: Number(scoreValue),
+        feedback: feedbackValue,
+      });
+      const updatedSubmission = response?.data || response?.submission || response;
+      setSubmissionsByAssignment((prev) => ({
+        ...prev,
+        [assignmentId]: (prev[assignmentId] || []).map((item) => (
+          item.id === submission.id
+            ? {
+                ...item,
+                ...updatedSubmission,
+                score: updatedSubmission?.score ?? Number(scoreValue),
+                grade: updatedSubmission?.score ?? Number(scoreValue),
+                feedback: updatedSubmission?.feedback ?? feedbackValue,
+                status: updatedSubmission?.status ?? 'graded',
+              }
+            : item
+        )),
+      }));
+      updateGradeDraft(submission.id, {
+        score: String(updatedSubmission?.score ?? scoreValue),
+        feedback: updatedSubmission?.feedback ?? feedbackValue,
+        saving: false,
+      });
+    } catch (error) {
+      console.error(`Failed to grade submission ${submission.id}`, error);
+      updateGradeDraft(submission.id, { saving: false });
+      setApiError('Failed to grade this submission.');
     }
   };
 
@@ -274,7 +376,7 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
                 <div>
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {submissionsByAssignment[a.id]?.length ?? 0} submission(s)
+                    {a.submissionCount ?? submissionsByAssignment[a.id]?.length ?? 0} submission(s)
                   </div>
                 </div>
                 <div className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded font-medium">Due {a.dueAt}</div>
@@ -284,10 +386,15 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
               {a.attachments && a.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                   {a.attachments.map((name, idx) => (
-                    <div key={idx} className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 rounded border border-slate-250 dark:border-slate-700">
+                    <button
+                      type="button"
+                      key={name.id || idx}
+                      onClick={() => handleDownload(name.download_url, name.filename)}
+                      className="flex items-center gap-1 px-2.5 py-0.5 bg-slate-50 dark:bg-slate-800 text-xs text-slate-500 rounded border border-slate-250 dark:border-slate-700 hover:text-violet-600"
+                    >
                       <Paperclip className="w-3 h-3 text-slate-400" />
-                      <span>{name}</span>
-                    </div>
+                      <span>{name.filename}</span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -352,11 +459,58 @@ export function TeacherClassAssignmentsTab({ cls }: { cls: TeacherClass }) {
                           </div>
                         ) : null}
 
+                        {submission.attachments && submission.attachments.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {submission.attachments.map((attachment) => (
+                              <button
+                                type="button"
+                                key={attachment.id}
+                                onClick={() => handleDownload(attachment.download_url, attachment.filename)}
+                                className="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-violet-600"
+                              >
+                                <Download className="w-3 h-3" />
+                                {attachment.filename}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+
                         {submission.feedback ? (
                           <div className="text-xs text-slate-500 border-t border-slate-200 dark:border-slate-700 pt-2">
                             Feedback: {submission.feedback}
                           </div>
                         ) : null}
+
+                        <div className="grid gap-2 border-t border-slate-200 dark:border-slate-700 pt-3">
+                          <div className="grid gap-2 sm:grid-cols-[140px_1fr] sm:items-start">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Score"
+                              value={gradeDrafts[submission.id]?.score ?? (submission.score != null ? String(submission.score) : '')}
+                              onChange={(e) => updateGradeDraft(submission.id, { score: e.target.value })}
+                              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                            />
+                            <textarea
+                              rows={3}
+                              placeholder="Feedback for the student"
+                              value={gradeDrafts[submission.id]?.feedback ?? submission.feedback ?? ''}
+                              onChange={(e) => updateGradeDraft(submission.id, { feedback: e.target.value })}
+                              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              onClick={() => handleGradeSubmission(a.id, submission)}
+                              disabled={gradeDrafts[submission.id]?.saving}
+                              className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white"
+                            >
+                              {gradeDrafts[submission.id]?.saving ? 'Saving…' : 'Save grade'}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ))
                   )}

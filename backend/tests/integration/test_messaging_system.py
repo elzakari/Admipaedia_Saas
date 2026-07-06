@@ -15,6 +15,7 @@ Test Coverage:
 - Performance and concurrency testing
 """
 
+import io
 import pytest
 import json
 from datetime import datetime, date, timedelta
@@ -1676,6 +1677,139 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert payload['submissions'][0]['student_id'] == student.id
         assert payload['submissions'][0]['student_name'] is not None
         assert payload['submissions'][0]['file_path'] == '/uploads/lab-notes.pdf'
+
+    def test_assignment_attachments_flow_visible_to_student_teacher_and_parent(self, client, db_session, sample_tenant, sample_class, sample_teacher):
+        from flask_jwt_extended import create_access_token
+        from tests.test_production_integration import (
+            create_test_membership,
+            create_test_parent,
+            create_test_student,
+        )
+        from app.models.subject import Subject
+        from app.models.class_ import ClassTeacherMapping
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.models.attachment import Attachment
+
+        teacher_user = sample_teacher.user
+        create_test_membership(db_session, sample_tenant.id, teacher_user.id, 'teacher')
+
+        parent_user = User(username='p_assignment_flow', email='parent.assignment.flow@example.com', role='parent')
+        parent_user.set_password('Password123!')
+        db_session.add(parent_user)
+        db_session.flush()
+        parent = create_test_parent(db_session, parent_user, sample_tenant.id)
+        create_test_membership(db_session, sample_tenant.id, parent_user.id, 'parent')
+
+        student_user = User(username='s_assignment_flow', email='student.assignment.flow@example.com', role='student')
+        student_user.set_password('Password123!')
+        db_session.add(student_user)
+        db_session.flush()
+        student = create_test_student(db_session, student_user, sample_tenant.id)
+        student.class_id = sample_class.id
+        student.parent_id = parent.id
+        create_test_membership(db_session, sample_tenant.id, student_user.id, 'student')
+
+        subject = Subject(name='Integrated Science', code='INT-SCI', tenant_id=sample_tenant.id)
+        db_session.add(subject)
+        db_session.flush()
+
+        if not ClassTeacherMapping.query.filter_by(class_id=sample_class.id, teacher_id=teacher_user.id).first():
+            db_session.add(ClassTeacherMapping(class_id=sample_class.id, teacher_id=teacher_user.id))
+
+        db_session.commit()
+
+        teacher_headers = {
+            'Authorization': f'Bearer {create_access_token(identity=teacher_user.id)}',
+            'X-Tenant-ID': str(sample_tenant.id),
+        }
+        student_headers = {
+            'Authorization': f'Bearer {create_access_token(identity=student_user.id)}',
+            'X-Tenant-ID': str(sample_tenant.id),
+        }
+        parent_headers = {
+            'Authorization': f'Bearer {create_access_token(identity=parent_user.id)}',
+            'X-Tenant-ID': str(sample_tenant.id),
+        }
+
+        uploaded_paths = []
+
+        def fake_upload_resource_file(file_obj, resource_id=None):
+            safe_name = file_obj.filename.replace(' ', '_')
+            stored_path = f'uploads/resources/{resource_id}_{safe_name}'
+            uploaded_paths.append(stored_path)
+            return stored_path, None
+
+        with patch('app.services.assignment_service.FileUtils.upload_resource_file', side_effect=fake_upload_resource_file):
+            create_response = client.post(
+                f'/api/v1/classes/{sample_class.id}/assignments',
+                headers=teacher_headers,
+                data={
+                    'title': 'Attachment Visibility Homework',
+                    'description': 'Review the attached worksheet and submit your answer sheet.',
+                    'due_date': '2026-12-31',
+                    'subject_id': str(subject.id),
+                    'total_points': '100',
+                    'assignment_type': 'homework',
+                    'attachments': (io.BytesIO(b'teacher worksheet'), 'worksheet.pdf'),
+                },
+                content_type='multipart/form-data',
+            )
+
+            assert create_response.status_code == 201
+            created_payload = create_response.get_json()
+            assignment_id = created_payload['assignment']['id']
+            assert created_payload['assignment']['attachments'][0]['filename'] == 'worksheet.pdf'
+
+            student_list_response = client.get('/api/v1/student/assignments', headers=student_headers)
+            assert student_list_response.status_code == 200
+            student_assignments = student_list_response.get_json()['assignments']
+            matching_assignment = next(item for item in student_assignments if item['id'] == assignment_id)
+            assert matching_assignment['attachments'][0]['filename'] == 'worksheet.pdf'
+
+            submit_response = client.post(
+                f'/api/v1/student/assignments/{assignment_id}/submit',
+                headers=student_headers,
+                data={
+                    'content': 'Please find my completed answer sheet attached.',
+                    'file': (io.BytesIO(b'student answer sheet'), 'answers.docx'),
+                },
+                content_type='multipart/form-data',
+            )
+
+            assert submit_response.status_code == 201
+            submit_payload = submit_response.get_json()
+            assert submit_payload['submission']['attachments'][0]['filename'] == 'answers.docx'
+            assert submit_payload['submission']['file_path'].endswith('answers.docx')
+
+        submission = AssignmentSubmission.query.get(submit_payload['submission']['id'])
+        assert submission is not None
+
+        teacher_submissions_response = client.get(
+            f'/api/v1/classes/assignments/{assignment_id}/submissions',
+            headers=teacher_headers,
+        )
+        assert teacher_submissions_response.status_code == 200
+        teacher_submissions_payload = teacher_submissions_response.get_json()
+        assert len(teacher_submissions_payload['submissions']) == 1
+        assert teacher_submissions_payload['submissions'][0]['attachments'][0]['filename'] == 'answers.docx'
+
+        parent_homework_response = client.get(
+            f'/api/v1/parents/children/{student.id}/homework',
+            headers=parent_headers,
+        )
+        assert parent_homework_response.status_code == 200
+        parent_homework_payload = parent_homework_response.get_json()
+        homework_item = next(item for item in parent_homework_payload['data']['homework'] if item['id'] == assignment_id)
+        assert homework_item['status'] == 'submitted'
+        assert homework_item['attachments'][0]['filename'] == 'worksheet.pdf'
+        assert homework_item['submission_attachments'][0]['filename'] == 'answers.docx'
+
+        saved_attachments = Attachment.query.filter(
+            Attachment.entity_type.in_(['assignment', 'assignment_submission'])
+        ).order_by(Attachment.created_at.asc()).all()
+        assert len(saved_attachments) >= 2
+        assert uploaded_paths[0].endswith('worksheet.pdf')
+        assert uploaded_paths[1].endswith('answers.docx')
 
     def test_teacher_can_create_school_based_assessment_from_legacy_payload(self, client, db_session, sample_tenant, sample_class, sample_teacher):
         from flask_jwt_extended import create_access_token

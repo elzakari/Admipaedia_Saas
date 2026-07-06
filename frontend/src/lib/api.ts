@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/constants';
 import performanceRegistry from '../services/performanceRegistry';
+import { normalizeStoredContextValue } from '../services/socketConnectionContext';
 
 // Create an axios instance
 const base = (API_BASE_URL || '').replace(/\/+$/, '');
@@ -26,20 +27,23 @@ api.interceptors.request.use(
     // Performance tracking: start time
     (config as any).metadata = { startTime: performance.now() };
 
-    const token =
+    const token = normalizeStoredContextValue(
       localStorage.getItem('token') ||
       localStorage.getItem('access_token') ||
-      localStorage.getItem('accessToken');
+      localStorage.getItem('accessToken')
+    );
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const tenantId = localStorage.getItem('saas_current_tenant_id');
+    const tenantId = normalizeStoredContextValue(localStorage.getItem('saas_current_tenant_id'));
     if (tenantId) {
       config.headers['X-Tenant-ID'] = tenantId;
     }
 
-    const activeBranchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+    const activeBranchId = normalizeStoredContextValue(
+      localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id')
+    );
     if (activeBranchId) {
       config.headers['X-Active-Branch-ID'] = activeBranchId;
       config.headers['X-Branch-ID'] = activeBranchId;

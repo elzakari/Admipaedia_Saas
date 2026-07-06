@@ -15,9 +15,19 @@ export interface Assignment {
   assignment_type: 'homework' | 'project' | 'quiz' | 'exam';
   status: 'draft' | 'published' | 'closed';
   instructions?: string;
-  attachments?: string[];
+  attachments?: AttachmentInfo[];
+  submission_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface AttachmentInfo {
+  id: string;
+  filename: string;
+  download_url: string;
+  mime_type?: string | null;
+  size?: number | null;
+  created_at?: string | null;
 }
 
 export interface AssignmentCreate {
@@ -47,7 +57,7 @@ export interface Submission {
   student_id: number;
   student_name?: string;
   content: string;
-  attachments?: string[];
+  attachments?: AttachmentInfo[];
   file_path?: string;
   submission_date: string;
   submitted_at: string;
@@ -152,15 +162,9 @@ const assignmentService = {
       const rawSubmissions = (response.data?.data || response.data?.submissions || response.data || []) as any[];
       return rawSubmissions.map((submission) => {
         const submittedAt = submission.submission_date || submission.submitted_at || '';
-        const attachments = Array.isArray(submission.attachments)
-          ? submission.attachments
-          : submission.file_path
-            ? [submission.file_path]
-            : [];
-
         return {
           ...submission,
-          attachments,
+          attachments: Array.isArray(submission.attachments) ? submission.attachments : [],
           submission_date: submittedAt,
           submitted_at: submittedAt,
           score: submission.score ?? submission.grade,
@@ -181,6 +185,12 @@ const assignmentService = {
       console.error(`Error grading submission ${submissionId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
     }
+  },
+
+  downloadAttachment: async (downloadUrl: string): Promise<Blob> => {
+    const relativeUrl = downloadUrl.startsWith('/api/v1') ? downloadUrl.replace('/api/v1', '') : downloadUrl;
+    const response = await api.get(relativeUrl, { responseType: 'blob' });
+    return response.data as Blob;
   },
 };
 

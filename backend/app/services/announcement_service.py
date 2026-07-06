@@ -1,9 +1,12 @@
 import structlog
+import uuid
 from app.extensions import db, socketio
 from app.models.announcement import Announcement
 from app.models.class_ import Class
+from app.models.tenant import TenantMembership
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import and_, false, or_
 
 logger = structlog.get_logger()
 
@@ -20,6 +23,11 @@ ROLE_ALIASES = {
 
 class AnnouncementService:
     """Service for announcement-related operations."""
+
+    @staticmethod
+    def normalize_scope(scope):
+        value = str(scope or 'global').strip().lower()
+        return value if value in ('global', 'class_bound') else 'global'
 
     @staticmethod
     def normalize_target_roles(target_roles):
@@ -54,6 +62,58 @@ class AnnouncementService:
         if len(normalized) == 1:
             return normalized[0]
         return 'selected'
+
+    @staticmethod
+    def normalize_tenant_id(tenant_id):
+        if tenant_id in (None, ''):
+            return None
+        if isinstance(tenant_id, uuid.UUID):
+            return tenant_id
+        try:
+            return uuid.UUID(str(tenant_id))
+        except Exception:
+            return None
+
+    @staticmethod
+    def build_tenant_filter(tenant_id):
+        normalized_tenant_id = AnnouncementService.normalize_tenant_id(tenant_id)
+        if not normalized_tenant_id:
+            return None
+
+        return or_(
+            Announcement.tenant_id == normalized_tenant_id,
+            and_(Announcement.tenant_id.is_(None), Class.tenant_id == normalized_tenant_id)
+        )
+
+    @staticmethod
+    def prepare_announcement_payload(announcement_data):
+        payload = dict(announcement_data or {})
+        scope = AnnouncementService.normalize_scope(payload.get('scope'))
+        payload['scope'] = scope
+        payload['target_roles'] = AnnouncementService.serialize_target_roles(payload.get('target_roles'))
+        payload['recipients'] = AnnouncementService.derive_recipients(payload.get('target_roles'))
+
+        if scope == 'class_bound':
+            class_obj = Class.query.get(payload.get('class_id'))
+            if not class_obj:
+                return None, "Class not found"
+
+            expected_tenant_id = AnnouncementService.normalize_tenant_id(getattr(class_obj, 'tenant_id', None))
+            provided_tenant_id = AnnouncementService.normalize_tenant_id(payload.get('tenant_id'))
+            if provided_tenant_id and expected_tenant_id and provided_tenant_id != expected_tenant_id:
+                return None, "Class does not belong to the active tenant context"
+
+            payload['class_id'] = class_obj.id
+            payload['tenant_id'] = expected_tenant_id
+            return payload, None
+
+        tenant_id = AnnouncementService.normalize_tenant_id(payload.get('tenant_id'))
+        if not tenant_id:
+            return None, "Tenant context is required for global announcements"
+
+        payload['tenant_id'] = tenant_id
+        payload['class_id'] = None
+        return payload, None
 
     @staticmethod
     def announcement_targets_role(announcement, role_key):
@@ -95,29 +155,22 @@ class AnnouncementService:
             tuple: (Announcement object or None, error message or None)
         """
         try:
-            # Check if class exists
-            class_obj = Class.query.get(announcement_data['class_id'])
-            if not class_obj:
-                return None, "Class not found"
-            
-            announcement_data['target_roles'] = AnnouncementService.serialize_target_roles(
-                announcement_data.get('target_roles')
-            )
-            announcement_data['recipients'] = AnnouncementService.derive_recipients(
-                announcement_data.get('target_roles')
-            )
+            prepared_payload, error = AnnouncementService.prepare_announcement_payload(announcement_data)
+            if error:
+                return None, error
 
-            new_announcement = Announcement(**announcement_data)
+            new_announcement = Announcement(**prepared_payload)
             db.session.add(new_announcement)
             db.session.flush()
             
-            # Execute durable fanout in the same transaction
-            from app.services.fanout import execute_durable_audience_fanout
-            execute_durable_audience_fanout(
-                class_id=new_announcement.class_id,
-                title=new_announcement.title,
-                message=new_announcement.content
-            )
+            if new_announcement.class_id:
+                # Execute durable fanout in the same transaction for class-bound announcements.
+                from app.services.fanout import execute_durable_audience_fanout
+                execute_durable_audience_fanout(
+                    class_id=new_announcement.class_id,
+                    title=new_announcement.title,
+                    message=new_announcement.content
+                )
             
             db.session.commit()
             logger.info("Announcement created", announcement_id=new_announcement.id, class_id=new_announcement.class_id)
@@ -184,13 +237,32 @@ class AnnouncementService:
             if not announcement:
                 return None, "Announcement not found"
 
-            if 'target_roles' in announcement_data:
-                announcement_data['target_roles'] = AnnouncementService.serialize_target_roles(
-                    announcement_data.get('target_roles')
-                )
-                announcement_data['recipients'] = AnnouncementService.derive_recipients(
-                    announcement_data.get('target_roles')
-                )
+            merged_payload = {
+                'title': announcement.title,
+                'content': announcement.content,
+                'scope': announcement.scope or ('class_bound' if announcement.class_id else 'global'),
+                'tenant_id': announcement.tenant_id,
+                'class_id': announcement.class_id,
+                'teacher_id': announcement.teacher_id,
+                'send_email': announcement.send_email,
+                'scheduled_date': announcement.scheduled_date,
+                'target_roles': announcement_data.get('target_roles', announcement.target_roles),
+                'is_published': announcement_data.get('is_published', announcement.is_published),
+            }
+            merged_payload.update(announcement_data)
+
+            prepared_payload, error = AnnouncementService.prepare_announcement_payload(merged_payload)
+            if error:
+                return None, error
+
+            announcement_data = {
+                **announcement_data,
+                'scope': prepared_payload['scope'],
+                'tenant_id': prepared_payload['tenant_id'],
+                'class_id': prepared_payload.get('class_id'),
+                'target_roles': prepared_payload['target_roles'],
+                'recipients': prepared_payload['recipients'],
+            }
 
             for key, value in announcement_data.items():
                 setattr(announcement, key, value)
@@ -261,7 +333,7 @@ class AnnouncementService:
             return False, str(e)
     
     @staticmethod
-    def get_announcements_for_user(user_id, page=1, per_page=10):
+    def get_announcements_for_user(user_id, page=1, per_page=10, tenant_id=None):
         """Get announcements relevant to a specific user.
         
         This method fetches announcements based on user's role and classes.
@@ -276,8 +348,8 @@ class AnnouncementService:
             if not user:
                 return [], 0
                 
-            # Base query for announcements
-            query = Announcement.query
+            requested_tenant_id = AnnouncementService.normalize_tenant_id(tenant_id)
+            query = Announcement.query.outerjoin(Class, Announcement.class_id == Class.id)
 
             now = datetime.utcnow()
             
@@ -285,29 +357,63 @@ class AnnouncementService:
             if user.role == 'student':
                 student = Student.query.filter_by(user_id=user_id).first()
                 if student:
-                    # Get announcements for student's class
+                    effective_tenant_id = requested_tenant_id or AnnouncementService.normalize_tenant_id(student.tenant_id)
+                    tenant_filter = AnnouncementService.build_tenant_filter(effective_tenant_id)
+                    if tenant_filter is not None:
+                        query = query.filter(tenant_filter)
+
                     query = query.filter(
-                        (Announcement.class_id == student.class_id) &
-                        (Announcement.recipients.in_(['all', 'students']))
+                        or_(
+                            Announcement.scope == 'global',
+                            Announcement.class_id == student.class_id,
+                        )
                     )
             elif user.role == 'parent':
                 parent = Parent.query.filter_by(user_id=user_id).first()
                 if parent:
-                    # Get announcements for parent's children classes
                     student_ids = [student.id for student in parent.children]
                     students = Student.query.filter(Student.id.in_(student_ids)).all() if student_ids else []
                     class_ids = [student.class_id for student in students if student.class_id]
+                    effective_tenant_id = requested_tenant_id or (
+                        AnnouncementService.normalize_tenant_id(students[0].tenant_id) if students else None
+                    )
+                    tenant_filter = AnnouncementService.build_tenant_filter(effective_tenant_id)
+                    if tenant_filter is not None:
+                        query = query.filter(tenant_filter)
                     query = query.filter(
-                        (Announcement.class_id.in_(class_ids)) &
-                        (Announcement.recipients.in_(['all', 'parents']))
+                        or_(
+                            Announcement.scope == 'global',
+                            Announcement.class_id.in_(class_ids) if class_ids else false(),
+                        )
                     )
             elif user.role == 'teacher':
+                teacher = Teacher.query.filter_by(user_id=user_id).first()
                 from app.services.identity_resolver import IdentityResolver
                 class_ids = IdentityResolver.resolve_teacher_class_ids(user_id)
-                query = query.filter(Announcement.class_id.in_(class_ids))
+                effective_tenant_id = requested_tenant_id or AnnouncementService.normalize_tenant_id(getattr(teacher, 'tenant_id', None))
+                tenant_filter = AnnouncementService.build_tenant_filter(effective_tenant_id)
+                if tenant_filter is not None:
+                    query = query.filter(tenant_filter)
+                query = query.filter(
+                    or_(
+                        Announcement.scope == 'global',
+                        Announcement.class_id.in_(class_ids) if class_ids else false(),
+                    )
+                )
             elif user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
-                # Admins can see all announcements
-                pass
+                effective_tenant_ids = []
+                if requested_tenant_id:
+                    effective_tenant_ids = [requested_tenant_id]
+                else:
+                    memberships = TenantMembership.query.filter_by(user_id=user.id, status='active').all()
+                    effective_tenant_ids = [AnnouncementService.normalize_tenant_id(membership.tenant_id) for membership in memberships]
+
+                effective_tenant_ids = [tenant for tenant in effective_tenant_ids if tenant]
+                if effective_tenant_ids:
+                    tenant_filters = [AnnouncementService.build_tenant_filter(tenant) for tenant in effective_tenant_ids]
+                    tenant_filters = [tenant_filter for tenant_filter in tenant_filters if tenant_filter is not None]
+                    if tenant_filters:
+                        query = query.filter(or_(*tenant_filters))
             else:
                 return [], 0
                 

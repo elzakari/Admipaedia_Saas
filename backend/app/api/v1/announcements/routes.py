@@ -5,9 +5,11 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.v1.announcements import announcements_bp
 from app.services.announcement_service import AnnouncementService
 from app.utils.auth_utils import teacher_required
+from app.utils.tenant_context import resolve_tenant_for_request
 from marshmallow import ValidationError
 from app.models.user import User
 from app.models.teacher import Teacher
+from app.models.class_ import Class as ClassModel
 from datetime import datetime
 
 @announcements_bp.route('', methods=['POST'])
@@ -20,11 +22,14 @@ def create_announcement():
 
         title = (data.get('title') or '').strip()
         content = (data.get('content') or '').strip()
-        class_id = data.get('class_id')
+        scope = AnnouncementService.normalize_scope(data.get('scope'))
+        class_id = data.get('class_id') if scope == 'class_bound' else None
         send_email = bool(data.get('send_email', False))
 
-        if not title or not content or not class_id:
-            return jsonify({'success': False, 'message': 'title, content and class_id are required'}), 400
+        if not title or not content:
+            return jsonify({'success': False, 'message': 'title and content are required'}), 400
+        if scope == 'class_bound' and not class_id:
+            return jsonify({'success': False, 'message': 'class_id is required when scope is class_bound'}), 400
 
         scheduled_date = None
         scheduled_date_raw = data.get('scheduled_date')
@@ -43,6 +48,20 @@ def create_announcement():
         else:
             target_roles = ['all']
 
+        tenant_id, request_user, tenant_error = resolve_tenant_for_request(require_explicit=False)
+        if tenant_error and scope == 'global':
+            return jsonify({'success': False, 'message': tenant_error}), 403
+
+        tenant_id = AnnouncementService.normalize_tenant_id(tenant_id)
+        if scope == 'class_bound' and class_id:
+            class_obj = ClassModel.query.get(class_id)
+            if not class_obj:
+                return jsonify({'success': False, 'message': 'Class not found'}), 404
+            class_tenant_id = AnnouncementService.normalize_tenant_id(getattr(class_obj, 'tenant_id', None))
+            if tenant_id and class_tenant_id and tenant_id != class_tenant_id:
+                return jsonify({'success': False, 'message': 'Selected class is outside the active tenant context'}), 403
+            tenant_id = class_tenant_id
+
         user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if not user:
@@ -55,16 +74,16 @@ def create_announcement():
                 return jsonify({'success': False, 'message': 'Teacher record not found'}), 403
             teacher_id = teacher.id
 
-            from app.services.identity_resolver import IdentityResolver
-            is_assigned = IdentityResolver.can_user_access_class(user_id, class_id)
-            current_app.logger.info(f"Announcement permission check: user_id={user_id}, teacher_id={teacher.id}, class_id={class_id}, is_assigned={is_assigned}")
-            if not is_assigned:
-                return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
+            if scope == 'class_bound':
+                from app.services.identity_resolver import IdentityResolver
+                is_assigned = IdentityResolver.can_user_access_class(user_id, class_id)
+                current_app.logger.info(f"Announcement permission check: user_id={user_id}, teacher_id={teacher.id}, class_id={class_id}, is_assigned={is_assigned}")
+                if not is_assigned:
+                    return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
 
         if teacher_id is None:
             try:
-                from app.models.class_ import Class as ClassModel
-                class_obj = ClassModel.query.get(class_id)
+                class_obj = ClassModel.query.get(class_id) if class_id else None
                 teacher_id = getattr(class_obj, 'teacher_id', None)
             except Exception:
                 teacher_id = None
@@ -72,6 +91,8 @@ def create_announcement():
         announcement_data = {
             'title': title,
             'content': content,
+            'scope': scope,
+            'tenant_id': tenant_id,
             'class_id': class_id,
             'teacher_id': teacher_id,
             'send_email': send_email,
@@ -108,11 +129,15 @@ def get_announcements():
         user_id = get_jwt_identity()
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
+        tenant_id, _, tenant_error = resolve_tenant_for_request(require_explicit=False)
+        if tenant_error:
+            tenant_id = None
         
         announcements, total = AnnouncementService.get_announcements_for_user(
             user_id=user_id,
             page=page,
-            per_page=per_page
+            per_page=per_page,
+            tenant_id=tenant_id,
         )
         
         return jsonify({
@@ -150,7 +175,7 @@ def update_announcement(announcement_id):
 
         data = request.get_json() or {}
         updates = {}
-        for key in ('title', 'content', 'send_email', 'is_published', 'target_roles', 'scheduled_date'):
+        for key in ('title', 'content', 'send_email', 'is_published', 'target_roles', 'scheduled_date', 'scope', 'class_id'):
             if key in data:
                 updates[key] = data.get(key)
 
@@ -181,6 +206,18 @@ def update_announcement(announcement_id):
                 updates['target_roles'] = [item.strip().lower() for item in tr.split(',') if item.strip()]
             else:
                 updates['target_roles'] = ['all']
+
+        if 'scope' in updates:
+            updates['scope'] = AnnouncementService.normalize_scope(updates.get('scope'))
+
+        if updates.get('scope') == 'global':
+            updates['class_id'] = None
+
+        tenant_id, _, tenant_error = resolve_tenant_for_request(require_explicit=False)
+        if tenant_error:
+            tenant_id = None
+        if tenant_id:
+            updates['tenant_id'] = AnnouncementService.normalize_tenant_id(tenant_id)
 
         if user.role in ('admin', 'super_admin', 'superadmin', 'super_manager'):
             announcement, err = AnnouncementService.update_announcement_admin(announcement_id, updates)

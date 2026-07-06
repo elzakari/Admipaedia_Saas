@@ -120,17 +120,50 @@ def _ensure_announcements_schema():
                 statements.append("ALTER TABLE announcements ADD COLUMN scheduled_date DATETIME")
             if 'is_published' not in existing:
                 statements.append("ALTER TABLE announcements ADD COLUMN is_published BOOLEAN DEFAULT 1")
+            if 'scope' not in existing:
+                statements.append("ALTER TABLE announcements ADD COLUMN scope VARCHAR(20) DEFAULT 'class_bound'")
+            if 'tenant_id' not in existing:
+                statements.append("ALTER TABLE announcements ADD COLUMN tenant_id VARCHAR(36)")
             for stmt in statements:
                 try:
                     db.session.execute(text(stmt))
                 except Exception:
                     pass
             if statements:
+                try:
+                    db.session.execute(text(
+                        "UPDATE announcements "
+                        "SET scope = COALESCE(scope, 'class_bound') "
+                        "WHERE scope IS NULL OR scope = ''"
+                    ))
+                except Exception:
+                    pass
+                try:
+                    db.session.execute(text(
+                        "UPDATE announcements "
+                        "SET tenant_id = (SELECT classes.tenant_id FROM classes WHERE classes.id = announcements.class_id) "
+                        "WHERE tenant_id IS NULL AND class_id IS NOT NULL"
+                    ))
+                except Exception:
+                    pass
                 db.session.commit()
         else:
             db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_roles VARCHAR(255)"))
             db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scheduled_date TIMESTAMP"))
             db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE"))
+            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scope VARCHAR(20) DEFAULT 'class_bound'"))
+            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS tenant_id UUID"))
+            db.session.execute(text(
+                "UPDATE announcements "
+                "SET scope = COALESCE(scope, 'class_bound') "
+                "WHERE scope IS NULL OR scope = ''"
+            ))
+            db.session.execute(text(
+                "UPDATE announcements a "
+                "SET tenant_id = c.tenant_id "
+                "FROM classes c "
+                "WHERE a.tenant_id IS NULL AND a.class_id = c.id"
+            ))
             db.session.commit()
     except Exception:
         try:

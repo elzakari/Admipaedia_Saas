@@ -195,11 +195,15 @@ def get_student_assignments():
 
     status_filter = request.args.get('status', 'all')
     
+    from app.services.assignment_service import AssignmentService
+
     # Query all active assignments for class
     assignments = Assignment.query.filter_by(class_id=class_id, status='active').all()
     # Query all submissions by this student
     submissions = AssignmentSubmission.query.filter_by(student_id=student.id).all()
     submission_map = {sub.assignment_id: sub for sub in submissions}
+    assignment_attachment_map = AssignmentService.get_attachment_map('assignment', [a.id for a in assignments])
+    submission_attachment_map = AssignmentService.get_attachment_map('assignment_submission', [sub.id for sub in submissions])
     
     now = datetime.utcnow()
     assignments_data = []
@@ -245,7 +249,11 @@ def get_student_assignments():
             'status': status,
             'score': score,
             'max_points': a.total_points,
-            'feedback': feedback
+            'feedback': feedback,
+            'attachments': assignment_attachment_map.get(str(a.id), []),
+            'submission_date': sub.submission_date.isoformat() if sub and sub.submission_date else None,
+            'submission_attachments': submission_attachment_map.get(str(sub.id), []) if sub else [],
+            'submitted_file_path': sub.file_path if sub else None
         })
 
     # Sort assignments by due date ascending
@@ -754,9 +762,14 @@ def submit_student_assignment(assignment_id):
     if assignment.class_id != student.class_id:
         return jsonify({'success': False, 'message': 'Insufficient permissions for this class context'}), 403
         
-    data = request.json or {}
+    data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
     content = data.get('content')
     file_path = data.get('file_path')
+    uploaded_files = []
+    if request.files:
+        if request.files.get('file'):
+            uploaded_files.append(request.files['file'])
+        uploaded_files.extend(request.files.getlist('attachments'))
     
     from app.services.assignment_service import AssignmentService
     submission, error = AssignmentService.submit_assignment({
@@ -765,7 +778,7 @@ def submit_student_assignment(assignment_id):
         'content': content,
         'file_path': file_path,
         'status': 'submitted'
-    })
+    }, attachments=uploaded_files, uploader_id=int(user_id), tenant_id=getattr(student, 'tenant_id', None))
     
     if error:
         return jsonify({'success': False, 'message': error}), 400
@@ -777,7 +790,9 @@ def submit_student_assignment(assignment_id):
             'id': submission.id,
             'assignment_id': submission.assignment_id,
             'student_id': submission.student_id,
-            'status': submission.status
+            'status': submission.status,
+            'submission_date': submission.submission_date.isoformat() if submission.submission_date else None,
+            'file_path': submission.file_path,
+            'attachments': getattr(submission, 'attachments_payload', [])
         }
     }), 201
-

@@ -5,12 +5,14 @@ class AnnouncementSchema(Schema):
     id = fields.Integer(dump_only=True)
     title = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True)
+    scope = fields.String(validate=validate.OneOf(['global', 'class_bound']), load_default='global')
     recipients = fields.String(validate=validate.OneOf(['all', 'selected', 'students', 'parents', 'teachers', 'admins']), load_default='all')
     send_email = fields.Boolean(load_default=False)
     target_roles = fields.String(load_default='all')
     scheduled_date = fields.DateTime(allow_none=True)
     is_published = fields.Boolean(load_default=True)
-    class_id = fields.Integer()
+    tenant_id = fields.UUID(allow_none=True)
+    class_id = fields.Integer(allow_none=True)
     teacher_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(format='iso', dump_only=True)
     updated_at = fields.DateTime(format='iso', dump_only=True)
@@ -27,7 +29,7 @@ class AnnouncementSchema(Schema):
 
 class AnnouncementCreateSchema(AnnouncementSchema):
     """Schema for creating an announcement."""
-    class_id = fields.Integer(required=True)
+    class_id = fields.Integer(allow_none=True)
 
 class AnnouncementUpdateSchema(AnnouncementSchema):
     """Schema for updating an announcement."""
@@ -40,12 +42,14 @@ class AnnouncementListSchema(Schema):
     id = fields.Integer()
     title = fields.String()
     content = fields.String()
+    scope = fields.String()
     recipients = fields.String()
     send_email = fields.Boolean()
     target_roles = fields.String()
     scheduled_date = fields.DateTime(allow_none=True)
     is_published = fields.Boolean()
-    class_id = fields.Integer()
+    tenant_id = fields.UUID(allow_none=True)
+    class_id = fields.Integer(allow_none=True)
     class_name = fields.Method("get_class_name")
     teacher_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(format='iso')

@@ -17,11 +17,18 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 const AUDIENCE_LABELS: Record<string, string> = {
-  all: 'Entire class audience',
+  all: 'All Roles',
   students: 'Students',
   parents: 'Parents',
   teachers: 'Teachers',
   admins: 'Administrators',
+};
+
+const getScopeLabel = (announcement: Announcement): string => {
+  if (announcement.scope === 'global') {
+    return 'Entire School';
+  }
+  return announcement.class_name || (announcement.class_id ? `Class ${announcement.class_id}` : 'Class-Specific');
 };
 
 const parseTargetRoles = (value: Announcement['target_roles']): string[] => {
@@ -199,9 +206,9 @@ const AnnouncementsPage: React.FC = () => {
           title={
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-2">{announcement.title}</span>
-              {announcement.class_name || announcement.class_id ? (
-                <Tag>{announcement.class_name || `Class ${announcement.class_id}`}</Tag>
-              ) : null}
+              <Tag color={announcement.scope === 'global' ? 'gold' : 'default'}>
+                {getScopeLabel(announcement)}
+              </Tag>
               {isScheduled && (
                 <Tag color="orange">
                   <CalendarOutlined /> Scheduled: {new Date(announcement.scheduled_date!).toLocaleString()}
@@ -223,7 +230,7 @@ const AnnouncementsPage: React.FC = () => {
             <div className="space-y-1">
               <div>{announcement.content}</div>
               <div className="text-xs text-gray-500">
-                Scoped to {announcement.class_name || `Class ${announcement.class_id}`}
+                Scoped to {getScopeLabel(announcement)}
               </div>
             </div>
           }
