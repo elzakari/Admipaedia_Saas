@@ -1,7 +1,9 @@
 from app.extensions import db
 from app.models.finance import FeeCategory, FeeStructure, FeeDiscount, StudentFee, Payment, PaymentAllocation
 from app.models.student import Student
-from sqlalchemy import func
+from app.models.settings import SchoolSettings
+from app.models.academic_calendar import AcademicYear, Term
+from sqlalchemy import func, or_
 import uuid
 from datetime import datetime
 import structlog
@@ -9,6 +11,126 @@ import structlog
 logger = structlog.get_logger()
 
 class FeeService:
+    @staticmethod
+    def normalize_term(term):
+        value = str(term or '').strip().lower()
+        mapping = {
+            'term1': 'Term 1',
+            'term 1': 'Term 1',
+            'first term': 'Term 1',
+            'first': 'Term 1',
+            '1': 'Term 1',
+            'term2': 'Term 2',
+            'term 2': 'Term 2',
+            'second term': 'Term 2',
+            'second': 'Term 2',
+            '2': 'Term 2',
+            'term3': 'Term 3',
+            'term 3': 'Term 3',
+            'third term': 'Term 3',
+            'third': 'Term 3',
+            '3': 'Term 3',
+        }
+        return mapping.get(value, str(term or '').strip())
+
+    @staticmethod
+    def get_term_aliases(term):
+        canonical = FeeService.normalize_term(term)
+        aliases = {canonical}
+        if canonical == 'Term 1':
+            aliases.update({'First Term', '1'})
+        elif canonical == 'Term 2':
+            aliases.update({'Second Term', '2'})
+        elif canonical == 'Term 3':
+            aliases.update({'Third Term', '3'})
+        return [item for item in aliases if item]
+
+    @staticmethod
+    def get_current_fee_period():
+        current_year = AcademicYear.query.filter_by(is_current=True).first()
+        current_term = Term.query.filter_by(is_current=True).first()
+        settings = SchoolSettings.query.first()
+
+        academic_year = (
+            getattr(current_year, 'name', None)
+            or getattr(settings, 'academic_year', None)
+        )
+        term = (
+            getattr(current_term, 'name', None)
+            or getattr(settings, 'current_term', None)
+            or 'Term 1'
+        )
+        return {
+            'academic_year': str(academic_year or '').strip(),
+            'term': FeeService.normalize_term(term or 'Term 1')
+        }
+
+    @staticmethod
+    def student_requires_manual_fee_assignment(student):
+        fee_category = str(getattr(student, 'fee_category', '') or '').strip().lower()
+        scholarship_details = str(getattr(student, 'scholarship_details', '') or '').strip()
+        scholarship_markers = ('scholarship', 'bursary', 'waiver', 'sponsored', 'grant')
+        return any(marker in fee_category for marker in scholarship_markers) or bool(scholarship_details)
+
+    @staticmethod
+    def _build_student_fee(structure, student):
+        amount = float(structure.amount or 0)
+        branch_id = getattr(student, 'branch_id', None)
+        if branch_id is None and getattr(student, 'class_', None):
+            branch_id = getattr(student.class_, 'branch_id', None)
+        return StudentFee(
+            student_id=student.id,
+            fee_structure_id=structure.id,
+            original_amount=amount,
+            discount_amount=0.0,
+            final_amount=amount,
+            paid_amount=0.0,
+            balance=amount,
+            status='pending',
+            branch_id=branch_id,
+        )
+
+    @staticmethod
+    def assign_fee_structures_to_students(structures, students, commit=True):
+        created_count = 0
+        for student in students:
+            for structure in structures:
+                existing = StudentFee.query.filter_by(
+                    student_id=student.id,
+                    fee_structure_id=structure.id
+                ).first()
+                if existing:
+                    continue
+                db.session.add(FeeService._build_student_fee(structure, student))
+                created_count += 1
+
+        if commit:
+            db.session.commit()
+        return created_count
+
+    @staticmethod
+    def auto_apply_current_fee_templates(student, commit=True):
+        if not student or not getattr(student, 'id', None) or not getattr(student, 'class_id', None):
+            return 0
+        if FeeService.student_requires_manual_fee_assignment(student):
+            return 0
+
+        period = FeeService.get_current_fee_period()
+        academic_year = period.get('academic_year')
+        term_aliases = FeeService.get_term_aliases(period.get('term'))
+        if not academic_year or not term_aliases:
+            return 0
+
+        structures = FeeStructure.query.filter(
+            FeeStructure.academic_year == academic_year,
+            FeeStructure.term.in_(term_aliases),
+            or_(FeeStructure.class_id == student.class_id, FeeStructure.class_id.is_(None))
+        ).all()
+        if not structures:
+            return 0
+
+        return FeeService.assign_fee_structures_to_students(structures, [student], commit=commit)
+
     @staticmethod
     def create_fee_structure(data):
         """Create a new fee structure."""
@@ -49,23 +171,7 @@ class FeeService:
                 ).first()
                 
                 if not existing:
-                    # Check for applicable discounts
-                    discount_amount = 0
-                    applied_discount_id = None
-                    
-                    # Logic to find best discount (simplified)
-                    # In real app, check FeeDiscount rules against student properties
-                    
-                    student_fee = StudentFee(
-                        student_id=student.id,
-                        fee_structure_id=structure.id,
-                        original_amount=structure.amount,
-                        discount_amount=discount_amount,
-                        final_amount=structure.amount - discount_amount,
-                        balance=structure.amount - discount_amount,
-                        applied_discount_id=applied_discount_id
-                    )
-                    db.session.add(student_fee)
+                    db.session.add(FeeService._build_student_fee(structure, student))
                     count += 1
             
             db.session.commit()

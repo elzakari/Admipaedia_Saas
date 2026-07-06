@@ -119,7 +119,8 @@ export default function SubjectsManagement() {
   }
 
   const handleUpdate = (id: number, data: Partial<Subject>) => {
-    updateMutation.mutate({ id, data }, {
+    const { assigned_class_ids, assigned_teacher_ids, ...subjectPayload } = data as SubjectFormData
+    updateMutation.mutate({ id, data: subjectPayload }, {
       onSuccess: async () => {
         try {
           await syncSubjectAssignments(id, data as SubjectFormData)

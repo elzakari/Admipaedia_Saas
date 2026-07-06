@@ -27,6 +27,7 @@ from app.models.finance import FeeCategory, FeeStructure, StudentFee, Payment, P
 from app.models.student import Student
 from app.models.administration import Budget, Transaction, BudgetCategory, TransactionType
 from app.models.tenant import Tenant
+from app.services.finance.service import FeeService
 from sqlalchemy import func
 import uuid
 from decimal import Decimal
@@ -408,27 +409,7 @@ def assign_fee_structure_group(group_id):
             student_query = student_query.filter(Student.class_id == class_id)
 
         students = student_query.all()
-        created_count = 0
-        for student in students:
-            for s in structures:
-                existing = StudentFee.query.filter_by(student_id=student.id, fee_structure_id=s.id).first()
-                if existing:
-                    continue
-                amt = float(s.amount or 0)
-                fee = StudentFee(
-                    student_id=student.id,
-                    fee_structure_id=s.id,
-                    original_amount=amt,
-                    discount_amount=0.0,
-                    final_amount=amt,
-                    paid_amount=0.0,
-                    balance=amt,
-                    status='pending'
-                )
-                db.session.add(fee)
-                created_count += 1
-
-        db.session.commit()
+        created_count = FeeService.assign_fee_structures_to_students(structures, students, commit=True)
         return jsonify({'success': True, 'created': created_count}), 200
     except Exception as e:
         db.session.rollback()

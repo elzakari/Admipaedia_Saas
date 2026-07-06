@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.v1.subjects import subjects_bp
 from app.services.subject_service import SubjectService
 from app.services.bulk_subject_service import BulkSubjectService
-from app.schemas.subject import SubjectSchema, SubjectListSchema
+from app.schemas.subject import SubjectSchema, SubjectListSchema, SubjectUpdateSchema
 from app.utils.auth_utils import admin_required
 from app.utils.rbac_decorators import require_permission
 from app.utils.tenant_context import tenant_required
@@ -11,6 +11,7 @@ from marshmallow import ValidationError
 
 # Initialize schemas
 subject_schema = SubjectSchema()
+subject_update_schema = SubjectUpdateSchema()
 subjects_schema = SubjectListSchema(many=True)
 
 @subjects_bp.route('', methods=['GET'])
@@ -151,7 +152,7 @@ def create_subject():
 def update_subject(subject_id):
     """Update an existing subject."""
     try:
-        data = subject_schema.load(request.json, partial=True)
+        data = subject_update_schema.load(request.json or {}, partial=True)
         
         subject, error = SubjectService.update_subject(subject_id, data, tenant_id=g.tenant_id)
         

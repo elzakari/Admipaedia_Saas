@@ -552,7 +552,7 @@ export default function ParentsPage() {
                   <SelectItem key={String(child.id)} value={String(child.id)}>
                     <div className="flex items-center">
                       <Avatar className="h-6 w-6 mr-2">
-                        <AvatarImage src={child.photo || child.profile_picture} alt={childName} />
+                        <AvatarImage src={resolveStudentAvatar(child)} alt={childName} />
                         <AvatarFallback>{childName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       {childName} - {childClass}

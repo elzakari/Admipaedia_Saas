@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.class_ import Class
 from app.models.student import Student
 from app.models.user import User
+from app.models.user_profile import UserProfile
 from app.models.parent import Parent
 from app.models.attendance import Attendance
 from app.services.auth_service import AuthService
@@ -44,6 +45,28 @@ class EnhancedStudentService(StudentService):
             filename = path_value.split('uploads/profile_pictures/', 1)[1]
             return f"/api/v1/enhanced-students/profile-picture/{filename}"
         return path_value
+
+    @staticmethod
+    def sync_user_avatar(student, avatar_url=None):
+        if not student or not getattr(student, 'user_id', None):
+            return
+
+        user = getattr(student, 'user', None) or User.query.get(student.user_id)
+        if not user:
+            return
+
+        normalized_avatar = avatar_url if avatar_url is not None else EnhancedStudentService.build_profile_picture_url(getattr(student, 'profile_picture', None))
+
+        profile = getattr(user, 'profile', None)
+        if not profile:
+            profile = UserProfile(
+                user_id=user.id,
+                display_name=getattr(user, 'username', None) or getattr(student, 'full_name', None) or 'Student',
+            )
+            db.session.add(profile)
+
+        profile.avatar_url = normalized_avatar
+        profile.updated_at = datetime.utcnow()
     
     @staticmethod
     def create_student_with_user(student_data, user_data=None, tenant_id=None):
@@ -117,6 +140,7 @@ class EnhancedStudentService(StudentService):
                 
                 # Update student record with profile picture path
                 student.profile_picture = f"{EnhancedStudentService.UPLOAD_FOLDER}/{unique_filename}"
+                EnhancedStudentService.sync_user_avatar(student)
                 db.session.commit()
                 
                 logger.info("Profile picture uploaded", student_id=student_id, filename=unique_filename)

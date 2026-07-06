@@ -514,14 +514,14 @@ def review_application(id):
                 'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
                 'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
                 'nationality': form_data.get('nationality'),
-                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination'),
+                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination') or form_data.get('religion'),
                 'email': student_email,
                 'telephone': form_data.get('telephone') or form_data.get('student_phone') or phone_val,
                 'whatsapp': form_data.get('whatsapp'),
                 'postal_address': form_data.get('postal_address') or address_val,
                 'digital_address': form_data.get('digital_address'),
                 'city': form_data.get('city'),
-                'country': form_data.get('country'),
+                'country': form_data.get('country') or form_data.get('state'),
                 'local_landmark': form_data.get('local_landmark'),
                 
                 # Health fields
@@ -533,8 +533,8 @@ def review_application(id):
                 'physician_phone': form_data.get('physician_phone'),
                 
                 # Academic fields
-                'previous_school': form_data.get('previous_school'),
-                'previous_class': form_data.get('previous_class'),
+                'previous_school': form_data.get('previous_school') or form_data.get('prev_school_name'),
+                'previous_class': form_data.get('previous_class') or form_data.get('prev_school_class'),
                 'previous_team': form_data.get('previous_team'),
                 'previous_year': form_data.get('previous_year'),
                 
@@ -554,7 +554,7 @@ def review_application(id):
                 'mother_workplace': form_data.get('mother_workplace') or form_data.get('motherWorkplace'),
                 
                 'guardian_name': form_data.get('guardian_name') or form_data.get('guardianName'),
-                'guardian_contact': form_data.get('guardian_contact') or form_data.get('guardianContact') or form_data.get('guardian_phone'),
+                'guardian_contact': form_data.get('guardian_contact') or form_data.get('guardianContact') or form_data.get('guardian_phone') or form_data.get('emergency_contact'),
             }
             
             from app.services.student_service import StudentService

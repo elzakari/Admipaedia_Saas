@@ -107,7 +107,11 @@ const subjectService = {
 
   updateSubject: async (subjectId: number, subjectData: SubjectUpdate): Promise<Subject> => {
     try {
-      const response = await api.put(`/subjects/${subjectId}`, subjectData);
+      const { assigned_class_ids, assigned_teacher_ids, ...apiPayload } = (subjectData as SubjectUpdate & {
+        assigned_class_ids?: number[];
+        assigned_teacher_ids?: number[];
+      });
+      const response = await api.put(`/subjects/${subjectId}`, apiPayload);
       return response.data.subject;
     } catch (error) {
       console.error(`Error updating subject ${subjectId}:`, error);

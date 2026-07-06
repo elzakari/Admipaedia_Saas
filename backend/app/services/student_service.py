@@ -5,12 +5,14 @@ from typing import Dict, Tuple, Optional, Union, Any, List
 from app.models.student import Student
 from app.models.user import User
 from app.models.class_ import Class
+from app.models.admission import AdmissionApplication
 from app.extensions import db
 from datetime import datetime
 from structlog import get_logger
 from app.services.cache_service import get_cache_service
 from app.schemas.student import StudentSchema
 from app.services.academic_configuration_service import AcademicConfigurationService
+from app.services.finance.service import FeeService
 
 logger = get_logger()
 cache_service = get_cache_service()
@@ -141,6 +143,51 @@ class StudentService:
             joinedload(Student.attendances),
             joinedload(Student.grades)
         ).filter_by(user_id=user_id).first()
+
+    @staticmethod
+    def _update_admission_snapshot(student: Optional[Student]) -> None:
+        if not student or not getattr(student, 'parent_id', None):
+            return
+
+        application = (
+            AdmissionApplication.query
+            .filter(
+                AdmissionApplication.parent_id == student.parent_id,
+                AdmissionApplication.student_first_name == student.first_name,
+                AdmissionApplication.student_last_name == student.last_name,
+            )
+            .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+            .first()
+        )
+        if not application:
+            return
+
+        form_data = application.form_data or {}
+        if not isinstance(form_data, dict):
+            form_data = {}
+
+        dob_value = student.date_of_birth.isoformat() if getattr(student, 'date_of_birth', None) else ''
+        phone_value = getattr(student, 'phone', None) or getattr(student, 'telephone', None) or ''
+        address_value = getattr(student, 'address', None) or getattr(student, 'residential_address', None) or ''
+
+        form_data.update({
+            'dob': dob_value or form_data.get('dob', ''),
+            'date_of_birth': dob_value or form_data.get('date_of_birth', ''),
+            'gender': getattr(student, 'gender', None) or form_data.get('gender', ''),
+            'blood_group': getattr(student, 'blood_group', None) or form_data.get('blood_group', ''),
+            'religion': getattr(student, 'religious_denomination', None) or form_data.get('religion', ''),
+            'religious_denomination': getattr(student, 'religious_denomination', None) or form_data.get('religious_denomination', ''),
+            'nationality': getattr(student, 'nationality', None) or form_data.get('nationality', ''),
+            'home_address': address_value or form_data.get('home_address', ''),
+            'address': address_value or form_data.get('address', ''),
+            'city': getattr(student, 'city', None) or form_data.get('city', ''),
+            'telephone': phone_value or form_data.get('telephone', ''),
+            'phone': phone_value or form_data.get('phone', ''),
+            'emergency_contact': phone_value or form_data.get('emergency_contact', ''),
+            'prev_school_name': getattr(student, 'previous_school', None) or form_data.get('prev_school_name', ''),
+            'prev_school_class': getattr(student, 'previous_class', None) or form_data.get('prev_school_class', ''),
+        })
+        application.form_data = form_data
     
     def get_student_by_admission_number(self, admission_number: str) -> Optional[Student]:
         """Get a student by admission number.
@@ -217,6 +264,12 @@ class StudentService:
                         ))
             except Exception:
                 pass
+            self.db_session.flush()
+            if getattr(new_student, 'profile_picture', None):
+                from app.services.enhanced_student_service import EnhancedStudentService
+                EnhancedStudentService.sync_user_avatar(new_student)
+            self._update_admission_snapshot(new_student)
+            FeeService.auto_apply_current_fee_templates(new_student, commit=False)
             self.db_session.commit()
             cache_service.delete(f"student:dto:{new_student.id}")
             
@@ -263,6 +316,8 @@ class StudentService:
             if not student:
                 logger.warning("Attempted to update non-existent student", student_id=student_id)
                 return None, "Student not found"
+            previous_class_id = student.class_id
+            previous_fee_category = str(getattr(student, 'fee_category', '') or '').strip().lower()
             
             # Check if admission_number is being changed and if it's unique
             if 'admission_number' in student_data and student_data['admission_number']:
@@ -292,6 +347,17 @@ class StudentService:
                                   attribute=key)
             
             student.updated_at = datetime.utcnow()
+            if 'profile_picture' in student_data:
+                from app.services.enhanced_student_service import EnhancedStudentService
+                EnhancedStudentService.sync_user_avatar(student)
+            self._update_admission_snapshot(student)
+            new_fee_category = str(getattr(student, 'fee_category', '') or '').strip().lower()
+            should_auto_apply_fees = (
+                ('class_id' in student_data and student.class_id != previous_class_id)
+                or ('fee_category' in student_data and previous_fee_category != new_fee_category)
+            )
+            if should_auto_apply_fees:
+                FeeService.auto_apply_current_fee_templates(student, commit=False)
             self.db_session.commit()
             cache_service.delete(f"student:dto:{student_id}")
             
@@ -416,6 +482,7 @@ class StudentService:
             # Assign the student to the class
             student.class_id = class_id
             student.updated_at = datetime.utcnow()
+            FeeService.auto_apply_current_fee_templates(student, commit=False)
             self.db_session.commit()
             cache_service.delete(f"student:dto:{student_id}")
             

@@ -388,22 +388,32 @@ export function StudentsPage() {
   };
 
   // Handle edit student
-  const handleEditStudent = (transformedStudent: TransformedStudent) => {
+  const handleEditStudent = async (transformedStudent: TransformedStudent) => {
     // Find the original Student object from the API data
     const originalStudent = studentsData?.data?.find(
       (s: ApiStudent) => s.id.toString() === transformedStudent.id
     );
     
     if (originalStudent) {
-      // Convert ApiStudent to ServiceStudent format
-      const serviceStudent: ServiceStudent = {
-        ...originalStudent,
-        name: originalStudent.name || `${originalStudent.first_name} ${originalStudent.last_name}`,
-        gender: originalStudent.gender as "male" | "female" | "other", // Type assertion for gender
-        created_at: originalStudent.created_at || new Date().toISOString() // Ensure created_at is provided
-      };
-      setSelectedStudentForEdit(serviceStudent);
-      setIsStudentFormOpen(true);
+      try {
+        const fullStudentResponse = await studentService.getStudentById(Number(originalStudent.id));
+        const fullStudent = fullStudentResponse?.data || originalStudent;
+        const serviceStudent: ServiceStudent = {
+          ...(fullStudent as ServiceStudent),
+          name: fullStudent.name || `${fullStudent.first_name} ${fullStudent.last_name}`,
+          gender: (fullStudent.gender as "male" | "female" | "other") || "other",
+          created_at: fullStudent.created_at || new Date().toISOString()
+        };
+        setSelectedStudentForEdit(serviceStudent);
+        setIsStudentFormOpen(true);
+      } catch (error) {
+        console.error('Failed to load full student record for editing:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load the full student record for editing.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

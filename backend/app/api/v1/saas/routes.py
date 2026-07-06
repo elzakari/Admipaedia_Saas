@@ -960,9 +960,6 @@ def patch_admission_status(form_id):
         stub_hash = generate_password_hash(secrets.token_urlsafe(32))
 
         try:
-            # Extract profile picture path
-            app_picture = getattr(application, 'profile_picture', None)
-
             # Now safely construct the user model record
             student_user = User(
                 username=username,
@@ -973,10 +970,8 @@ def patch_admission_status(form_id):
                 email_verified=True,
                 email_verified_at=datetime.utcnow(),
                 password_reset_token=token_hash,
-                password_reset_expires=datetime.utcnow() + timedelta(days=7),
-                profile_picture=app_picture
+                password_reset_expires=datetime.utcnow() + timedelta(days=7)
             )
-            student_user.profile_picture = app_picture
             db.session.add(student_user)
             db.session.flush()
 
@@ -989,6 +984,12 @@ def patch_admission_status(form_id):
                     form_data = {}
             if not isinstance(form_data, dict):
                 form_data = {}
+
+            app_picture = (
+                form_data.get('profile_picture')
+                or form_data.get('profile_picture_url')
+                or form_data.get('photo')
+            )
 
             # Resolve dob and gender
             dob_raw = dob_val or form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
@@ -1048,10 +1049,15 @@ def patch_admission_status(form_id):
                 'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
                 'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
                 'nationality': form_data.get('nationality'),
-                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination'),
+                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination') or form_data.get('religion'),
                 'telephone': form_data.get('telephone') or form_data.get('student_phone') or phone_val,
                 'whatsapp': form_data.get('whatsapp'),
                 'postal_address': form_data.get('postal_address') or address_val,
+                'city': form_data.get('city'),
+                'country': form_data.get('country') or form_data.get('state'),
+                'previous_school': form_data.get('previous_school') or form_data.get('prev_school_name'),
+                'previous_class': form_data.get('previous_class') or form_data.get('prev_school_class'),
+                'guardian_contact': form_data.get('guardian_contact') or form_data.get('emergency_contact'),
             }
             from app.models.student import Student
             if academic_year_id and hasattr(Student, 'academic_year_id'):
@@ -1201,4 +1207,3 @@ def get_tenant_notification_status():
             'used': sms_status.used
         }
     }), 200
-

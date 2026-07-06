@@ -10,6 +10,7 @@ import structlog
 
 from app.extensions import db
 from app.models.user import User
+from app.models.student import Student
 from app.models.session_token import SessionToken
 from app.models.security import SecurityEvent
 from app.models.user_profile import UserProfile
@@ -39,6 +40,12 @@ def _get_or_create_profile(user: User) -> UserProfile:
     db.session.add(profile)
     db.session.commit()
     return profile
+
+
+def _get_linked_student(user: User):
+    if not user:
+        return None
+    return Student.query.filter_by(user_id=user.id).first()
 
 
 def _get_or_create_preferences(user: User) -> UserPreferences:
@@ -330,6 +337,9 @@ def upload_avatar():
             return jsonify({'success': False, 'error': 'Invalid file type'}), 400
 
         profile = _get_or_create_profile(user)
+        linked_student = _get_linked_student(user)
+        if linked_student and getattr(linked_student, 'profile_picture_locked', False):
+            return jsonify({'success': False, 'error': 'Student profile picture is locked by admin'}), 403
 
         filename = secure_filename(file.filename)
         unique_name = f"avatar_{user_id}_{uuid.uuid4().hex}_{filename}"
@@ -341,6 +351,9 @@ def upload_avatar():
         file.save(abs_path)
 
         profile.avatar_url = f"/api/v1/profile/avatar/{unique_name}"
+        if linked_student:
+            linked_student.profile_picture = profile.avatar_url
+            linked_student.updated_at = datetime.utcnow()
         profile.updated_at = datetime.utcnow()
         db.session.commit()
 
@@ -365,8 +378,14 @@ def remove_avatar():
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         profile = _get_or_create_profile(user)
+        linked_student = _get_linked_student(user)
+        if linked_student and getattr(linked_student, 'profile_picture_locked', False):
+            return jsonify({'success': False, 'error': 'Student profile picture is locked by admin'}), 403
         old_url = profile.avatar_url
         profile.avatar_url = None
+        if linked_student:
+            linked_student.profile_picture = None
+            linked_student.updated_at = datetime.utcnow()
         profile.updated_at = datetime.utcnow()
         db.session.commit()
 
