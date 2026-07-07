@@ -28,6 +28,10 @@ export default function BranchesManagement() {
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const cleanedName = name.trim();
+  const cleanedCode = code.trim();
+  const cleanedAddress = address.trim();
+
   const fetchBranches = async () => {
     setIsLoading(true);
     setError(null);
@@ -52,15 +56,15 @@ export default function BranchesManagement() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.strip()) return;
+    if (!cleanedName) return;
 
     setSubmitting(true);
     setError(null);
     try {
       const response = await api.post('/school/branches', {
-        name: name.strip(),
-        code: code.strip() || null,
-        address: address.strip() || null
+        name: cleanedName,
+        code: cleanedCode || null,
+        address: cleanedAddress || null
       });
 
       if (response.data && response.data.success) {
@@ -81,15 +85,15 @@ export default function BranchesManagement() {
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBranch || !name.strip()) return;
+    if (!editingBranch || !cleanedName) return;
 
     setSubmitting(true);
     setError(null);
     try {
       const response = await api.put(`/school/branches/${editingBranch.id}`, {
-        name: name.strip(),
-        code: code.strip() || null,
-        address: address.strip() || null
+        name: cleanedName,
+        code: cleanedCode || null,
+        address: cleanedAddress || null
       });
 
       if (response.data && response.data.success) {
@@ -117,7 +121,7 @@ export default function BranchesManagement() {
         fetchBranches();
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to deactivate branch');
+      setError(err.response?.data?.message || 'Failed to deactivate branch');
     }
   };
 

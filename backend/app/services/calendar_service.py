@@ -12,7 +12,7 @@ class CalendarService:
     """Service for calendar-related operations."""
     
     @staticmethod
-    def create_event(title, date, event_type, description='', created_by=None, target_roles=None, send_notification=True):
+    def create_event(title, date, event_type, description='', created_by=None, target_roles=None, send_notification=True, location=None, start_time=None, end_time=None):
         """Create a new calendar event.
         
         Args:
@@ -37,7 +37,11 @@ class CalendarService:
                 title=title,
                 date=date,
                 type=event_type,
-                description=description
+                description=description,
+                created_by=created_by,
+                location=location,
+                start_time=start_time,
+                end_time=end_time
             )
             
             # Add to database
@@ -115,7 +119,10 @@ class CalendarService:
                     'title': event.title,
                     'date': event.date.isoformat(),
                     'type': event.type,
-                    'description': event.description
+                    'description': event.description,
+                    'location': event.location,
+                    'start_time': event.start_time,
+                    'end_time': event.end_time
                 })
                 
             return result

@@ -1,17 +1,124 @@
 from app.extensions import db
 from app.models.library import (
-    Book, LibraryMember, BorrowRecord, BookReservation, FineRecord, 
+    Book, LibraryMember, BorrowRecord, BookReservation, FineRecord, LibrarySettings,
     BookStatus, BorrowStatus, MemberType
 )
 from app.models.user import User
 from datetime import date, timedelta, datetime
 from sqlalchemy import func, and_, or_
+import json
 import structlog
 from sqlalchemy.exc import IntegrityError
 
 logger = structlog.get_logger()
 
 class LibraryService:
+    DIGITAL_RESOURCES_KEY = 'digital_library_resources'
+
+    @staticmethod
+    def _load_digital_resources():
+        setting = LibrarySettings.query.filter_by(setting_key=LibraryService.DIGITAL_RESOURCES_KEY).first()
+        if not setting or not setting.setting_value:
+            return []
+        try:
+            return json.loads(setting.setting_value)
+        except Exception:
+            return []
+
+    @staticmethod
+    def _save_digital_resources(resources):
+        setting = LibrarySettings.query.filter_by(setting_key=LibraryService.DIGITAL_RESOURCES_KEY).first()
+        if setting is None:
+            setting = LibrarySettings(
+                setting_key=LibraryService.DIGITAL_RESOURCES_KEY,
+                description='Digital library resources metadata'
+            )
+            db.session.add(setting)
+        setting.setting_value = json.dumps(resources)
+        db.session.commit()
+
+    @staticmethod
+    def list_digital_resources(search=None, category=None, resource_type=None):
+        resources = LibraryService._load_digital_resources()
+        filtered = []
+        for resource in resources:
+            haystack = " ".join([
+                str(resource.get('title', '')),
+                str(resource.get('author', '')),
+                str(resource.get('description', '')),
+                str(resource.get('category', '')),
+            ]).lower()
+            if search and search.strip().lower() not in haystack:
+                continue
+            if category and category != 'all' and resource.get('category') != category:
+                continue
+            if resource_type and resource_type != 'all' and resource.get('type') != resource_type:
+                continue
+            filtered.append(resource)
+        return sorted(filtered, key=lambda item: item.get('created_at') or item.get('uploadDate') or '', reverse=True)
+
+    @staticmethod
+    def create_digital_resource(data, created_by_id=None):
+        resources = LibraryService._load_digital_resources()
+        next_id = max([int(item.get('id', 0)) for item in resources] or [0]) + 1
+        resource = {
+            'id': next_id,
+            'title': data.get('title'),
+            'type': data.get('type') or 'Document',
+            'category': data.get('category') or 'General',
+            'author': data.get('author') or 'School Admin',
+            'uploadDate': date.today().isoformat(),
+            'size': data.get('size') or 'N/A',
+            'downloads': int(data.get('downloads') or 0),
+            'url': data.get('url'),
+            'thumbnail': data.get('thumbnail') or '',
+            'description': data.get('description') or '',
+            'created_by': created_by_id,
+            'created_at': datetime.utcnow().isoformat(),
+        }
+        resources.append(resource)
+        LibraryService._save_digital_resources(resources)
+        return resource
+
+    @staticmethod
+    def update_digital_resource(resource_id, data):
+        resources = LibraryService._load_digital_resources()
+        updated = None
+        for resource in resources:
+            if int(resource.get('id')) == int(resource_id):
+                for key in ['title', 'type', 'category', 'author', 'size', 'url', 'thumbnail', 'description']:
+                    if key in data:
+                        resource[key] = data.get(key)
+                updated = resource
+                break
+        if updated is None:
+            return None
+        LibraryService._save_digital_resources(resources)
+        return updated
+
+    @staticmethod
+    def delete_digital_resource(resource_id):
+        resources = LibraryService._load_digital_resources()
+        remaining = [resource for resource in resources if int(resource.get('id')) != int(resource_id)]
+        if len(remaining) == len(resources):
+            return False
+        LibraryService._save_digital_resources(remaining)
+        return True
+
+    @staticmethod
+    def increment_digital_resource_downloads(resource_id):
+        resources = LibraryService._load_digital_resources()
+        updated = None
+        for resource in resources:
+            if int(resource.get('id')) == int(resource_id):
+                resource['downloads'] = int(resource.get('downloads') or 0) + 1
+                updated = resource
+                break
+        if updated is None:
+            return None
+        LibraryService._save_digital_resources(resources)
+        return updated
+
     @staticmethod
     def create_book(data, created_by_id=None):
         """Create a new book record."""
@@ -213,7 +320,7 @@ class LibraryService:
         # Check for fines
         fine_amount = record.calculate_fine()
         if fine_amount > 0:
-            record.status = BorrowStatus.OVERDUE
+            record.status = BorrowStatus.RETURNED
             
             # Create fine record
             fine = FineRecord(
@@ -263,7 +370,12 @@ class LibraryService:
         active_members = LibraryMember.query.filter_by(is_active=True).count()
 
         active_borrows = BorrowRecord.query.filter_by(status=BorrowStatus.ACTIVE).count()
-        overdue_borrows = BorrowRecord.query.filter_by(status=BorrowStatus.OVERDUE).count()
+        overdue_borrows = BorrowRecord.query.filter(
+            db.or_(
+                BorrowRecord.status == BorrowStatus.OVERDUE,
+                db.and_(BorrowRecord.status == BorrowStatus.ACTIVE, BorrowRecord.due_date < date.today())
+            )
+        ).count()
         returned_borrows = BorrowRecord.query.filter_by(status=BorrowStatus.RETURNED).count()
 
         return {
@@ -275,7 +387,10 @@ class LibraryService:
             'active_members': int(active_members),
             'active_borrows': int(active_borrows),
             'overdue_borrows': int(overdue_borrows),
-            'returned_borrows': int(returned_borrows)
+            'returned_borrows': int(returned_borrows),
+            'currently_out': int(active_borrows),
+            'total_fines': float(db.session.query(func.coalesce(func.sum(FineRecord.amount), 0)).filter(FineRecord.status == 'pending').scalar() or 0),
+            'digital_resources': len(LibraryService._load_digital_resources())
         }
 
     @staticmethod
@@ -334,28 +449,81 @@ class LibraryService:
     def get_popular_books(limit=10):
         """Get most borrowed books."""
         results = db.session.query(
+            Book.id,
             Book.title,
             Book.author,
+            Book.category,
             func.count(BorrowRecord.id).label('borrow_count')
         ).join(BorrowRecord, Book.id == BorrowRecord.book_id).group_by(
-            Book.id
+            Book.id,
+            Book.title,
+            Book.author,
+            Book.category
         ).order_by(
             func.count(BorrowRecord.id).desc()
         ).limit(limit).all()
         
-        return [{'title': r.title, 'author': r.author, 'count': r.borrow_count} for r in results]
+        return [{
+            'id': r.id,
+            'title': r.title,
+            'author': r.author,
+            'category': r.category.value if hasattr(r.category, 'value') else r.category,
+            'count': r.borrow_count
+        } for r in results]
 
     @staticmethod
     def get_overdue_trends():
         """Get overdue count trends."""
-        # Simple implementation: overdue by member type
+        start_date = date.today() - timedelta(days=180)
         results = db.session.query(
-            LibraryMember.member_type,
-            func.count(BorrowRecord.id)
-        ).join(BorrowRecord, LibraryMember.id == BorrowRecord.member_id).filter(
-            BorrowRecord.status == BorrowStatus.OVERDUE
+            extract('year', BorrowRecord.due_date).label('year'),
+            extract('month', BorrowRecord.due_date).label('month'),
+            func.count(BorrowRecord.id).label('count')
+        ).filter(
+            BorrowRecord.due_date >= start_date,
+            db.or_(
+                BorrowRecord.status == BorrowStatus.OVERDUE,
+                db.and_(BorrowRecord.status == BorrowStatus.ACTIVE, BorrowRecord.due_date < date.today())
+            )
         ).group_by(
-            LibraryMember.member_type
+            extract('year', BorrowRecord.due_date),
+            extract('month', BorrowRecord.due_date)
+        ).order_by(
+            extract('year', BorrowRecord.due_date),
+            extract('month', BorrowRecord.due_date)
         ).all()
-        
-        return [{'type': r[0].value, 'count': r[1]} for r in results]
+
+        trend_rows = []
+        previous = None
+        for row in results:
+            year = int(row.year)
+            month = int(row.month)
+            count = int(row.count)
+            if previous is None:
+                trend = 'stable'
+            elif count > previous:
+                trend = 'up'
+            elif count < previous:
+                trend = 'down'
+            else:
+                trend = 'stable'
+            trend_rows.append({
+                'month': f'{year:04d}-{month:02d}',
+                'count': count,
+                'trend': trend
+            })
+            previous = count
+
+        return trend_rows
+
+    @staticmethod
+    def build_report_rows(report_type='borrowing'):
+        if report_type == 'categories':
+            return LibraryService.get_category_distribution()
+        if report_type == 'borrowers':
+            return LibraryService.get_borrower_type_distribution()
+        if report_type == 'popular':
+            return LibraryService.get_popular_books(10)
+        if report_type == 'overdue':
+            return LibraryService.get_overdue_trends()
+        return LibraryService.get_borrowing_activity('year')

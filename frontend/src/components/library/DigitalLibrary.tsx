@@ -1,242 +1,183 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription,
-  CardFooter
+import React, { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+  Card,
+  CardContent,
 } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { 
-  FileText, 
-  Video, 
-  Headphones, 
-  Image as ImageIcon, 
-  Download, 
-  Eye, 
-  Filter, 
-  Plus, 
-  Upload, 
+import { Textarea } from "../ui/textarea";
+import {
+  FileText,
+  Video,
+  Headphones,
+  Image as ImageIcon,
+  Download,
+  Eye,
+  Filter,
+  Plus,
   Link as LinkIcon,
   BookOpen,
-  Search
+  Pencil,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
-
-// Mock data for digital resources
-const mockDigitalResources = [
-  {
-    id: 1,
-    title: "Introduction to Biology",
-    type: "PDF",
-    category: "Science",
-    author: "Dr. Jane Smith",
-    uploadDate: "2023-09-15",
-    size: "5.2 MB",
-    downloads: 128,
-    thumbnail: "https://via.placeholder.com/150/3b82f6/ffffff?text=Biology",
-    url: "#",
-    description: "A comprehensive introduction to biology for high school students."
-  },
-  {
-    id: 2,
-    title: "World History: Ancient Civilizations",
-    type: "PDF",
-    category: "History",
-    author: "Prof. Michael Johnson",
-    uploadDate: "2023-08-22",
-    size: "8.7 MB",
-    downloads: 95,
-    thumbnail: "https://via.placeholder.com/150/8b5cf6/ffffff?text=History",
-    url: "#",
-    description: "Explore the ancient civilizations that shaped our world."
-  },
-  {
-    id: 3,
-    title: "Algebra Fundamentals",
-    type: "PDF",
-    category: "Mathematics",
-    author: "Sarah Williams",
-    uploadDate: "2023-09-05",
-    size: "3.1 MB",
-    downloads: 210,
-    thumbnail: "https://via.placeholder.com/150/22c55e/ffffff?text=Math",
-    url: "#",
-    description: "Master the fundamentals of algebra with this comprehensive guide."
-  },
-  {
-    id: 4,
-    title: "Chemistry Lab Experiments",
-    type: "Video",
-    category: "Science",
-    author: "Dr. Robert Chen",
-    uploadDate: "2023-07-18",
-    size: "245 MB",
-    downloads: 76,
-    thumbnail: "https://via.placeholder.com/150/ef4444/ffffff?text=Chemistry",
-    url: "#",
-    description: "Video demonstrations of key chemistry lab experiments for high school students."
-  },
-  {
-    id: 5,
-    title: "English Literature Classics",
-    type: "E-Book",
-    category: "Literature",
-    author: "Emily Brooks",
-    uploadDate: "2023-08-30",
-    size: "12.5 MB",
-    downloads: 154,
-    thumbnail: "https://via.placeholder.com/150/f97316/ffffff?text=Literature",
-    url: "#",
-    description: "A collection of classic English literature works with analysis and commentary."
-  },
-  {
-    id: 6,
-    title: "Physics Principles Explained",
-    type: "Audio",
-    category: "Science",
-    author: "Dr. Alan Parker",
-    uploadDate: "2023-09-10",
-    size: "85 MB",
-    downloads: 62,
-    thumbnail: "https://via.placeholder.com/150/06b6d4/ffffff?text=Physics",
-    url: "#",
-    description: "Audio lectures explaining fundamental physics principles in an accessible way."
-  },
-  {
-    id: 7,
-    title: "Art History: Renaissance to Modern",
-    type: "Presentation",
-    category: "Arts",
-    author: "Lisa Turner",
-    uploadDate: "2023-08-05",
-    size: "18.3 MB",
-    downloads: 89,
-    thumbnail: "https://via.placeholder.com/150/ec4899/ffffff?text=Art",
-    url: "#",
-    description: "A visual journey through art history from the Renaissance to modern times."
-  },
-  {
-    id: 8,
-    title: "Computer Science Basics",
-    type: "PDF",
-    category: "Technology",
-    author: "Mark Wilson",
-    uploadDate: "2023-09-20",
-    size: "4.8 MB",
-    downloads: 175,
-    thumbnail: "https://via.placeholder.com/150/6366f1/ffffff?text=CS",
-    url: "#",
-    description: "An introduction to computer science concepts for beginners."
-  },
-  {
-    id: 9,
-    title: "Geography: World Exploration",
-    type: "Interactive",
-    category: "Geography",
-    author: "David Miller",
-    uploadDate: "2023-07-25",
-    size: "120 MB",
-    downloads: 105,
-    thumbnail: "https://via.placeholder.com/150/84cc16/ffffff?text=Geography",
-    url: "#",
-    description: "An interactive exploration of world geography with maps and activities."
-  },
-  {
-    id: 10,
-    title: "Music Theory Fundamentals",
-    type: "Audio",
-    category: "Music",
-    author: "Jennifer Davis",
-    uploadDate: "2023-08-15",
-    size: "95 MB",
-    downloads: 68,
-    thumbnail: "https://via.placeholder.com/150/f43f5e/ffffff?text=Music",
-    url: "#",
-    description: "Audio lessons covering the fundamentals of music theory with examples."
-  },
-  {
-    id: 11,
-    title: "Spanish Language Basics",
-    type: "Audio",
-    category: "Languages",
-    author: "Carlos Rodriguez",
-    uploadDate: "2023-09-08",
-    size: "110 MB",
-    downloads: 92,
-    thumbnail: "https://via.placeholder.com/150/facc15/ffffff?text=Spanish",
-    url: "#",
-    description: "Audio lessons for beginners learning Spanish language basics."
-  },
-  {
-    id: 12,
-    title: "Physical Education: Fitness Guide",
-    type: "Video",
-    category: "Physical Education",
-    author: "James Thompson",
-    uploadDate: "2023-08-28",
-    size: "320 MB",
-    downloads: 81,
-    thumbnail: "https://via.placeholder.com/150/14b8a6/ffffff?text=PE",
-    url: "#",
-    description: "Video guide to fitness exercises and sports techniques for physical education."
-  }
-];
+import libraryService, { DigitalLibraryResource } from '../../services/libraryService';
 
 interface DigitalLibraryProps {
   searchTerm: string;
 }
 
 const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
-  
-  // Filter resources based on search term, category, and type
-  const filteredResources = mockDigitalResources.filter(resource => {
-    const matchesSearch = 
-      resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      resource.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      resource.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
-    const matchesType = selectedType === 'all' || resource.type === selectedType;
-    
-    return matchesSearch && matchesCategory && matchesType;
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<DigitalLibraryResource | null>(null);
+  const [formState, setFormState] = useState<Partial<DigitalLibraryResource>>({
+    title: '',
+    author: '',
+    type: 'PDF',
+    category: 'General',
+    size: '',
+    url: '',
+    thumbnail: '',
+    description: '',
   });
-  
-  // Get unique categories and types for filters
-  const categories = ['all', ...new Set(mockDigitalResources.map(resource => resource.category))];
-  const types = ['all', ...new Set(mockDigitalResources.map(resource => resource.type))];
-  
-  // Filter resources by type for tabs
-  const pdfResources = filteredResources.filter(resource => resource.type === 'PDF' || resource.type === 'E-Book');
-  const videoResources = filteredResources.filter(resource => resource.type === 'Video');
-  const audioResources = filteredResources.filter(resource => resource.type === 'Audio');
-  const otherResources = filteredResources.filter(resource => 
-    !['PDF', 'E-Book', 'Video', 'Audio'].includes(resource.type)
+
+  const { data: resources = [], isLoading, error } = useQuery({
+    queryKey: ['library-digital-resources', searchTerm, selectedCategory, selectedType],
+    queryFn: () => libraryService.getDigitalResources({
+      search: searchTerm || undefined,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      type: selectedType !== 'all' ? selectedType : undefined,
+    }),
+    staleTime: 30_000,
+  });
+
+  const invalidateResources = () => {
+    queryClient.invalidateQueries({ queryKey: ['library-digital-resources'] });
+    queryClient.invalidateQueries({ queryKey: ['library-statistics'] });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: Partial<DigitalLibraryResource>) => {
+      if (editingResource?.id) {
+        return libraryService.updateDigitalResource(editingResource.id, payload);
+      }
+      return libraryService.createDigitalResource(payload);
+    },
+    onSuccess: () => {
+      invalidateResources();
+      toast.success(editingResource ? 'Resource updated' : 'Resource added');
+      setDialogOpen(false);
+      setEditingResource(null);
+    },
+    onError: () => toast.error('Failed to save digital resource'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (resourceId: number) => libraryService.deleteDigitalResource(resourceId),
+    onSuccess: () => {
+      invalidateResources();
+      toast.success('Resource deleted');
+    },
+    onError: () => toast.error('Failed to delete resource'),
+  });
+
+  const downloadMutation = useMutation({
+    mutationFn: (resourceId: number) => libraryService.downloadDigitalResource(resourceId),
+    onSuccess: (resource) => {
+      invalidateResources();
+      window.open(resource.url, '_blank', 'noopener,noreferrer');
+    },
+    onError: () => toast.error('Failed to open download'),
+  });
+
+  const categories = useMemo(
+    () => ['all', ...new Set(resources.map((resource) => resource.category).filter(Boolean))],
+    [resources]
   );
-  
-  // Function to render resource card
-  const renderResourceCard = (resource: typeof mockDigitalResources[0]) => (
+  const types = useMemo(
+    () => ['all', ...new Set(resources.map((resource) => resource.type).filter(Boolean))],
+    [resources]
+  );
+
+  const filteredResources = useMemo(() => {
+    if (activeTab === 'all') return resources;
+    if (activeTab === 'pdf') return resources.filter((resource) => ['PDF', 'E-Book', 'Document'].includes(resource.type));
+    if (activeTab === 'video') return resources.filter((resource) => resource.type === 'Video');
+    if (activeTab === 'audio') return resources.filter((resource) => resource.type === 'Audio');
+    return resources.filter((resource) => !['PDF', 'E-Book', 'Document', 'Video', 'Audio'].includes(resource.type));
+  }, [activeTab, resources]);
+
+  const openCreateDialog = () => {
+    setEditingResource(null);
+    setFormState({
+      title: '',
+      author: '',
+      type: 'PDF',
+      category: 'General',
+      size: '',
+      url: '',
+      thumbnail: '',
+      description: '',
+    });
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (resource: DigitalLibraryResource) => {
+    setEditingResource(resource);
+    setFormState(resource);
+    setDialogOpen(true);
+  };
+
+  const submitForm = () => {
+    const payload = {
+      title: String(formState.title || '').trim(),
+      author: String(formState.author || '').trim() || undefined,
+      type: String(formState.type || 'PDF').trim(),
+      category: String(formState.category || 'General').trim(),
+      size: String(formState.size || '').trim() || undefined,
+      url: String(formState.url || '').trim(),
+      thumbnail: String(formState.thumbnail || '').trim() || undefined,
+      description: String(formState.description || '').trim() || undefined,
+    };
+
+    if (!payload.title || !payload.url) {
+      toast.error('Title and resource URL are required');
+      return;
+    }
+
+    saveMutation.mutate(payload);
+  };
+
+  const renderResourceCard = (resource: DigitalLibraryResource) => (
     <Card key={resource.id} className="overflow-hidden">
-      <div className="aspect-video relative bg-gray-100">
-        <img 
-          src={resource.thumbnail} 
-          alt={resource.title}
-          className="w-full h-full object-cover"
-        />
+      <div className="aspect-video relative bg-slate-100">
+        {resource.thumbnail ? (
+          <img
+            src={resource.thumbnail}
+            alt={resource.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-400">
+            <BookOpen className="h-12 w-12" />
+          </div>
+        )}
         <div className="absolute top-2 right-2">
-          <Badge 
+          <Badge
             variant="outline"
             className={
-              resource.type === 'PDF' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+              resource.type === 'PDF' || resource.type === 'Document' ? 'bg-blue-100 text-blue-800 border-blue-200' :
               resource.type === 'E-Book' ? 'bg-green-100 text-green-800 border-green-200' :
               resource.type === 'Video' ? 'bg-red-100 text-red-800 border-red-200' :
               resource.type === 'Audio' ? 'bg-purple-100 text-purple-800 border-purple-200' :
@@ -249,29 +190,42 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
       </div>
       <CardContent className="p-4">
         <h3 className="font-bold truncate">{resource.title}</h3>
-        <p className="text-sm text-gray-500">{resource.author}</p>
+        <p className="text-sm text-gray-500">{resource.author || 'School Library'}</p>
         <div className="flex justify-between items-center mt-2">
           <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">{resource.category}</span>
-          <span className="text-xs">{resource.size}</span>
+          <span className="text-xs">{resource.size || 'Online'}</span>
         </div>
         <p className="text-sm mt-2 line-clamp-2 text-gray-600">{resource.description}</p>
-        <div className="flex justify-between mt-4">
-          <Button variant="outline" size="sm">
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{resource.uploadDate || resource.created_at?.slice(0, 10) || 'Recently added'}</span>
+          <span>{resource.downloads || 0} downloads</span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}>
             <Eye className="h-3 w-3 mr-1" />
             View
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => downloadMutation.mutate(resource.id)} disabled={downloadMutation.isPending}>
             <Download className="h-3 w-3 mr-1" />
             Download
+          </Button>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openEditDialog(resource)}>
+            <Pencil className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(resource.id)} disabled={deleteMutation.isPending}>
+            <Trash2 className="h-3 w-3 mr-1" />
+            Remove
           </Button>
         </div>
       </CardContent>
     </Card>
   );
-  
+
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -305,11 +259,14 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
                 </SelectContent>
               </Select>
             </div>
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Resource
+            </Button>
           </div>
         </CardContent>
       </Card>
-      
-      {/* Digital Resources Tabs */}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full md:w-auto">
           <TabsTrigger value="all" className="flex items-center">
@@ -333,100 +290,54 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
             Other
           </TabsTrigger>
         </TabsList>
-        
-        {/* All Resources Tab */}
-        <TabsContent value="all" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredResources.length > 0 ? (
-              filteredResources.map(resource => renderResourceCard(resource))
+
+        {['all', 'pdf', 'video', 'audio', 'other'].map((tab) => (
+          <TabsContent key={tab} value={tab} className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Loading digital resources...
+              </div>
+            ) : error ? (
+              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-red-500">
+                Failed to load digital resources.
+              </div>
             ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No resources found matching your criteria.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredResources.length > 0 ? (
+                  filteredResources.map((resource) => renderResourceCard(resource))
+                ) : (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-gray-500">No resources found matching your criteria.</p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </TabsContent>
-        
-        {/* Documents Tab */}
-        <TabsContent value="pdf" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {pdfResources.length > 0 ? (
-              pdfResources.map(resource => renderResourceCard(resource))
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No document resources found matching your criteria.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        {/* Videos Tab */}
-        <TabsContent value="video" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {videoResources.length > 0 ? (
-              videoResources.map(resource => renderResourceCard(resource))
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No video resources found matching your criteria.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        {/* Audio Tab */}
-        <TabsContent value="audio" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {audioResources.length > 0 ? (
-              audioResources.map(resource => renderResourceCard(resource))
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No audio resources found matching your criteria.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        {/* Other Tab */}
-        <TabsContent value="other" className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {otherResources.length > 0 ? (
-              otherResources.map(resource => renderResourceCard(resource))
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-gray-500">No other resources found matching your criteria.</p>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+          </TabsContent>
+        ))}
       </Tabs>
-      
-      {/* Upload Resource Dialog */}
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button className="fixed bottom-6 right-6 rounded-full h-12 w-12 p-0 shadow-lg">
-            <Plus className="h-6 w-6" />
-          </Button>
-        </DialogTrigger>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Upload Digital Resource</DialogTitle>
+            <DialogTitle>{editingResource ? 'Edit Digital Resource' : 'Add Digital Resource'}</DialogTitle>
             <DialogDescription>
-              Add a new digital resource to the library.
+              Manage online learning materials from the live library catalog.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="title">Title</Label>
-                <Input id="title" placeholder="Resource title" />
+                <Input id="title" placeholder="Resource title" value={String(formState.title || '')} onChange={(e) => setFormState((prev) => ({ ...prev, title: e.target.value }))} />
               </div>
               <div>
                 <Label htmlFor="author">Author/Creator</Label>
-                <Input id="author" placeholder="Author name" />
+                <Input id="author" placeholder="Author name" value={String(formState.author || '')} onChange={(e) => setFormState((prev) => ({ ...prev, author: e.target.value }))} />
               </div>
               <div>
                 <Label htmlFor="type">Resource Type</Label>
-                <Select>
+                <Select value={String(formState.type || 'PDF')} onValueChange={(value) => setFormState((prev) => ({ ...prev, type: value }))}>
                   <SelectTrigger id="type">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -442,11 +353,12 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
               </div>
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select>
+                <Select value={String(formState.category || 'General')} onValueChange={(value) => setFormState((prev) => ({ ...prev, category: value }))}>
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="General">General</SelectItem>
                     <SelectItem value="Science">Science</SelectItem>
                     <SelectItem value="Mathematics">Mathematics</SelectItem>
                     <SelectItem value="Literature">Literature</SelectItem>
@@ -458,42 +370,35 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" placeholder="Brief description of the resource" />
+              <div>
+                <Label htmlFor="size">Display Size</Label>
+                <Input id="size" placeholder="5.2 MB" value={String(formState.size || '')} onChange={(e) => setFormState((prev) => ({ ...prev, size: e.target.value }))} />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="file">Resource File</Label>
-                <div className="mt-1 flex items-center">
-                  <Button variant="outline" className="w-full">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload File
-                  </Button>
-                </div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" placeholder="Brief description of the resource" value={String(formState.description || '')} onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
               </div>
               <div className="col-span-2">
                 <Label htmlFor="thumbnail">Thumbnail Image</Label>
-                <div className="mt-1 flex items-center">
-                  <Button variant="outline" className="w-full">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Thumbnail
-                  </Button>
-                </div>
+                <Input id="thumbnail" placeholder="https://example.com/thumbnail.jpg" value={String(formState.thumbnail || '')} onChange={(e) => setFormState((prev) => ({ ...prev, thumbnail: e.target.value }))} />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="url">External URL (Optional)</Label>
+                <Label htmlFor="url">Resource URL</Label>
                 <div className="flex gap-2">
-                  <Input id="url" placeholder="https://example.com/resource" className="flex-1" />
-                  <Button variant="outline">
+                  <Input id="url" placeholder="https://example.com/resource" className="flex-1" value={String(formState.url || '')} onChange={(e) => setFormState((prev) => ({ ...prev, url: e.target.value }))} />
+                  <Button variant="outline" onClick={() => formState.url && window.open(String(formState.url), '_blank', 'noopener,noreferrer')}>
                     <LinkIcon className="mr-2 h-4 w-4" />
-                    Verify
+                    Open
                   </Button>
                 </div>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Upload Resource</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" onClick={submitForm} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingResource ? 'Save Changes' : 'Add Resource'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

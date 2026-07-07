@@ -229,7 +229,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     motherWorkplace: '',
     motherEmail: '',
     guardianName: '',
-    guardianContact: ''
+    guardianContact: '',
+    profile_picture_locked: false,
   });
   
   const [errors, setErrors] = useState<FormErrors>({});

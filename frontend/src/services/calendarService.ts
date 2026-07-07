@@ -29,6 +29,14 @@ export interface CreateEventParams {
   send_notification?: boolean;
 }
 
+export interface AcademicTerm {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status?: string;
+}
+
 export interface EventSubscription {
   user_id: number;
   event_types: ('class' | 'exam' | 'meeting' | 'holiday')[];
@@ -236,6 +244,46 @@ const calendarService = {
       return true;
     } catch (error) {
       console.error('Error deleting calendar event:', error);
+      throw error;
+    }
+  },
+
+  getTerms: async (): Promise<AcademicTerm[]> => {
+    try {
+      const response = await api.get('/calendar/terms');
+      return response.data?.terms || response.data?.data?.terms || [];
+    } catch (error) {
+      console.error('Error fetching academic terms:', error);
+      throw error;
+    }
+  },
+
+  createTerm: async (termData: { name: string; start_date: string; end_date: string }): Promise<AcademicTerm> => {
+    try {
+      const response = await api.post('/calendar/terms', termData);
+      return response.data?.term || response.data?.data?.term;
+    } catch (error) {
+      console.error('Error creating academic term:', error);
+      throw error;
+    }
+  },
+
+  updateTerm: async (termId: number, updates: Partial<{ name: string; start_date: string; end_date: string }>): Promise<AcademicTerm> => {
+    try {
+      const response = await api.put(`/calendar/terms/${termId}`, updates);
+      return response.data?.term || response.data?.data?.term;
+    } catch (error) {
+      console.error('Error updating academic term:', error);
+      throw error;
+    }
+  },
+
+  deleteTerm: async (termId: number): Promise<boolean> => {
+    try {
+      await api.delete(`/calendar/terms/${termId}`);
+      return true;
+    } catch (error) {
+      console.error('Error deleting academic term:', error);
       throw error;
     }
   },

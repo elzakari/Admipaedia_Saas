@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+from datetime import date
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -60,6 +61,11 @@ def get_books():
                 'isbn': b.isbn,
                 'category': b.category.value if hasattr(b.category, 'value') else b.category,
                 'status': b.status.value if hasattr(b.status, 'value') else b.status,
+                'publisher': b.publisher,
+                'publication_year': b.publication_year,
+                'description': b.description,
+                'shelf_location': b.shelf_location,
+                'total_copies': b.total_copies,
                 'available_copies': b.available_copies
             } for b in paginated.items
         ],
@@ -162,7 +168,11 @@ def get_borrow_records():
                 'borrow_date': r.borrow_date.isoformat() if r.borrow_date else None,
                 'due_date': r.due_date.isoformat() if r.due_date else None,
                 'return_date': r.return_date.isoformat() if r.return_date else None,
-                'status': r.status.value if hasattr(r.status, 'value') else r.status,
+                'status': (
+                    'overdue'
+                    if (getattr(r, 'return_date', None) is None and getattr(r, 'due_date', None) and r.due_date < date.today())
+                    else (r.status.value if hasattr(r.status, 'value') else r.status)
+                ),
                 'fine': float(r.calculate_fine())
             }
             for r in paginated.items
@@ -299,6 +309,63 @@ def return_book():
         
     return jsonify({'success': True, 'message': message}), 200
 
+
+@library_bp.route('/digital-resources', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+def get_digital_resources():
+    resources = LibraryService.list_digital_resources(
+        search=request.args.get('search'),
+        category=request.args.get('category'),
+        resource_type=request.args.get('type')
+    )
+    return jsonify({'success': True, 'resources': resources}), 200
+
+
+@library_bp.route('/digital-resources', methods=['POST'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+@admin_required
+def create_digital_resource():
+    payload = request.get_json() or {}
+    if not payload.get('title') or not payload.get('url'):
+        return jsonify({'success': False, 'message': 'title and url are required'}), 400
+    resource = LibraryService.create_digital_resource(payload, created_by_id=get_jwt_identity())
+    return jsonify({'success': True, 'resource': resource}), 201
+
+
+@library_bp.route('/digital-resources/<int:resource_id>', methods=['PUT'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+@admin_required
+def update_digital_resource(resource_id):
+    payload = request.get_json() or {}
+    resource = LibraryService.update_digital_resource(resource_id, payload)
+    if resource is None:
+        return jsonify({'success': False, 'message': 'Resource not found'}), 404
+    return jsonify({'success': True, 'resource': resource}), 200
+
+
+@library_bp.route('/digital-resources/<int:resource_id>', methods=['DELETE'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+@admin_required
+def delete_digital_resource(resource_id):
+    ok = LibraryService.delete_digital_resource(resource_id)
+    if not ok:
+        return jsonify({'success': False, 'message': 'Resource not found'}), 404
+    return jsonify({'success': True}), 200
+
+
+@library_bp.route('/digital-resources/<int:resource_id>/download', methods=['POST'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+def download_digital_resource(resource_id):
+    resource = LibraryService.increment_digital_resource_downloads(resource_id)
+    if resource is None:
+        return jsonify({'success': False, 'message': 'Resource not found'}), 404
+    return jsonify({'success': True, 'resource': resource}), 200
+
 # Library Reports Endpoints
 @library_bp.route('/reports/stats', methods=['GET'])
 @jwt_required()
@@ -355,3 +422,64 @@ def get_library_overdue_trends():
     """Get overdue trends."""
     data = LibraryService.get_overdue_trends()
     return jsonify({'success': True, 'data': data}), 200
+
+
+@library_bp.route('/reports/export', methods=['POST'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+@admin_required
+def export_library_report():
+    payload = request.get_json() or {}
+    report_type = payload.get('reportType', 'borrowing')
+    rows = LibraryService.build_report_rows(report_type)
+    headers = sorted({key for row in rows for key in row.keys()}) if rows else []
+
+    def escape(value):
+        string_value = '' if value is None else str(value)
+        if any(char in string_value for char in [',', '"', '\n']):
+            return '"' + string_value.replace('"', '""') + '"'
+        return string_value
+
+    csv = '\n'.join([
+        ','.join(headers),
+        *[','.join(escape(row.get(header)) for header in headers) for row in rows]
+    ])
+    response = current_app.response_class(csv, mimetype='text/csv')
+    response.headers['Content-Disposition'] = f'attachment; filename=library-{report_type}.csv'
+    return response
+
+
+@library_bp.route('/reports/print', methods=['POST'])
+@jwt_required()
+@require_role(['admin', 'teacher'])
+@admin_required
+def print_library_report():
+    payload = request.get_json() or {}
+    report_type = payload.get('reportType', 'borrowing')
+    rows = LibraryService.build_report_rows(report_type)
+    headers = sorted({key for row in rows for key in row.keys()}) if rows else []
+    html_rows = ''.join(
+        f"<tr>{''.join(f'<td>{row.get(header, '')}</td>' for header in headers)}</tr>"
+        for row in rows
+    )
+    html = f"""
+    <html>
+      <head>
+        <title>Library Report</title>
+        <style>
+          body {{ font-family: Arial, sans-serif; padding: 24px; }}
+          table {{ width: 100%; border-collapse: collapse; }}
+          th, td {{ border: 1px solid #ddd; padding: 8px; font-size: 12px; text-align: left; }}
+          th {{ background: #f5f5f5; }}
+        </style>
+      </head>
+      <body>
+        <h1>Library Report: {report_type}</h1>
+        <table>
+          <thead><tr>{''.join(f'<th>{header}</th>' for header in headers)}</tr></thead>
+          <tbody>{html_rows}</tbody>
+        </table>
+      </body>
+    </html>
+    """
+    return jsonify({'success': True, 'html': html}), 200

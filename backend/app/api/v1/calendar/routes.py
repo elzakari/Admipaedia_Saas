@@ -11,6 +11,12 @@ from app.utils.tenant_context import tenant_required
 from app.schemas.academic_term import AcademicTermSchema
 from app.services.academic_term_service import AcademicTermService
 
+try:
+    from icalendar import Calendar as iCalendar, Event as iEvent
+except ModuleNotFoundError:
+    iCalendar = None
+    iEvent = None
+
 academic_term_schema = AcademicTermSchema()
 
 @calendar_bp.route('/events', methods=['POST'])
@@ -36,7 +42,10 @@ def create_event():
             description=data.get('description', ''),
             created_by=get_jwt_identity(),
             target_roles=data.get('target_roles', []),
-            send_notification=data.get('send_notification', True)
+            send_notification=data.get('send_notification', True),
+            location=data.get('location'),
+            start_time=data.get('start_time'),
+            end_time=data.get('end_time')
         )
         
         return jsonify({
@@ -47,7 +56,10 @@ def create_event():
                 'title': event.title,
                 'date': event.date.isoformat(),
                 'type': event.type,
-                'description': event.description
+                'description': event.description,
+                'location': event.location,
+                'start_time': event.start_time,
+                'end_time': event.end_time
             }
         }), 201
         
@@ -109,7 +121,10 @@ def update_event(event_id):
                 'title': event.title,
                 'date': event.date.isoformat(),
                 'type': event.type,
-                'description': event.description
+                'description': event.description,
+                'location': event.location,
+                'start_time': event.start_time,
+                'end_time': event.end_time
             }
         }), 200
         
@@ -196,9 +211,7 @@ def export_events():
         )
         
         # Lazy import to avoid startup crash when package is missing
-        try:
-            from icalendar import Calendar as iCalendar, Event as iEvent
-        except ModuleNotFoundError:
+        if iCalendar is None or iEvent is None:
             return jsonify({
                 'success': False,
                 'message': 'icalendar package not installed. Please install it to use export.'
@@ -261,6 +274,12 @@ def import_events():
         
         # Parse iCalendar file
         cal_data = file.read()
+        if iCalendar is None:
+            return jsonify({
+                'success': False,
+                'message': 'icalendar package not installed. Please install it to use import.'
+            }), 500
+
         cal = iCalendar.from_ical(cal_data)
         
         # Process events

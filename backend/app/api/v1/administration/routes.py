@@ -1199,16 +1199,19 @@ def create_facility():
     try:
         current_app.logger.debug(f"Create facility request data: {request.json}")
         
-        data = facility_schema.load(request.json)
-        facility, error = administration_service.create_facility(data)
+        data = facility_schema.load(request.json or {})
+        is_active = data.pop('is_active', True)
+        data['status'] = 'active' if is_active else 'inactive'
+        data['created_by'] = get_jwt_identity()
+        success, result = administration_service.create_facility(data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Facility created successfully',
-            'facility': facility_schema.dump(facility)
+            'facility': facility_schema.dump(result)
         }), 201
         
     except ValidationError as e:
@@ -1231,16 +1234,19 @@ def update_facility(facility_id):
     try:
         current_app.logger.debug(f"Update facility {facility_id} request data: {request.json}")
         
-        data = facility_schema.load(request.json, partial=True)
-        facility, error = administration_service.update_facility(facility_id, data)
+        data = facility_schema.load(request.json or {}, partial=True)
+        if 'is_active' in data:
+            is_active = data.pop('is_active')
+            data['status'] = 'active' if is_active else 'inactive'
+        success, result = administration_service.update_facility(facility_id, data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Facility updated successfully',
-            'facility': facility_schema.dump(facility)
+            'facility': facility_schema.dump(result)
         }), 200
         
     except ValidationError as e:
@@ -1350,15 +1356,15 @@ def create_maintenance_request():
 
         data = maintenance_request_schema.load(incoming)
         
-        maintenance_request, error = administration_service.create_maintenance_request(data)
+        success, result = administration_service.create_maintenance_request(data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Maintenance request created successfully',
-            'maintenance_request': maintenance_request_schema.dump(maintenance_request)
+            'maintenance_request': maintenance_request_schema.dump(result)
         }), 201
         
     except ValidationError as e:
@@ -1382,15 +1388,15 @@ def update_maintenance_request(request_id):
         current_app.logger.debug(f"Update maintenance request {request_id} data: {request.json}")
         
         data = maintenance_request_schema.load(request.json, partial=True)
-        maintenance_request, error = administration_service.update_maintenance_request(request_id, data)
+        success, result = administration_service.update_maintenance_request(request_id, data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Maintenance request updated successfully',
-            'maintenance_request': maintenance_request_schema.dump(maintenance_request)
+            'maintenance_request': maintenance_request_schema.dump(result)
         }), 200
         
     except ValidationError as e:
@@ -1496,15 +1502,15 @@ def create_asset():
         incoming = dict(request.json or {})
         incoming['created_by'] = get_jwt_identity()
         data = asset_schema.load(incoming)
-        asset, error = administration_service.create_asset(data)
+        success, result = administration_service.create_asset(data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Asset created successfully',
-            'asset': asset_schema.dump(asset)
+            'asset': asset_schema.dump(result)
         }), 201
         
     except ValidationError as e:
@@ -1528,15 +1534,15 @@ def update_asset(asset_id):
         current_app.logger.debug(f"Update asset {asset_id} request data: {request.json}")
         
         data = asset_schema.load(request.json, partial=True)
-        asset, error = administration_service.update_asset(asset_id, data)
+        success, result = administration_service.update_asset(asset_id, data)
         
-        if error:
-            return jsonify({'success': False, 'message': error}), 400
+        if not success:
+            return jsonify({'success': False, 'message': result}), 400
         
         return jsonify({
             'success': True,
             'message': 'Asset updated successfully',
-            'asset': asset_schema.dump(asset)
+            'asset': asset_schema.dump(result)
         }), 200
         
     except ValidationError as e:

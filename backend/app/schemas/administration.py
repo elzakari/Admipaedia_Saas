@@ -400,7 +400,7 @@ class FacilitySchema(Schema):
     location = fields.String(validate=validate.Length(max=200), allow_none=True)
     capacity = fields.Integer(validate=validate.Range(min=0), allow_none=True)
     description = fields.String(validate=validate.Length(max=500), allow_none=True)
-    is_active = fields.Boolean(load_default=True)
+    is_active = fields.Method('get_is_active', deserialize='load_is_active', load_default=True)
     maintenance_schedule = fields.String(validate=validate.OneOf([
         'daily', 'weekly', 'monthly', 'quarterly', 'annually', 'as_needed'
     ]), load_default='monthly')
@@ -412,6 +412,15 @@ class FacilitySchema(Schema):
     # Nested relationships
     maintenance_requests = fields.Nested('MaintenanceRequestSchema', many=True, dump_only=True, exclude=['facility'])
     assets = fields.Nested('AssetSchema', many=True, dump_only=True, exclude=['facility'])
+
+    def get_is_active(self, obj):
+        status = getattr(obj, 'status', None)
+        if hasattr(status, 'value'):
+            status = status.value
+        return str(status or '').lower() == 'active'
+
+    def load_is_active(self, value):
+        return bool(value)
 
 class SystemSettingSchema(Schema):
     """Schema for serializing and deserializing SystemSetting objects"""

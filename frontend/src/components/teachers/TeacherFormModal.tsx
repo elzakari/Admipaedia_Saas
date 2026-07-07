@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import MobileOptimizedInput from '../common/MobileOptimizedInput';
 import MobileOptimizedSelect from '../common/MobileOptimizedSelect';
@@ -17,6 +18,7 @@ import { useMobileKeyboard } from '../../hooks/useMobileKeyboard';
 import { FormValidationProvider } from '../common/FormValidationProvider';
 import { User, Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Hash, Building, Activity } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errorHandling';
+import departmentService from '../../services/departmentService';
 
 interface TeacherFormModalProps {
   isOpen: boolean;
@@ -73,15 +75,6 @@ const genderOptions = [
   { value: 'other', label: 'Other' }
 ];
 
-const departmentOptions = [
-  { value: '1', label: 'Mathematics' },
-  { value: '2', label: 'Science' },
-  { value: '3', label: 'Languages' },
-  { value: '4', label: 'Social Studies' },
-  { value: '5', label: 'Arts' },
-  { value: '6', label: 'Physical Education' }
-];
-
 const statusOptions = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
@@ -92,54 +85,55 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { height: keyboardHeight, isVisible: isKeyboardVisible } = useMobileKeyboard();
   
-  const { register, handleSubmit, control, formState: { errors }, reset, watch } = useForm<FormData>({
-    defaultValues: teacher ? {
-      firstName: teacher.firstName || '',
-      middleName: (teacher as any).middleName || '',
-      lastName: teacher.lastName || '',
-      email: teacher.email || '',
-      phone: teacher.phone || '',
-      address: teacher.address || '',
-      dateOfBirth: teacher.dateOfBirth || '',
-      gender: (teacher as any).gender || 'male',
-      nationality: (teacher as any).nationality || '',
-      bloodGroup: (teacher as any).bloodGroup || '',
-      qualification: teacher.qualification || '',
-      specialization: teacher.specialization || '',
-      joinDate: teacher.joinDate || new Date().toISOString().split('T')[0],
-      employeeId: teacher.employeeId || '',
-      departmentId: teacher.departmentId || '',
-      bio: (teacher as any).bio || '',
-      emergencyContactName: (teacher as any).emergencyContactName || '',
-      emergencyContactPhone: (teacher as any).emergencyContactPhone || '',
-      status: teacher.status || 'active'
-    } : {
-      firstName: '',
-      middleName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      address: '',
-      dateOfBirth: '',
-      gender: 'male',
-      nationality: '',
-      bloodGroup: '',
-      qualification: '',
-      specialization: '',
-      joinDate: new Date().toISOString().split('T')[0],
-      employeeId: '',
-      departmentId: '',
-      bio: '',
-      emergencyContactName: '',
-      emergencyContactPhone: '',
-      status: 'active'
-    }
+  const buildDefaultValues = (currentTeacher?: Teacher): FormData => ({
+    firstName: currentTeacher?.firstName || '',
+    middleName: (currentTeacher as any)?.middleName || '',
+    lastName: currentTeacher?.lastName || '',
+    email: currentTeacher?.email || '',
+    phone: currentTeacher?.phone || currentTeacher?.phoneNumber || '',
+    address: currentTeacher?.address || '',
+    dateOfBirth: currentTeacher?.dateOfBirth || '',
+    gender: (currentTeacher as any)?.gender || 'male',
+    nationality: (currentTeacher as any)?.nationality || '',
+    bloodGroup: (currentTeacher as any)?.bloodGroup || '',
+    qualification: currentTeacher?.qualification || '',
+    specialization: currentTeacher?.specialization || '',
+    joinDate: currentTeacher?.joinDate || currentTeacher?.hire_date || new Date().toISOString().split('T')[0],
+    employeeId: currentTeacher?.employeeId || '',
+    departmentId: currentTeacher?.departmentId || String((currentTeacher as any)?.department?.id || ''),
+    bio: (currentTeacher as any)?.bio || '',
+    emergencyContactName: (currentTeacher as any)?.emergencyContactName || '',
+    emergencyContactPhone: (currentTeacher as any)?.emergencyContactPhone || '',
+    status: currentTeacher?.status || 'active'
+  });
+
+  const { register, handleSubmit, control, formState: { errors }, reset } = useForm<FormData>({
+    defaultValues: buildDefaultValues(teacher)
   });
   
   const createTeacher = useCreateTeacher();
   const updateTeacher = useUpdateTeacher();
   const { isOnline, saveForOfflineSync } = useOfflineData();
   const updateTeacherStatus = useUpdateTeacherStatus();
+
+  const { data: departmentsData = [] } = useQuery({
+    queryKey: ['operational-departments', 'teacher-form'],
+    queryFn: () => departmentService.getOperationalDepartments(),
+    staleTime: 60_000,
+    enabled: isOpen
+  });
+
+  const departmentOptions = useMemo(() => {
+    return (departmentsData || []).map((department: any) => ({
+      value: String(department.id),
+      label: department.name
+    }));
+  }, [departmentsData]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    reset(buildDefaultValues(teacher));
+  }, [teacher, isOpen, reset]);
   
   const onSubmit = async (data: FormData) => {
     try {
@@ -159,7 +153,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
         nationality: data.nationality,
         blood_group: data.bloodGroup,
         employee_id: data.employeeId,
-        department_id: data.departmentId,
+        department_id: data.departmentId ? Number(data.departmentId) : undefined,
         bio: data.bio,
         emergency_contact_name: data.emergencyContactName,
         emergency_contact_phone: data.emergencyContactPhone

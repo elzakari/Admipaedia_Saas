@@ -36,93 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { api } from '../../lib/api';
-
-// API service functions
-const calendarAPI = {
-  getEvents: async (params?: { start_date?: string; end_date?: string; type?: string }) => {
-    const queryParams: Record<string, string> = {};
-    if (params?.start_date) queryParams.start_date = params.start_date;
-    if (params?.end_date) queryParams.end_date = params.end_date;
-    if (params?.type) queryParams.type = params.type;
-
-    const { data } = await api.get('/calendar/events', { params: queryParams });
-    return data;
-  },
-
-  createEvent: async (eventData: {
-    title: string;
-    date: string;
-    type: string;
-    description?: string;
-  }) => {
-    const { data } = await api.post('/calendar/events', eventData);
-    return data;
-  },
-
-  updateEvent: async (eventId: number, updates: Partial<{
-    title: string;
-    date: string;
-    type: string;
-    description?: string;
-  }>) => {
-    const { data } = await api.put(`/calendar/events/${eventId}`, updates);
-    return data;
-  },
-
-  deleteEvent: async (eventId: number) => {
-    const { data } = await api.delete(`/calendar/events/${eventId}`);
-    return data;
-  },
-
-  getExams: async (params?: { start_date?: string; end_date?: string; class_id?: string }) => {
-    const queryParams: Record<string, string> = {};
-    if (params?.start_date) queryParams.start_date = params.start_date;
-    if (params?.end_date) queryParams.end_date = params.end_date;
-    if (params?.class_id) queryParams.class_id = params.class_id;
-
-    const { data } = await api.get('/exams', { params: queryParams });
-    return data;
-  },
-
-  getUpcomingExams: async (params?: { days_ahead?: string; class_id?: string }) => {
-    const queryParams: Record<string, string> = {};
-    if (params?.days_ahead) queryParams.days_ahead = params.days_ahead;
-    if (params?.class_id) queryParams.class_id = params.class_id;
-
-    const { data } = await api.get('/exams/upcoming', { params: queryParams });
-    return data;
-  },
-
-  createExam: async (examData: {
-    subject: string;
-    date: string;
-    class_id: string;
-    duration_minutes?: number;
-  }) => {
-    const { data } = await api.post('/exams', examData);
-    return data;
-  },
-
-  getTerms: async () => {
-    const { data } = await api.get('/calendar/terms');
-    return data;
-  },
-
-  createTerm: async (termData: { name: string; start_date: string; end_date: string }) => {
-    const { data } = await api.post('/calendar/terms', termData);
-    return data;
-  },
-
-  updateTerm: async (termId: number, updates: Partial<{ name: string; start_date: string; end_date: string }>) => {
-    const { data } = await api.put(`/calendar/terms/${termId}`, updates);
-    return data;
-  },
-
-  deleteTerm: async (termId: number) => {
-    const { data } = await api.delete(`/calendar/terms/${termId}`);
-    return data;
-  }
-};
+import calendarService, { AcademicTerm, CalendarEvent, CreateEventParams } from '../../services/calendarService';
 
 const examAPI = {
   getExams: async (params?: { page?: number; per_page?: number; date_from?: string; date_to?: string; status?: string }) => {
@@ -147,11 +61,14 @@ const AcademicCalendar = () => {
   const queryClient = useQueryClient();
 
   type CalendarEventDraft = {
-    id?: number;
+    id?: string;
     title?: string;
     date?: string;
-    type?: string;
+    type?: CreateEventParams['type'];
     description?: string;
+    location?: string;
+    start_time?: string;
+    end_time?: string;
   };
 
   const [termDialogOpen, setTermDialogOpen] = useState(false);
@@ -168,14 +85,11 @@ const AcademicCalendar = () => {
   // Fetch calendar events
   const { data: eventsResponse, isLoading: eventsLoading, error: eventsError } = useQuery({
     queryKey: ['calendar-events', startDate, endDate],
-    queryFn: () => calendarAPI.getEvents({ start_date: startDate, end_date: endDate }),
+    queryFn: () => calendarService.getEvents({ start_date: startDate, end_date: endDate }),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Extract events array from response (handle both direct array and paginated response)
-  const events = Array.isArray(eventsResponse) 
-    ? eventsResponse 
-    : (eventsResponse?.data || eventsResponse?.events || []);
+  const events: CalendarEvent[] = Array.isArray(eventsResponse) ? eventsResponse : [];
   
   // Fetch exams
   const { data: exams = [], isLoading: examsLoading, error: examsError } = useQuery({
@@ -193,14 +107,11 @@ const AcademicCalendar = () => {
 
   const { data: termsResponse, isLoading: termsLoading, error: termsError } = useQuery({
     queryKey: ['calendar-terms'],
-    queryFn: () => calendarAPI.getTerms(),
+    queryFn: () => calendarService.getTerms(),
     staleTime: 5 * 60 * 1000,
   });
 
-  type ApiTerm = { id: number; name: string; start_date: string; end_date: string; status?: string };
-  const terms: ApiTerm[] = Array.isArray(termsResponse)
-    ? (termsResponse as any)
-    : (termsResponse?.terms || termsResponse?.data?.terms || []);
+  const terms: AcademicTerm[] = Array.isArray(termsResponse) ? termsResponse : [];
   
   const termStatus = useMemo(() => {
     return (startDate: string, endDate: string) => {
@@ -244,7 +155,7 @@ const AcademicCalendar = () => {
   
   // Mutations for CRUD operations
   const createEventMutation = useMutation({
-    mutationFn: calendarAPI.createEvent,
+    mutationFn: (payload: CreateEventParams) => calendarService.createEvent(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast.success('Event created successfully');
@@ -254,14 +165,9 @@ const AcademicCalendar = () => {
     }
   });
   
-  const updateEventMutation = useMutation<any, Error, { eventId: number; updates: Partial<{
-    title: string;
-    date: string;
-    type: string;
-    description?: string;
-  }>}>({
+  const updateEventMutation = useMutation<any, Error, { eventId: string; updates: Partial<CreateEventParams> }>({
     mutationFn: async ({ eventId, updates }) => {
-      return calendarAPI.updateEvent(eventId, updates);
+      return calendarService.updateEvent(eventId, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
@@ -273,7 +179,7 @@ const AcademicCalendar = () => {
   });
   
   const deleteEventMutation = useMutation({
-    mutationFn: calendarAPI.deleteEvent,
+    mutationFn: (eventId: string) => calendarService.deleteEvent(eventId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       toast.success('Event deleted successfully');
@@ -296,7 +202,7 @@ const AcademicCalendar = () => {
   });
 
   const createTermMutation = useMutation({
-    mutationFn: (payload: { name: string; start_date: string; end_date: string }) => calendarAPI.createTerm(payload),
+    mutationFn: (payload: { name: string; start_date: string; end_date: string }) => calendarService.createTerm(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-terms'] });
       toast.success('Term saved successfully');
@@ -308,7 +214,7 @@ const AcademicCalendar = () => {
 
   const updateTermMutation = useMutation({
     mutationFn: ({ termId, updates }: { termId: number; updates: Partial<{ name: string; start_date: string; end_date: string }> }) =>
-      calendarAPI.updateTerm(termId, updates),
+      calendarService.updateTerm(termId, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-terms'] });
       toast.success('Term updated successfully');
@@ -319,7 +225,7 @@ const AcademicCalendar = () => {
   });
 
   const deleteTermMutation = useMutation({
-    mutationFn: (termId: number) => calendarAPI.deleteTerm(termId),
+    mutationFn: (termId: number) => calendarService.deleteTerm(termId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-terms'] });
       toast.success('Term deleted successfully');
@@ -332,7 +238,7 @@ const AcademicCalendar = () => {
   // Helper functions
   const getCategoryBadgeVariant = (category: string) => {
     switch (category?.toLowerCase()) {
-      case 'academic': return 'default';
+      case 'class': return 'default';
       case 'holiday': return 'success';
       case 'exam': return 'destructive';
       case 'meeting': return 'warning';
@@ -366,6 +272,47 @@ const AcademicCalendar = () => {
       return 'Completed';
     }
   };
+
+  const calendarAgenda = useMemo(() => {
+    const monthStart = new Date(currentYear, new Date().getMonth(), 1);
+    const monthEnd = new Date(currentYear, new Date().getMonth() + 1, 0, 23, 59, 59);
+
+    const eventItems = events
+      .filter((event: any) => {
+        const date = new Date(event.date);
+        return date >= monthStart && date <= monthEnd;
+      })
+      .map((event: any) => ({
+        id: `event-${event.id}`,
+        kind: 'event' as const,
+        title: event.title,
+        date: event.date,
+        type: event.type,
+        description: event.description,
+        location: event.location,
+        time: [event.start_time, event.end_time].filter(Boolean).join(' - ')
+      }));
+
+    const examItems = exams
+      .filter((exam: any) => {
+        const rawDate = exam.start_date || exam.date;
+        if (!rawDate) return false;
+        const date = new Date(rawDate);
+        return date >= monthStart && date <= monthEnd;
+      })
+      .map((exam: any) => ({
+        id: `exam-${exam.id}`,
+        kind: 'exam' as const,
+        title: exam.name || exam.subject?.name || 'Exam',
+        date: exam.start_date || exam.date,
+        type: 'exam',
+        description: exam.subject?.name || exam.description || '',
+        location: exam.class_name || exam.class?.name || '',
+        time: exam.start_time || ''
+      }));
+
+    return [...eventItems, ...examItems].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [currentYear, events, exams]);
   
   // Loading and error states
   if (eventsLoading || examsLoading || termsLoading) {
@@ -409,7 +356,6 @@ const AcademicCalendar = () => {
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">Academic Terms</h3>
             <Button
-              className="glass-button"
               onClick={() => {
                 setEditingTerm(null);
                 setTermDialogOpen(true);
@@ -565,7 +511,6 @@ const AcademicCalendar = () => {
                 Export Events
               </Button>
               <Button 
-                className="glass-button"
                 onClick={() => {
                   setEditingEvent(null);
                   setEventDialogOpen(true);
@@ -675,16 +620,15 @@ const AcademicCalendar = () => {
                   <div className="space-y-2">
                     <Label>Type</Label>
                     <Select
-                      value={editingEvent?.type ?? 'academic'}
-                      onValueChange={(v) => setEditingEvent((prev) => ({ ...(prev || {}), type: v }))}
+                      value={editingEvent?.type ?? 'class'}
+                      onValueChange={(v) => setEditingEvent((prev) => ({ ...(prev || {}), type: v as CreateEventParams['type'] }))}
                     >
                       <SelectTrigger className="bg-white"><SelectValue placeholder="Select type" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="academic">academic</SelectItem>
+                        <SelectItem value="class">class</SelectItem>
                         <SelectItem value="holiday">holiday</SelectItem>
                         <SelectItem value="exam">exam</SelectItem>
                         <SelectItem value="meeting">meeting</SelectItem>
-                        <SelectItem value="event">event</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -698,25 +642,71 @@ const AcademicCalendar = () => {
                     placeholder="Optional details"
                   />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <Input
+                      className="bg-white"
+                      value={editingEvent?.location ?? ''}
+                      onChange={(e) => setEditingEvent((prev) => ({ ...(prev || {}), location: e.target.value }))}
+                      placeholder="Assembly hall"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Start time</Label>
+                      <Input
+                        type="time"
+                        className="bg-white"
+                        value={editingEvent?.start_time ?? ''}
+                        onChange={(e) => setEditingEvent((prev) => ({ ...(prev || {}), start_time: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End time</Label>
+                      <Input
+                        type="time"
+                        className="bg-white"
+                        value={editingEvent?.end_time ?? ''}
+                        onChange={(e) => setEditingEvent((prev) => ({ ...(prev || {}), end_time: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => setEventDialogOpen(false)}>Cancel</Button>
                 <Button
-                  className="glass-button"
                   disabled={createEventMutation.isPending || updateEventMutation.isPending}
                   onClick={() => {
                     const title = String(editingEvent?.title || '').trim();
                     const date = String(editingEvent?.date || '').trim();
-                    const type = String(editingEvent?.type || 'academic');
+                    const type = (editingEvent?.type || 'class') as CreateEventParams['type'];
                     if (!title || !date || !type) return;
 
                     if (editingEvent?.id) {
                       updateEventMutation.mutate({
                         eventId: editingEvent.id,
-                        updates: { title, date, type, description: editingEvent?.description || '' }
+                        updates: {
+                          title,
+                          date,
+                          type,
+                          description: editingEvent?.description || '',
+                          location: editingEvent?.location || '',
+                          start_time: editingEvent?.start_time || '',
+                          end_time: editingEvent?.end_time || ''
+                        }
                       });
                     } else {
-                      createEventMutation.mutate({ title, date, type, description: editingEvent?.description || '' });
+                      createEventMutation.mutate({
+                        title,
+                        date,
+                        type,
+                        description: editingEvent?.description || '',
+                        location: editingEvent?.location || '',
+                        start_time: editingEvent?.start_time || '',
+                        end_time: editingEvent?.end_time || ''
+                      });
                     }
                     setEventDialogOpen(false);
                   }}
@@ -737,7 +727,6 @@ const AcademicCalendar = () => {
               </p>
             </div>
             <Button 
-              className="glass-button"
               onClick={() => {
                 navigate('/exams');
               }}
@@ -834,12 +823,6 @@ const AcademicCalendar = () => {
               </p>
             </div>
             <div className="flex gap-2">
-              <select className="px-3 py-2 border rounded-md">
-                <option>January {currentYear}</option>
-                <option>February {currentYear}</option>
-                <option>March {currentYear}</option>
-                <option>April {currentYear}</option>
-              </select>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -857,13 +840,53 @@ const AcademicCalendar = () => {
           
           <Card>
             <CardContent className="p-6">
-              <div className="h-[600px] bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <CalendarIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <span className="text-gray-500">Interactive calendar view</span>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Showing {events.length} events and {exams.length} exams
-                  </p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="rounded-xl border bg-blue-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-blue-700">This Month Events</div>
+                    <div className="mt-2 text-2xl font-bold text-blue-900">
+                      {calendarAgenda.filter((item) => item.kind === 'event').length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-red-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-red-700">This Month Exams</div>
+                    <div className="mt-2 text-2xl font-bold text-red-900">
+                      {calendarAgenda.filter((item) => item.kind === 'exam').length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-emerald-50 p-4">
+                    <div className="text-xs uppercase tracking-wide text-emerald-700">Upcoming Items</div>
+                    <div className="mt-2 text-2xl font-bold text-emerald-900">{calendarAgenda.length}</div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {calendarAgenda.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
+                      No calendar items scheduled for the current month yet.
+                    </div>
+                  ) : (
+                    calendarAgenda.map((item) => (
+                      <div key={item.id} className="rounded-xl border p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-900">{item.title}</span>
+                              <Badge variant={getCategoryBadgeVariant(item.type)}>{item.type}</Badge>
+                            </div>
+                            <div className="mt-1 text-sm text-slate-500">
+                              {new Date(item.date).toLocaleDateString()}
+                              {item.time ? ` • ${item.time}` : ''}
+                              {item.location ? ` • ${item.location}` : ''}
+                            </div>
+                            {item.description && (
+                              <div className="mt-2 text-sm text-slate-600">{item.description}</div>
+                            )}
+                          </div>
+                          <CalendarIcon className="h-5 w-5 text-slate-400" />
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -872,7 +895,7 @@ const AcademicCalendar = () => {
           <div className="flex gap-2 flex-wrap">
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-              <span className="text-sm">Academic</span>
+              <span className="text-sm">Class</span>
             </div>
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
@@ -885,10 +908,6 @@ const AcademicCalendar = () => {
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-amber-500 mr-1"></div>
               <span className="text-sm">Meeting</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-purple-500 mr-1"></div>
-              <span className="text-sm">Event</span>
             </div>
           </div>
         </TabsContent>

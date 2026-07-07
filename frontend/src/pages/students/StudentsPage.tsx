@@ -75,6 +75,7 @@ import { getNormalizedGradeLevel } from "../../utils/formatters";
 import { getClassDisplayName } from '../../utils/formatters';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "../../lib/adminUi";
 import { resolveStudentAvatar } from '../../utils/avatar';
+import studentService from "../../services/studentService";
 
 export function StudentsPage() {
   const { t } = useTranslation();

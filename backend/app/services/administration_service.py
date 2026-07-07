@@ -378,6 +378,23 @@ class AdministrationService:
 
         return query.order_by(StudentFee.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
 
+    def get_student_fee_records(
+        self,
+        student_id: int,
+        academic_year: Optional[str] = None
+    ) -> List[StudentFee]:
+        from app.models.finance import StudentFee, FeeStructure
+
+        query = StudentFee.query.join(FeeStructure).filter(StudentFee.student_id == student_id)
+
+        if academic_year:
+            query = query.filter(FeeStructure.academic_year == academic_year)
+
+        return query.options(
+            db.joinedload(StudentFee.student),
+            db.joinedload(StudentFee.structure).joinedload(FeeStructure.category)
+        ).order_by(StudentFee.id.desc()).all()
+
     # Infrastructure Management Methods
     
     # Facility Management

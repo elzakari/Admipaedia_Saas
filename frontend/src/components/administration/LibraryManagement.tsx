@@ -22,19 +22,16 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { 
   BookOpen, 
   Search, 
   PlusCircle, 
-  Edit, 
-  Trash2, 
   Download,
+  ArrowRight,
   User,
   Calendar,
   BookMarked,
-  BarChart,
-  PieChart
 } from 'lucide-react';
 import { useToast } from '../../components/ui/use-toast';
 import libraryService from '@/services/libraryService'
@@ -133,21 +130,20 @@ const LibraryManagement = () => {
                 />
               </div>
               
-              <div className="flex gap-2">
-                <select
-                  className="px-3 py-2 rounded-md border border-gray-300 bg-white text-sm"
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                >
-                  <option value="All">All Categories</option>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full md:w-[220px] bg-white">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Categories</SelectItem>
                   {derivedCategories.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
             
-            <Button className="glass-button" onClick={() => navigate('/library')}>
+            <Button onClick={() => navigate('/library')}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Book
             </Button>
@@ -201,21 +197,15 @@ const LibraryManagement = () => {
                       <TableCell>{book.shelf_location || '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" disabled={(book.available_copies || 0) === 0}>
-                            Issue
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => navigate('/library')}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
-                              toast({ title: 'Manage books', description: 'Use Library page for full actions.' });
                               navigate('/library');
                             }}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Open Library
+                            <ArrowRight className="ml-2 h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -240,7 +230,7 @@ const LibraryManagement = () => {
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
-              <Button className="glass-button" onClick={() => navigate('/library')}>
+              <Button onClick={() => navigate('/library')}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Issue Book
               </Button>
@@ -329,7 +319,16 @@ const LibraryManagement = () => {
         </TabsContent>
         
         <TabsContent value="statistics" className="space-y-4">
-          <h3 className="text-lg font-medium">Library Statistics</h3>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-medium">Library Statistics</h3>
+              <p className="text-sm text-gray-500">Live overview aligned with the main Library workspace.</p>
+            </div>
+            <Button variant="outline" onClick={() => navigate('/library')}>
+              Open Full Library
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
@@ -363,7 +362,7 @@ const LibraryManagement = () => {
                     <User className="h-6 w-6 text-amber-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : (stats?.totalMembers ?? 0)}</h3>
-                  <p className="text-sm text-gray-500">Active Borrowers</p>
+                  <p className="text-sm text-gray-500">Registered Members</p>
                 </div>
               </CardContent>
             </Card>
@@ -384,26 +383,62 @@ const LibraryManagement = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Book Circulation</CardTitle>
-                <CardDescription>Monthly borrowing statistics</CardDescription>
+                <CardTitle>Recent Borrowing Activity</CardTitle>
+                <CardDescription>Latest member transactions from the live library ledger</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <BarChart className="h-8 w-8 text-gray-400" />
-                  <span className="ml-2 text-gray-500">Bar chart visualization would go here</span>
+                <div className="space-y-3">
+                  {borrowRecords.slice(0, 6).map((record) => (
+                    <div key={record.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-slate-900">{record.book_title}</div>
+                          <div className="text-sm text-slate-500">{record.member_name || record.member_code}</div>
+                        </div>
+                        <Badge variant={record.status === 'overdue' ? 'destructive' : record.status === 'returned' ? 'success' : 'default'}>
+                          {record.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        Borrowed {record.borrow_date ? record.borrow_date.slice(0, 10) : '—'} • Due {record.due_date ? record.due_date.slice(0, 10) : '—'}
+                      </div>
+                    </div>
+                  ))}
+                  {borrowRecords.length === 0 && (
+                    <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                      Borrowing activity will appear here after books are issued.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader>
-                <CardTitle>Books by Category</CardTitle>
-                <CardDescription>Distribution across categories</CardDescription>
+                <CardTitle>Inventory by Category</CardTitle>
+                <CardDescription>Derived from the current admin book inventory</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <PieChart className="h-8 w-8 text-gray-400" />
-                  <span className="ml-2 text-gray-500">Pie chart visualization would go here</span>
+                <div className="space-y-3">
+                  {derivedCategories.slice(0, 6).map((category) => {
+                    const ratio = books.length > 0 ? Math.round((category.books / books.length) * 100) : 0;
+                    return (
+                      <div key={category.id} className="rounded-lg border p-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-slate-900">{category.name}</span>
+                          <span className="text-slate-500">{category.books} books</span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-slate-100">
+                          <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${Math.max(ratio, category.books ? 8 : 0)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {derivedCategories.length === 0 && (
+                    <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                      Categories will appear after books are added to inventory.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

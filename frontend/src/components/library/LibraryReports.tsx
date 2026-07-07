@@ -93,41 +93,17 @@ const LibraryReports: React.FC = () => {
   const handleExport = async (format: 'pdf' | 'excel' | 'csv') => {
     try {
       setIsExporting(true);
-      if (format !== 'csv') {
-        toast.info('Only CSV export is available right now');
-        return;
-      }
-
-      const escape = (v: any) => {
-        const s = v === null || v === undefined ? '' : String(v);
-        const needs = /[",\n]/.test(s);
-        const escaped = s.replace(/"/g, '""');
-        return needs ? `"${escaped}"` : escaped;
-      };
-
-      const buildCsv = (rows: Array<Record<string, any>>) => {
-        const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
-        return [headers.join(','), ...rows.map((r) => headers.map((h) => escape((r as any)[h])).join(','))].join('\n');
-      };
-
-      let rows: Array<Record<string, any>> = [];
-      if (reportType === 'borrowing') rows = (borrowingData || []) as any;
-      if (reportType === 'categories') rows = (categoryData || []) as any;
-      if (reportType === 'borrowers') rows = (borrowerTypeData || []) as any;
-      if (reportType === 'popular') rows = (popularBooksData || []) as any;
-      if (reportType === 'overdue') rows = (overdueData || []) as any;
-
-      const csv = buildCsv(rows);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const blob = await libraryService.exportReport(reportType, format, { timeRange });
+      const extension = format === 'excel' ? 'csv' : format;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `library-${reportType}-${timeRange}.csv`;
+      link.download = `library-${reportType}-${timeRange}.${extension}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success('Report exported as CSV');
+      toast.success('Library report exported');
     } catch (error) {
       toast.error('Failed to export report');
     } finally {
@@ -139,47 +115,11 @@ const LibraryReports: React.FC = () => {
   const handlePrint = async () => {
     try {
       setIsPrinting(true);
-      let rows: Array<Record<string, any>> = [];
-      if (reportType === 'borrowing') rows = (borrowingData || []) as any;
-      if (reportType === 'categories') rows = (categoryData || []) as any;
-      if (reportType === 'borrowers') rows = (borrowerTypeData || []) as any;
-      if (reportType === 'popular') rows = (popularBooksData || []) as any;
-      if (reportType === 'overdue') rows = (overdueData || []) as any;
-
-      const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
+      const html = await libraryService.printReport(reportType, { timeRange });
       const w = window.open('', '_blank', 'noopener,noreferrer');
       if (!w) throw new Error('Popup blocked');
-
-      const html = `
-        <html>
-          <head>
-            <title>Library Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 16px; }
-              h1 { font-size: 18px; margin: 0 0 12px; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
-              th { background: #f5f5f5; text-align: left; }
-            </style>
-          </head>
-          <body>
-            <h1>Library Report: ${reportType} (${timeRange})</h1>
-            <table>
-              <thead>
-                <tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>
-              </thead>
-              <tbody>
-                ${rows
-                  .map((r) => `<tr>${headers.map((h) => `<td>${(r as any)[h] ?? ''}</td>`).join('')}</tr>`)
-                  .join('')}
-              </tbody>
-            </table>
-            <script>window.print();</script>
-          </body>
-        </html>
-      `;
       w.document.open();
-      w.document.write(html);
+      w.document.write(`${html}<script>window.print();</script>`);
       w.document.close();
       toast.success('Print dialog opened');
     } catch (error) {
@@ -345,6 +285,23 @@ const LibraryReports: React.FC = () => {
                   </div>
                   <div className="p-2 bg-orange-100 rounded-full">
                     <BarChart2 className="h-6 w-6 text-orange-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Digital Resources</p>
+                    <h3 className="text-2xl font-bold">
+                      {statsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        libraryStats?.digitalResources || 0
+                      )}
+                    </h3>
+                  </div>
+                  <div className="p-2 bg-sky-100 rounded-full">
+                    <Download className="h-6 w-6 text-sky-600" />
                   </div>
                 </CardContent>
               </Card>
@@ -588,7 +545,7 @@ const LibraryReports: React.FC = () => {
                     <Legend />
                     <Line 
                       type="monotone" 
-                      dataKey="overdue" 
+                      dataKey="count" 
                       stroke="#ff7300" 
                       strokeWidth={2}
                       name="Overdue Books"
@@ -625,12 +582,12 @@ const LibraryReports: React.FC = () => {
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
                       ) : (
-                        `$${libraryStats?.totalFines?.toFixed(2) || '0.00'}`
+                        `${Number(libraryStats?.totalFines || 0).toFixed(2)}`
                       )}
                     </h3>
                   </div>
                   <div className="p-2 bg-purple-100 rounded-full">
-                    <span className="h-6 w-6 flex items-center justify-center text-purple-600 font-bold">$</span>
+                    <span className="h-6 w-6 flex items-center justify-center text-purple-600 font-bold">F</span>
                   </div>
                 </CardContent>
               </Card>

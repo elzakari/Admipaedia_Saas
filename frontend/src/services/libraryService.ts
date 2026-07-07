@@ -58,6 +58,22 @@ export interface LibraryStats {
   popularCategories: string[];
   currentlyOut?: number;
   totalFines?: number;
+  digitalResources?: number;
+}
+
+export interface DigitalLibraryResource {
+  id: number;
+  title: string;
+  type: string;
+  category: string;
+  author?: string;
+  uploadDate?: string;
+  size?: string;
+  downloads: number;
+  url: string;
+  thumbnail?: string;
+  description?: string;
+  created_at?: string;
 }
 
 export type LibraryBook = {
@@ -181,13 +197,47 @@ class LibraryService {
     return response.data;
   }
 
+  async getDigitalResources(params?: {
+    search?: string;
+    category?: string;
+    type?: string;
+  }): Promise<DigitalLibraryResource[]> {
+    const response = await api.get(`${this.baseUrl}/digital-resources`, { params });
+    return response.data?.resources || [];
+  }
+
+  async createDigitalResource(payload: Partial<DigitalLibraryResource>): Promise<DigitalLibraryResource> {
+    const response = await api.post(`${this.baseUrl}/digital-resources`, payload);
+    return response.data?.resource;
+  }
+
+  async updateDigitalResource(resourceId: number, payload: Partial<DigitalLibraryResource>): Promise<DigitalLibraryResource> {
+    const response = await api.put(`${this.baseUrl}/digital-resources/${resourceId}`, payload);
+    return response.data?.resource;
+  }
+
+  async deleteDigitalResource(resourceId: number): Promise<void> {
+    await api.delete(`${this.baseUrl}/digital-resources/${resourceId}`);
+  }
+
+  async downloadDigitalResource(resourceId: number): Promise<DigitalLibraryResource> {
+    const response = await api.post(`${this.baseUrl}/digital-resources/${resourceId}/download`);
+    return response.data?.resource;
+  }
+
   // Get borrowing activity data
   async getBorrowingActivity(timeRange: string = 'year'): Promise<LibraryBorrowingData[]> {
     try {
       const response = await api.get(`${this.baseUrl}/reports/borrowing-activity`, {
         params: { timeRange }
       });
-      return response.data?.data || [];
+      const rows = response.data?.data || [];
+      return rows.map((row: any) => ({
+        month: row.month || row.date || '',
+        borrowed: Number(row.borrowed ?? row.count ?? 0),
+        returned: Number(row.returned ?? 0),
+        overdue: Number(row.overdue ?? 0),
+      }));
     } catch (error) {
       console.error('Error fetching borrowing activity:', error);
       return [];
@@ -198,7 +248,16 @@ class LibraryService {
   async getCategoryDistribution(): Promise<LibraryCategoryData[]> {
     try {
       const response = await api.get(`${this.baseUrl}/reports/category-distribution`);
-      return response.data?.data || [];
+      const rows = response.data?.data || [];
+      const total = rows.reduce((sum: number, row: any) => sum + Number(row.value ?? row.count ?? 0), 0);
+      return rows.map((row: any) => {
+        const value = Number(row.value ?? row.count ?? 0);
+        return {
+          name: row.name || row.category || 'Uncategorized',
+          value,
+          percentage: total > 0 ? Math.round((value / total) * 100) : 0
+        };
+      });
     } catch (error) {
       console.error('Error fetching category distribution:', error);
       return [];
@@ -209,7 +268,19 @@ class LibraryService {
   async getBorrowerTypeDistribution(_timeRange?: string): Promise<LibraryBorrowerTypeData[]> {
     try {
       const response = await api.get(`${this.baseUrl}/reports/borrower-type-distribution`);
-      return response.data?.data || [];
+      const rows = response.data?.data || [];
+      const total = rows.reduce((sum: number, row: any) => sum + Number(row.value ?? row.count ?? 0), 0);
+      return rows.map((row: any) => {
+        const value = Number(row.value ?? row.count ?? 0);
+        const name = row.name || row.type || 'unknown';
+        return {
+          type: row.type || name,
+          count: value,
+          percentage: total > 0 ? Math.round((value / total) * 100) : 0,
+          name,
+          value
+        };
+      });
     } catch (error) {
       console.error('Error fetching borrower type distribution:', error);
       return [];
@@ -221,7 +292,17 @@ class LibraryService {
     try {
       const limit = typeof maybeLimit === 'number' ? maybeLimit : typeof timeRangeOrLimit === 'number' ? timeRangeOrLimit : 10;
       const response = await api.get(`${this.baseUrl}/reports/popular-books`, { params: { limit } });
-      return response.data?.data || [];
+      const rows = response.data?.data || [];
+      return rows.map((row: any) => ({
+        id: String(row.id || row.title),
+        title: row.title,
+        author: row.author,
+        category: row.category || 'Uncategorized',
+        borrowCount: Number(row.borrowCount ?? row.borrows ?? row.count ?? 0),
+        borrows: Number(row.borrows ?? row.count ?? row.borrowCount ?? 0),
+        name: row.name || row.title,
+        rating: Number(row.rating ?? 0)
+      }));
     } catch (error) {
       console.error('Error fetching popular books:', error);
       return [];
@@ -234,7 +315,13 @@ class LibraryService {
       const response = await api.get(`${this.baseUrl}/reports/overdue-trends`, {
         params: { timeRange }
       });
-      return response.data?.data || [];
+      const rows = response.data?.data || [];
+      return rows.map((row: any) => ({
+        month: row.month || row.date || row.type || '',
+        count: Number(row.count ?? row.value ?? 0),
+        overdue: Number(row.count ?? row.value ?? 0),
+        trend: row.trend || 'stable'
+      }));
     } catch (error) {
       console.error('Error fetching overdue trends:', error);
       return [];
@@ -260,7 +347,10 @@ class LibraryService {
         borrowingRate,
         returnRate: 0,
         overdueRate,
-        popularCategories: []
+        popularCategories: [],
+        currentlyOut: Number(d.currently_out ?? d.active_borrows ?? 0),
+        totalFines: Number(d.total_fines ?? 0),
+        digitalResources: Number(d.digital_resources ?? 0),
       };
     } catch (error) {
       console.error('Error fetching library stats:', error);
@@ -272,7 +362,10 @@ class LibraryService {
         borrowingRate: 0,
         returnRate: 0,
         overdueRate: 0,
-        popularCategories: []
+        popularCategories: [],
+        currentlyOut: 0,
+        totalFines: 0,
+        digitalResources: 0,
       };
     }
   }
@@ -301,7 +394,7 @@ class LibraryService {
         reportType,
         filters
       });
-      return response.data.printUrl;
+      return response.data?.html || '';
     } catch (error) {
       console.error('Error printing report:', error);
       throw error;

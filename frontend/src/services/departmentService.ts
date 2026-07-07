@@ -86,6 +86,7 @@ export const academicStructureService = {
 
 export const departmentService = {
   getAllDepartments: () => academicStructureService.getDisciplines(),
+  getOperationalDepartments: () => academicStructureService.getOperational(),
   getDepartmentById: (id: number) => academicStructureService.getById(id),
   createDepartment: (d: AcademicStructureCreate) => academicStructureService.create(d),
   updateDepartment: (d: AcademicStructureUpdate & { id: number }) => {
