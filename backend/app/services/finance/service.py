@@ -1,7 +1,6 @@
 from app.extensions import db
 from app.models.finance import FeeCategory, FeeStructure, FeeDiscount, StudentFee, Payment, PaymentAllocation
 from app.models.student import Student
-from app.models.settings import SchoolSettings
 from app.models.academic_calendar import AcademicYear, Term
 from sqlalchemy import func, or_
 import uuid
@@ -48,18 +47,26 @@ class FeeService:
     @staticmethod
     def get_current_fee_period():
         current_year = AcademicYear.query.filter_by(is_current=True).first()
-        current_term = Term.query.filter_by(is_current=True).first()
-        settings = SchoolSettings.query.first()
+        if current_year is None:
+            current_year = AcademicYear.query.order_by(
+                AcademicYear.end_date.desc(),
+                AcademicYear.id.desc()
+            ).first()
 
-        academic_year = (
-            getattr(current_year, 'name', None)
-            or getattr(settings, 'academic_year', None)
-        )
-        term = (
-            getattr(current_term, 'name', None)
-            or getattr(settings, 'current_term', None)
-            or 'Term 1'
-        )
+        current_term = Term.query.filter_by(is_current=True).first()
+        if current_term is None and current_year is not None:
+            current_term = Term.query.filter_by(academic_year_id=current_year.id).order_by(
+                Term.start_date.asc(),
+                Term.id.asc()
+            ).first()
+        if current_term is None:
+            current_term = Term.query.order_by(
+                Term.end_date.desc(),
+                Term.id.desc()
+            ).first()
+
+        academic_year = getattr(current_year, 'name', None)
+        term = getattr(current_term, 'name', None) or 'Term 1'
         return {
             'academic_year': str(academic_year or '').strip(),
             'term': FeeService.normalize_term(term or 'Term 1')
