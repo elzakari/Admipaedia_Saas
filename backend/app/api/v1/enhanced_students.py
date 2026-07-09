@@ -87,8 +87,15 @@ def upload_profile_picture(student_id):
 
 @enhanced_students_bp.route('/profile-picture/<path:filename>', methods=['GET'])
 def serve_profile_picture(filename):
-    upload_dir = os.path.join(current_app.root_path, EnhancedStudentService.UPLOAD_FOLDER)
-    return send_from_directory(upload_dir, secure_filename(filename))
+    safe_name = secure_filename(filename)
+    for upload_dir in (
+        EnhancedStudentService.get_upload_directory(),
+        EnhancedStudentService.get_upload_directory(prefer_legacy=True),
+    ):
+        candidate = os.path.join(upload_dir, safe_name)
+        if os.path.isfile(candidate):
+            return send_from_directory(upload_dir, safe_name)
+    return error_response("Profile picture not found", 404)
 
 
 @enhanced_students_bp.route('/export', methods=['GET'])

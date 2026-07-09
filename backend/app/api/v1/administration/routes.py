@@ -346,7 +346,7 @@ def create_fee_structure_group():
         return jsonify({'success': False, 'message': 'An error occurred while creating fee structure'}), 500
 
 
-@administration_bp.route('/fee-structures/<group_id>', methods=['PUT'])
+@administration_bp.route('/fee-structures/<path:group_id>', methods=['PUT'])
 @administration_access_required
 def update_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)
@@ -361,7 +361,7 @@ def update_fee_structure_group(group_id):
     return create_fee_structure_group()
 
 
-@administration_bp.route('/fee-structures/<group_id>', methods=['DELETE'])
+@administration_bp.route('/fee-structures/<path:group_id>', methods=['DELETE'])
 @administration_access_required
 def delete_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)
@@ -382,7 +382,7 @@ def delete_fee_structure_group(group_id):
         return jsonify({'success': False, 'message': 'Failed to delete fee structure'}), 500
 
 
-@administration_bp.route('/fee-structures/<group_id>/assign', methods=['POST'])
+@administration_bp.route('/fee-structures/<path:group_id>/assign', methods=['POST'])
 @administration_access_required
 def assign_fee_structure_group(group_id):
     parsed = _parse_group_id(group_id)

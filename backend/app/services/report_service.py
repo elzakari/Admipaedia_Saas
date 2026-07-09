@@ -51,13 +51,26 @@ class ReportService:
             return None
 
         if normalized.startswith('uploads/profile_pictures/'):
-            candidate = os.path.join(current_app.root_path, normalized.replace('/', os.sep))
-            return candidate if os.path.isfile(candidate) else None
+            relative_path = normalized.replace('/', os.sep)
+            candidates = [
+                os.path.join(os.path.dirname(current_app.root_path), relative_path),
+                os.path.join(current_app.root_path, relative_path),
+            ]
+            for candidate in candidates:
+                if os.path.isfile(candidate):
+                    return candidate
+            return None
 
         if normalized.startswith('/api/v1/enhanced-students/profile-picture/'):
             filename = normalized.split('/api/v1/enhanced-students/profile-picture/', 1)[1]
-            candidate = os.path.join(current_app.root_path, 'uploads', 'profile_pictures', filename)
-            return candidate if os.path.isfile(candidate) else None
+            candidates = [
+                os.path.join(os.path.dirname(current_app.root_path), 'uploads', 'profile_pictures', filename),
+                os.path.join(current_app.root_path, 'uploads', 'profile_pictures', filename),
+            ]
+            for candidate in candidates:
+                if os.path.isfile(candidate):
+                    return candidate
+            return None
 
         if os.path.isabs(normalized) and os.path.isfile(normalized):
             return normalized

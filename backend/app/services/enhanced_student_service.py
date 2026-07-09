@@ -24,6 +24,17 @@ class EnhancedStudentService(StudentService):
     
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     UPLOAD_FOLDER = 'uploads/profile_pictures'
+
+    @staticmethod
+    def get_upload_directory(prefer_legacy: bool = False):
+        configured = str(current_app.config.get('UPLOAD_FOLDER') or 'uploads')
+        if os.path.isabs(configured):
+            upload_root = configured
+        else:
+            upload_root = os.path.join(os.path.dirname(current_app.root_path), configured)
+        if prefer_legacy:
+            upload_root = os.path.join(current_app.root_path, 'uploads')
+        return os.path.join(upload_root, 'profile_pictures')
     
     @staticmethod
     def allowed_file(filename):
@@ -131,7 +142,7 @@ class EnhancedStudentService(StudentService):
                 unique_filename = f"{student_id}_{uuid.uuid4().hex}_{filename}"
                 
                 # Create upload directory if it doesn't exist
-                upload_path = os.path.join(current_app.root_path, EnhancedStudentService.UPLOAD_FOLDER)
+                upload_path = EnhancedStudentService.get_upload_directory()
                 os.makedirs(upload_path, exist_ok=True)
                 
                 # Save file

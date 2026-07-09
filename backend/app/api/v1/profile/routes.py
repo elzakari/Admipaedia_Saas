@@ -22,6 +22,19 @@ logger = structlog.get_logger()
 profile_bp = Blueprint('profile', __name__)
 
 
+def _get_upload_root() -> str:
+    configured = str(current_app.config.get('UPLOAD_FOLDER') or 'uploads')
+    if os.path.isabs(configured):
+        return configured
+    return os.path.join(os.path.dirname(current_app.root_path), configured)
+
+
+def _get_avatar_directory(prefer_legacy: bool = False) -> str:
+    if prefer_legacy:
+        return os.path.join(current_app.root_path, 'uploads', 'avatars')
+    return os.path.join(_get_upload_root(), 'avatars')
+
+
 def _ensure_profile_tables():
     bind = db.engine
     UserProfile.__table__.create(bind=bind, checkfirst=True)
@@ -343,8 +356,7 @@ def upload_avatar():
 
         filename = secure_filename(file.filename)
         unique_name = f"avatar_{user_id}_{uuid.uuid4().hex}_{filename}"
-        rel_dir = os.path.join('uploads', 'avatars')
-        abs_dir = os.path.join(current_app.root_path, rel_dir)
+        abs_dir = _get_avatar_directory()
         os.makedirs(abs_dir, exist_ok=True)
 
         abs_path = os.path.join(abs_dir, unique_name)
@@ -391,12 +403,11 @@ def remove_avatar():
 
         if old_url and old_url.startswith('/api/v1/profile/avatar/'):
             filename = old_url.split('/api/v1/profile/avatar/', 1)[1]
-            rel_dir = os.path.join('uploads', 'avatars')
-            abs_dir = os.path.join(current_app.root_path, rel_dir)
-            abs_path = os.path.join(abs_dir, filename)
             try:
-                if os.path.isfile(abs_path):
-                    os.remove(abs_path)
+                for base_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
+                    abs_path = os.path.join(base_dir, filename)
+                    if os.path.isfile(abs_path):
+                        os.remove(abs_path)
             except Exception:
                 pass
 
@@ -411,6 +422,10 @@ def remove_avatar():
 
 @profile_bp.route('/avatar/<path:filename>', methods=['GET'])
 def serve_avatar(filename: str):
-    rel_dir = os.path.join(current_app.root_path, 'uploads', 'avatars')
-    return send_from_directory(rel_dir, filename)
+    safe_name = secure_filename(filename)
+    for avatar_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
+        candidate = os.path.join(avatar_dir, safe_name)
+        if os.path.isfile(candidate):
+            return send_from_directory(avatar_dir, safe_name)
+    return jsonify({'success': False, 'error': 'Avatar not found'}), 404
 
