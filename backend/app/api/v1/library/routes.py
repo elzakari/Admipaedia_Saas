@@ -459,7 +459,9 @@ def print_library_report():
     rows = LibraryService.build_report_rows(report_type)
     headers = sorted({key for row in rows for key in row.keys()}) if rows else []
     html_rows = ''.join(
-        f"<tr>{''.join(f'<td>{row.get(header, '')}</td>' for header in headers)}</tr>"
+        "<tr>"
+        + "".join(f"<td>{row.get(header, '')}</td>" for header in headers)
+        + "</tr>"
         for row in rows
     )
     html = f"""
