@@ -133,6 +133,7 @@ interface EnhancedTeacher extends Omit<Teacher, 'qualifications' | 'schedule'> {
 }
 
 const StaffManagement: React.FC = () => {
+  const queryClient = useQueryClient();
   const [selectedStaff, setSelectedStaff] = useState<number | null>(null);
   const [selectedStaffType, setSelectedStaffType] = useState<DirectoryEntityType | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -231,28 +232,6 @@ const StaffManagement: React.FC = () => {
   const directoryRows: StaffDirectoryItem[] = useMemo(() => {
     return directoryResponse?.directory || [];
   }, [directoryResponse?.directory]);
-  
-  // Enhanced summary stats with all required properties
-  const summaryStats: SummaryStats = useMemo(() => {
-    const totalStaff = directoryRows.length;
-    const activeStaff = directoryRows.filter((row) => String(row.status || '').toLowerCase() === 'active').length;
-    const teachingStaff = directoryRows.filter((row) => row.entity_type === 'teacher').length;
-    const administrativeStaff = directoryRows.filter((row) => row.entity_type === 'staff').length;
-    const attendanceSummary = monthlyAttendanceQuery.data?.summary || [];
-    const avgAttendance = attendanceSummary.length > 0
-      ? Math.round(attendanceSummary.reduce((sum: number, row: AttendanceRecord) => sum + row.attendanceRate, 0) / attendanceSummary.length)
-      : 0;
-    
-    return {
-      totalStaff,
-      activeStaff,
-      departments: departments.length,
-      avgAttendance,
-      teachingStaff,
-      administrativeStaff,
-      message: 'Staff data loaded successfully'
-    };
-  }, [departments.length, directoryRows, monthlyAttendanceQuery.data?.summary]);
 
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
@@ -298,6 +277,28 @@ const StaffManagement: React.FC = () => {
     queryFn: () => staffService.getAttendanceSummary(attendanceMonth),
     staleTime: 30_000
   });
+
+  // Keep derived summary state below the queries it depends on to avoid TDZ runtime errors.
+  const summaryStats: SummaryStats = useMemo(() => {
+    const totalStaff = directoryRows.length;
+    const activeStaff = directoryRows.filter((row) => String(row.status || '').toLowerCase() === 'active').length;
+    const teachingStaff = directoryRows.filter((row) => row.entity_type === 'teacher').length;
+    const administrativeStaff = directoryRows.filter((row) => row.entity_type === 'staff').length;
+    const attendanceSummary = monthlyAttendanceQuery.data?.summary || [];
+    const avgAttendance = attendanceSummary.length > 0
+      ? Math.round(attendanceSummary.reduce((sum: number, row: AttendanceRecord) => sum + row.attendanceRate, 0) / attendanceSummary.length)
+      : 0;
+
+    return {
+      totalStaff,
+      activeStaff,
+      departments: departments.length,
+      avgAttendance,
+      teachingStaff,
+      administrativeStaff,
+      message: 'Staff data loaded successfully'
+    };
+  }, [departments.length, directoryRows, monthlyAttendanceQuery.data?.summary]);
 
   const markAttendanceMutation = useMutation({
     mutationFn: async (payload: { entityType: DirectoryEntityType; entityId: number; date: string; status: AttendanceStatus; note?: string }) => {
@@ -375,8 +376,6 @@ const StaffManagement: React.FC = () => {
     setActiveTab(value);
   };
   
-  const queryClient = useQueryClient();
-
   const deleteTeacherMutation = useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`/teachers/${id}`);
