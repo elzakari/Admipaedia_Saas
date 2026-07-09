@@ -6,6 +6,9 @@ type Config = {
   onUpdate?: (registration: ServiceWorkerRegistration) => void;
 };
 
+const OFFLINE_DB_NAME = 'AdmipaediaOfflineDB';
+const OFFLINE_DB_VERSION = 3;
+
 export function register(config?: Config) {
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     // Ensure PUBLIC_URL is defined before using it
@@ -211,12 +214,22 @@ async function syncTeacherData() {
 // Helper function to open IndexedDB
 function openIndexedDB() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open('AdmipaediaOfflineDB', 1);
+    const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
     
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains('offlineTeacherUpdates')) {
         db.createObjectStore('offlineTeacherUpdates', { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains('offlineOperations')) {
+        const operationStore = db.createObjectStore('offlineOperations', { keyPath: 'id' });
+        operationStore.createIndex('entity', 'entity', { unique: false });
+        operationStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('cachedData')) {
+        const cacheStore = db.createObjectStore('cachedData', { keyPath: 'key' });
+        cacheStore.createIndex('entity', 'entity', { unique: false });
+        cacheStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
       }
     };
     

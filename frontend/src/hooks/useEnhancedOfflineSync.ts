@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 
+const OFFLINE_DB_NAME = 'AdmipaediaOfflineDB';
+const OFFLINE_DB_VERSION = 3;
+
 interface OfflineOperation {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
@@ -52,11 +55,15 @@ export const useEnhancedOfflineSync = () => {
   // Enhanced IndexedDB operations
   const openDB = useCallback((): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('AdmipaediaOfflineDB', 2);
+      const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
       
       request.onupgradeneeded = (event) => {
         const db = request.result;
         
+        if (!db.objectStoreNames.contains('offlineTeacherUpdates')) {
+          db.createObjectStore('offlineTeacherUpdates', { keyPath: 'id', autoIncrement: true });
+        }
+
         // Create stores if they don't exist
         if (!db.objectStoreNames.contains('offlineOperations')) {
           const store = db.createObjectStore('offlineOperations', { keyPath: 'id' });

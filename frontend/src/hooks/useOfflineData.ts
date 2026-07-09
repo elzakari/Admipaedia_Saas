@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 
+const OFFLINE_DB_NAME = 'AdmipaediaOfflineDB';
+const OFFLINE_DB_VERSION = 3;
+
 interface OfflineUpdate {
   id?: number;
   url: string;
@@ -101,12 +104,22 @@ export const useOfflineData = () => {
   // Helper function to open IndexedDB
   const openIndexedDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('AdmipaediaOfflineDB', 1);
+      const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
       
       request.onupgradeneeded = (event) => {
         const db = request.result;
         if (!db.objectStoreNames.contains('offlineTeacherUpdates')) {
           db.createObjectStore('offlineTeacherUpdates', { keyPath: 'id', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains('offlineOperations')) {
+          const operationStore = db.createObjectStore('offlineOperations', { keyPath: 'id' });
+          operationStore.createIndex('entity', 'entity', { unique: false });
+          operationStore.createIndex('timestamp', 'timestamp', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('cachedData')) {
+          const cacheStore = db.createObjectStore('cachedData', { keyPath: 'key' });
+          cacheStore.createIndex('entity', 'entity', { unique: false });
+          cacheStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
         }
       };
       
