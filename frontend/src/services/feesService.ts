@@ -18,6 +18,14 @@ export type FeeTemplateGroup = {
   items: FeeTemplateItem[]
   total_amount: number
   created_at?: string | null
+  usage?: {
+    assigned_fee_records: number
+    paid_fee_records: number
+    has_payment_activity: boolean
+    can_edit: boolean
+    can_delete: boolean
+    delete_mode: 'full_delete' | 'blocked'
+  } | null
 }
 
 export type FeeRecord = {

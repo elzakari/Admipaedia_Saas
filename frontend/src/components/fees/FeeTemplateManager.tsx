@@ -7,7 +7,7 @@ import { Badge } from '../ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { Download, Edit, Eye, Plus, Search, Trash2, Users } from 'lucide-react'
+import { Copy, Download, Edit, Eye, Plus, Search, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../lib/api'
 import { feesService, FeeTemplateGroup } from '../../services/feesService'
@@ -69,6 +69,35 @@ const FeeTemplateManager: React.FC = () => {
       return header.includes(q) || (t.items || []).some((i) => (i.category || '').toLowerCase().includes(q))
     })
   }, [templatesResp?.fee_structures, searchTerm])
+
+  const openTemplateEditor = (template?: FeeTemplateGroup | null, mode: 'create' | 'edit' | 'duplicate' = 'create') => {
+    if (!template || mode === 'create') {
+      setSelected(null)
+      setForm({
+        class_id: '0',
+        academic_year: '2024/2025',
+        term: 'Term 1',
+        due_date: '',
+        items: [
+          { category: 'Tuition', amount: 0 },
+          { category: 'Books', amount: 0 },
+          { category: 'PTA', amount: 0 }
+        ]
+      })
+      setEditorOpen(true)
+      return
+    }
+
+    setSelected(mode === 'edit' ? template : null)
+    setForm({
+      class_id: String(template.class_id || 0),
+      academic_year: template.academic_year,
+      term: template.term,
+      due_date: (template.due_date || '').slice(0, 10),
+      items: (template.items || []).map((x) => ({ category: x.category, amount: x.amount }))
+    })
+    setEditorOpen(true)
+  }
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -134,19 +163,7 @@ const FeeTemplateManager: React.FC = () => {
   useEffect(() => {
     const onCreate = (e: any) => {
       if (e?.detail?.tab !== 'templates') return
-      setSelected(null)
-      setForm({
-        class_id: '0',
-        academic_year: '2024/2025',
-        term: 'Term 1',
-        due_date: '',
-        items: [
-          { category: 'Tuition', amount: 0 },
-          { category: 'Books', amount: 0 },
-          { category: 'PTA', amount: 0 }
-        ]
-      })
-      setEditorOpen(true)
+      openTemplateEditor(null, 'create')
     }
 
     const onExport = (e: any) => {
@@ -200,8 +217,7 @@ const FeeTemplateManager: React.FC = () => {
               size="sm"
               className="h-8 bg-indigo-600 hover:bg-indigo-700"
               onClick={() => {
-                setSelected(null)
-                setEditorOpen(true)
+                openTemplateEditor(null, 'create')
               }}
             >
               <Plus className="h-4 w-4 mr-1" /> New Template
@@ -231,6 +247,23 @@ const FeeTemplateManager: React.FC = () => {
                       <Badge className="bg-slate-100 text-slate-700">{t.currency}</Badge>
                       <Badge className="bg-emerald-100 text-emerald-800">Total: {formatCurrency(Number(t.total_amount || 0), t.currency)}</Badge>
                     </div>
+                  {(() => {
+                    const usage = t.usage
+                    const assignedCount = usage?.assigned_fee_records || 0
+                    const hasPaymentActivity = Boolean(usage?.has_payment_activity)
+                    return (
+                      <>
+                        {assignedCount > 0 ? (
+                          <Badge className="bg-amber-100 text-amber-800">
+                            {assignedCount} assigned
+                          </Badge>
+                        ) : null}
+                        {hasPaymentActivity ? (
+                          <Badge className="bg-rose-100 text-rose-800">Payment activity</Badge>
+                        ) : null}
+                      </>
+                    )
+                  })()}
                     <div className="text-sm text-gray-600 mt-2">
                       {(t.items || []).slice(0, 4).map((i) => (
                         <span key={i.fee_structure_id} className="inline-block mr-3">{i.category}: <span className="font-medium">{formatCurrency(Number(i.amount || 0), i.currency || t.currency)}</span></span>
@@ -247,19 +280,22 @@ const FeeTemplateManager: React.FC = () => {
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8"
+                      disabled={t.usage?.can_edit === false}
+                      title={t.usage?.can_edit === false ? 'This template already has assigned fee records. Duplicate it to create a new version.' : 'Edit template'}
                       onClick={() => {
-                        setSelected(t)
-                        setForm({
-                          class_id: String(t.class_id || 0),
-                          academic_year: t.academic_year,
-                          term: t.term,
-                          due_date: (t.due_date || '').slice(0, 10),
-                          items: (t.items || []).map((x) => ({ category: x.category, amount: x.amount }))
-                        })
-                        setEditorOpen(true)
+                        openTemplateEditor(t, 'edit')
                       }}
                     >
                       <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      title="Duplicate as new template"
+                      onClick={() => openTemplateEditor(t, 'duplicate')}
+                    >
+                      <Copy className="h-4 w-4" />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setSelected(t); setViewerOpen(true) }}>
                       <Eye className="h-4 w-4" />
@@ -268,6 +304,8 @@ const FeeTemplateManager: React.FC = () => {
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      disabled={t.usage?.can_delete === false}
+                      title={t.usage?.can_delete === false ? 'Templates with payment activity cannot be deleted.' : 'Delete template'}
                       onClick={() => {
                         if (!confirm('Delete this fee template?')) return
                         deleteMutation.mutate(t.id)
@@ -334,6 +372,11 @@ const FeeTemplateManager: React.FC = () => {
               <DialogTitle>{selected ? 'Edit fee template' : 'Create fee template'}</DialogTitle>
               <DialogDescription>Define categories and amounts, then save and assign to students.</DialogDescription>
             </DialogHeader>
+            {selected?.usage?.can_edit === false ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                This template is already in use. Editing is locked to protect existing fee records. Duplicate it to create a revised version.
+              </div>
+            ) : null}
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

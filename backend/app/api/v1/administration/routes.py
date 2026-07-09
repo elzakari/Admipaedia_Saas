@@ -165,6 +165,7 @@ def _serialize_fee_template_group(group_rows, category_by_id):
     class_id = getattr(first, 'class_id', None)
     total = sum(float(r.amount or 0) for r in group_rows)
     currency = _get_school_currency(getattr(first, 'currency', None) or 'USD')
+    usage = _summarize_fee_template_usage(group_rows)
     return {
         'id': f"{academic_year}__{term}__{class_id or 0}",
         'class_id': class_id,
@@ -183,7 +184,8 @@ def _serialize_fee_template_group(group_rows, category_by_id):
             for r in sorted(group_rows, key=lambda x: category_by_id.get(x.fee_category_id, ''))
         ],
         'total_amount': total,
-        'created_at': first.created_at.isoformat() if getattr(first, 'created_at', None) else None
+        'created_at': first.created_at.isoformat() if getattr(first, 'created_at', None) else None,
+        'usage': usage,
     }
 
 
@@ -207,11 +209,37 @@ def _get_fee_structure_group_rows(academic_year: str, term: str, class_id):
     ).order_by(FeeStructure.id.asc()).all()
 
 
-def _group_has_assigned_fee_records(structures):
+def _get_student_fees_for_structures(structures):
     structure_ids = [item.id for item in structures if getattr(item, 'id', None)]
     if not structure_ids:
+        return []
+    return StudentFee.query.filter(StudentFee.fee_structure_id.in_(structure_ids)).all()
+
+
+def _student_fees_have_payment_activity(student_fees):
+    if not student_fees:
         return False
-    return db.session.query(StudentFee.id).filter(StudentFee.fee_structure_id.in_(structure_ids)).first() is not None
+    fee_ids = [fee.id for fee in student_fees if getattr(fee, 'id', None)]
+    if not fee_ids:
+        return False
+    if any(float(getattr(fee, 'paid_amount', 0) or 0) > 0 for fee in student_fees):
+        return True
+    return db.session.query(PaymentAllocation.id).filter(PaymentAllocation.student_fee_id.in_(fee_ids)).first() is not None
+
+
+def _summarize_fee_template_usage(structures):
+    student_fees = _get_student_fees_for_structures(structures)
+    assigned_count = len(student_fees)
+    paid_count = sum(1 for fee in student_fees if float(getattr(fee, 'paid_amount', 0) or 0) > 0)
+    payment_activity = _student_fees_have_payment_activity(student_fees)
+    return {
+        'assigned_fee_records': assigned_count,
+        'paid_fee_records': paid_count,
+        'has_payment_activity': payment_activity,
+        'can_edit': assigned_count == 0,
+        'can_delete': not payment_activity,
+        'delete_mode': 'full_delete' if not payment_activity else 'blocked',
+    }
 
 
 def _persist_fee_structure_group(data, existing_rows=None):
@@ -240,21 +268,28 @@ def _persist_fee_structure_group(data, existing_rows=None):
             return False, ({'success': False, 'message': 'Invalid class_id'}, 400)
 
     normalized_items = []
+    seen_categories = set()
     for item in items:
         name = (item.get('category') or item.get('category_name') or '').strip()
         if not name:
             continue
+        category_key = name.lower()
+        if category_key in seen_categories:
+            return False, ({'success': False, 'message': f'Duplicate fee category: {name}'}, 400)
         try:
             amount_val = float(item.get('amount'))
         except Exception:
-            amount_val = 0.0
+            return False, ({'success': False, 'message': f'Invalid amount for {name}'}, 400)
+        if amount_val <= 0:
+            return False, ({'success': False, 'message': f'Amount for {name} must be greater than zero'}, 400)
+        seen_categories.add(category_key)
         normalized_items.append({'category': name, 'amount': amount_val})
 
     if not normalized_items:
         return False, ({'success': False, 'message': 'At least one fee item is required'}, 400)
 
     existing_rows = existing_rows if existing_rows is not None else _get_fee_structure_group_rows(academic_year, term, class_id)
-    if existing_rows and _group_has_assigned_fee_records(existing_rows):
+    if existing_rows and _summarize_fee_template_usage(existing_rows)['assigned_fee_records'] > 0:
         return False, ({
             'success': False,
             'message': 'This fee template already has assigned student fee records. Create a new template instead of editing or deleting it.'
@@ -412,15 +447,18 @@ def delete_fee_structure_group(group_id):
         rows = _get_fee_structure_group_rows(academic_year, term, class_id)
         if not rows:
             return jsonify({'success': False, 'message': 'Fee structure group not found'}), 404
-        if _group_has_assigned_fee_records(rows):
+        student_fees = _get_student_fees_for_structures(rows)
+        if _student_fees_have_payment_activity(student_fees):
             return jsonify({
                 'success': False,
-                'message': 'This fee template already has assigned student fee records. It cannot be deleted.'
+                'message': 'This fee template has payment activity and cannot be deleted. Create a new template instead.'
             }), 400
+        for fee in student_fees:
+            db.session.delete(fee)
         for row in rows:
             db.session.delete(row)
         db.session.commit()
-        return jsonify({'success': True}), 200
+        return jsonify({'success': True, 'deleted_fee_records': len(student_fees)}), 200
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting fee structure group: {str(e)}")
@@ -558,7 +596,7 @@ def create_fee_payment_v2():
         data = request.get_json() or {}
         fee_record_id = data.get('fee_record_id')
         amount = data.get('amount')
-        payment_method = (data.get('payment_method') or '').strip()
+        payment_method = (data.get('payment_method') or '').strip().lower()
         reference_number = (data.get('reference_number') or '').strip() or str(uuid.uuid4())
         payment_date_raw = data.get('payment_date')
 
@@ -573,6 +611,25 @@ def create_fee_payment_v2():
             amount_val = float(amount)
         except Exception:
             return jsonify({'success': False, 'message': 'Invalid amount'}), 400
+        if amount_val <= 0:
+            return jsonify({'success': False, 'message': 'Payment amount must be greater than zero'}), 400
+
+        allowed_payment_methods = {'cash', 'mobile_money', 'card', 'bank_transfer', 'cheque', 'manual'}
+        if payment_method not in allowed_payment_methods:
+            return jsonify({'success': False, 'message': 'Unsupported payment method'}), 400
+
+        fee_balance = float(fee.balance or 0)
+        if fee_balance <= 0:
+            return jsonify({'success': False, 'message': 'This fee record is already fully paid'}), 400
+        if amount_val > fee_balance:
+            return jsonify({
+                'success': False,
+                'message': f'Payment amount exceeds the outstanding balance of {fee_balance:.2f}'
+            }), 400
+
+        existing_reference = Payment.query.filter(Payment.transaction_id == reference_number).first()
+        if existing_reference:
+            return jsonify({'success': False, 'message': 'Reference number already exists'}), 400
 
         paid_at = datetime.utcnow()
         if payment_date_raw:
@@ -597,7 +654,7 @@ def create_fee_payment_v2():
         db.session.add(payment)
         db.session.flush()
 
-        allocation_amount = min(float(fee.balance or 0), amount_val)
+        allocation_amount = amount_val
         alloc = PaymentAllocation(payment_id=payment.id, student_fee_id=fee.id, amount_allocated=allocation_amount)
         db.session.add(alloc)
 
