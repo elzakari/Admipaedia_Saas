@@ -20,6 +20,7 @@ from app.models.user import User, Role, LoginHistory
 from app.models.parent import Parent
 from app.models.security import LoginAttempt, SecurityEvent, PasswordHistory
 from app.models.session_token import SessionToken
+from app.utils.avatar_utils import normalize_avatar_url_for_response
 from app.utils.password_security import PasswordSecurity, AccountSecurity
 from app.utils.security_enhancements import ThreatDetection, DeviceFingerprinting
 
@@ -556,6 +557,9 @@ class EnhancedAuthService:
             'username': user.username,
             'email': user.email,
             'role': user.role,
+            'avatar_url': normalize_avatar_url_for_response(
+                getattr(getattr(user, 'profile', None), 'avatar_url', None)
+            ),
             'roles': [role.name for role in user.roles],
             'status': user.status,
             'mfa_enabled': user.mfa_enabled,

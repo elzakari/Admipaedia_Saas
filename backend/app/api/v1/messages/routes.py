@@ -5,6 +5,7 @@ from app.api.v1.messages import messages_bp
 from app.services.message_service import MessageService
 from app.services.enhanced_student_service import EnhancedStudentService
 from app.schemas.message import MessageSchema, MessageCreateSchema, MessageUpdateSchema
+from app.utils.avatar_utils import normalize_avatar_url_for_response
 from app.utils.auth_utils import admin_required, teacher_required, parent_required
 from app.utils.rbac_decorators import require_permission, require_role
 from app.utils.response import success_response, error_response, paginated_response
@@ -110,7 +111,9 @@ def get_recipients():
                     "label": display_name,
                     "subtitle": subtitle,
                     "user_id": p.user_id,
-                    "participant_avatar": getattr(getattr(getattr(p, 'user', None), 'profile', None), 'avatar_url', None),
+                    "participant_avatar": normalize_avatar_url_for_response(
+                        getattr(getattr(getattr(p, 'user', None), 'profile', None), 'avatar_url', None)
+                    ),
                     "avatar_initials": f"{display_name[0] if display_name else ''}".upper() or "P"
                 })
                 
@@ -122,7 +125,9 @@ def get_recipients():
                     "label": f"{t.first_name} {t.last_name}",
                     "subtitle": f"Teacher - {t.specialization or 'General'}",
                     "user_id": t.user_id,
-                    "participant_avatar": getattr(getattr(getattr(t, 'user', None), 'profile', None), 'avatar_url', None),
+                    "participant_avatar": normalize_avatar_url_for_response(
+                        getattr(getattr(getattr(t, 'user', None), 'profile', None), 'avatar_url', None)
+                    ),
                     "avatar_initials": f"{t.first_name[0] if t.first_name else ''}{t.last_name[0] if t.last_name else ''}".upper() or "T"
                 })
                 
@@ -135,7 +140,9 @@ def get_recipients():
                     "label": display_name,
                     "subtitle": f"Administrator ({u.email})",
                     "user_id": u.id,
-                    "participant_avatar": getattr(getattr(u, 'profile', None), 'avatar_url', None),
+                    "participant_avatar": normalize_avatar_url_for_response(
+                        getattr(getattr(u, 'profile', None), 'avatar_url', None)
+                    ),
                     "avatar_initials": f"{display_name[0] if display_name else ''}".upper() or "A"
                 })
                 

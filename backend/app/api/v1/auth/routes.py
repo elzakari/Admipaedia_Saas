@@ -15,6 +15,7 @@ from app.middleware.security_middleware import (
     rate_limit, sanitize_request_data, security_headers, 
     log_security_event, CSRFProtection
 )
+from app.utils.avatar_utils import normalize_avatar_url_for_response
 from app.utils.password_security import PasswordSecurity, AccountSecurity
 from app.models.system_setting import SystemSetting
 from app.utils.url_helpers import get_frontend_base_url
@@ -473,7 +474,9 @@ def get_current_user():
                 "username": user.username,
                 "email": user.email,
                 "role": user.role,
-                "avatar_url": getattr(getattr(user, 'profile', None), 'avatar_url', None),
+                "avatar_url": normalize_avatar_url_for_response(
+                    getattr(getattr(user, 'profile', None), 'avatar_url', None)
+                ),
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "password_changed_at": user.password_changed_at.isoformat() if hasattr(user, 'password_changed_at') and user.password_changed_at else None

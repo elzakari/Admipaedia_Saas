@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request, current_app, send_from_directory
+from flask import Blueprint, jsonify, request, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from marshmallow import Schema, fields, validate, ValidationError
 from werkzeug.utils import secure_filename
@@ -16,42 +16,15 @@ from app.models.security import SecurityEvent
 from app.models.user_profile import UserProfile
 from app.models.user_preferences import UserPreferences
 from app.middleware.security_middleware import security_headers, sanitize_request_data, rate_limit, log_security_event
+from app.utils.avatar_utils import (
+    get_avatar_directory,
+    normalize_avatar_url_for_response,
+    resolve_avatar_file,
+)
 
 
 logger = structlog.get_logger()
 profile_bp = Blueprint('profile', __name__)
-
-
-def _get_upload_root() -> str:
-    configured = str(current_app.config.get('UPLOAD_FOLDER') or 'uploads')
-    if os.path.isabs(configured):
-        return configured
-    return os.path.join(os.path.dirname(current_app.root_path), configured)
-
-
-def _get_avatar_directory(prefer_legacy: bool = False) -> str:
-    if prefer_legacy:
-        return os.path.join(current_app.root_path, 'uploads', 'avatars')
-    return os.path.join(_get_upload_root(), 'avatars')
-
-
-def _resolve_avatar_file(filename: str):
-    safe_name = secure_filename(filename)
-    for avatar_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
-        candidate = os.path.join(avatar_dir, safe_name)
-        if os.path.isfile(candidate):
-            return avatar_dir, safe_name
-    return None, safe_name
-
-
-def _normalize_avatar_url_for_response(value):
-    if not value or not str(value).startswith('/api/v1/profile/avatar/'):
-        return value
-    filename = str(value).split('/api/v1/profile/avatar/', 1)[1]
-    avatar_dir, safe_name = _resolve_avatar_file(filename)
-    if avatar_dir:
-        return f"/api/v1/profile/avatar/{safe_name}"
-    return None
 
 
 def _ensure_profile_tables():
@@ -136,7 +109,7 @@ def get_my_profile():
             },
             'profile': {
                 **profile.to_dict(),
-                'avatar_url': _normalize_avatar_url_for_response(profile.avatar_url),
+                'avatar_url': normalize_avatar_url_for_response(profile.avatar_url),
             },
             'preferences': preferences.to_dict()
         }), 200
@@ -378,7 +351,7 @@ def upload_avatar():
 
         filename = secure_filename(file.filename)
         unique_name = f"avatar_{user_id}_{uuid.uuid4().hex}_{filename}"
-        abs_dir = _get_avatar_directory()
+        abs_dir = get_avatar_directory()
         os.makedirs(abs_dir, exist_ok=True)
 
         abs_path = os.path.join(abs_dir, unique_name)
@@ -426,7 +399,7 @@ def remove_avatar():
         if old_url and old_url.startswith('/api/v1/profile/avatar/'):
             filename = old_url.split('/api/v1/profile/avatar/', 1)[1]
             try:
-                for base_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
+                for base_dir in (get_avatar_directory(), get_avatar_directory(prefer_legacy=True)):
                     abs_path = os.path.join(base_dir, filename)
                     if os.path.isfile(abs_path):
                         os.remove(abs_path)
@@ -444,7 +417,7 @@ def remove_avatar():
 
 @profile_bp.route('/avatar/<path:filename>', methods=['GET'])
 def serve_avatar(filename: str):
-    avatar_dir, safe_name = _resolve_avatar_file(filename)
+    avatar_dir, safe_name = resolve_avatar_file(filename)
     if avatar_dir:
         return send_from_directory(avatar_dir, safe_name)
     return jsonify({'success': False, 'error': 'Avatar not found'}), 404
