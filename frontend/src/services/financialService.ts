@@ -87,6 +87,21 @@ export interface FeeRecord {
   due_date: string;
   created_at: string;
   updated_at: string;
+  student?: {
+    id: number;
+    admission_number?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  structure?: {
+    id: number;
+    academic_year?: string | null;
+    term?: string | null;
+    amount?: number;
+    currency?: string | null;
+    due_date?: string | null;
+    fee_category?: string | null;
+  } | null;
 }
 
 export interface FeeRecordCreate {
@@ -176,6 +191,21 @@ const normalizeFeeRecord = (record: any): FeeRecord => ({
   due_date: String(record?.due_date || record?.structure?.due_date || ''),
   created_at: String(record?.created_at || ''),
   updated_at: String(record?.updated_at || ''),
+  student: record?.student ? {
+    id: Number(record.student?.id || record?.student_id || 0),
+    admission_number: record.student?.admission_number || null,
+    first_name: record.student?.first_name || null,
+    last_name: record.student?.last_name || null,
+  } : null,
+  structure: record?.structure ? {
+    id: Number(record.structure?.id || record?.fee_structure_id || 0),
+    academic_year: record.structure?.academic_year || null,
+    term: record.structure?.term || null,
+    amount: Number(record.structure?.amount ?? 0),
+    currency: record.structure?.currency || null,
+    due_date: record.structure?.due_date || null,
+    fee_category: record.structure?.fee_category || null,
+  } : null,
 });
 
 const normalizeFinancialSummary = (payload: any): FinancialSummary => ({

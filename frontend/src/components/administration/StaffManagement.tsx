@@ -234,10 +234,10 @@ const StaffManagement: React.FC = () => {
   
   // Enhanced summary stats with all required properties
   const summaryStats: SummaryStats = useMemo(() => {
-    const totalStaff = directoryResponse?.summary?.total || directoryRows.length;
-    const activeStaff = directoryResponse?.summary?.active || directoryRows.filter((row) => row.status === 'active').length;
-    const teachingStaff = directoryResponse?.summary?.teachers || directoryRows.filter((row) => row.entity_type === 'teacher').length;
-    const administrativeStaff = directoryResponse?.summary?.staff || directoryRows.filter((row) => row.entity_type === 'staff').length;
+    const totalStaff = directoryRows.length;
+    const activeStaff = directoryRows.filter((row) => String(row.status || '').toLowerCase() === 'active').length;
+    const teachingStaff = directoryRows.filter((row) => row.entity_type === 'teacher').length;
+    const administrativeStaff = directoryRows.filter((row) => row.entity_type === 'staff').length;
     const attendanceSummary = monthlyAttendanceQuery.data?.summary || [];
     const avgAttendance = attendanceSummary.length > 0
       ? Math.round(attendanceSummary.reduce((sum: number, row: AttendanceRecord) => sum + row.attendanceRate, 0) / attendanceSummary.length)
@@ -252,7 +252,7 @@ const StaffManagement: React.FC = () => {
       administrativeStaff,
       message: 'Staff data loaded successfully'
     };
-  }, [departments.length, directoryResponse?.summary, directoryRows, monthlyAttendanceQuery.data?.summary]);
+  }, [departments.length, directoryRows, monthlyAttendanceQuery.data?.summary]);
 
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);

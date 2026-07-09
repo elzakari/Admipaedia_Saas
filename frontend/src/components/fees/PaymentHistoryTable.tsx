@@ -89,8 +89,8 @@ const PaymentHistoryTable: React.FC = () => {
     const onCreate = (e: any) => {
       if (e?.detail?.tab !== 'payments') return
       setForm({
-        fee_record_id: '',
-        amount: '',
+        fee_record_id: e?.detail?.feeRecordId ? String(e.detail.feeRecordId) : '',
+        amount: e?.detail?.amount ? String(e.detail.amount) : '',
         payment_method: 'cash',
         reference_number: '',
         payment_date: new Date().toISOString().slice(0, 10)
@@ -99,6 +99,25 @@ const PaymentHistoryTable: React.FC = () => {
     }
     window.addEventListener('fees:create', onCreate)
     return () => window.removeEventListener('fees:create', onCreate)
+  }, [])
+
+  useEffect(() => {
+    const onNavigate = (e: any) => {
+      if (e?.detail?.tab !== 'payments') return
+      if (!e?.detail?.feeRecordId && !e?.detail?.type) return
+      setForm({
+        fee_record_id: e?.detail?.feeRecordId ? String(e.detail.feeRecordId) : '',
+        amount: e?.detail?.amount ? String(e.detail.amount) : '',
+        payment_method: 'cash',
+        reference_number: '',
+        payment_date: new Date().toISOString().slice(0, 10)
+      })
+      if (e?.detail?.type === 'create' || e?.detail?.feeRecordId) {
+        setRecordOpen(true)
+      }
+    }
+    window.addEventListener('fees:navigate', onNavigate)
+    return () => window.removeEventListener('fees:navigate', onNavigate)
   }, [])
 
   const recordMutation = useMutation({

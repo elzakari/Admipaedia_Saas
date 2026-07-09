@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from "../../lib/utils";
 import {
   Card,
@@ -47,6 +48,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Textarea } from '../../components/ui/textarea';
 
 const FinancialManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('budget');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +180,15 @@ const FinancialManagement: React.FC = () => {
     const today = new Date().toISOString().slice(0, 10);
     setPaymentForm({ fee_record_id: record?.id || 0, amount: '', payment_method: 'cash', reference_number: '', payment_date: today });
     setPaymentDialogOpen(true);
+  };
+
+  const openFeesWorkspace = (tab: 'invoices' | 'payments' | 'templates', type?: 'create' | 'export', detail?: Record<string, any>) => {
+    sessionStorage.setItem('fees:navigation-intent', JSON.stringify({
+      tab,
+      type,
+      ...(detail || {})
+    }));
+    navigate('/fees');
   };
 
   // Calculate budget totals
@@ -476,11 +487,24 @@ const FinancialManagement: React.FC = () => {
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium">Fee Collection</h3>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openFeesWorkspace('invoices')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Open Fees Page
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => handleExportData('fees')}>
                     <Download className="mr-2 h-4 w-4" />
                     Report
                   </Button>
-                  <Button variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => openFeesWorkspace('payments', 'create')}
+                  >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Record
                   </Button>
@@ -547,7 +571,12 @@ const FinancialManagement: React.FC = () => {
                       <TableBody>
                         {feeRecords.map((record) => (
                           <TableRow key={record.id}>
-                            <TableCell className="font-medium text-sm">{record.student_id}</TableCell>
+                            <TableCell className="font-medium text-sm">
+                              <div>{`${record.student?.first_name || ''} ${record.student?.last_name || ''}`.trim() || `Student ${record.student_id}`}</div>
+                              <div className="text-xs text-gray-500">
+                                {record.student?.admission_number || `#${record.student_id}`}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-xs">{record.academic_year}</TableCell>
                             <TableCell className="text-sm">{formatCurrency(record.total_amount)}</TableCell>
                             <TableCell className="text-sm text-emerald-600 font-medium">{formatCurrency(record.paid_amount)}</TableCell>
@@ -562,9 +591,27 @@ const FinancialManagement: React.FC = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button variant="outline" size="sm" className="h-8 text-xs px-3" onClick={() => handleRecordPayment(record)}>
-                                Record
-                              </Button>
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs px-3"
+                                  onClick={() => handleRecordPayment(record)}
+                                >
+                                  Record
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-xs px-3 text-indigo-600"
+                                  onClick={() => openFeesWorkspace('payments', 'create', {
+                                    feeRecordId: record.id,
+                                    amount: record.balance > 0 ? record.balance : '',
+                                  })}
+                                >
+                                  Open
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

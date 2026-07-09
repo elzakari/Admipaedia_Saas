@@ -42,11 +42,11 @@ export const useTeachers = (params?: {
 };
 
 // Hook for fetching a single teacher by ID
-export const useTeacher = (selectedTeacherId: string | null, p0: { enabled: boolean; }, teacherId: number) => {
+export const useTeacher = (_selectedTeacherId: string | null, options: { enabled: boolean }, teacherId: number) => {
   return useQuery({
     queryKey: teacherKeys.detail(teacherId),
     queryFn: () => teacherService.getTeacherById(teacherId),
-    enabled: !!teacherId,
+    enabled: options.enabled && !!teacherId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

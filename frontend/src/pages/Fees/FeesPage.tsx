@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { 
@@ -46,10 +47,41 @@ export function FeesPage() {
   const { t } = useTranslation();
   useTheme();
   const { setHeaderActions } = useHeader();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pendingAction, setPendingAction] = useState<{ tab: string; type: 'create' | 'export' } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileTabsOpen, setMobileTabsOpen] = useState(false);
+
+  useEffect(() => {
+    const rawIntent = sessionStorage.getItem('fees:navigation-intent');
+    if (!rawIntent) return;
+
+    try {
+      const parsed = JSON.parse(rawIntent);
+      if (!parsed?.tab || typeof parsed.tab !== 'string') return;
+
+      const detail = {
+        tab: parsed.tab,
+        type: parsed.type,
+        feeRecordId: parsed.feeRecordId,
+        amount: parsed.amount,
+      };
+
+      if (parsed.type === 'create' || parsed.type === 'export') {
+        setPendingAction({ tab: parsed.tab, type: parsed.type });
+      }
+      setActiveTab(parsed.tab);
+
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent('fees:navigate', { detail }));
+      });
+    } catch {
+      // Ignore malformed navigation intent payloads.
+    } finally {
+      sessionStorage.removeItem('fees:navigation-intent');
+    }
+  }, [location.key]);
 
   const dispatch = (type: 'export' | 'create', tabOverride?: string) => {
     const tab = tabOverride || activeTab;

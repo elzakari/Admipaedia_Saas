@@ -149,10 +149,29 @@ export interface TeacherDashboard {
 }
 
 const teacherService = {
+  withLegacyFields: (teacher: Teacher): Teacher => ({
+    ...teacher,
+    firstName: teacher.first_name,
+    lastName: teacher.last_name,
+    phoneNumber: teacher.phone,
+    joinDate: teacher.hire_date,
+    hireDate: teacher.hire_date,
+    dateOfBirth: teacher.date_of_birth,
+    qualification: Array.isArray(teacher.qualifications) ? teacher.qualifications.join(', ') : teacher.qualification,
+    departmentId: teacher.department?.id ? String(teacher.department.id) : undefined,
+    employeeId: teacher.employee_id,
+    profileImage: teacher.profile_image,
+    createdAt: teacher.created_at,
+    updatedAt: teacher.updated_at,
+    full_name: teacher.full_name,
+    name: teacher.full_name || `${teacher.first_name} ${teacher.last_name}`.trim(),
+    position: teacher.specialization || 'Teacher',
+  }),
+
   getOwnProfile: async (): Promise<Teacher> => {
     const response = await api.get('/teachers/profile')
     const teacher = response.data?.teacher || response.data?.data?.teacher
-    return teacherService.transformTeacherFromBackend(teacher)
+    return teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(teacher))
   },
 
   // Get all teachers with pagination and filtering
@@ -167,21 +186,9 @@ const teacherService = {
       const response = await api.get('/teachers', { params });
       const standardized = ApiResponseStandardizer.standardizePaginatedResponse<any>(response, 'teachers');
 
-      const teachers = (standardized.data || []).map((t: any) => {
-        const base = teacherService.transformTeacherFromBackend(t);
-        return {
-          ...base,
-          firstName: base.first_name,
-          lastName: base.last_name,
-          employeeId: base.employee_id,
-          joinDate: (t.joining_date || t.hire_date || base.hire_date) ? String(t.joining_date || t.hire_date || base.hire_date) : undefined,
-          hireDate: base.hire_date,
-          phoneNumber: (t.phone_number || t.phone || base.phone) ? String(t.phone_number || t.phone || base.phone) : undefined,
-          qualification: t.qualification ? String(t.qualification) : undefined,
-          full_name: t.full_name ? String(t.full_name) : base.full_name,
-          name: t.name ? String(t.name) : base.full_name
-        } as Teacher;
-      });
+      const teachers = (standardized.data || []).map((t: any) =>
+        teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(t))
+      );
 
       const rawPagination = (response.data?.pagination || {}) as any;
       const pagination = {
@@ -206,14 +213,7 @@ const teacherService = {
       const response = await api.patch(`/teachers/${teacherId}/status`, { status });
       const standardized = ApiResponseStandardizer.standardizeSingleResponse<any>(response, 'teacher');
       const t = standardized.data;
-      const base = teacherService.transformTeacherFromBackend(t);
-      return {
-        ...base,
-        firstName: base.first_name,
-        lastName: base.last_name,
-        employeeId: base.employee_id,
-        name: base.full_name
-      } as Teacher;
+      return teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(t));
     } catch (error) {
       console.error(`Error updating teacher status ${teacherId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
@@ -225,8 +225,7 @@ const teacherService = {
     try {
       const response = await api.get(`/teachers/${teacherId}`);
       const standardized = ApiResponseStandardizer.standardizeSingleResponse<Teacher>(response, 'teacher');
-
-      return standardized.data;
+      return teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(standardized.data as any));
     } catch (error) {
       console.error(`Error fetching teacher ${teacherId}:`, error);
       ApiResponseStandardizer.handleApiError(error);
@@ -238,8 +237,7 @@ const teacherService = {
     try {
       const response = await api.post('/teachers', teacherData);
       const standardized = ApiResponseStandardizer.standardizeSingleResponse<Teacher>(response, 'teacher');
-
-      return standardized.data;
+      return teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(standardized.data as any));
     } catch (error) {
       console.error('Error creating teacher:', error);
       ApiResponseStandardizer.handleApiError(error);
@@ -251,8 +249,7 @@ const teacherService = {
     try {
       const response = await api.put(`/teachers/${teacherId}`, teacherData);
       const standardized = ApiResponseStandardizer.standardizeSingleResponse<Teacher>(response, 'teacher');
-
-      return standardized.data;
+      return teacherService.withLegacyFields(teacherService.transformTeacherFromBackend(standardized.data as any));
     } catch (error) {
       console.error(`Error updating teacher ${teacherId}:`, error);
       ApiResponseStandardizer.handleApiError(error);

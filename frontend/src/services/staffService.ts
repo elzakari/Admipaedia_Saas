@@ -47,6 +47,26 @@ export interface StaffAttendanceSummaryItem {
 }
 
 const staffService = {
+  normalizeDirectoryItem(item: any): StaffDirectoryItem {
+    const entityType = (item?.entity_type || item?.entityType || '').toString().toLowerCase() === 'teacher'
+      ? 'teacher'
+      : 'staff';
+    return {
+      id: Number(item?.id || 0),
+      entity_type: entityType,
+      entity_key: String(item?.entity_key || `${entityType}-${item?.id || 0}`),
+      name: String(item?.name || item?.full_name || '').trim(),
+      position: String(item?.position || (entityType === 'teacher' ? 'Teacher' : 'Staff')),
+      department_name: item?.department_name || item?.departmentName || null,
+      email: item?.email || null,
+      phone: item?.phone || item?.phone_number || null,
+      join_date: item?.join_date || item?.joinDate || item?.joining_date || null,
+      status: item?.status || 'active',
+      employee_id: item?.employee_id || item?.employeeId || null,
+      department_id: item?.department_id || item?.departmentId || null,
+    };
+  },
+
   async getStaff(params?: { page?: number; per_page?: number; search?: string }) {
     const response = await api.get('/staff', { params });
     return {
@@ -81,9 +101,17 @@ const staffService = {
 
   async getDirectory(search?: string): Promise<{ directory: StaffDirectoryItem[]; summary: Record<string, number> }> {
     const response = await api.get('/staff/directory', { params: search ? { search } : undefined });
+    const directory = Array.isArray(response.data?.directory)
+      ? response.data.directory.map((item: any) => staffService.normalizeDirectoryItem(item))
+      : [];
     return {
-      directory: response.data?.directory || [],
-      summary: response.data?.summary || {},
+      directory,
+      summary: response.data?.summary || {
+        total: directory.length,
+        teachers: directory.filter((row: StaffDirectoryItem) => row.entity_type === 'teacher').length,
+        staff: directory.filter((row: StaffDirectoryItem) => row.entity_type === 'staff').length,
+        active: directory.filter((row: StaffDirectoryItem) => String(row.status || '').toLowerCase() === 'active').length,
+      },
     };
   },
 
