@@ -35,6 +35,25 @@ def _get_avatar_directory(prefer_legacy: bool = False) -> str:
     return os.path.join(_get_upload_root(), 'avatars')
 
 
+def _resolve_avatar_file(filename: str):
+    safe_name = secure_filename(filename)
+    for avatar_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
+        candidate = os.path.join(avatar_dir, safe_name)
+        if os.path.isfile(candidate):
+            return avatar_dir, safe_name
+    return None, safe_name
+
+
+def _normalize_avatar_url_for_response(value):
+    if not value or not str(value).startswith('/api/v1/profile/avatar/'):
+        return value
+    filename = str(value).split('/api/v1/profile/avatar/', 1)[1]
+    avatar_dir, safe_name = _resolve_avatar_file(filename)
+    if avatar_dir:
+        return f"/api/v1/profile/avatar/{safe_name}"
+    return None
+
+
 def _ensure_profile_tables():
     bind = db.engine
     UserProfile.__table__.create(bind=bind, checkfirst=True)
@@ -115,7 +134,10 @@ def get_my_profile():
                 'last_login': user.last_login.isoformat() if user.last_login else None,
                 'password_changed_at': user.password_changed_at.isoformat() if getattr(user, 'password_changed_at', None) else None
             },
-            'profile': profile.to_dict(),
+            'profile': {
+                **profile.to_dict(),
+                'avatar_url': _normalize_avatar_url_for_response(profile.avatar_url),
+            },
             'preferences': preferences.to_dict()
         }), 200
 
@@ -422,10 +444,8 @@ def remove_avatar():
 
 @profile_bp.route('/avatar/<path:filename>', methods=['GET'])
 def serve_avatar(filename: str):
-    safe_name = secure_filename(filename)
-    for avatar_dir in (_get_avatar_directory(), _get_avatar_directory(prefer_legacy=True)):
-        candidate = os.path.join(avatar_dir, safe_name)
-        if os.path.isfile(candidate):
-            return send_from_directory(avatar_dir, safe_name)
+    avatar_dir, safe_name = _resolve_avatar_file(filename)
+    if avatar_dir:
+        return send_from_directory(avatar_dir, safe_name)
     return jsonify({'success': False, 'error': 'Avatar not found'}), 404
 

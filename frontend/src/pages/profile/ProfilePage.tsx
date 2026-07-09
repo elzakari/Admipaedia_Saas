@@ -5,6 +5,7 @@ import { Shield, SlidersHorizontal, User as UserIcon } from 'lucide-react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { profileService, ProfileTabKey } from '@/services/profileService';
+import { resolveAvatarUrl } from '@/utils/avatar';
 import ProfileHeader from './components/ProfileHeader';
 import ProfileTab from './components/ProfileTab';
 import SecurityTab from './components/SecurityTab';
@@ -59,7 +60,7 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const avatarUrl = data.profile.avatar_url;
+  const avatarUrl = resolveAvatarUrl(data.profile.avatar_url);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">

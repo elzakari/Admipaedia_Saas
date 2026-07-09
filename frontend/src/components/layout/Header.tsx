@@ -10,10 +10,16 @@ import { resolveAvatarUrl } from '../../utils/avatar';
 const Header: React.FC = () => {
   const { user } = useAuth();
   const { unreadCount } = useUnreadNotifications();
+  const [avatarFailed, setAvatarFailed] = React.useState(false);
   const notificationPath =
     user?.role === 'teacher' ? '/teacher/notifications' :
     user?.role === 'student' ? '/student/notifications' :
     '/notifications';
+  const avatarUrl = resolveAvatarUrl(user?.avatar_url);
+
+  React.useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm h-14 flex items-center justify-between px-4 transition-colors">
@@ -38,8 +44,13 @@ const Header: React.FC = () => {
         </Link>
         <Link to="/profile" className="flex items-center space-x-2">
           <div className="h-7 w-7 rounded-full overflow-hidden bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-200 shadow-inner">
-            {resolveAvatarUrl(user?.avatar_url) ? (
-              <img src={resolveAvatarUrl(user?.avatar_url)} alt={user?.username || 'User'} className="h-full w-full object-cover" />
+            {avatarUrl && !avatarFailed ? (
+              <img
+                src={avatarUrl}
+                alt={user?.username || 'User'}
+                className="h-full w-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
             ) : (
               <User size={14} />
             )}

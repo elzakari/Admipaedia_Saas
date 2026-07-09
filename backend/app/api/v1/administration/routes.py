@@ -199,6 +199,100 @@ def _parse_group_id(group_id: str):
     return academic_year, term, (None if class_id == 0 else class_id)
 
 
+def _get_fee_structure_group_rows(academic_year: str, term: str, class_id):
+    return FeeStructure.query.filter(
+        FeeStructure.academic_year == academic_year,
+        FeeStructure.term == term,
+        FeeStructure.class_id == class_id
+    ).order_by(FeeStructure.id.asc()).all()
+
+
+def _group_has_assigned_fee_records(structures):
+    structure_ids = [item.id for item in structures if getattr(item, 'id', None)]
+    if not structure_ids:
+        return False
+    return db.session.query(StudentFee.id).filter(StudentFee.fee_structure_id.in_(structure_ids)).first() is not None
+
+
+def _persist_fee_structure_group(data, existing_rows=None):
+    academic_year = (data.get('academic_year') or '').strip()
+    term = FeeService.normalize_term(data.get('term'))
+    class_id = data.get('class_id')
+    items = data.get('items') or []
+    due_date_raw = data.get('due_date')
+
+    if not academic_year or not term or not isinstance(items, list) or len(items) == 0:
+        return False, ({'success': False, 'message': 'academic_year, term, and items are required'}, 400)
+
+    due_date = None
+    if due_date_raw:
+        try:
+            due_date = datetime.fromisoformat(str(due_date_raw).replace('Z', '+00:00')).date()
+        except Exception:
+            due_date = None
+
+    if class_id in (0, '0', '', None):
+        class_id = None
+    else:
+        try:
+            class_id = int(class_id)
+        except Exception:
+            return False, ({'success': False, 'message': 'Invalid class_id'}, 400)
+
+    normalized_items = []
+    for item in items:
+        name = (item.get('category') or item.get('category_name') or '').strip()
+        if not name:
+            continue
+        try:
+            amount_val = float(item.get('amount'))
+        except Exception:
+            amount_val = 0.0
+        normalized_items.append({'category': name, 'amount': amount_val})
+
+    if not normalized_items:
+        return False, ({'success': False, 'message': 'At least one fee item is required'}, 400)
+
+    existing_rows = existing_rows if existing_rows is not None else _get_fee_structure_group_rows(academic_year, term, class_id)
+    if existing_rows and _group_has_assigned_fee_records(existing_rows):
+        return False, ({
+            'success': False,
+            'message': 'This fee template already has assigned student fee records. Create a new template instead of editing or deleting it.'
+        }, 400)
+
+    if existing_rows:
+        for row in existing_rows:
+            db.session.delete(row)
+        db.session.flush()
+
+    created = []
+    school_currency = _get_school_currency()
+    for item in normalized_items:
+        category = FeeCategory.query.filter(func.lower(FeeCategory.name) == item['category'].lower()).first()
+        if not category:
+            category = FeeCategory(name=item['category'])
+            db.session.add(category)
+            db.session.flush()
+
+        structure = FeeStructure(
+            fee_category_id=category.id,
+            class_id=class_id,
+            academic_year=academic_year,
+            term=term,
+            amount=item['amount'],
+            currency=school_currency,
+            due_date=due_date
+        )
+        db.session.add(structure)
+        created.append(structure)
+
+    db.session.commit()
+
+    categories = FeeCategory.query.all()
+    category_by_id = {c.id: c.name for c in categories}
+    return True, _serialize_fee_template_group(created, category_by_id)
+
+
 @administration_bp.route('/fee-structures', methods=['GET'])
 @administration_bp.route('/fee-structures/', methods=['GET'])
 @administration_access_required
@@ -272,74 +366,11 @@ def get_fee_structure_groups():
 @administration_access_required
 def create_fee_structure_group():
     try:
-        data = request.get_json() or {}
-        academic_year = (data.get('academic_year') or '').strip()
-        term = (data.get('term') or '').strip()
-        class_id = data.get('class_id')
-        items = data.get('items') or []
-        due_date_raw = data.get('due_date')
-
-        if not academic_year or not term or not isinstance(items, list) or len(items) == 0:
-            return jsonify({'success': False, 'message': 'academic_year, term, and items are required'}), 400
-
-        due_date = None
-        if due_date_raw:
-            try:
-                due_date = datetime.fromisoformat(str(due_date_raw).replace('Z', '+00:00')).date()
-            except Exception:
-                due_date = None
-
-        if class_id in (0, '0', '', None):
-            class_id = None
-        else:
-            try:
-                class_id = int(class_id)
-            except Exception:
-                return jsonify({'success': False, 'message': 'Invalid class_id'}), 400
-
-        FeeStructure.query.filter(
-            FeeStructure.academic_year == academic_year,
-            FeeStructure.term == term,
-            (FeeStructure.class_id == class_id)
-        ).delete(synchronize_session=False)
-
-        created = []
-        school_currency = _get_school_currency()
-        for it in items:
-            name = (it.get('category') or it.get('category_name') or '').strip()
-            amount = it.get('amount')
-            if not name:
-                continue
-            try:
-                amount_val = float(amount)
-            except Exception:
-                amount_val = 0.0
-
-            category = FeeCategory.query.filter(func.lower(FeeCategory.name) == name.lower()).first()
-            if not category:
-                category = FeeCategory(name=name)
-                db.session.add(category)
-                db.session.flush()
-
-            structure = FeeStructure(
-                fee_category_id=category.id,
-                class_id=class_id,
-                academic_year=academic_year,
-                term=term,
-                amount=amount_val,
-                currency=school_currency,
-                due_date=due_date
-            )
-            db.session.add(structure)
-            created.append(structure)
-
-        db.session.commit()
-
-        categories = FeeCategory.query.all()
-        category_by_id = {c.id: c.name for c in categories}
-        group = _serialize_fee_template_group(created, category_by_id)
-
-        return jsonify({'success': True, 'fee_structure': group}), 201
+        success, result = _persist_fee_structure_group(request.get_json() or {})
+        if not success:
+            payload, status_code = result
+            return jsonify(payload), status_code
+        return jsonify({'success': True, 'fee_structure': result}), 201
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error creating fee structure group: {str(e)}")
@@ -358,7 +389,16 @@ def update_fee_structure_group(group_id):
     data['academic_year'] = academic_year
     data['term'] = term
     data['class_id'] = class_id or 0
-    return create_fee_structure_group()
+    try:
+        success, result = _persist_fee_structure_group(data, existing_rows=_get_fee_structure_group_rows(academic_year, term, class_id))
+        if not success:
+            payload, status_code = result
+            return jsonify(payload), status_code
+        return jsonify({'success': True, 'fee_structure': result}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating fee structure group: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to update fee structure'}), 500
 
 
 @administration_bp.route('/fee-structures/<path:group_id>', methods=['DELETE'])
@@ -369,11 +409,16 @@ def delete_fee_structure_group(group_id):
         return jsonify({'success': False, 'message': 'Invalid fee structure group id'}), 400
     academic_year, term, class_id = parsed
     try:
-        FeeStructure.query.filter(
-            FeeStructure.academic_year == academic_year,
-            FeeStructure.term == term,
-            (FeeStructure.class_id == class_id)
-        ).delete(synchronize_session=False)
+        rows = _get_fee_structure_group_rows(academic_year, term, class_id)
+        if not rows:
+            return jsonify({'success': False, 'message': 'Fee structure group not found'}), 404
+        if _group_has_assigned_fee_records(rows):
+            return jsonify({
+                'success': False,
+                'message': 'This fee template already has assigned student fee records. It cannot be deleted.'
+            }), 400
+        for row in rows:
+            db.session.delete(row)
         db.session.commit()
         return jsonify({'success': True}), 200
     except Exception as e:

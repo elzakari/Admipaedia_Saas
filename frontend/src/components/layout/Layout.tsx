@@ -41,6 +41,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const location = useLocation();
   // Inside the Layout component
   const { user, logout } = useAuth();
@@ -61,6 +62,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
     user?.role === 'student' ? '/student/dashboard' :
     user?.role === 'parent' ? '/parent/dashboard' :
     '/dashboard';
+  const avatarUrl = resolveAvatarUrl(user?.avatar_url);
 
   const navigation = useMemo(() => {
     switch (user?.role) {
@@ -204,6 +206,10 @@ export function Layout({ children, hideHeader }: LayoutProps) {
     setProfileDropdownOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
+
   // Remove this placeholder function:
   // function cn(arg0: string, arg1: string): string | undefined {
   //   throw new Error('Function not implemented.');
@@ -339,11 +345,12 @@ export function Layout({ children, hideHeader }: LayoutProps) {
                       aria-label={t('common.user_menu', 'User menu')}
                     >
                       <div className="h-8 w-8 rounded-xl overflow-hidden bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-[11px] font-black text-white">
-                        {resolveAvatarUrl(user?.avatar_url) ? (
+                        {avatarUrl && !avatarFailed ? (
                           <img
-                            src={resolveAvatarUrl(user?.avatar_url)}
+                            src={avatarUrl}
                             alt={user?.username || 'User'}
                             className="h-full w-full object-cover"
+                            onError={() => setAvatarFailed(true)}
                           />
                         ) : (
                           user?.username?.substring(0, 2).toUpperCase() || 'AD'

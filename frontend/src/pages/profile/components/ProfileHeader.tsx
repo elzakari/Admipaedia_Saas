@@ -29,6 +29,12 @@ export default function ProfileHeader({
   mfaEnabled,
   updatedAt,
 }: Props) {
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   const updated = formatDateTime(updatedAt);
   const initials = (displayName || email || 'U')
     .split(' ')
@@ -46,8 +52,13 @@ export default function ProfileHeader({
               'h-16 w-16 rounded-2xl overflow-hidden bg-gradient-to-tr from-slate-700 to-slate-500 flex items-center justify-center text-white font-black',
               !avatarUrl && 'text-lg'
             )}>
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+              {avatarUrl && !imageFailed ? (
+                <img
+                  src={avatarUrl}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                  onError={() => setImageFailed(true)}
+                />
               ) : (
                 <span>{initials}</span>
               )}

@@ -15,18 +15,16 @@ import {
   Sparkles
 } from 'lucide-react';
 
-import {
-  FinancialManagement,
-  AcademicCalendar,
-  LibraryManagement,
-  Announcements,
-  Infrastructure,
-  StaffManagement,
-  GhanaEducationService,
-  EducationSystemConfiguration,
-  CoreCompetencies,
-  BranchesConfiguration
-} from '../../components/administration';
+import FinancialManagement from '../../components/administration/FinancialManagement';
+import AcademicCalendar from '../../components/administration/AcademicCalendar';
+import LibraryManagement from '../../components/administration/LibraryManagement';
+import Announcements from '../../components/administration/Announcements';
+import { Infrastructure } from '../../components/administration/Infrastructure';
+import StaffManagement from '../../components/administration/StaffManagement';
+import GhanaEducationService from '../../components/administration/GhanaEducationServiceFixed';
+import EducationSystemConfiguration from '../../components/administration/EducationSystemConfiguration';
+import CoreCompetencies from '../../components/administration/CoreCompetencies';
+import BranchesConfiguration from '../../components/administration/BranchesConfiguration';
 
 import { useHeader } from '../../contexts/HeaderContext';
 import { useSaasTenant } from '@/hooks/useSaasTenant'
@@ -39,7 +37,7 @@ const AdministrationPage = () => {
   const [activeTab, setActiveTab] = useState('education-system');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const isGhanaTenant = current?.tenant.country_code === 'GH'
+  const isGhanaTenant = current?.tenant?.country_code === 'GH'
 
   const tabs = [
     {

@@ -45,6 +45,7 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useToast } from '../../components/ui/use-toast';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { DialogDescription } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 
 const FinancialManagement: React.FC = () => {
@@ -696,6 +697,7 @@ const FinancialManagement: React.FC = () => {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Add budget item</DialogTitle>
+            <DialogDescription>Create a budget allocation for the selected academic year.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -752,6 +754,7 @@ const FinancialManagement: React.FC = () => {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>New transaction</DialogTitle>
+            <DialogDescription>Record an income or expense entry for financial tracking.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -816,6 +819,7 @@ const FinancialManagement: React.FC = () => {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Record fee payment</DialogTitle>
+            <DialogDescription>Apply a payment against the selected student fee record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
