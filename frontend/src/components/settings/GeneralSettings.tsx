@@ -242,8 +242,6 @@ const GeneralSettings = () => {
                 <SelectContent>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
-                  <SelectItem value="ar">Arabic</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Clock, TrendingUp, Wallet } from 'lucide-react';
 import { feesService } from '../../services/feesService';
 
 const AIInsightsBar = () => {
+  const { t } = useTranslation();
   const { data: feeRecordsResp } = useQuery({
     queryKey: ['fees', 'records', 'insights'],
     queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 200 })
@@ -46,7 +48,7 @@ const AIInsightsBar = () => {
     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-lg p-4">
       <div className="flex items-center mb-3">
         <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2" />
-        <h3 className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Fee Insights</h3>
+        <h3 className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{t('admin_fees.fee_insights', 'Fee Insights')}</h3>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -56,7 +58,7 @@ const AIInsightsBar = () => {
               <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Collection Rate</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.collection_rate_title', 'Collection Rate')}</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{collectionRatePct}%</p>
             </div>
           </div>
@@ -68,7 +70,7 @@ const AIInsightsBar = () => {
               <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Payments (7 days)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.payments_7days', 'Payments (7 days)')}</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{paymentsLast7Days.toLocaleString()}</p>
             </div>
           </div>
@@ -80,7 +82,7 @@ const AIInsightsBar = () => {
               <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Overdue Records</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.overdue_records', 'Overdue Records')}</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{overdueCount}</p>
             </div>
           </div>
@@ -92,7 +94,7 @@ const AIInsightsBar = () => {
               <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding Balance</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.outstanding_balance', 'Outstanding Balance')}</p>
               <p className="text-sm font-medium text-gray-900 dark:text-white">{outstandingBalance.toLocaleString()}</p>
             </div>
           </div>

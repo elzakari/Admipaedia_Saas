@@ -13,6 +13,7 @@ import { Progress } from '../ui/progress';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { AlertCircle, CalendarIcon, CheckCircle, Clock, Loader2, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ClassAttendanceProps {
   classId: number;
@@ -36,6 +37,7 @@ const ATTENDANCE_STATUSES: Array<{ value: AttendanceStatus; label: string }> = [
 ];
 
 export function ClassAttendance({ classId }: ClassAttendanceProps) {
+  const { t } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [studentsWithStatus, setStudentsWithStatus] = useState<Student[]>([]);
   
@@ -150,7 +152,7 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
     if (!classId) return;
 
     if (stats.unmarked > 0) {
-      toast.error('Mark every student before submitting attendance');
+      toast.error(t('attendance_page.err_mark_all', 'Mark every student before submitting attendance'));
       return;
     }
     
@@ -166,10 +168,10 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
       };
       
       await submitAttendance.mutateAsync(attendanceData);
-      toast.success(existingAttendances.length > 0 ? 'Attendance updated successfully' : 'Attendance submitted successfully');
+      toast.success(existingAttendances.length > 0 ? t('attendance_page.success_update', 'Attendance updated successfully') : t('attendance_page.success_submit', 'Attendance submitted successfully'));
     } catch (error) {
       console.error('Error submitting attendance:', error);
-      toast.error('Failed to submit attendance');
+      toast.error(t('attendance_page.err_submit_failed', 'Failed to submit attendance'));
     }
   };
 
@@ -179,15 +181,15 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
     <Card>
       <CardHeader className="space-y-4">
         <div>
-          <CardTitle>Daily Attendance Workflow</CardTitle>
+          <CardTitle>{t('attendance_page.daily_workflow_title', 'Daily Attendance Workflow')}</CardTitle>
           <CardDescription>
-            {classData?.name ? `Review ${classData.name} by date, then save the shared daily register.` : 'Review attendance by date before saving the shared daily register.'}
+            {classData?.name ? t('attendance_page.daily_workflow_desc_with_class', 'Review {{className}} by date, then save the shared daily register.', { className: classData.name }) : t('attendance_page.daily_workflow_desc_no_class', 'Review attendance by date before saving the shared daily register.')}
           </CardDescription>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Attendance Date</label>
+            <label className="text-sm font-medium">{t('attendance_page.attendance_date', 'Attendance Date')}</label>
             <div className="relative">
               <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -200,10 +202,10 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Completion</label>
+            <label className="text-sm font-medium">{t('attendance_page.completion', 'Completion')}</label>
             <div className="rounded-lg border p-3">
               <div className="mb-2 flex items-center justify-between text-sm">
-                <span>{stats.marked}/{stats.total} students marked</span>
+                <span>{t('attendance_page.completion_marked_count', '{{marked}}/{{total}} students marked', { marked: stats.marked, total: stats.total })}</span>
                 <span className="font-medium">{stats.completionRate}%</span>
               </div>
               <Progress value={stats.completionRate} />
@@ -215,33 +217,33 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
         {isBusy ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Loading attendance workflow...</span>
+            <span>{t('attendance_page.loading_workflow', 'Loading attendance workflow...')}</span>
           </div>
         ) : studentsWithStatus.length === 0 ? (
           <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-            No students found in this class.
+            {t('attendance_page.no_students_found', 'No students found in this class.')}
           </div>
         ) : (
           <>
             <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-lg border p-3">
-                <div className="text-sm text-muted-foreground">Present</div>
+                <div className="text-sm text-muted-foreground">{t('attendance_page.status_present', 'Present')}</div>
                 <div className="text-2xl font-semibold text-green-600">{stats.present}</div>
               </div>
               <div className="rounded-lg border p-3">
-                <div className="text-sm text-muted-foreground">Absent</div>
+                <div className="text-sm text-muted-foreground">{t('attendance_page.status_absent', 'Absent')}</div>
                 <div className="text-2xl font-semibold text-red-600">{stats.absent}</div>
               </div>
               <div className="rounded-lg border p-3">
-                <div className="text-sm text-muted-foreground">Late</div>
+                <div className="text-sm text-muted-foreground">{t('attendance_page.status_late', 'Late')}</div>
                 <div className="text-2xl font-semibold text-yellow-600">{stats.late}</div>
               </div>
               <div className="rounded-lg border p-3">
-                <div className="text-sm text-muted-foreground">Excused</div>
+                <div className="text-sm text-muted-foreground">{t('attendance_page.status_excused', 'Excused')}</div>
                 <div className="text-2xl font-semibold text-blue-600">{stats.excused}</div>
               </div>
               <div className="rounded-lg border p-3">
-                <div className="text-sm text-muted-foreground">Pending</div>
+                <div className="text-sm text-muted-foreground">{t('attendance_page.status_pending', 'Pending')}</div>
                 <div className="text-2xl font-semibold text-slate-700">{stats.unmarked}</div>
               </div>
             </div>
@@ -249,36 +251,36 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
             <div className="mb-4 flex flex-wrap gap-2">
               <Button variant="outline" onClick={markAllPresent}>
                 <CheckCircle className="mr-1 h-4 w-4" />
-                Mark All Present
+                {t('attendance_page.mark_all_present', 'Mark All Present')}
               </Button>
               <Button variant="outline" onClick={markAllAbsent}>
                 <XCircle className="mr-1 h-4 w-4" />
-                Mark All Absent
+                {t('attendance_page.mark_all_absent', 'Mark All Absent')}
               </Button>
               <Button variant="outline" onClick={markAllLate}>
                 <Clock className="mr-1 h-4 w-4" />
-                Mark All Late
+                {t('attendance_page.mark_all_late', 'Mark All Late')}
               </Button>
               <Button variant="outline" onClick={markAllExcused}>
                 <AlertCircle className="mr-1 h-4 w-4" />
-                Mark All Excused
+                {t('attendance_page.mark_all_excused', 'Mark All Excused')}
               </Button>
             </div>
 
             <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={existingAttendances.length > 0 ? 'default' : 'outline'}>
-                {existingAttendances.length > 0 ? 'Existing register loaded' : 'New register'}
+                {existingAttendances.length > 0 ? t('attendance_page.existing_register_loaded', 'Existing register loaded') : t('attendance_page.new_register', 'New register')}
               </Badge>
-              {isFetchingAttendance ? <span>Refreshing saved records...</span> : null}
-              <span>Attendance is saved once per student for the selected class and date.</span>
+              {isFetchingAttendance ? <span>{t('attendance_page.refreshing_records', 'Refreshing saved records...')}</span> : null}
+              <span>{t('attendance_page.saved_once_info', 'Attendance is saved once per student for the selected class and date.')}</span>
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Current Status</TableHead>
-                  <TableHead>Mark Attendance</TableHead>
+                  <TableHead>{t('attendance_page.table_student', 'Student')}</TableHead>
+                  <TableHead>{t('attendance_page.table_status', 'Current Status')}</TableHead>
+                  <TableHead>{t('attendance_page.table_mark_action', 'Mark Attendance')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,10 +294,10 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
                                     student.status === 'absent' ? 'bg-red-500' : 
                                     student.status === 'late' ? 'bg-yellow-500' : 'bg-blue-500'}
                         >
-                          {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                          {t('attendance_page.status_' + student.status, student.status.charAt(0).toUpperCase() + student.status.slice(1))}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">Pending</Badge>
+                        <Badge variant="outline">{t('attendance_page.status_pending', 'Pending')}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -307,7 +309,7 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
                             variant={student.status === statusOption.value ? 'default' : 'outline'}
                             onClick={() => handleStatusChange(student.id, statusOption.value)}
                           >
-                            {statusOption.label}
+                            {t('attendance_page.status_' + statusOption.value, statusOption.label)}
                           </Button>
                         ))}
                       </div>
@@ -319,16 +321,16 @@ export function ClassAttendance({ classId }: ClassAttendanceProps) {
 
             <div className="mt-6 flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="font-medium">Ready to save</div>
+                <div className="font-medium">{t('attendance_page.ready_to_save', 'Ready to save')}</div>
                 <div className="text-sm text-muted-foreground">
-                  Attendance saves for {selectedDate} and stays synced across admin and teacher portals.
+                  {t('attendance_page.sync_info', 'Attendance saves for {{date}} and stays synced across admin and teacher portals.', { date: selectedDate })}
                 </div>
               </div>
               <Button 
                 onClick={handleSubmitAttendance} 
                 disabled={submitAttendance.isPending || stats.total === 0}
               >
-                {submitAttendance.isPending ? 'Saving...' : existingAttendances.length > 0 ? 'Update Attendance' : 'Submit Attendance'}
+                {submitAttendance.isPending ? t('common.saving', 'Saving...') : existingAttendances.length > 0 ? t('attendance_page.update_attendance_btn', 'Update Attendance') : t('attendance_page.submit_attendance_btn', 'Submit Attendance')}
               </Button>
             </div>
           </>

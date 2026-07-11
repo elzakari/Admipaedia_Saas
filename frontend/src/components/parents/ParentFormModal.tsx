@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { ResponsiveForm, FormSection, FormRow, FormField } from '../common/ResponsiveForm';
 import { TouchFriendlyButton } from '../common/TouchFriendlyButton';
@@ -40,6 +41,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
   parent,
   onSubmit
 }) => {
+  const { t } = useTranslation();
   // Return null early if not open to prevent expensive rendering when hidden
   if (!isOpen) return null;
 
@@ -106,27 +108,27 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
     const newErrors: Partial<Record<keyof Parent, string>> = {};
 
     if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+      newErrors.firstName = t('admin_parents.form.validation.first_name_req', 'First name is required');
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
+      newErrors.lastName = t('admin_parents.form.validation.last_name_req', 'Last name is required');
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('admin_parents.form.validation.email_req', 'Email is required');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+      newErrors.email = t('admin_parents.form.validation.email_invalid', 'Please enter a valid email address');
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = t('admin_parents.form.validation.phone_req', 'Phone number is required');
     } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid phone number';
+      newErrors.phone = t('admin_parents.form.validation.phone_invalid', 'Please enter a valid phone number');
     }
 
     if (!formData.address.trim()) {
-      newErrors.address = 'Address is required';
+      newErrors.address = t('admin_parents.form.validation.address_req', 'Address is required');
     }
 
     setErrors(newErrors);
@@ -137,7 +139,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Please fix the errors in the form');
+      toast.error(t('admin_parents.form.validation.fix_errors', 'Please fix the errors in the form'));
       return;
     }
 
@@ -145,11 +147,11 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
     
     try {
       await onSubmit(formData);
-      toast.success(parent ? 'Parent updated successfully' : 'Parent created successfully');
+      toast.success(parent ? t('admin_parents.toast.update_success', 'Parent updated successfully') : t('admin_parents.toast.create_success', 'Parent created successfully'));
       onClose();
     } catch (error) {
       console.error('Error submitting parent form:', error);
-      toast.error('Failed to save parent information');
+      toast.error(t('admin_parents.form.validation.save_failed', 'Failed to save parent information'));
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +181,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                {parent ? 'Edit Parent' : 'Add New Parent'}
+                {parent ? t('admin_parents.form.edit_title', 'Edit Parent') : t('admin_parents.form.add_title', 'Add New Parent')}
               </DialogTitle>
               {isMobile && (
                 <TouchFriendlyButton
@@ -199,12 +201,12 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
           <ResponsiveForm onSubmit={handleSubmit} className="py-4">
             {/* Basic Information */}
             <FormSection 
-              title="Basic Information" 
-              description="Enter the parent's personal details"
+              title={t('admin_parents.form.basic_info_title', 'Basic Information')} 
+              description={t('admin_parents.form.basic_info_desc', "Enter the parent's personal details")}
             >
               <FormRow>
                 <FormField 
-                  label="First Name" 
+                  label={t('admin_parents.form.first_name', 'First Name')} 
                   htmlFor="firstName" 
                   required 
                   error={errors.firstName}
@@ -213,7 +215,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputEvent}
-                    placeholder="Enter first name"
+                    placeholder={t('admin_parents.form.first_name_placeholder', 'Enter first name')}
                     disabled={isLoading}
                     autoComplete="given-name"
                     leftIcon={<User className="h-4 w-4" />}
@@ -221,7 +223,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                 </FormField>
 
                 <FormField 
-                  label="Last Name" 
+                  label={t('admin_parents.form.last_name', 'Last Name')} 
                   htmlFor="lastName" 
                   required 
                   error={errors.lastName}
@@ -230,7 +232,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputEvent}
-                    placeholder="Enter last name"
+                    placeholder={t('admin_parents.form.last_name_placeholder', 'Enter last name')}
                     disabled={isLoading}
                     autoComplete="family-name"
                     leftIcon={<User className="h-4 w-4" />}
@@ -240,24 +242,24 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
 
               <FormRow>
                 <FormField 
-                  label="Gender" 
+                  label={t('admin_parents.form.gender', 'Gender')} 
                   htmlFor="gender"
                 >
                   <MobileOptimizedSelect
                     value={formData.gender || ''}
                     onChange={(value: string) => handleInputChange('gender', value)}
-                    placeholder="Select gender"
+                    placeholder={t('admin_parents.form.gender_placeholder', 'Select gender')}
                     disabled={isLoading}
                     options={[
-                      { value: 'male', label: 'Male' },
-                      { value: 'female', label: 'Female' },
-                      { value: 'other', label: 'Other' }
+                      { value: 'male', label: t('admin_parents.form.gender_male', 'Male') },
+                      { value: 'female', label: t('admin_parents.form.gender_female', 'Female') },
+                      { value: 'other', label: t('admin_parents.form.gender_other', 'Other') }
                     ]}
                   />
                 </FormField>
 
                 <FormField 
-                  label="Date of Birth" 
+                  label={t('admin_parents.form.dob', 'Date of Birth')} 
                   htmlFor="dateOfBirth"
                 >
                   <MobileOptimizedInput
@@ -272,19 +274,19 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
               </FormRow>
 
               <FormField 
-                label="Relationship to Student" 
+                label={t('admin_parents.form.relationship', 'Relationship to Student')} 
                 htmlFor="relationship"
               >
                 <MobileOptimizedSelect
                   value={formData.relationship || ''}
                   onChange={(value: string) => handleInputChange('relationship', value)}
-                  placeholder="Select relationship"
+                  placeholder={t('admin_parents.form.relationship_placeholder', 'Select relationship')}
                   disabled={isLoading}
                   options={[
-                    { value: 'father', label: 'Father' },
-                    { value: 'mother', label: 'Mother' },
-                    { value: 'guardian', label: 'Guardian' },
-                    { value: 'other', label: 'Other' }
+                    { value: 'father', label: t('admin_parents.form.rel_father', 'Father') },
+                    { value: 'mother', label: t('admin_parents.form.rel_mother', 'Mother') },
+                    { value: 'guardian', label: t('admin_parents.form.rel_guardian', 'Guardian') },
+                    { value: 'other', label: t('admin_parents.form.rel_other', 'Other') }
                   ]}
                 />
               </FormField>
@@ -292,12 +294,12 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
 
             {/* Contact Information */}
             <FormSection 
-              title="Contact Information" 
-              description="Enter contact details and address"
+              title={t('admin_parents.form.contact_info_title', 'Contact Information')} 
+              description={t('admin_parents.form.contact_info_desc', 'Enter contact details and address')}
             >
               <FormRow>
                 <FormField 
-                  label="Email Address" 
+                  label={t('admin_parents.form.email_placeholder', 'Email Address')} 
                   htmlFor="email" 
                   required 
                   error={errors.email}
@@ -307,7 +309,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                     type="email"
                     value={formData.email}
                     onChange={handleInputEvent}
-                    placeholder="Enter email address"
+                    placeholder={t('admin_parents.form.email_placeholder', 'Enter email address')}
                     disabled={isLoading}
                     autoComplete="email"
                     leftIcon={<Mail className="h-4 w-4" />}
@@ -315,7 +317,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                 </FormField>
 
                 <FormField 
-                  label="Phone Number" 
+                  label={t('admin_parents.form.phone_placeholder', 'Phone Number')} 
                   htmlFor="phone" 
                   required 
                   error={errors.phone}
@@ -325,7 +327,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                     type="tel"
                     value={formData.phone}
                     onChange={handleInputEvent}
-                    placeholder="Enter phone number"
+                    placeholder={t('admin_parents.form.phone_placeholder', 'Enter phone number')}
                     disabled={isLoading}
                     autoComplete="tel"
                     leftIcon={<Phone className="h-4 w-4" />}
@@ -334,7 +336,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
               </FormRow>
 
               <FormField 
-                label="Emergency Contact" 
+                label={t('admin_parents.form.emergency_contact', 'Emergency Contact')} 
                 htmlFor="emergencyContact"
               >
                 <MobileOptimizedInput
@@ -342,7 +344,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                   type="tel"
                   value={formData.emergencyContact || ''}
                   onChange={handleInputEvent}
-                  placeholder="Enter emergency contact number"
+                  placeholder={t('admin_parents.form.emergency_placeholder', 'Enter emergency contact number')}
                   disabled={isLoading}
                   autoComplete="tel"
                   leftIcon={<Phone className="h-4 w-4" />}
@@ -350,7 +352,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
               </FormField>
 
               <FormField 
-                label="Address" 
+                label={t('admin_parents.form.address', 'Address')} 
                 htmlFor="address" 
                 required 
                 error={errors.address}
@@ -360,7 +362,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                   name="address"
                   value={formData.address}
                   onChange={handleInputEvent}
-                  placeholder="Enter full address"
+                  placeholder={t('admin_parents.form.address_placeholder', 'Enter full address')}
                   disabled={isLoading}
                   autoComplete="street-address"
                   maxLength={500}
@@ -371,33 +373,33 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
 
             {/* Professional Information */}
             <FormSection 
-              title="Professional Information" 
-              description="Enter occupation and workplace details"
+              title={t('admin_parents.form.professional_info_title', 'Professional Information')} 
+              description={t('admin_parents.form.professional_info_desc', 'Enter occupation and workplace details')}
             >
               <FormRow>
                 <FormField 
-                  label="Occupation" 
+                  label={t('admin_parents.form.occupation', 'Occupation')} 
                   htmlFor="occupation"
                 >
                   <MobileOptimizedInput
                     name="occupation"
                     value={formData.occupation || ''}
                     onChange={handleInputEvent}
-                    placeholder="Enter occupation"
+                    placeholder={t('admin_parents.form.occupation_placeholder', 'Enter occupation')}
                     disabled={isLoading}
                     autoComplete="organization-title"
                   />
                 </FormField>
 
                 <FormField 
-                  label="Workplace" 
+                  label={t('admin_parents.form.workplace', 'Workplace')} 
                   htmlFor="workplace"
                 >
                   <MobileOptimizedInput
                     name="workplace"
                     value={formData.workplace || ''}
                     onChange={handleInputEvent}
-                    placeholder="Enter workplace"
+                    placeholder={t('admin_parents.form.workplace_placeholder', 'Enter workplace')}
                     disabled={isLoading}
                     autoComplete="organization"
                   />
@@ -405,18 +407,18 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
               </FormRow>
 
               <FormField 
-                label="Status" 
+                label={t('admin_parents.form.status', 'Status')} 
                 htmlFor="status" 
                 required
               >
                 <MobileOptimizedSelect
                   value={formData.status}
                   onChange={(value: string) => handleInputChange('status', value as 'active' | 'inactive')}
-                  placeholder="Select status"
+                  placeholder={t('admin_parents.form.status_placeholder', 'Select status')}
                   disabled={isLoading}
                   options={[
-                    { value: 'active', label: 'Active' },
-                    { value: 'inactive', label: 'Inactive' }
+                    { value: 'active', label: t('admin_parents.form.status_active', 'Active') },
+                    { value: 'inactive', label: t('admin_parents.form.status_inactive', 'Inactive') }
                   ]}
                 />
               </FormField>
@@ -433,7 +435,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                 size={isMobile ? "lg" : "md"}
                 fullWidth={isMobile}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </TouchFriendlyButton>
               
               <TouchFriendlyButton
@@ -444,7 +446,7 @@ const ParentFormModal: React.FC<ParentFormModalProps> = ({
                 fullWidth={isMobile}
                 icon={<User className="h-4 w-4" />}
               >
-                {parent ? 'Update Parent' : 'Create Parent'}
+                {parent ? t('admin_parents.form.edit_title', 'Update Parent') : t('admin_parents.form.add_title', 'Create Parent')}
               </TouchFriendlyButton>
             </div>
           </DialogFooter>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -8,6 +9,7 @@ import { toast } from 'sonner'
 import { feesService } from '../../services/feesService'
 
 const DefaulterListView: React.FC = () => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -56,17 +58,17 @@ const DefaulterListView: React.FC = () => {
         due_date: x.due_date,
         days_overdue: x.days_overdue
       })))
-      toast.success('Exported defaulters')
+      toast.success(t('admin_fees.exported_defaulters', 'Exported defaulters'))
     }
     window.addEventListener('fees:export', onExport)
     return () => window.removeEventListener('fees:export', onExport)
-  }, [items])
+  }, [items, t])
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold">Defaulters</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.defaulters', 'Defaulters')}</CardTitle>
           <Button
             size="sm"
             variant="outline"
@@ -80,10 +82,10 @@ const DefaulterListView: React.FC = () => {
                 due_date: x.due_date,
                 days_overdue: x.days_overdue
               })))
-              toast.success('Exported defaulters')
+              toast.success(t('admin_fees.exported_defaulters', 'Exported defaulters'))
             }}
           >
-            <Download className="h-4 w-4 mr-2" /> Export
+            <Download className="h-4 w-4 mr-2" /> {t('common.export', 'Export')}
           </Button>
         </div>
       </CardHeader>
@@ -94,18 +96,18 @@ const DefaulterListView: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Student</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Class</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Due</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Balance</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Days</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Student')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.class', 'Class')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Due')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Balance')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.days', 'Days')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">Loading…</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Loading…')}</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">No defaulters found.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_defaulters_found', 'No defaulters found.')}</td></tr>
               ) : (
                 items.map((x: any) => (
                   <tr key={x.id}>
@@ -126,11 +128,12 @@ const DefaulterListView: React.FC = () => {
 }
 
 const InputLike = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const { t } = useTranslation();
   return (
     <div className="mb-4">
       <input
         className="w-full h-10 rounded-md border border-input bg-background text-foreground px-3 text-sm"
-        placeholder="Search defaulters by name or class"
+        placeholder={t('admin_fees.search_defaulters', 'Search defaulters by name or class')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

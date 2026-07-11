@@ -506,10 +506,10 @@ export default function OptimizedAdminDashboard() {
                 <DropdownMenuLabel>{t('common.export')} {t('common.dashboard')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleExport('csv')} className="cursor-pointer">
-                  CSV Format
+                  {t('dashboard.export_csv', 'CSV Format')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExport('pdf')} className="cursor-pointer">
-                  PDF Report
+                  {t('dashboard.export_pdf', 'PDF Report')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -606,10 +606,10 @@ export default function OptimizedAdminDashboard() {
               "text-lg font-bold tracking-tight",
               isCasaosTheme ? "text-white" : "text-slate-900 dark:text-white"
             )}>
-              Quick Actions
+              {t('common.quick_actions', 'Quick Actions')}
             </h2>
             <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
-              Shortcuts to frequent tasks
+              {t('dashboard.quick_actions.shortcuts', 'Shortcuts to frequent tasks')}
             </span>
           </div>
 
@@ -631,10 +631,10 @@ export default function OptimizedAdminDashboard() {
                   "block text-sm font-semibold truncate",
                   isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
                 )}>
-                  Add New Student
+                  {t('quick_actions.create_student.label', 'Add New Student')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Create student profile
+                  {t('quick_actions.create_student.description', 'Create student profile')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors shrink-0" />
@@ -657,10 +657,10 @@ export default function OptimizedAdminDashboard() {
                   "block text-sm font-semibold truncate",
                   isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
                 )}>
-                  View Attendance
+                  {t('quick_actions.view_attendance.label', 'View Attendance')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Check daily records
+                  {t('quick_actions.view_attendance.description', 'Check daily records')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors shrink-0" />
@@ -683,10 +683,10 @@ export default function OptimizedAdminDashboard() {
                   "block text-sm font-semibold truncate",
                   isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
                 )}>
-                  Generate Report
+                  {t('quick_actions.generate_report.label', 'Generate Report')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Create custom exports
+                  {t('quick_actions.generate_report.description', 'Create custom exports')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors shrink-0" />
@@ -709,10 +709,10 @@ export default function OptimizedAdminDashboard() {
                   "block text-sm font-semibold truncate",
                   isCasaosTheme ? "text-white" : "text-slate-800 dark:text-slate-200"
                 )}>
-                  Open Calendar
+                  {t('quick_actions.open_calendar.label', 'Open Calendar')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  View events & schedules
+                  {t('quick_actions.open_calendar.description', 'View events & schedules')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 transition-colors shrink-0" />

@@ -5,13 +5,14 @@ import { ShadcnCalendar } from "../ui/shadcn-calendar";
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Button } from '../ui/button';
 import { format } from 'date-fns';
-import { DayClickEventHandler, Matcher } from 'react-day-picker';
+import { useTranslation } from 'react-i18next';
 
 interface AttendanceCalendarProps {
   classId: number;
 }
 
 export function AttendanceCalendar({ classId }: AttendanceCalendarProps) {
+  const { t } = useTranslation();
   const [month, setMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   
@@ -20,38 +21,41 @@ export function AttendanceCalendar({ classId }: AttendanceCalendarProps) {
     month: month.getMonth() + 1
   });
   
-  // Generate calendar day modifiers based on attendance data
-  const getDayClassNames = (day: Date) => {
-    if (!attendanceSummary?.daily) return "";
+  // Determine the dominant status of a day
+  const getDayStatus = (day: Date): 'present' | 'absent' | 'late' | null => {
+    if (!attendanceSummary?.daily) return null;
     
     const dateStr = format(day, 'yyyy-MM-dd');
     const dayData = attendanceSummary.daily[dateStr];
     
-    if (!dayData) return "";
+    if (!dayData) return null;
     
-    // Calculate which status has the highest count
     const { present = 0, absent = 0, late = 0 } = dayData;
     const total = present + absent + late;
     
-    if (total === 0) return "";
+    if (total === 0) return null;
     
     if (absent > present && absent > late) {
-      return "bg-red-100 text-red-800";
+      return 'absent';
     } else if (late > present && late > absent) {
-      return "bg-yellow-100 text-yellow-800";
+      return 'late';
     } else {
-      return "bg-green-100 text-green-800";
+      return 'present';
     }
   };
+
+  const isPresentDay = (day: Date) => getDayStatus(day) === 'present';
+  const isAbsentDay = (day: Date) => getDayStatus(day) === 'absent';
+  const isLateDay = (day: Date) => getDayStatus(day) === 'late';
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendance Calendar</CardTitle>
+        <CardTitle>{t('attendance_page.calendar_title', 'Attendance Calendar')}</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">Loading calendar...</div>
+          <div className="flex items-center justify-center h-64">{t('attendance_page.loading_calendar', 'Loading calendar...')}</div>
         ) : (
           <>
             <ShadcnCalendar
@@ -62,11 +66,14 @@ export function AttendanceCalendar({ classId }: AttendanceCalendarProps) {
               onMonthChange={setMonth}
               className="rounded-md border"
               modifiers={{
-                customDay: (date) => true
+                presentDay: isPresentDay,
+                absentDay: isAbsentDay,
+                lateDay: isLateDay
               }}
               modifiersClassNames={{
-                // Fix: Call the function with the date parameter
-                customDay: (date) => getDayClassNames(date)
+                presentDay: "bg-green-100 text-green-800 font-semibold",
+                absentDay: "bg-red-100 text-red-800 font-semibold",
+                lateDay: "bg-yellow-100 text-yellow-800 font-semibold"
               }}
             />
             
@@ -74,30 +81,30 @@ export function AttendanceCalendar({ classId }: AttendanceCalendarProps) {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="mt-4">
-                    View Details for {format(selectedDate, 'PPP')}
+                    {t('attendance_page.view_details_for', 'View Details for {{date}}', { date: format(selectedDate, 'PPP') })}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80">
                   <div className="space-y-2">
-                    <h4 className="font-medium">Attendance Summary</h4>
+                    <h4 className="font-medium">{t('attendance_page.attendance_summary', 'Attendance Summary')}</h4>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="text-center p-2 bg-green-100 rounded">
                         <div className="font-bold text-green-800">
                           {attendanceSummary?.daily?.[format(selectedDate, 'yyyy-MM-dd')]?.present || 0}
                         </div>
-                        <div className="text-xs">Present</div>
+                        <div className="text-xs">{t('attendance_page.status_present', 'Present')}</div>
                       </div>
                       <div className="text-center p-2 bg-red-100 rounded">
                         <div className="font-bold text-red-800">
                           {attendanceSummary?.daily?.[format(selectedDate, 'yyyy-MM-dd')]?.absent || 0}
                         </div>
-                        <div className="text-xs">Absent</div>
+                        <div className="text-xs">{t('attendance_page.status_absent', 'Absent')}</div>
                       </div>
                       <div className="text-center p-2 bg-yellow-100 rounded">
                         <div className="font-bold text-yellow-800">
                           {attendanceSummary?.daily?.[format(selectedDate, 'yyyy-MM-dd')]?.late || 0}
                         </div>
-                        <div className="text-xs">Late</div>
+                        <div className="text-xs">{t('attendance_page.status_late', 'Late')}</div>
                       </div>
                     </div>
                   </div>

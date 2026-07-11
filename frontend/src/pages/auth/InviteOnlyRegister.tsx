@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 function normalizeUrl(raw: string): URL | null {
   const value = (raw || '').trim()
@@ -27,6 +28,7 @@ function extractInvitePath(url: URL): string | null {
 }
 
 export default function InviteOnlyRegister() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [inviteUrl, setInviteUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +43,7 @@ export default function InviteOnlyRegister() {
     e.preventDefault()
     setError(null)
     if (!derivedPath) {
-      setError('Please paste a valid invitation link from your school admin.')
+      setError(t('admin_invitations.errors.invalid_input_link', 'Please paste a valid invitation link from your school admin.'))
       return
     }
     navigate(derivedPath)
@@ -50,7 +52,7 @@ export default function InviteOnlyRegister() {
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        Registration is invitation-only. This prevents creating accounts that are not linked to a school.
+        {t('admin_invitations.invitation_only_desc', 'Registration is invitation-only. This prevents creating accounts that are not linked to a school.')}
       </div>
 
       {error ? <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div> : null}
@@ -58,7 +60,7 @@ export default function InviteOnlyRegister() {
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label htmlFor="inviteUrl" className="block text-sm font-semibold text-slate-700 mb-1">
-            Invitation link
+            {t('admin_invitations.fields.invite_link', 'Invitation link')}
           </label>
           <input
             id="inviteUrl"
@@ -67,7 +69,7 @@ export default function InviteOnlyRegister() {
             onChange={(e) => setInviteUrl(e.target.value)}
             required
             className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="Paste your invite link (e.g. https://.../invite/<id>?exp=...&sig=...)"
+            placeholder={t('admin_invitations.placeholders.paste_link', 'Paste your invite link (e.g. https://.../invite/<id>?exp=...&sig=...)')}
           />
         </div>
 
@@ -75,14 +77,14 @@ export default function InviteOnlyRegister() {
           type="submit"
           className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
         >
-          Continue
+          {t('admin_invitations.continue', 'Continue')}
         </button>
       </form>
 
       <div className="text-sm text-slate-600">
-        Already have an account?{' '}
+        {t('admin_invitations.already_have_account', 'Already have an account? ')}{' '}
         <Link to="/login" className="font-semibold text-indigo-700 hover:text-indigo-800">
-          Sign in
+          {t('admin_invitations.sign_in', 'Sign in')}
         </Link>
       </div>
     </div>

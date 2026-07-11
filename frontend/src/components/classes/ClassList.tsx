@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useClasses, useDeleteClass } from '../../hooks/useClasses';
+import { useTranslation } from 'react-i18next';
 import { ResponsiveTable } from '../common/ResponsiveTable';
 import { TouchFriendlyButton } from '../common/TouchFriendlyButton';
 import { ClassFormModal } from './ClassFormModal';
@@ -16,6 +17,7 @@ interface ClassListProps {
 }
 
 export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: ClassListProps) {
+  const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -53,7 +55,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
           force: isForceDelete 
         });
         
-        toast.success(isForceDelete ? 'Class and all related data deleted' : 'Class deleted successfully');
+        toast.success(isForceDelete ? t('attendance_page.force_delete_success', 'Class and all related data deleted') : t('attendance_page.delete_success', 'Class deleted successfully'));
         setIsDeleteDialogOpen(false);
         setClassToDelete(null);
         setIsForceDelete(false);
@@ -61,7 +63,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
         refetch();
       } catch (error: any) {
         console.error('Delete error:', error);
-        const backendMessage = error.message || 'Failed to delete class';
+        const backendMessage = error.message || t('attendance_page.delete_failed', 'Failed to delete class');
         setErrorMessage(backendMessage);
         
         if (backendMessage?.toLowerCase().includes('related records') || backendMessage?.toLowerCase().includes('force delete')) {
@@ -75,41 +77,41 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
 
   const columns = [
     {
-      header: 'Class Name',
+      header: t('admin_academic.class_name', 'Class Name'),
       accessor: (classItem: any) => getClassDisplayName(classItem),
-      mobileLabel: 'Class',
+      mobileLabel: t('attendance_page.mobile_class', 'Class'),
       priority: 'high' as const
     },
     {
-      header: 'Grade Level',
+      header: t('admin_academic.grade_level', 'Grade Level'),
       accessor: (classItem: any) => typeof classItem.grade_level === 'object' && classItem.grade_level !== null ? classItem.grade_level.name : classItem.grade_level,
-      mobileLabel: 'Grade',
+      mobileLabel: t('attendance_page.mobile_grade', 'Grade'),
       priority: 'high' as const
     },
     {
-      header: 'Academic Year',
+      header: t('admin_academic.academic_year', 'Academic Year'),
       accessor: (classItem: any) => classItem.academic_year,
-      mobileLabel: 'Year',
+      mobileLabel: t('attendance_page.mobile_year', 'Year'),
       priority: 'medium' as const
     },
     {
-      header: 'Students',
+      header: t('attendance_page.students', 'Students'),
       accessor: (classItem: any) => classItem.student_count || classItem.current_enrollment || 0,
-      mobileLabel: 'Students',
+      mobileLabel: t('attendance_page.students', 'Students'),
       priority: 'medium' as const
     },
     {
-      header: 'Status',
+      header: t('admin_academic.status', 'Status'),
       accessor: (classItem: any) => (
         <Badge variant={(classItem.is_active ?? classItem.status === 'active') ? 'success' : 'secondary'}>
-          {(classItem.is_active ?? classItem.status === 'active') ? 'Active' : 'Inactive'}
+          {(classItem.is_active ?? classItem.status === 'active') ? t('admin_academic.active', 'Active') : t('admin_academic.inactive', 'Inactive')}
         </Badge>
       ),
-      mobileLabel: 'Status',
+      mobileLabel: t('admin_academic.status', 'Status'),
       priority: 'medium' as const
     },
     {
-      header: 'Actions',
+      header: t('common.actions', 'Actions'),
       accessor: (classItem: any) => (
         <div className="flex space-x-2">
           <TouchFriendlyButton
@@ -120,7 +122,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
               e.preventDefault();
               onClassSelected && onClassSelected(classItem.id);
             }}
-            aria-label="View class details"
+            aria-label={t('admin_academic.view_class_details_aria', 'View class details')}
           >
             <Eye className="h-4 w-4" />
           </TouchFriendlyButton>
@@ -132,7 +134,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
               e.preventDefault();
               handleEditClass(classItem);
             }}
-            aria-label="Edit class"
+            aria-label={t('admin_academic.edit_class_aria', 'Edit class')}
           >
             <Edit className="h-4 w-4" />
           </TouchFriendlyButton>
@@ -144,13 +146,13 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
               e.preventDefault();
               handleDeleteClick(classItem.id);
             }}
-            aria-label="Delete class"
+            aria-label={t('admin_academic.delete_class_aria', 'Delete class')}
           >
             <Trash2 className="h-4 w-4" />
           </TouchFriendlyButton>
         </div>
       ),
-      mobileLabel: 'Actions',
+      mobileLabel: t('common.actions', 'Actions'),
       priority: 'high' as const
     }
   ];
@@ -166,7 +168,7 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
         keyExtractor={(item) => item.id.toString()}
         onRowClick={(item) => onClassSelected && onClassSelected(item.id)}
         isLoading={isLoading}
-        emptyMessage="No classes found. Try adjusting your filters or add a new class."
+        emptyMessage={t('attendance_page.no_classes_message', 'No classes found. Try adjusting your filters or add a new class.')}
       />
 
       {isModalOpen && (
@@ -189,18 +191,18 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
         <AlertDialogContent className={isForceDelete ? "border-red-500/50" : ""}>
           <AlertDialogHeader>
             <AlertDialogTitle className={isForceDelete ? "text-red-500" : ""}>
-              {isForceDelete ? "Force Delete Class?" : "Are you sure?"}
+              {isForceDelete ? t('attendance_page.force_delete_title', 'Force Delete Class?') : t('attendance_page.delete_confirm_title', 'Are you sure?')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {errorMessage ? (
                 <div className="space-y-4">
                   <p className="text-red-500 font-medium">{errorMessage}</p>
                   <p className="text-slate-400 text-sm italic">
-                    Note: Force deleting will unassign students and permanently remove all attendance, exams, and grades associated with this class.
+                    {t('attendance_page.force_delete_warn_note', 'Note: Force deleting will unassign students and permanently remove all attendance, exams, and grades associated with this class.')}
                   </p>
                 </div>
               ) : (
-                "This action cannot be undone. This will permanently delete the class and remove all associated data."
+                t('attendance_page.delete_confirm_desc', 'This action cannot be undone. This will permanently delete the class and remove all associated data.')
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -209,14 +211,14 @@ export function ClassList({ gradeFilter, academicYearFilter, onClassSelected }: 
               setIsForceDelete(false);
               setErrorMessage(null);
             }}>
-              Cancel
+              {t('common.cancel', 'Cancel')}
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDelete}
               className={isForceDelete ? "bg-red-600 hover:bg-red-700" : ""}
               disabled={deleteClassMutation.isPending}
             >
-              {deleteClassMutation.isPending ? "Deleting..." : (isForceDelete ? "Force Delete Everything" : "Delete")}
+              {deleteClassMutation.isPending ? t('common.deleting', 'Deleting...') : (isForceDelete ? t('attendance_page.force_delete_btn', 'Force Delete Everything') : t('common.delete', 'Delete'))}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

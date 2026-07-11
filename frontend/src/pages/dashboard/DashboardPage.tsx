@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import StatisticsGrid from '../../components/dashboard/StatisticsGrid';
 import CalendarWidget from '../../components/dashboard/CalendarWidget';
 import NotificationList from '../../components/dashboard/NotificationList';
@@ -16,6 +17,7 @@ import { Plus, Activity, Download, Calendar, ArrowRight } from 'lucide-react';
 interface DashboardPageProps {}
 
 const DashboardPage: React.FC<DashboardPageProps> = () => {
+  const { t } = useTranslation();
   const { user, isLoading: authLoading, logout } = useAuth();
   const [greeting, setGreeting] = useState<string>('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,17 +42,17 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
     let greetingText = '';
     
     if (hour < 12) {
-      greetingText = 'Good morning';
+      greetingText = t('common.greetings.morning', 'Good morning');
     } else if (hour < 18) {
-      greetingText = 'Good afternoon';
+      greetingText = t('common.greetings.afternoon', 'Good afternoon');
     } else {
-      greetingText = 'Good evening';
+      greetingText = t('common.greetings.evening', 'Good evening');
     }
     
     // Use username as the display name
     const displayName = user?.username || 'User';
     setGreeting(`${greetingText}, ${displayName}`);
-  }, [user]);
+  }, [user, t]);
 
   const activeUser = {
     name: user?.username || 'User',
@@ -137,11 +139,11 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
           <div className="dashboard-container">
             <div className="mb-6 sm:mb-8">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-800">{greeting}</h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">Here's what's happening in your school today.</p>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">{t('dashboard.greeting_subtitle', "Here's what's happening in your school today.")}</p>
             </div>
             
             <div className="mb-6 sm:mb-8">
-              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Overview</h2>
+              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('common.overview', 'Overview')}</h2>
               <StatisticsGrid />
             </div>
 
@@ -149,10 +151,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
             <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl mb-6 sm:mb-8 transition-all duration-300">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                  Quick Actions
+                  {t('common.quick_actions', 'Quick Actions')}
                 </h2>
                 <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
-                  Shortcuts to frequent tasks
+                  {t('dashboard.quick_actions.shortcuts', 'Shortcuts to frequent tasks')}
                 </span>
               </div>
 
@@ -166,10 +168,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      Add New Student
+                      {t('quick_actions.create_student.label', 'Add New Student')}
                     </span>
                     <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      Create student profile
+                      {t('quick_actions.create_student.description', 'Create student profile')}
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors shrink-0" />
@@ -184,10 +186,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      View Attendance
+                      {t('quick_actions.view_attendance.label', 'View Attendance')}
                     </span>
                     <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      Check daily records
+                      {t('quick_actions.view_attendance.description', 'Check daily records')}
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors shrink-0" />
@@ -202,10 +204,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      Generate Report
+                      {t('quick_actions.generate_report.label', 'Generate Report')}
                     </span>
                     <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      Create custom exports
+                      {t('quick_actions.generate_report.description', 'Create custom exports')}
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors shrink-0" />
@@ -220,10 +222,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                      Open Calendar
+                      {t('quick_actions.open_calendar.label', 'Open Calendar')}
                     </span>
                     <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                      View events & schedules
+                      {t('quick_actions.open_calendar.description', 'View events & schedules')}
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 transition-colors shrink-0" />
@@ -257,11 +259,11 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
       <div className="dashboard-container">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">{greeting}</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Here's what's happening in your school today.</p>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">{t('dashboard.greeting_subtitle', "Here's what's happening in your school today.")}</p>
         </div>
         
         <div className="mb-6 sm:mb-8">
-          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Overview</h2>
+          <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{t('common.overview', 'Overview')}</h2>
           <StatisticsGrid />
         </div>
 
@@ -269,10 +271,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
         <Card className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl mb-6 sm:mb-8 transition-all duration-300">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-              Quick Actions
+              {t('common.quick_actions', 'Quick Actions')}
             </h2>
             <span className="text-xs text-slate-400 font-medium hidden sm:inline-block">
-              Shortcuts to frequent tasks
+              {t('dashboard.quick_actions.shortcuts', 'Shortcuts to frequent tasks')}
             </span>
           </div>
 
@@ -286,10 +288,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  Add New Student
+                  {t('quick_actions.create_student.label', 'Add New Student')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Create student profile
+                  {t('quick_actions.create_student.description', 'Create student profile')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors shrink-0" />
@@ -304,10 +306,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  View Attendance
+                  {t('quick_actions.view_attendance.label', 'View Attendance')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Check daily records
+                  {t('quick_actions.view_attendance.description', 'Check daily records')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors shrink-0" />
@@ -322,10 +324,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  Generate Report
+                  {t('quick_actions.generate_report.label', 'Generate Report')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  Create custom exports
+                  {t('quick_actions.generate_report.description', 'Create custom exports')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors shrink-0" />
@@ -340,10 +342,10 @@ const DashboardPage: React.FC<DashboardPageProps> = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  Open Calendar
+                  {t('quick_actions.open_calendar.label', 'Open Calendar')}
                 </span>
                 <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  View events & schedules
+                  {t('quick_actions.open_calendar.description', 'View events & schedules')}
                 </span>
               </div>
               <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-amber-500 transition-colors shrink-0" />

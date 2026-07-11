@@ -256,10 +256,10 @@ export function StudentsPage() {
     const atRiskCount = analyticsSummary?.at_risk_students_count;
 
     return [
-      { name: t('students_page.total_students', 'Total Élèves'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
-      { name: t('students_page.avg_attendance', 'Présence Moyenne'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
-      { name: t('students_page.avg_performance', 'Performance Moyenne'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
-      { name: t('students_page.at_risk_students', 'Élèves à Risque'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
+      { name: t('students_page.total_students', 'Total Students'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
+      { name: t('students_page.avg_attendance', 'Average Attendance'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
+      { name: t('students_page.avg_performance', 'Average Performance'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
+      { name: t('students_page.at_risk_students', 'At-Risk Students'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
     ];
   };
 
@@ -708,19 +708,19 @@ export function StudentsPage() {
         </div>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-            <p className="text-sm font-medium text-emerald-700">Linked Parents</p>
+            <p className="text-sm font-medium text-emerald-700">{t('students_page.linked_parents', 'Linked Parents')}</p>
             <p className="mt-1 text-2xl font-bold text-emerald-900">{studentManagementSummary.linkedParents}</p>
           </div>
           <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-            <p className="text-sm font-medium text-amber-700">Needs Follow-up</p>
+            <p className="text-sm font-medium text-amber-700">{t('students_page.needs_follow_up', 'Needs Follow-up')}</p>
             <p className="mt-1 text-2xl font-bold text-amber-900">{studentManagementSummary.urgentAttention}</p>
           </div>
           <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
-            <p className="text-sm font-medium text-rose-700">Missing Contact Data</p>
+            <p className="text-sm font-medium text-rose-700">{t('students_page.missing_contact_data', 'Missing Contact Data')}</p>
             <p className="mt-1 text-2xl font-bold text-rose-900">{studentManagementSummary.missingContacts}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-medium text-slate-700">Unassigned Classes</p>
+            <p className="text-sm font-medium text-slate-700">{t('students_page.unassigned_classes', 'Unassigned Classes')}</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{studentManagementSummary.unassignedClasses}</p>
           </div>
         </div>
@@ -755,7 +755,7 @@ export function StudentsPage() {
       <Card className="mt-6">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Student Profile</CardTitle>
+            <CardTitle>{t('students_page.profile.title', 'Student Profile')}</CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -791,15 +791,15 @@ export function StudentsPage() {
 
           <Tabs value={activeInsightTab} onValueChange={setActiveInsightTab}>
             <TabsList className="w-full justify-start overflow-x-auto">
-              <TabsTrigger value="performance" className="min-w-[130px]">Performance</TabsTrigger>
-              <TabsTrigger value="attendance" className="min-w-[130px]">Attendance</TabsTrigger>
-              <TabsTrigger value="contact" className="min-w-[130px]">Contact</TabsTrigger>
+              <TabsTrigger value="performance" className="min-w-[130px]">{t('common.performance', 'Performance')}</TabsTrigger>
+              <TabsTrigger value="attendance" className="min-w-[130px]">{t('navigation.attendance', 'Attendance')}</TabsTrigger>
+              <TabsTrigger value="contact" className="min-w-[130px]">{t('students_page.profile.contact', 'Contact')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="performance" className="space-y-4">
               <div>
                 <div className="flex justify-between mb-2">
-                  <span>Overall Performance</span>
+                  <span>{t('students_page.profile.overall_performance', 'Overall Performance')}</span>
                   <span className="font-semibold">{selectedStudentData.performance}%</span>
                 </div>
                 <Progress value={selectedStudentData.performance} className="h-3" />
@@ -807,11 +807,11 @@ export function StudentsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">{selectedStudentData.completedAssignments}</div>
-                  <div className="text-sm text-gray-600">Completed</div>
+                  <div className="text-sm text-gray-600">{t('students_page.profile.completed', 'Completed')}</div>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">{selectedStudentData.pendingAssignments}</div>
-                  <div className="text-sm text-gray-600">Pending</div>
+                  <div className="text-sm text-gray-600">{t('students_page.profile.pending', 'Pending')}</div>
                 </div>
               </div>
             </TabsContent>
@@ -819,7 +819,7 @@ export function StudentsPage() {
             <TabsContent value="attendance" className="space-y-4">
               <div>
                 <div className="flex justify-between mb-2">
-                  <span>Attendance Rate</span>
+                  <span>{t('students_page.profile.attendance_rate', 'Attendance Rate')}</span>
                   <span className="font-semibold">{selectedStudentData.attendance}%</span>
                 </div>
                 <Progress value={selectedStudentData.attendance} className="h-3" />
@@ -840,13 +840,13 @@ export function StudentsPage() {
                   <span>{selectedStudentData.phone}</span>
                 </div>
                 <div className="mt-4">
-                  <h4 className="font-semibold mb-2">Parent Information</h4>
+                  <h4 className="font-semibold mb-2">{t('students_page.profile.parent_info', 'Parent Information')}</h4>
                   <div className="space-y-2 text-sm">
-                    <div>Name: {selectedStudentData.parentInfo.name}</div>
-                    <div>Email: {selectedStudentData.parentInfo.email}</div>
-                    <div>Phone: {selectedStudentData.parentInfo.phone}</div>
-                    <div>Link Status: {selectedStudentData.parentLinked ? 'Linked to parent record' : 'Legacy contact only'}</div>
-                    <div>Attention Level: {selectedStudentData.riskLevel}</div>
+                    <div>{t('students_page.profile.parent_name', 'Name')}: {selectedStudentData.parentInfo.name}</div>
+                    <div>{t('auth.email', 'Email')}: {selectedStudentData.parentInfo.email}</div>
+                    <div>{t('students_page.profile.parent_phone', 'Phone')}: {selectedStudentData.parentInfo.phone}</div>
+                    <div>{t('students_page.profile.link_status', 'Link Status')}: {selectedStudentData.parentLinked ? t('students_page.profile.linked_to_parent', 'Linked to parent record') : t('students_page.profile.legacy_contact', 'Legacy contact only')}</div>
+                    <div>{t('students_page.profile.attention_level', 'Attention Level')}: {selectedStudentData.riskLevel}</div>
                   </div>
                 </div>
               </div>

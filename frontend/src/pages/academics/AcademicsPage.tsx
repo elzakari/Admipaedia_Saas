@@ -50,26 +50,26 @@ export function AcademicsPage() {
   const workflowCards = useMemo(() => ([
     {
       id: 'class-records',
-      title: 'Class Records',
-      description: 'Maintain classes, subjects, timetable structure, and academic setup.',
+      title: t('academics_page.class_records', 'Class Records'),
+      description: t('academics_page.cards.class_records.desc', 'Maintain classes, subjects, timetable structure, and academic setup.'),
       icon: Users,
-      badge: `${classCount} classes ready`
+      badge: t('academics_page.cards.class_records.badge', '{{count}} classes ready', { count: classCount })
     },
     {
       id: 'exam-management',
-      title: 'Exam Management',
-      description: 'Schedule assessments, maintain exam records, and control grading operations.',
+      title: t('academics_page.exam_management', 'Exam Management'),
+      description: t('academics_page.cards.exam_management.desc', 'Schedule assessments, maintain exam records, and control grading operations.'),
       icon: FileText,
-      badge: `${examCount} exams tracked`
+      badge: t('academics_page.cards.exam_management.badge', '{{count}} exams tracked', { count: examCount })
     },
     {
       id: 'scores-dashboard',
-      title: 'Scores Dashboard',
-      description: 'Review performance patterns, grading outcomes, and academic health across the school.',
+      title: t('academics_page.scores_dashboard', 'Scores Dashboard'),
+      description: t('academics_page.cards.scores_dashboard.desc', 'Review performance patterns, grading outcomes, and academic health across the school.'),
       icon: BarChart4,
-      badge: `${subjectCount} subjects in scope`
+      badge: t('academics_page.cards.scores_dashboard.badge', '{{count}} subjects in scope', { count: subjectCount })
     }
-  ]), [classCount, examCount, subjectCount]);
+  ]), [classCount, examCount, subjectCount, t]);
 
   const filteredWorkflowCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -85,10 +85,10 @@ export function AcademicsPage() {
   }, [searchQuery, workflowCards]);
 
   const overviewStats = [
-    { label: 'Classes', value: classCount, icon: Users, tone: 'bg-blue-500' },
-    { label: 'Subjects', value: subjectCount, icon: BookOpen, tone: 'bg-emerald-500' },
-    { label: 'Exams', value: examCount, icon: FileText, tone: 'bg-violet-500' },
-    { label: 'Active Workflow', value: workflowCards.find((card) => card.id === activeTab)?.title || 'Academic Hub', icon: GraduationCap, tone: 'bg-amber-500' }
+    { label: t('admin_academic.classes', 'Classes'), value: classCount, icon: Users, tone: 'bg-blue-500' },
+    { label: t('admin_academic.subjects', 'Subjects'), value: subjectCount, icon: BookOpen, tone: 'bg-emerald-500' },
+    { label: t('navigation.exams', 'Exams'), value: examCount, icon: FileText, tone: 'bg-violet-500' },
+    { label: t('academics_page.stats.active_workflow', 'Active Workflow'), value: workflowCards.find((card) => card.id === activeTab)?.title || t('academics_page.stats.academic_hub', 'Academic Hub'), icon: GraduationCap, tone: 'bg-amber-500' }
   ];
 
   return (

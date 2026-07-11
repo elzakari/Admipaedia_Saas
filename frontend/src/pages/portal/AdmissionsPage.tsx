@@ -148,13 +148,13 @@ const AdmissionsPage: React.FC = () => {
       return response.data;
     },
     onSuccess: (data) => {
-      toast.success(data?.reused_existing ? 'Existing editable form resumed.' : 'Form purchased successfully.');
+      toast.success(data?.reused_existing ? t('parent_admissions.toasts.resumed', 'Existing editable form resumed.') : t('parent_admissions.toasts.purchased', 'Form purchased successfully.'));
       invalidateAdmissionQueries();
       resetFormState();
       navigate(`/admissions/form/${data.application_id}`);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to purchase form');
+      toast.error(error.response?.data?.message || t('parent_admissions.toasts.purchase_failed', 'Failed to purchase form'));
     },
   });
 
@@ -168,13 +168,13 @@ const AdmissionsPage: React.FC = () => {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      toast.success('Admission form updated.');
+      toast.success(t('parent_admissions.toasts.updated', 'Admission form updated.'));
       invalidateAdmissionQueries();
       resetFormState();
       navigate(`/admissions/form/${variables.id}`);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update application');
+      toast.error(error.response?.data?.message || t('parent_admissions.toasts.update_failed', 'Failed to update application'));
     },
   });
 
@@ -187,11 +187,11 @@ const AdmissionsPage: React.FC = () => {
       if (editingApplicationId === applicationId) {
         resetFormState();
       }
-      toast.success('Application discarded.');
+      toast.success(t('parent_admissions.toasts.discarded', 'Application discarded.'));
       invalidateAdmissionQueries();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to discard application');
+      toast.error(error.response?.data?.message || t('parent_admissions.toasts.discard_failed', 'Failed to discard application'));
     },
   });
 
@@ -199,7 +199,7 @@ const AdmissionsPage: React.FC = () => {
     event?.preventDefault();
 
     if (!formData.student_first_name || !formData.student_last_name || !formData.target_class_id) {
-      toast.error('Please fill all fields');
+      toast.error(t('parent_admissions.toasts.fill_fields', 'Please fill all fields'));
       return;
     }
 
@@ -210,7 +210,7 @@ const AdmissionsPage: React.FC = () => {
     };
 
     if (!payload.student_first_name || !payload.student_last_name || !Number.isFinite(payload.target_class_id)) {
-      toast.error('Please provide valid admission details');
+      toast.error(t('parent_admissions.toasts.invalid_details', 'Please provide valid admission details'));
       return;
     }
 

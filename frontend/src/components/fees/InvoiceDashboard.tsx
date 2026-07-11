@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
@@ -13,6 +14,7 @@ import api from '../../lib/api'
 import { feesService, FeeRecord, FeeTemplateGroup } from '../../services/feesService'
 
 const InvoiceDashboard: React.FC = () => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -99,7 +101,7 @@ const InvoiceDashboard: React.FC = () => {
         balance: r.balance,
         due_date: r.due_date || ''
       })))
-      toast.success('Exported invoices')
+      toast.success(t('admin_fees.exported_invoices', 'Exported invoices'))
     }
     window.addEventListener('fees:export', onExport)
     return () => window.removeEventListener('fees:export', onExport)
@@ -117,19 +119,19 @@ const InvoiceDashboard: React.FC = () => {
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      if (!createForm.templateId) throw new Error('Select a template')
+      if (!createForm.templateId) throw new Error(t('admin_fees.select_template_error', 'Select a template'))
       if (createForm.mode === 'student') {
-        if (!createForm.studentId) throw new Error('Select a student')
+        if (!createForm.studentId) throw new Error(t('admin_fees.select_student_error', 'Select a student'))
         return feesService.assignFeeTemplate(createForm.templateId, { student_id: Number(createForm.studentId) })
       }
       return feesService.assignFeeTemplate(createForm.templateId)
     },
     onSuccess: (data) => {
-      toast.success(`Created ${data.created} fee records`)
+      toast.success(t('admin_fees.created_records', 'Created {{count}} fee records', { count: data.created }))
       queryClient.invalidateQueries({ queryKey: ['fees', 'records'] })
       setCreateOpen(false)
     },
-    onError: (e: any) => toast.error(e?.message || e?.response?.data?.message || 'Failed to generate invoices')
+    onError: (e: any) => toast.error(e?.message || e?.response?.data?.message || t('admin_fees.failed_generate_invoices', 'Failed to generate invoices'))
   })
 
   const openPayments = async (record: FeeRecord) => {
@@ -147,7 +149,7 @@ const InvoiceDashboard: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold">Invoices</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.invoices', 'Invoices')}</CardTitle>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -165,11 +167,11 @@ const InvoiceDashboard: React.FC = () => {
                   balance: r.balance,
                   due_date: r.due_date || ''
                 })))
-                toast.success('Exported invoices')
+                toast.success(t('admin_fees.exported_invoices', 'Exported invoices'))
               }}
             >
               <Download className="h-4 w-4 mr-2" />
-              Export
+              {t('common.export', 'Export')}
             </Button>
             <Button
               size="sm"
@@ -180,37 +182,37 @@ const InvoiceDashboard: React.FC = () => {
               }}
             >
               <PlusCircle className="h-4 w-4 mr-2" />
-              Generate
+              {t('common.generate', 'Generate')}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2 mb-4">
-          <Input placeholder="Search by student, admission #, category or invoice id" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder={t('admin_fees.search_invoices', 'Search by student, admission #, category or invoice id')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Student</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Category</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Paid</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Balance</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Due</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Student')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.category', 'Category')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Amount')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.paid', 'Paid')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Balance')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Due')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('common.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Loading…')}</td></tr>
               ) : records.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">No invoices found.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_invoices_found', 'No invoices found.')}</td></tr>
               ) : (
                 records.map((r) => {
-                  const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `Student ${r.student_id}`
+                  const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `${t('admin_fees.student', 'Student')} ${r.student_id}`
                   const category = r.structure?.fee_category || '—'
                   const status = r.balance <= 0 ? 'paid' : r.paid_amount > 0 ? 'partial' : 'unpaid'
                   return (
@@ -230,7 +232,7 @@ const InvoiceDashboard: React.FC = () => {
                       <td className="px-4 py-3">{r.due_date || '—'}</td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" onClick={() => openPayments(r)}>
-                          <Eye className="h-4 w-4 mr-2" /> Payments
+                          <Eye className="h-4 w-4 mr-2" /> {t('admin_fees.payments', 'Payments')}
                         </Button>
                       </td>
                     </tr>
@@ -244,14 +246,14 @@ const InvoiceDashboard: React.FC = () => {
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>Generate invoices</DialogTitle>
-              <DialogDescription>Assign a fee template to a class or a student.</DialogDescription>
+              <DialogTitle>{t('admin_fees.generate_invoices', 'Generate invoices')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.generate_invoices_desc', 'Assign a fee template to a class or a student.')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Fee template</Label>
+                <Label>{t('admin_fees.fee_template', 'Fee template')}</Label>
                 <Select value={createForm.templateId} onValueChange={(v) => setCreateForm((p) => ({ ...p, templateId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_fees.select_template', 'Select template')} /></SelectTrigger>
                   <SelectContent>
                     {templates.map((t) => (
                       <SelectItem key={t.id} value={t.id}>{t.academic_year} • {t.term} • {t.class_id ? `Class ${t.class_id}` : 'All classes'}</SelectItem>
@@ -262,27 +264,27 @@ const InvoiceDashboard: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Mode</Label>
+                  <Label>{t('common.mode', 'Mode')}</Label>
                   <Select value={createForm.mode} onValueChange={(v) => setCreateForm((p) => ({ ...p, mode: v as any }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="class">Assign to template class</SelectItem>
-                      <SelectItem value="student">Assign to one student</SelectItem>
+                      <SelectItem value="class">{t('admin_fees.assign_to_class', 'Assign to template class')}</SelectItem>
+                      <SelectItem value="student">{t('admin_fees.assign_to_student', 'Assign to one student')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Student</Label>
+                  <Label>{t('admin_fees.student', 'Student')}</Label>
                   <Select
                     value={createForm.studentId}
                     onValueChange={(v) => setCreateForm((p) => ({ ...p, studentId: v }))}
                     disabled={createForm.mode !== 'student'}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t('admin_fees.select_student', 'Select student')} /></SelectTrigger>
                     <SelectContent>
                       {students.map((s: any) => (
                         <SelectItem key={s.id} value={String(s.id)}>
-                          {`${s.first_name || ''} ${s.last_name || ''}`.trim() || `Student ${s.id}`}
+                          {`${s.first_name || ''} ${s.last_name || ''}`.trim() || `${t('admin_fees.student', 'Student')} ${s.id}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -291,9 +293,9 @@ const InvoiceDashboard: React.FC = () => {
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
               <Button className="bg-indigo-600 hover:bg-indigo-700" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate()}>
-                Generate
+                {t('common.generate', 'Generate')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -302,20 +304,20 @@ const InvoiceDashboard: React.FC = () => {
         <Dialog open={paymentsOpen} onOpenChange={setPaymentsOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Payments</DialogTitle>
-              <DialogDescription>View payment allocations recorded for this invoice.</DialogDescription>
+              <DialogTitle>{t('admin_fees.payments', 'Payments')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.view_payments_desc', 'View payment allocations recorded for this invoice.')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
               {selectedRecord ? (
-                <div className="text-sm text-gray-600">Invoice #{selectedRecord.id} • Balance: {selectedRecord.balance}</div>
+                <div className="text-sm text-gray-600">{t('admin_fees.invoice_balance', 'Invoice #{{id}} • Balance: {{balance}}', { id: selectedRecord.id, balance: selectedRecord.balance })}</div>
               ) : null}
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Method</th>
-                      <th className="px-3 py-2 text-right font-medium text-gray-600">Amount</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">{t('admin_fees.date', 'Date')}</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">{t('admin_fees.method', 'Method')}</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Amount')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -327,14 +329,14 @@ const InvoiceDashboard: React.FC = () => {
                       </tr>
                     ))}
                     {selectedPayments.length === 0 ? (
-                      <tr><td colSpan={3} className="px-3 py-4 text-center text-gray-500">No payments.</td></tr>
+                      <tr><td colSpan={3} className="px-3 py-4 text-center text-gray-500">{t('admin_fees.no_payments', 'No payments.')}</td></tr>
                     ) : null}
                   </tbody>
                 </table>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setPaymentsOpen(false)}>Close</Button>
+              <Button variant="outline" onClick={() => setPaymentsOpen(false)}>{t('common.close', 'Close')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

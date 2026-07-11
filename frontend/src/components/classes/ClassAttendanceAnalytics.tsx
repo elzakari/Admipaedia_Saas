@@ -3,12 +3,14 @@ import { useClassAttendanceSummary } from '../../hooks/useClassAttendance';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useTranslation } from 'react-i18next';
 
 interface ClassAttendanceAnalyticsProps {
   classId: number;
 }
 
 export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsProps) {
+  const { t } = useTranslation();
   const [period, setPeriod] = React.useState<'week' | 'month' | 'term'>('month');
   const [year, setYear] = React.useState<number>(new Date().getFullYear());
   const [month, setMonth] = React.useState<number>(new Date().getMonth() + 1);
@@ -44,18 +46,18 @@ export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsPr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendance Analytics</CardTitle>
+        <CardTitle>{t('attendance_page.analytics_title', 'Attendance Analytics')}</CardTitle>
         <Tabs value={period} onValueChange={(value) => setPeriod(value as 'week' | 'month' | 'term')}>
           <TabsList>
-            <TabsTrigger value="week">Weekly</TabsTrigger>
-            <TabsTrigger value="month">Monthly</TabsTrigger>
-            <TabsTrigger value="term">Term</TabsTrigger>
+            <TabsTrigger value="week">{t('attendance_page.period_weekly', 'Weekly')}</TabsTrigger>
+            <TabsTrigger value="month">{t('attendance_page.period_monthly', 'Monthly')}</TabsTrigger>
+            <TabsTrigger value="term">{t('attendance_page.period_term', 'Term')}</TabsTrigger>
           </TabsList>
         </Tabs>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">Loading analytics...</div>
+          <div className="flex items-center justify-center h-64">{t('attendance_page.loading_analytics', 'Loading analytics...')}</div>
         ) : (
           <>
             <ResponsiveContainer width="100%" height={400}>
@@ -65,9 +67,9 @@ export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsPr
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="present" fill="#4ade80" name="Present" />
-                <Bar dataKey="absent" fill="#f87171" name="Absent" />
-                <Bar dataKey="late" fill="#facc15" name="Late" />
+                <Bar dataKey="present" fill="#4ade80" name={t('attendance_page.status_present', 'Present')} />
+                <Bar dataKey="absent" fill="#f87171" name={t('attendance_page.status_absent', 'Absent')} />
+                <Bar dataKey="late" fill="#facc15" name={t('attendance_page.status_late', 'Late')} />
               </BarChart>
             </ResponsiveContainer>
             
@@ -77,7 +79,7 @@ export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsPr
                   <div className="text-2xl font-bold text-green-500">
                     {attendanceSummary?.summary?.present || 0}%
                   </div>
-                  <p className="text-sm text-muted-foreground">Average Attendance</p>
+                  <p className="text-sm text-muted-foreground">{t('attendance_page.avg_attendance', 'Average Attendance')}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -85,7 +87,7 @@ export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsPr
                   <div className="text-2xl font-bold text-red-500">
                     {attendanceSummary?.summary?.absent || 0}%
                   </div>
-                  <p className="text-sm text-muted-foreground">Average Absence</p>
+                  <p className="text-sm text-muted-foreground">{t('attendance_page.avg_absence', 'Average Absence')}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -93,7 +95,7 @@ export function ClassAttendanceAnalytics({ classId }: ClassAttendanceAnalyticsPr
                   <div className="text-2xl font-bold text-yellow-500">
                     {attendanceSummary?.summary?.late || 0}%
                   </div>
-                  <p className="text-sm text-muted-foreground">Average Late</p>
+                  <p className="text-sm text-muted-foreground">{t('attendance_page.avg_late', 'Average Late')}</p>
                 </CardContent>
               </Card>
             </div>

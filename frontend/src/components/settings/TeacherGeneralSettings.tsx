@@ -11,9 +11,7 @@ import api from '../../lib/api';
 
 const supportedLanguages = [
   { value: 'en', label: 'English' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'ar', label: 'Arabic' }
+  { value: 'fr', label: 'French' }
 ];
 
 const TeacherGeneralSettings: React.FC = () => {
@@ -50,10 +48,10 @@ const TeacherGeneralSettings: React.FC = () => {
         const data = await teacherService.getOwnProfile();
         if (active && data) {
           setProfile(data);
-          setFirstName(data.user?.first_name || '');
-          setLastName(data.user?.last_name || '');
-          setEmail(data.user?.email || '');
-          setPhone(data.phone_number || '');
+          setFirstName(data.first_name || data.firstName || '');
+          setLastName(data.last_name || data.lastName || '');
+          setEmail(data.email || '');
+          setPhone(data.phone || data.phoneNumber || '');
         }
       } catch (err: any) {
         console.error('Failed to fetch profile', err);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
@@ -15,6 +16,7 @@ import { formatCurrency } from '../../lib/utils'
 import { getClassDisplayName } from '../../utils/formatters'
 
 const FeeTemplateManager: React.FC = () => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [selected, setSelected] = useState<FeeTemplateGroup | null>(null)
@@ -116,30 +118,30 @@ const FeeTemplateManager: React.FC = () => {
       return feesService.createFeeTemplate(payload)
     },
     onSuccess: () => {
-      toast.success('Fee template saved')
+      toast.success(t('admin_fees.template_saved', 'Fee template saved'))
       queryClient.invalidateQueries({ queryKey: ['fees', 'templates'] })
       setEditorOpen(false)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to save template')
+    onError: (e: any) => toast.error(e?.response?.data?.message || t('admin_fees.failed_save_template', 'Failed to save template'))
   })
 
   const deleteMutation = useMutation({
     mutationFn: (groupId: string) => feesService.deleteFeeTemplate(groupId),
     onSuccess: () => {
-      toast.success('Fee template deleted')
+      toast.success(t('admin_fees.template_deleted', 'Fee template deleted'))
       queryClient.invalidateQueries({ queryKey: ['fees', 'templates'] })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to delete template')
+    onError: (e: any) => toast.error(e?.response?.data?.message || t('admin_fees.failed_delete_template', 'Failed to delete template'))
   })
 
   const assignMutation = useMutation({
     mutationFn: (groupId: string) => feesService.assignFeeTemplate(groupId),
     onSuccess: (data) => {
-      toast.success(`Assigned fees (${data.created} records)`) 
+      toast.success(t('admin_fees.assigned_fees_records', 'Assigned fees ({{count}} records)', { count: data.created })) 
       queryClient.invalidateQueries({ queryKey: ['fees', 'records'] })
       setAssignOpen(false)
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to assign fees')
+    onError: (e: any) => toast.error(e?.response?.data?.message || t('admin_fees.failed_assign_fees', 'Failed to assign fees'))
   })
 
   const exportCsv = (filename: string, rows: Array<Record<string, any>>) => {
@@ -177,7 +179,7 @@ const FeeTemplateManager: React.FC = () => {
         total_amount: t.total_amount,
         currency: t.currency
       })))
-      toast.success('Exported templates')
+      toast.success(t('admin_fees.exported_templates', 'Exported templates'))
     }
 
     window.addEventListener('fees:create', onCreate)
@@ -192,7 +194,7 @@ const FeeTemplateManager: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg font-semibold">Fee Templates</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.fee_templates', 'Fee Templates')}</CardTitle>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -208,10 +210,10 @@ const FeeTemplateManager: React.FC = () => {
                   total_amount: t.total_amount,
                   currency: t.currency
                 })))
-                toast.success('Exported templates')
+                toast.success(t('admin_fees.exported_templates', 'Exported templates'))
               }}
             >
-              <Download className="h-4 w-4 mr-1" /> Export
+              <Download className="h-4 w-4 mr-1" /> {t('common.export', 'Export')}
             </Button>
             <Button
               size="sm"
@@ -220,7 +222,7 @@ const FeeTemplateManager: React.FC = () => {
                 openTemplateEditor(null, 'create')
               }}
             >
-              <Plus className="h-4 w-4 mr-1" /> New Template
+              <Plus className="h-4 w-4 mr-1" /> {t('admin_fees.new_template', 'New Template')}
             </Button>
           </div>
         </div>
@@ -228,62 +230,62 @@ const FeeTemplateManager: React.FC = () => {
       <CardContent>
         <div className="relative mb-4">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input placeholder="Search templates..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+          <Input placeholder={t('admin_fees.search_templates', 'Search templates...')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
         </div>
 
         <div className="space-y-3">
           {isLoading ? (
-            <div className="text-sm text-gray-500">Loading templates…</div>
+            <div className="text-sm text-gray-500">{t('admin_fees.loading_templates', 'Loading templates…')}</div>
           ) : templates.length === 0 ? (
-            <div className="text-sm text-gray-500">No templates found.</div>
+            <div className="text-sm text-gray-500">{t('admin_fees.no_templates_found', 'No templates found.')}</div>
           ) : (
-            templates.map((t) => (
-              <div key={t.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+            templates.map((tpl) => (
+              <div key={tpl.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="flex justify-between items-start gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium truncate">{t.academic_year} • {t.term}</h3>
-                      <Badge className="bg-indigo-100 text-indigo-800">{t.class_id ? classNameById.get(t.class_id) || `Class ${t.class_id}` : 'All classes'}</Badge>
-                      <Badge className="bg-slate-100 text-slate-700">{t.currency}</Badge>
-                      <Badge className="bg-emerald-100 text-emerald-800">Total: {formatCurrency(Number(t.total_amount || 0), t.currency)}</Badge>
+                      <h3 className="font-medium truncate">{tpl.academic_year} • {tpl.term}</h3>
+                      <Badge className="bg-indigo-100 text-indigo-800">{tpl.class_id ? classNameById.get(tpl.class_id) || `Class ${tpl.class_id}` : t('admin_fees.all_classes', 'All classes')}</Badge>
+                      <Badge className="bg-slate-100 text-slate-700">{tpl.currency}</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-800">{t('admin_fees.total_amount', 'Total: {{amount}}', { amount: formatCurrency(Number(tpl.total_amount || 0), tpl.currency) })}</Badge>
                     </div>
                   {(() => {
-                    const usage = t.usage
+                    const usage = tpl.usage
                     const assignedCount = usage?.assigned_fee_records || 0
                     const hasPaymentActivity = Boolean(usage?.has_payment_activity)
                     return (
                       <>
                         {assignedCount > 0 ? (
                           <Badge className="bg-amber-100 text-amber-800">
-                            {assignedCount} assigned
+                            {t('admin_fees.assigned_count', '{{count}} assigned', { count: assignedCount })}
                           </Badge>
                         ) : null}
                         {hasPaymentActivity ? (
-                          <Badge className="bg-rose-100 text-rose-800">Payment activity</Badge>
+                          <Badge className="bg-rose-100 text-rose-800">{t('admin_fees.payment_activity', 'Payment activity')}</Badge>
                         ) : null}
                       </>
                     )
                   })()}
                     <div className="text-sm text-gray-600 mt-2">
-                      {(t.items || []).slice(0, 4).map((i) => (
-                        <span key={i.fee_structure_id} className="inline-block mr-3">{i.category}: <span className="font-medium">{formatCurrency(Number(i.amount || 0), i.currency || t.currency)}</span></span>
+                      {(tpl.items || []).slice(0, 4).map((i) => (
+                        <span key={i.fee_structure_id} className="inline-block mr-3">{i.category}: <span className="font-medium">{formatCurrency(Number(i.amount || 0), i.currency || tpl.currency)}</span></span>
                       ))}
-                      {(t.items || []).length > 4 ? <span className="text-gray-500">+{(t.items || []).length - 4} more</span> : null}
+                      {(tpl.items || []).length > 4 ? <span className="text-gray-500">{t('admin_fees.more_items', '+{{count}} more', { count: (tpl.items || []).length - 4 })}</span> : null}
                     </div>
-                    <div className="text-xs text-gray-500 mt-2">Due: {t.due_date || '—'}</div>
+                    <div className="text-xs text-gray-500 mt-2">{t('admin_fees.due_date', 'Due: {{date}}', { date: tpl.due_date || '—' })}</div>
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setSelected(t); setAssignOpen(true) }}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setSelected(tpl); setAssignOpen(true) }}>
                       <Users className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8"
-                      disabled={t.usage?.can_edit === false}
-                      title={t.usage?.can_edit === false ? 'This template already has assigned fee records. Duplicate it to create a new version.' : 'Edit template'}
+                      disabled={tpl.usage?.can_edit === false}
+                      title={tpl.usage?.can_edit === false ? t('admin_fees.template_locked_desc', 'This template is already in use. Editing is locked to protect existing fee records. Duplicate it to create a revised version.') : t('admin_fees.edit_template', 'Edit template')}
                       onClick={() => {
-                        openTemplateEditor(t, 'edit')
+                        openTemplateEditor(tpl, 'edit')
                       }}
                     >
                       <Edit className="h-4 w-4" />
@@ -292,23 +294,23 @@ const FeeTemplateManager: React.FC = () => {
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8"
-                      title="Duplicate as new template"
-                      onClick={() => openTemplateEditor(t, 'duplicate')}
+                      title={t('admin_fees.duplicate_template', 'Duplicate as new template')}
+                      onClick={() => openTemplateEditor(tpl, 'duplicate')}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setSelected(t); setViewerOpen(true) }}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setSelected(tpl); setViewerOpen(true) }}>
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      disabled={t.usage?.can_delete === false}
-                      title={t.usage?.can_delete === false ? 'Templates with payment activity cannot be deleted.' : 'Delete template'}
+                      disabled={tpl.usage?.can_delete === false}
+                      title={tpl.usage?.can_delete === false ? t('admin_fees.delete_template_disabled', 'Templates with payment activity cannot be deleted.') : t('admin_fees.delete_template', 'Delete template')}
                       onClick={() => {
-                        if (!confirm('Delete this fee template?')) return
-                        deleteMutation.mutate(t.id)
+                        if (!confirm(t('admin_fees.confirm_delete_template', 'Delete this fee template?'))) return
+                        deleteMutation.mutate(tpl.id)
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -323,25 +325,25 @@ const FeeTemplateManager: React.FC = () => {
         <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Template details</DialogTitle>
-              <DialogDescription>Review items and totals for this fee template.</DialogDescription>
+              <DialogTitle>{t('admin_fees.template_details', 'Template details')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.template_details_desc', 'Review items and totals for this fee template.')}</DialogDescription>
             </DialogHeader>
             {selected ? (
               <div className="space-y-4">
                 <div className="flex gap-2 flex-wrap">
                   <Badge className="bg-indigo-100 text-indigo-800">{selected.academic_year}</Badge>
                   <Badge className="bg-indigo-100 text-indigo-800">{selected.term}</Badge>
-                  <Badge className="bg-slate-100 text-slate-800">{selected.class_id ? classNameById.get(selected.class_id) || `Class ${selected.class_id}` : 'All classes'}</Badge>
+                  <Badge className="bg-slate-100 text-slate-800">{selected.class_id ? classNameById.get(selected.class_id) || `Class ${selected.class_id}` : t('admin_fees.all_classes', 'All classes')}</Badge>
                   <Badge className="bg-slate-100 text-slate-700">{selected.currency}</Badge>
-                  <Badge className="bg-emerald-100 text-emerald-800">Total: {formatCurrency(Number(selected.total_amount || 0), selected.currency)}</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-800">{t('admin_fees.total_amount', 'Total: {{amount}}', { amount: formatCurrency(Number(selected.total_amount || 0), selected.currency) })}</Badge>
                 </div>
-                <div className="text-sm text-gray-600">Due date: {selected.due_date || '—'}</div>
+                <div className="text-sm text-gray-600">{t('admin_fees.due_date_label', 'Due date: {{date}}', { date: selected.due_date || '—' })}</div>
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Category</th>
-                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Amount</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">{t('admin_fees.category', 'Category')}</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">{t('admin_fees.amount', 'Amount')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -352,7 +354,7 @@ const FeeTemplateManager: React.FC = () => {
                         </tr>
                       ))}
                       <tr className="bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium">Total</td>
+                        <td className="px-4 py-3 text-sm font-medium">{t('admin_fees.total', 'Total')}</td>
                         <td className="px-4 py-3 text-sm text-right font-bold">{formatCurrency(Number(selected.total_amount || 0), selected.currency)}</td>
                       </tr>
                     </tbody>
@@ -361,7 +363,7 @@ const FeeTemplateManager: React.FC = () => {
               </div>
             ) : null}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setViewerOpen(false)}>Close</Button>
+              <Button variant="outline" onClick={() => setViewerOpen(false)}>{t('common.close', 'Close')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -369,22 +371,22 @@ const FeeTemplateManager: React.FC = () => {
         <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selected ? 'Edit fee template' : 'Create fee template'}</DialogTitle>
-              <DialogDescription>Define categories and amounts, then save and assign to students.</DialogDescription>
+              <DialogTitle>{selected ? t('admin_fees.edit_fee_template', 'Edit fee template') : t('admin_fees.create_fee_template', 'Create fee template')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.create_fee_template_desc', 'Define categories and amounts, then save and assign to students.')}</DialogDescription>
             </DialogHeader>
             {selected?.usage?.can_edit === false ? (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                This template is already in use. Editing is locked to protect existing fee records. Duplicate it to create a revised version.
+                {t('admin_fees.template_locked_warning', 'This template is already in use. Editing is locked to protect existing fee records. Duplicate it to create a revised version.')}
               </div>
             ) : null}
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Academic year</Label>
+                  <Label>{t('admin_fees.academic_year', 'Academic year')}</Label>
                   <Input value={form.academic_year} onChange={(e) => setForm((p) => ({ ...p, academic_year: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Term</Label>
+                  <Label>{t('admin_fees.term', 'Term')}</Label>
                   <Select value={form.term} onValueChange={(v) => setForm((p) => ({ ...p, term: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -395,11 +397,11 @@ const FeeTemplateManager: React.FC = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Class</Label>
+                  <Label>{t('admin_fees.class', 'Class')}</Label>
                   <Select value={form.class_id} onValueChange={(v) => setForm((p) => ({ ...p, class_id: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">All classes</SelectItem>
+                      <SelectItem value="0">{t('admin_fees.all_classes', 'All classes')}</SelectItem>
                       {classes.map((c: any) => (
                         <SelectItem key={c.id} value={String(c.id)}>{getClassDisplayName(c)}</SelectItem>
                       ))}
@@ -407,13 +409,13 @@ const FeeTemplateManager: React.FC = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Due date</Label>
+                  <Label>{t('admin_fees.due_date_form', 'Due date')}</Label>
                   <Input type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Items</Label>
+                <Label>{t('admin_fees.items', 'Items')}</Label>
                 <div className="space-y-2">
                   {form.items.map((it, idx) => (
                     <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -424,7 +426,7 @@ const FeeTemplateManager: React.FC = () => {
                           items[idx] = { ...items[idx], category: e.target.value }
                           return { ...p, items }
                         })}
-                        placeholder="Category"
+                        placeholder={t('admin_fees.category', 'Category')}
                       />
                       <Input
                         type="number"
@@ -434,7 +436,7 @@ const FeeTemplateManager: React.FC = () => {
                           items[idx] = { ...items[idx], amount: Number(e.target.value || 0) }
                           return { ...p, items }
                         })}
-                        placeholder="Amount"
+                        placeholder={t('admin_fees.amount', 'Amount')}
                       />
                       <Button
                         variant="outline"
@@ -442,21 +444,21 @@ const FeeTemplateManager: React.FC = () => {
                         disabled={form.items.length <= 1}
                         onClick={() => setForm((p) => ({ ...p, items: p.items.filter((_, i) => i !== idx) }))}
                       >
-                        Remove
+                        {t('common.remove', 'Remove')}
                       </Button>
                     </div>
                   ))}
                   <Button variant="outline" onClick={() => setForm((p) => ({ ...p, items: [...p.items, { category: '', amount: 0 }] }))}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add item
+                    {t('admin_fees.add_item', 'Add item')}
                   </Button>
                 </div>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setEditorOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setEditorOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
               <Button className="bg-indigo-600 hover:bg-indigo-700" disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
-                Save
+                {t('common.save', 'Save')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -465,14 +467,14 @@ const FeeTemplateManager: React.FC = () => {
         <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Assign fees</DialogTitle>
-              <DialogDescription>Create student fee records from this template.</DialogDescription>
+              <DialogTitle>{t('admin_fees.assign_fees', 'Assign fees')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.assign_fees_desc', 'Create student fee records from this template.')}</DialogDescription>
             </DialogHeader>
             <div className="text-sm text-gray-600">
-              This will create fee records for students in the template class (or all students if template is global).
+              {t('admin_fees.assign_fees_note', 'This will create fee records for students in the template class (or all students if template is global).')}
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setAssignOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
                 disabled={!selected || assignMutation.isPending}
@@ -481,7 +483,7 @@ const FeeTemplateManager: React.FC = () => {
                   assignMutation.mutate(selected.id)
                 }}
               >
-                Assign
+                {t('admin_fees.assign_btn', 'Assign')}
               </Button>
             </DialogFooter>
           </DialogContent>

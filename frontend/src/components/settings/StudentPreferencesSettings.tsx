@@ -33,12 +33,6 @@ const StudentPreferencesSettings: React.FC = () => {
               >
                 Français
               </Button>
-              <Button 
-                variant={i18n.language === 'ee' ? 'default' : 'outline'} 
-                onClick={() => changeLanguage('ee')}
-              >
-                Eʋegbe (Ewe)
-              </Button>
             </div>
             <p className="text-xs text-slate-500 mt-2">Language switching applies immediately without reloading.</p>
           </div>

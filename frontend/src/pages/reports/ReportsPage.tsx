@@ -143,11 +143,11 @@ const ReportsPage: React.FC = () => {
     setIsLoading(true);
     try {
       if (activeTab === 'academic' && selectedReport === 'class-performance' && classFilter === 'all') {
-        throw new Error('Select a class to generate class performance.');
+        throw new Error(t('admin_reports.errors.select_class', 'Select a class to generate class performance.'));
       }
 
       if (activeTab === 'academic' && ['progress', 'transcripts'].includes(selectedReport) && studentFilter === 'all') {
-        throw new Error('Select a student to generate this report.');
+        throw new Error(t('admin_reports.errors.select_student', 'Select a student to generate this report.'));
       }
 
       const filters: ReportFilter = {
@@ -181,16 +181,16 @@ const ReportsPage: React.FC = () => {
       
       setReportData(report);
       toast({
-        title: 'Report Generated',
-        description: 'Your report has been generated successfully.'
+        title: t('admin_reports.toasts.generated_title', 'Report Generated'),
+        description: t('admin_reports.toasts.generated_desc', 'Your report has been generated successfully.')
       });
     } catch (error) {
       console.error('Error generating report:', error);
       const description = error instanceof Error
-        ? error.message
-        : 'Failed to generate report. Please try again.';
+        ? (error.message.startsWith('Select') || error.message.startsWith('Veuillez') ? error.message : t('admin_reports.toasts.generate_failed_desc', 'Failed to generate report. Please try again.'))
+        : t('admin_reports.toasts.generate_failed_desc', 'Failed to generate report. Please try again.');
       toast({
-        title: 'Error',
+        title: t('common.error', 'Error'),
         description,
         variant: 'destructive'
       });
@@ -216,14 +216,14 @@ const ReportsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       
       toast({
-        title: 'Export Successful',
-        description: `Report exported as ${format.toUpperCase()} successfully.`
+        title: t('admin_reports.toasts.export_success_title', 'Export Successful'),
+        description: t('admin_reports.toasts.export_success_desc', 'Report exported as {{format}} successfully.', { format: format.toUpperCase() })
       });
     } catch (error) {
       console.error('Error exporting report:', error);
       toast({
-        title: 'Export Failed',
-        description: 'Failed to export report. Please try again.',
+        title: t('admin_reports.toasts.export_failed_title', 'Export Failed'),
+        description: t('admin_reports.toasts.export_failed_desc', 'Failed to export report. Please try again.'),
         variant: 'destructive'
       });
     } finally {
@@ -250,8 +250,8 @@ const ReportsPage: React.FC = () => {
     } catch (error) {
       console.error('Error printing report:', error);
       toast({
-        title: 'Print Failed',
-        description: 'Failed to prepare report for printing. Please try again.',
+        title: t('admin_reports.toasts.print_failed_title', 'Print Failed'),
+        description: t('admin_reports.toasts.print_failed_desc', 'Failed to prepare report for printing. Please try again.'),
         variant: 'destructive'
       });
     } finally {
@@ -272,7 +272,7 @@ const ReportsPage: React.FC = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Average Grade</p>
+                  <p className="text-sm font-medium text-gray-600">{t('admin_reports.avg_grade', 'Average Grade')}</p>
                   <p className="text-2xl font-bold">{performance?.average?.toFixed(1) || 'N/A'}</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-500" />
@@ -284,7 +284,7 @@ const ReportsPage: React.FC = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Students</p>
+                  <p className="text-sm font-medium text-gray-600">{t('admin_reports.total_students', 'Total Students')}</p>
                   <p className="text-2xl font-bold">{reportData.metadata?.totalRecords || 0}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-500" />
@@ -296,7 +296,7 @@ const ReportsPage: React.FC = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Subjects</p>
+                  <p className="text-sm font-medium text-gray-600">{t('admin_reports.subjects', 'Subjects')}</p>
                   <p className="text-2xl font-bold">{subjects?.length || 0}</p>
                 </div>
                 <BarChart2 className="h-8 w-8 text-purple-500" />
@@ -309,7 +309,7 @@ const ReportsPage: React.FC = () => {
         {performance?.distribution && Object.keys(performance.distribution).length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Grade Distribution</CardTitle>
+              <CardTitle>{t('admin_reports.grade_distribution', 'Grade Distribution')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -344,7 +344,7 @@ const ReportsPage: React.FC = () => {
         {subjects && subjects.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Subject Performance</CardTitle>
+              <CardTitle>{t('admin_reports.subject_performance', 'Subject Performance')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -355,7 +355,7 @@ const ReportsPage: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="average" fill="#8884d8" name="Average Grade" />
+                    <Bar dataKey="average" fill="#8884d8" name={t('admin_reports.avg_grade', 'Average Grade')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -386,7 +386,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Present</p>
+                <p className="text-sm font-medium text-gray-600">{t('attendance_page.status_present', 'Present')}</p>
                 <p className="text-2xl font-bold text-green-600">{overall.present || 0}</p>
               </div>
             </CardContent>
@@ -395,7 +395,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Absent</p>
+                <p className="text-sm font-medium text-gray-600">{t('attendance_page.status_absent', 'Absent')}</p>
                 <p className="text-2xl font-bold text-red-600">{overall.absent || 0}</p>
               </div>
             </CardContent>
@@ -404,7 +404,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Late</p>
+                <p className="text-sm font-medium text-gray-600">{t('attendance_page.status_late', 'Late')}</p>
                 <p className="text-2xl font-bold text-yellow-600">{overall.late || 0}</p>
               </div>
             </CardContent>
@@ -413,7 +413,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Rate</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_reports.attendance_rate', 'Rate')}</p>
                 <p className="text-2xl font-bold text-blue-600">{overall.rate?.toFixed(1) || '0.0'}%</p>
               </div>
             </CardContent>
@@ -424,7 +424,7 @@ const ReportsPage: React.FC = () => {
         {trends && trends.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Attendance Trends</CardTitle>
+              <CardTitle>{t('admin_reports.attendance_trends', 'Attendance Trends')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -435,9 +435,9 @@ const ReportsPage: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Area type="monotone" dataKey="present" stackId="1" stroke="#82ca9d" fill="#82ca9d" name="Present" />
-                    <Area type="monotone" dataKey="late" stackId="1" stroke="#ffc658" fill="#ffc658" name="Late" />
-                    <Area type="monotone" dataKey="absent" stackId="1" stroke="#ff7c7c" fill="#ff7c7c" name="Absent" />
+                    <Area type="monotone" dataKey="present" stackId="1" stroke="#82ca9d" fill="#82ca9d" name={t('attendance_page.status_present', 'Present')} />
+                    <Area type="monotone" dataKey="late" stackId="1" stroke="#ffc658" fill="#ffc658" name={t('attendance_page.status_late', 'Late')} />
+                    <Area type="monotone" dataKey="absent" stackId="1" stroke="#ff7c7c" fill="#ff7c7c" name={t('attendance_page.status_absent', 'Absent')} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -449,7 +449,7 @@ const ReportsPage: React.FC = () => {
         {classComparison && classComparison.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Class Attendance Comparison</CardTitle>
+              <CardTitle>{t('admin_reports.class_attendance_comparison', 'Class Attendance Comparison')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -460,7 +460,7 @@ const ReportsPage: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="attendanceRate" fill="#8884d8" name="Attendance Rate (%)" />
+                    <Bar dataKey="attendanceRate" fill="#8884d8" name={t('admin_reports.attendance_rate_percent', 'Attendance Rate (%)')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -492,7 +492,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Total Fees</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_reports.total_fees', 'Total Fees')}</p>
                 <p className="text-2xl font-bold">${feeCollection.total?.toLocaleString()}</p>
               </div>
             </CardContent>
@@ -501,7 +501,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Collected</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_reports.collected', 'Collected')}</p>
                 <p className="text-2xl font-bold text-green-600">${feeCollection.collected?.toLocaleString()}</p>
               </div>
             </CardContent>
@@ -510,7 +510,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_reports.pending', 'Pending')}</p>
                 <p className="text-2xl font-bold text-yellow-600">${feeCollection.pending?.toLocaleString()}</p>
               </div>
             </CardContent>
@@ -519,7 +519,7 @@ const ReportsPage: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Overdue</p>
+                <p className="text-sm font-medium text-gray-600">{t('admin_reports.overdue', 'Overdue')}</p>
                 <p className="text-2xl font-bold text-red-600">${feeCollection.overdue?.toLocaleString()}</p>
               </div>
             </CardContent>
@@ -530,7 +530,7 @@ const ReportsPage: React.FC = () => {
         {trends && trends.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Fee Collection Trends</CardTitle>
+              <CardTitle>{t('admin_reports.fee_collection_trends', 'Fee Collection Trends')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -541,8 +541,8 @@ const ReportsPage: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey={trends[0]?.collected ? "collected" : "revenue"} stroke="#82ca9d" name="Collected" />
-                    <Line type="monotone" dataKey={trends[0]?.pending ? "pending" : "expenses"} stroke="#ffc658" name="Pending" />
+                    <Line type="monotone" dataKey={trends[0]?.collected ? "collected" : "revenue"} stroke="#82ca9d" name={t('admin_reports.collected', 'Collected')} />
+                    <Line type="monotone" dataKey={trends[0]?.pending ? "pending" : "expenses"} stroke="#ffc658" name={t('admin_reports.pending', 'Pending')} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -565,9 +565,9 @@ const ReportsPage: React.FC = () => {
                 <PieChart className="h-16 w-16 text-indigo-500 opacity-50" />
               )}
             </div>
-            <h3 className="text-lg font-medium mb-2">Select filters and generate a report</h3>
+            <h3 className="text-lg font-medium mb-2">{t('admin_reports.select_filters_prompt', 'Select filters and generate a report')}</h3>
             <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-              Choose your report type, time period, and class filters, then click "Generate Report" to view the data.
+              {t('admin_reports.select_filters_desc', 'Choose your report type, time period, and class filters, then click "Generate Report" to view the data.')}
             </p>
           </div>
         </div>
@@ -587,11 +587,11 @@ const ReportsPage: React.FC = () => {
             <CardContent className="p-6">
               <div className="text-center">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Report Generated Successfully</h3>
-                <p className="text-gray-500">Your {reportData.title} has been generated.</p>
+                <h3 className="text-lg font-medium mb-2">{t('admin_reports.generated_success_title', 'Report Generated Successfully')}</h3>
+                <p className="text-gray-500">{t('admin_reports.generated_success_desc', 'Your {{title}} has been generated.', { title: reportData.title })}</p>
                 <div className="mt-4">
                   <Badge variant="outline">
-                    Generated: {new Date(reportData.generatedAt).toLocaleString()}
+                    {t('admin_reports.generated_at', 'Generated: {{time}}', { time: new Date(reportData.generatedAt).toLocaleString() })}
                   </Badge>
                 </div>
               </div>

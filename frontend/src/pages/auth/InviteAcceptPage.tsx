@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { AxiosError } from 'axios'
+import { useTranslation } from 'react-i18next'
 import { invitationLinksService, InviteeType } from '@/services/invitationLinksService'
 
 type InviteState =
@@ -10,6 +11,7 @@ type InviteState =
   | { status: 'valid'; inviteeType: InviteeType; expiresAt: string | null; tenantId: string }
 
 export default function InviteAcceptPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { inviteId } = useParams()
   const [searchParams] = useSearchParams()
@@ -36,18 +38,18 @@ export default function InviteAcceptPage() {
   useEffect(() => {
     async function run() {
       if (!inviteId) {
-        setInviteState({ status: 'invalid', message: 'Invalid invitation link.' })
+        setInviteState({ status: 'invalid', message: t('admin_invitations.errors.invalid_link', 'Invalid invitation link.') })
         return
       }
       if (!sig || !exp) {
-        setInviteState({ status: 'invalid', message: 'Invitation link is missing required parameters.' })
+        setInviteState({ status: 'invalid', message: t('admin_invitations.errors.missing_parameters', 'Invitation link is missing required parameters.') })
         return
       }
       setInviteState({ status: 'loading' })
       try {
         const res = await invitationLinksService.validateInvite(inviteId, { sig, exp })
         if (!res.success || !res.invite) {
-          const m = res.message || 'This invitation is not valid.'
+          const m = res.message || t('admin_invitations.errors.not_valid', 'This invitation is not valid.')
           setInviteState({ status: 'unavailable', message: m })
           return
         }
@@ -59,7 +61,7 @@ export default function InviteAcceptPage() {
         })
       } catch (err: unknown) {
         const e = err as AxiosError<{ message?: string }>
-        setInviteState({ status: 'invalid', message: e.response?.data?.message || e.message || 'Invitation validation failed.' })
+        setInviteState({ status: 'invalid', message: e.response?.data?.message || e.message || t('admin_invitations.errors.validation_failed', 'Invitation validation failed.') })
       }
     }
 
@@ -71,7 +73,7 @@ export default function InviteAcceptPage() {
     setError('')
     if (!inviteId) return
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('admin_invitations.errors.passwords_mismatch', 'Passwords do not match'))
       return
     }
     setSubmitting(true)
@@ -86,7 +88,7 @@ export default function InviteAcceptPage() {
       }
       const res = await invitationLinksService.registerWithInvite(inviteId, { sig, exp }, payload)
       if (!res.success) {
-        setError(res.message || 'Registration failed. Please try again.')
+        setError(res.message || t('admin_invitations.errors.registration_failed', 'Registration failed. Please try again.'))
         return
       }
       if (res.access_token) localStorage.setItem('token', res.access_token)
@@ -101,7 +103,7 @@ export default function InviteAcceptPage() {
       else navigate('/login')
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
-      setError(e.response?.data?.message || e.message || 'Registration failed. Please try again.')
+      setError(e.response?.data?.message || e.message || t('admin_invitations.errors.registration_failed', 'Registration failed. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -109,8 +111,8 @@ export default function InviteAcceptPage() {
 
   const title =
     inviteState.status === 'valid'
-      ? `Create your ${inviteState.inviteeType} account`
-      : 'Invitation'
+      ? t('admin_invitations.create_account', 'Create your {{type}} account', { type: inviteState.inviteeType })
+      : t('admin_invitations.invitation', 'Invitation')
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-indigo-100">
@@ -125,7 +127,11 @@ export default function InviteAcceptPage() {
             <div className="text-center mb-6">
               <h1 className="text-3xl font-display font-bold text-slate-900 tracking-tight">{title}</h1>
               {inviteState.status === 'valid' ? (
-                <p className="mt-2 text-sm text-slate-600">Single-use invitation. Expires {inviteState.expiresAt ? new Date(inviteState.expiresAt).toLocaleString() : 'soon'}.</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {t('admin_invitations.single_use_expires', 'Single-use invitation. Expires {{expires}}.', {
+                    expires: inviteState.expiresAt ? new Date(inviteState.expiresAt).toLocaleString() : t('admin_invitations.soon', 'soon'),
+                  })}
+                </p>
               ) : null}
             </div>
 
@@ -140,9 +146,9 @@ export default function InviteAcceptPage() {
               <div className="space-y-4">
                 <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{inviteState.message}</div>
                 <div className="text-sm text-slate-600">
-                  <span>Need help? </span>
-                  <Link to="/login" className="font-semibold text-indigo-700 hover:text-indigo-800">Sign in</Link>
-                  <span> or request a new invite from your school.</span>
+                  <span>{t('admin_invitations.need_help', 'Need help? ')}</span>
+                  <Link to="/login" className="font-semibold text-indigo-700 hover:text-indigo-800">{t('admin_invitations.sign_in', 'Sign in')}</Link>
+                  <span>{t('admin_invitations.request_new_hint', ' or request a new invite from your school.')}</span>
                 </div>
               </div>
             ) : (
@@ -150,7 +156,7 @@ export default function InviteAcceptPage() {
                 {error ? <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div> : null}
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="username">Username</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="username">{t('admin_invitations.fields.username', 'Username')}</label>
                   <input
                     id="username"
                     type="text"
@@ -158,14 +164,14 @@ export default function InviteAcceptPage() {
                     onChange={(e) => setUsername(e.target.value)}
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Choose a username"
+                    placeholder={t('admin_invitations.placeholders.username', 'Choose a username')}
                   />
                 </div>
 
                 {inviteeType === 'teacher' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="firstName">First name</label>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="firstName">{t('admin_invitations.fields.first_name', 'First name')}</label>
                       <input
                         id="firstName"
                         type="text"
@@ -176,7 +182,7 @@ export default function InviteAcceptPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="lastName">Last name</label>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="lastName">{t('admin_invitations.fields.last_name', 'Last name')}</label>
                       <input
                         id="lastName"
                         type="text"
@@ -190,7 +196,7 @@ export default function InviteAcceptPage() {
                 ) : null}
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="email">Email</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="email">{t('admin_invitations.fields.email', 'Email')}</label>
                   <input
                     id="email"
                     type="email"
@@ -198,12 +204,12 @@ export default function InviteAcceptPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="you@example.com"
+                    placeholder={t('admin_invitations.placeholders.email', 'you@example.com')}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="password">Password</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="password">{t('admin_invitations.fields.password', 'Password')}</label>
                   <input
                     id="password"
                     type="password"
@@ -211,13 +217,13 @@ export default function InviteAcceptPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Create a password"
+                    placeholder={t('admin_invitations.placeholders.password', 'Create a password')}
                   />
-                  <div className="text-xs text-slate-500 mt-1">Use at least 8 characters and avoid common passwords.</div>
+                  <div className="text-xs text-slate-500 mt-1">{t('admin_invitations.password_hint', 'Use at least 8 characters and avoid common passwords.')}</div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="confirmPassword">Confirm password</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1" htmlFor="confirmPassword">{t('admin_invitations.fields.confirm_password', 'Confirm password')}</label>
                   <input
                     id="confirmPassword"
                     type="password"
@@ -234,7 +240,7 @@ export default function InviteAcceptPage() {
                     disabled={submitting}
                     className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors disabled:opacity-50"
                   >
-                    {submitting ? 'Creating account…' : 'Create account'}
+                    {submitting ? t('admin_invitations.creating_account', 'Creating account…') : t('admin_invitations.create_account_btn', 'Create account')}
                   </button>
                 </div>
               </form>
@@ -242,11 +248,11 @@ export default function InviteAcceptPage() {
           </div>
 
           <div className="mt-6 text-center text-xs text-slate-500">
-            <span>© {new Date().getFullYear()} ADMIPAEDIA. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} ADMIPAEDIA. {t('admin_invitations.rights_reserved', 'All rights reserved.')}</span>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 

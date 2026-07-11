@@ -11,9 +11,7 @@ import { applyDocumentLanguage, markLanguageOverride } from '@/lib/countryLangua
 
 const supportedLanguages = [
   { value: 'en', label: 'English' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'ar', label: 'Arabic' }
+  { value: 'fr', label: 'French' }
 ];
 
 const ParentGeneralSettings: React.FC = () => {

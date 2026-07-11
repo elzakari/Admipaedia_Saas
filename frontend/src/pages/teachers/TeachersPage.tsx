@@ -552,9 +552,9 @@ const TeachersPage: React.FC = () => {
         <div className="flex-1 overflow-auto p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="management">{t('teachers_page.management_tab', 'Gestion')}</TabsTrigger>
-              <TabsTrigger value="dashboard">{t('navigation.dashboard', 'Synthèse')}</TabsTrigger>
-              <TabsTrigger value="analytics">{t('navigation.analytics', 'Analyses')}</TabsTrigger>
+              <TabsTrigger value="management">{t('teachers_page.management_tab', 'Management')}</TabsTrigger>
+              <TabsTrigger value="dashboard">{t('navigation.dashboard', 'Dashboard')}</TabsTrigger>
+              <TabsTrigger value="analytics">{t('navigation.analytics', 'Analytics')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="management" className="mt-6">
@@ -683,44 +683,44 @@ const TeachersPage: React.FC = () => {
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Teacher profile</DialogTitle>
-            <DialogDescription>Overview, assignments, and quick actions.</DialogDescription>
+            <DialogTitle>{t('teachers_page.profile.title', 'Teacher Profile')}</DialogTitle>
+            <DialogDescription>{t('teachers_page.profile.subtitle', 'Overview, assignments, and quick actions.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-muted-foreground">Name</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.name', 'Name')}</div>
                 <div className="text-sm font-medium">
                   {profileTeacher?.full_name || `${profileTeacher?.first_name || profileTeacher?.firstName || ''} ${profileTeacher?.last_name || profileTeacher?.lastName || ''}`.trim()}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Employee ID</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.employee_id', 'Employee ID')}</div>
                 <div className="text-sm font-medium">{profileTeacher?.employee_id || profileTeacher?.employeeId || '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Email</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.email', 'Email')}</div>
                 <div className="text-sm font-medium">{profileTeacher?.email || '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Phone</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.phone', 'Phone')}</div>
                 <div className="text-sm font-medium">{profileTeacher?.phone_number || profileTeacher?.phone || profileTeacher?.phoneNumber || '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Specialization</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.specialization', 'Specialization')}</div>
                 <div className="text-sm font-medium">{profileTeacher?.specialization || '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Status</div>
+                <div className="text-xs text-muted-foreground">{t('teachers_page.profile.status', 'Status')}</div>
                 <div className="text-sm font-medium">{profileTeacher?.status || '—'}</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium mb-2">Assigned classes</div>
+                <div className="text-sm font-medium mb-2">{t('teachers_page.profile.assigned_classes', 'Assigned classes')}</div>
                 {profileClasses.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No classes assigned.</div>
+                  <div className="text-sm text-muted-foreground">{t('teachers_page.profile.no_classes_assigned', 'No classes assigned.')}</div>
                 ) : (
                   <div className="space-y-1">
                     {profileClasses.map((c: any) => (
@@ -731,9 +731,9 @@ const TeachersPage: React.FC = () => {
               </div>
 
               <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium mb-2">Assigned subjects</div>
+                <div className="text-sm font-medium mb-2">{t('teachers_page.profile.assigned_subjects', 'Assigned subjects')}</div>
                 {profileSubjects.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No subjects assigned.</div>
+                  <div className="text-sm text-muted-foreground">{t('teachers_page.profile.no_subjects_assigned', 'No subjects assigned.')}</div>
                 ) : (
                   <div className="space-y-1">
                     {profileSubjects.map((s: any) => (
@@ -745,17 +745,17 @@ const TeachersPage: React.FC = () => {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setProfileOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setProfileOpen(false)}>{t('common.close', 'Close')}</Button>
             <Button variant="outline" onClick={() => {
               if (!actionTeacher) return;
               setProfileOpen(false);
               handleAssignClasses(actionTeacher);
-            }}>Assign Classes</Button>
+            }}>{t('teachers_page.profile.assign_classes', 'Assign Classes')}</Button>
             <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => {
               if (!actionTeacher) return;
               setProfileOpen(false);
               handleViewSchedule(actionTeacher);
-            }}>View Schedule</Button>
+            }}>{t('teachers_page.profile.view_schedule', 'View Schedule')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -763,16 +763,16 @@ const TeachersPage: React.FC = () => {
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Assign classes</DialogTitle>
-            <DialogDescription>Assign this teacher as a class teacher.</DialogDescription>
+            <DialogTitle>{t('teachers_page.assign.title', 'Assign Classes')}</DialogTitle>
+            <DialogDescription>{t('teachers_page.assign.subtitle', 'Assign this teacher as a class teacher.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Class</Label>
+                <Label>{t('teachers_page.assign.class_label', 'Class')}</Label>
                 <Select value={assignClassId} onValueChange={setAssignClassId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                    <SelectValue placeholder={t('teachers_page.assign.select_class_placeholder', 'Select class')} />
                   </SelectTrigger>
                   <SelectContent>
                     {classesCatalog.map((c: any) => (
@@ -789,7 +789,7 @@ const TeachersPage: React.FC = () => {
                     if (!actionTeacher) return
                     try {
                       await teacherService.assignClass(actionTeacher.id, { class_id: Number(assignClassId) })
-                      toast.success('Class assigned')
+                      toast.success(t('teachers_page.assign.class_assigned_success', 'Class assigned'))
                       const res = await teacherService.getTeacherClasses(actionTeacher.id, { page: 1, per_page: 50 })
                       setProfileClasses(res?.classes || [])
                       setAssignClassId('')
@@ -798,15 +798,15 @@ const TeachersPage: React.FC = () => {
                     }
                   }}
                 >
-                  Assign
+                  {t('teachers_page.assign.button', 'Assign')}
                 </Button>
               </div>
             </div>
 
             <div className="rounded-lg border p-4">
-              <div className="text-sm font-medium mb-2">Currently assigned</div>
+              <div className="text-sm font-medium mb-2">{t('teachers_page.assign.currently_assigned', 'Currently assigned')}</div>
               {profileClasses.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No assigned classes.</div>
+                <div className="text-sm text-muted-foreground">{t('teachers_page.assign.no_assigned_classes', 'No assigned classes.')}</div>
               ) : (
                 <div className="space-y-2">
                   {profileClasses.map((c: any) => (
@@ -819,7 +819,7 @@ const TeachersPage: React.FC = () => {
                           if (!actionTeacher) return
                           try {
                             await teacherService.removeClassAssignment(actionTeacher.id, Number(c.id))
-                            toast.success('Class unassigned')
+                            toast.success(t('teachers_page.assign.class_unassigned_success', 'Class unassigned'))
                             const res = await teacherService.getTeacherClasses(actionTeacher.id, { page: 1, per_page: 50 })
                             setProfileClasses(res?.classes || [])
                           } catch (e: any) {
@@ -827,7 +827,7 @@ const TeachersPage: React.FC = () => {
                           }
                         }}
                       >
-                        Remove
+                        {t('teachers_page.assign.remove_button', 'Remove')}
                       </Button>
                     </div>
                   ))}
@@ -836,7 +836,7 @@ const TeachersPage: React.FC = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>{t('common.close', 'Close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -844,21 +844,21 @@ const TeachersPage: React.FC = () => {
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
-            <DialogTitle>Teacher timetable</DialogTitle>
-            <DialogDescription>Weekly schedule based on allocated timetable slots.</DialogDescription>
+            <DialogTitle>{t('teachers_page.timetable.title', 'Teacher Timetable')}</DialogTitle>
+            <DialogDescription>{t('teachers_page.timetable.subtitle', 'Weekly schedule based on allocated timetable slots.')}</DialogDescription>
           </DialogHeader>
           <div className="overflow-x-auto">
             {periods.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Loading periods…</div>
+              <div className="text-sm text-muted-foreground">{t('teachers_page.timetable.loading_periods', 'Loading periods…')}</div>
             ) : !timetable ? (
-              <div className="text-sm text-muted-foreground">Loading timetable…</div>
+              <div className="text-sm text-muted-foreground">{t('teachers_page.timetable.loading_timetable', 'Loading timetable…')}</div>
             ) : (
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="p-3 text-left font-medium">Time</th>
+                    <th className="p-3 text-left font-medium">{t('teachers_page.timetable.time_header', 'Time')}</th>
                     {days.map((d) => (
-                      <th key={d} className="p-3 text-left font-medium">{d}</th>
+                      <th key={d} className="p-3 text-left font-medium">{t(`common.days.${d.toLowerCase()}`, d)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -874,7 +874,7 @@ const TeachersPage: React.FC = () => {
                               <div className="rounded-lg border bg-muted p-3">
                                 <div className="font-medium">{cell.subject}</div>
                                 <div className="text-xs text-muted-foreground mt-1">{cell.class}</div>
-                                <div className="text-xs text-muted-foreground mt-1">{cell.room ? `Room: ${cell.room}` : ''}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{cell.room ? `${t('teachers_page.timetable.room_label', 'Room')}: ${cell.room}` : ''}</div>
                               </div>
                             ) : (
                               <div className="h-14 rounded-lg border border-dashed" />
@@ -889,7 +889,7 @@ const TeachersPage: React.FC = () => {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)}>{t('common.close', 'Close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

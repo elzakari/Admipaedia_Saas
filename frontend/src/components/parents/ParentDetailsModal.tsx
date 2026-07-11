@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { TouchFriendlyButton } from '../common/TouchFriendlyButton';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -18,6 +19,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
   onClose,
   parent
 }) => {
+  const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 640px)');
   
   // Return null if not open to avoid any rendering overhead when hidden
@@ -64,7 +66,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
             </div>
           </div>
           <DialogDescription className="sr-only">
-            Detailed information for parent {parentDisplayName}
+            {t('admin_parents.details.description', 'Detailed information for parent')} {parentDisplayName}
           </DialogDescription>
         </DialogHeader>
 
@@ -73,34 +75,34 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
           <div className="space-y-6">
             <section>
               <h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <User className="h-4 w-4" /> Personal Information
+                <User className="h-4 w-4" /> {t('admin_parents.details.personal_info', 'Personal Information')}
               </h3>
               <div className="bg-gray-50 rounded-xl p-4 space-y-4">
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500 font-medium">Email Address</p>
+                    <p className="text-xs text-gray-500 font-medium">{t('auth.email', 'Email Address')}</p>
                     <p className="text-sm text-gray-900 font-medium break-all">{parent.email}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Phone className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Phone Number</p>
-                    <p className="text-sm text-gray-900 font-medium">{parent.phone || 'Not provided'}</p>
+                    <p className="text-xs text-gray-500 font-medium">{t('admin_parents.details.phone_number', 'Phone Number')}</p>
+                    <p className="text-sm text-gray-900 font-medium">{parent.phone || t('admin_parents.details.not_provided', 'Not provided')}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Home Address</p>
-                    <p className="text-sm text-gray-900 font-medium leading-relaxed">{parent.address || 'Not provided'}</p>
+                    <p className="text-xs text-gray-500 font-medium">{t('admin_parents.details.home_address', 'Home Address')}</p>
+                    <p className="text-sm text-gray-900 font-medium leading-relaxed">{parent.address || t('admin_parents.details.not_provided', 'Not provided')}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Clock className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Joined Date</p>
+                    <p className="text-xs text-gray-500 font-medium">{t('admin_parents.details.joined_date', 'Joined Date')}</p>
                     <p className="text-sm text-gray-900 font-medium">
                       {parent.createdAt ? new Date(parent.createdAt).toLocaleDateString(undefined, { 
                         year: 'numeric', month: 'long', day: 'numeric' 
@@ -117,10 +119,10 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-indigo-600 uppercase tracking-wider flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Linked Children
+                  <Users className="h-4 w-4" /> {t('admin_parents.details.linked_children', 'Linked Children')}
                 </h3>
                 <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
-                  {parent.children?.length || 0} Total
+                  {parent.children?.length || 0} {t('admin_parents.details.total', 'Total')}
                 </Badge>
               </div>
               
@@ -156,7 +158,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
                 ) : (
                   <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                     <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500 font-medium">No children linked to this account</p>
+                    <p className="text-sm text-gray-500 font-medium">{t('admin_parents.details.no_children_linked', 'No children linked to this account')}</p>
                   </div>
                 )}
               </div>
@@ -164,14 +166,14 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
 
             <section className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
               <h4 className="text-xs font-bold text-indigo-700 uppercase mb-3 flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5" /> Security Actions
+                <Shield className="h-3.5 w-3.5" /> {t('admin_parents.details.security_actions', 'Security Actions')}
               </h4>
               <div className="flex flex-col gap-2">
                 <TouchFriendlyButton variant="outline" size="sm" className="bg-white text-xs h-9 justify-start">
-                  Reset Account Password
+                  {t('admin_parents.details.reset_password', 'Reset Account Password')}
                 </TouchFriendlyButton>
                 <TouchFriendlyButton variant="outline" size="sm" className="bg-white text-xs h-9 justify-start">
-                  View Account Activity
+                  {t('admin_parents.details.view_activity', 'View Account Activity')}
                 </TouchFriendlyButton>
               </div>
             </section>
@@ -183,7 +185,7 @@ const ParentDetailsModal: React.FC<ParentDetailsModalProps> = ({
             onClick={onClose}
             className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 text-white"
           >
-            Close Details
+            {t('admin_parents.details.close_details', 'Close Details')}
           </TouchFriendlyButton>
         </DialogFooter>
       </DialogContent>

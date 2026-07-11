@@ -104,39 +104,39 @@ function ParentManagementPage() {
   const handleCreateParent = useCallback(async (parentData: any) => {
     try {
       await createParentMutation.mutateAsync(parentData);
-      toast.success('Parent created successfully');
+      toast.success(t('admin_parents.toast.create_success', 'Parent created successfully'));
       setShowCreateModal(false);
       refetch();
     } catch (err) {
-      toast.error('Failed to create parent');
+      toast.error(t('admin_parents.toast.create_failed', 'Failed to create parent'));
       console.error('Create parent error:', err);
     }
-  }, [createParentMutation, refetch]);
+  }, [createParentMutation, refetch, t]);
 
   const handleUpdateParent = useCallback(async (parentData: any) => {
     if (!editingParent) return;
     try {
       await updateParentMutation.mutateAsync({ id: editingParent.id, data: parentData });
-      toast.success('Parent updated successfully');
+      toast.success(t('admin_parents.toast.update_success', 'Parent updated successfully'));
       setEditingParent(null);
       refetch();
     } catch (err) {
-      toast.error('Failed to update parent');
+      toast.error(t('admin_parents.toast.update_failed', 'Failed to update parent'));
       console.error('Update parent error:', err);
     }
-  }, [editingParent, updateParentMutation, refetch]);
+  }, [editingParent, updateParentMutation, refetch, t]);
 
   const handleDeleteParent = useCallback(async (parent: Parent) => {
-    if (!confirm(`Are you sure you want to delete ${parent.firstName} ${parent.lastName}?`)) return;
+    if (!confirm(`${t('admin_parents.toast.delete_confirm', 'Are you sure you want to delete')} ${parent.firstName} ${parent.lastName}?`)) return;
     try {
       await deleteParentMutation.mutateAsync(parent.id);
-      toast.success('Parent deleted successfully');
+      toast.success(t('admin_parents.toast.delete_success', 'Parent deleted successfully'));
       refetch();
     } catch (err) {
-      toast.error('Failed to delete parent');
+      toast.error(t('admin_parents.toast.delete_failed', 'Failed to delete parent'));
       console.error('Delete parent error:', err);
     }
-  }, [deleteParentMutation, refetch]);
+  }, [deleteParentMutation, refetch, t]);
 
   const handleEditParent = useCallback((parent: Parent) => {
     setEditingParent(parent);
@@ -144,7 +144,7 @@ function ParentManagementPage() {
 
   const handleExport = useCallback(() => {
     if (parents.length === 0) {
-      toast.error('No data to export');
+      toast.error(t('admin_parents.toast.no_export_data', 'No data to export'));
       return;
     }
 
@@ -168,16 +168,16 @@ function ParentManagementPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Parents exported successfully');
-  }, [parents]);
+    toast.success(t('admin_parents.toast.export_success', 'Parents exported successfully'));
+  }, [parents, t]);
 
   const handleImport = useCallback(() => {
-    toast('Import functionality coming soon');
-  }, []);
+    toast(t('admin_parents.toast.import_soon', 'Import functionality coming soon'));
+  }, [t]);
 
   const handleMoreFilters = useCallback(() => {
-    toast('Advanced filters coming soon');
-  }, []);
+    toast(t('admin_parents.toast.filters_soon', 'Advanced filters coming soon'));
+  }, [t]);
 
   // Frontend filtering as a fallback if backend filter is partially applied or for instant UI updates
   const filteredParents = useMemo(() => {
@@ -344,12 +344,12 @@ function ParentManagementPage() {
             fallback={
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900">List Display Error</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{t('admin_parents.list_error_title', 'List Display Error')}</h3>
                 <p className="text-gray-600 max-w-xs mx-auto mt-2">
-                  There was a problem displaying the parent list. Please try refreshing the page.
+                  {t('admin_parents.list_error_desc', 'There was a problem displaying the parent list. Please try refreshing the page.')}
                 </p>
                 <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-                  Retry Loading
+                  {t('admin_parents.retry_loading', 'Retry Loading')}
                 </Button>
               </div>
             }
@@ -357,7 +357,7 @@ function ParentManagementPage() {
             {isLoading && parents.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
-                <p className="text-gray-500 font-medium">Fetching parent records...</p>
+                <p className="text-gray-500 font-medium">{t('admin_parents.fetching_records', 'Fetching parent records...')}</p>
               </div>
             ) : (
               <ParentList

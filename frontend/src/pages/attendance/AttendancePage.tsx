@@ -68,7 +68,7 @@ export default function AttendancePage() {
             <CardHeader>
               <CardTitle>{selectedClass?.name || t('navigation.attendance')}</CardTitle>
               <CardDescription>
-                Shared daily attendance workflow for admin and teacher portals, with one canonical register per class and date.
+                {t('attendance_page.shared_workflow_desc', 'Shared daily attendance workflow for admin and teacher portals, with one canonical register per class and date.')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -76,28 +76,28 @@ export default function AttendancePage() {
                 <div className="rounded-xl border p-4">
                   <div className="mb-2 flex items-center gap-2 font-medium">
                     <ClipboardCheck className="h-4 w-4 text-indigo-600" />
-                    Daily Register
+                    {t('attendance_page.daily_register', 'Daily Register')}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Mark every student explicitly, reload saved attendance by date, and update the same register safely.
+                    {t('attendance_page.daily_register_desc', 'Mark every student explicitly, reload saved attendance by date, and update the same register safely.')}
                   </p>
                 </div>
                 <div className="rounded-xl border p-4">
                   <div className="mb-2 flex items-center gap-2 font-medium">
                     <LineChart className="h-4 w-4 text-indigo-600" />
-                    Analytics
+                    {t('attendance_page.analytics', 'Analytics')}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Review attendance patterns and identify absences, lateness, and recovery trends for the selected class.
+                    {t('attendance_page.analytics_desc', 'Review attendance patterns and identify absences, lateness, and recovery trends for the selected class.')}
                   </p>
                 </div>
                 <div className="rounded-xl border p-4">
                   <div className="mb-2 flex items-center gap-2 font-medium">
                     <CalendarDays className="h-4 w-4 text-indigo-600" />
-                    Calendar Review
+                    {t('attendance_page.calendar_review', 'Calendar Review')}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Inspect saved attendance activity across the month before making adjustments to the daily register.
+                    {t('attendance_page.calendar_review_desc', 'Inspect saved attendance activity across the month before making adjustments to the daily register.')}
                   </p>
                 </div>
               </div>

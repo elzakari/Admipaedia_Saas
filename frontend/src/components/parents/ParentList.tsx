@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -16,6 +17,8 @@ interface ParentListProps {
 }
 
 const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onView, isLoading = false }) => {
+  const { t } = useTranslation();
+
   const getDisplayName = (parent: Parent) => {
     const fullName = `${parent.firstName ?? ''} ${parent.lastName ?? ''}`.trim();
     if (fullName) {
@@ -37,9 +40,9 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
   const getContactHealth = (parent: Parent) => {
     const hasEmail = Boolean(parent.email);
     const hasPhone = Boolean(parent.phone);
-    if (hasEmail && hasPhone) return 'complete';
-    if (hasEmail || hasPhone) return 'partial';
-    return 'missing';
+    if (hasEmail && hasPhone) return t('admin_parents.list.contact_complete', 'complete');
+    if (hasEmail || hasPhone) return t('admin_parents.list.contact_partial', 'partial');
+    return t('admin_parents.list.contact_missing', 'missing');
   };
 
   const getStatusColor = (status: string) => {
@@ -74,12 +77,12 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Parent</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Children</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t('admin_parents.list.parent', 'Parent')}</TableHead>
+            <TableHead>{t('admin_parents.list.contact', 'Contact')}</TableHead>
+            <TableHead>{t('admin_parents.list.children', 'Children')}</TableHead>
+            <TableHead>{t('admin_parents.list.status', 'Status')}</TableHead>
+            <TableHead>{t('admin_parents.list.created', 'Created')}</TableHead>
+            <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -99,7 +102,7 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                     </div>
                     <div className="text-sm text-gray-500 break-all">
                       ID: {parent.id}
-                      {parent.children?.length ? ` • ${parent.children.length} linked student${parent.children.length > 1 ? 's' : ''}` : ' • No linked students'}
+                      {parent.children?.length ? ` • ${parent.children.length} ${parent.children.length > 1 ? t('admin_parents.list.linked_student_plural', 'linked students') : t('admin_parents.list.linked_student_single', 'linked student')}` : ` • ${t('admin_parents.list.no_linked_students', 'No linked students')}`}
                     </div>
                   </div>
                 </div>
@@ -117,7 +120,7 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                     </div>
                   )}
                   {!parent.email && !parent.phone && (
-                    <div className="text-sm text-amber-600">No direct contact details</div>
+                    <div className="text-sm text-amber-600">{t('admin_parents.list.no_contact_details', 'No direct contact details')}</div>
                   )}
                 </div>
               </TableCell>
@@ -130,18 +133,18 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                       </div>
                     ))}
                     {parent.children.length > 2 && (
-                      <div className="text-xs text-gray-500">+{parent.children.length - 2} more</div>
+                      <div className="text-xs text-gray-500">+{parent.children.length - 2} {t('admin_parents.list.more', 'more')}</div>
                     )}
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-400">No children</span>
+                  <span className="text-sm text-gray-400">{t('admin_parents.list.no_children', 'No children')}</span>
                 )}
               </TableCell>
               <TableCell>
                 <div className="space-y-2">
                   <Badge className={getStatusColor(parent.status)}>{parent.status}</Badge>
                   <div className="text-xs text-gray-500">
-                    Contact: {getContactHealth(parent)}
+                    {t('admin_parents.list.contact', 'Contact')}: {getContactHealth(parent)}
                   </div>
                 </div>
               </TableCell>
@@ -165,7 +168,7 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                       }}
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      View Details
+                      {t('admin_parents.list.view_details', 'View Details')}
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onSelect={() => {
@@ -173,7 +176,7 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                       }}
                     >
                       <Edit className="w-4 h-4 mr-2" />
-                      Edit
+                      {t('common.edit', 'Edit')}
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onSelect={() => {
@@ -182,7 +185,7 @@ const ParentList: React.FC<ParentListProps> = ({ parents, onEdit, onDelete, onVi
                       className="text-red-600 focus:text-red-600"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
+                      {t('common.delete', 'Delete')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
