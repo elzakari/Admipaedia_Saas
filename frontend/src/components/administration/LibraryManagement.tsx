@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { 
   Card, 
   CardContent, 
@@ -37,6 +38,7 @@ import { useToast } from '../../components/ui/use-toast';
 import libraryService from '@/services/libraryService'
 
 const LibraryManagement = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('books');
@@ -110,10 +112,10 @@ const LibraryManagement = () => {
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="books">Books</TabsTrigger>
-          <TabsTrigger value="borrowers">Borrowers</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          <TabsTrigger value="books">{t('admin_library.books_tab', 'Books')}</TabsTrigger>
+          <TabsTrigger value="borrowers">{t('admin_library.borrowers_tab', 'Borrowers')}</TabsTrigger>
+          <TabsTrigger value="categories">{t('admin_library.categories_tab', 'Categories')}</TabsTrigger>
+          <TabsTrigger value="statistics">{t('admin_library.statistics_tab', 'Statistics')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="books" className="space-y-4">
@@ -123,7 +125,7 @@ const LibraryManagement = () => {
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder="Search books..."
+                  placeholder={t('admin_library.search_books_placeholder', 'Search books...')}
                   className="pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -132,10 +134,10 @@ const LibraryManagement = () => {
               
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-full md:w-[220px] bg-white">
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder={t('admin_library.all_categories', 'All Categories')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="All">All Categories</SelectItem>
+                  <SelectItem value="All">{t('admin_library.all_categories', 'All Categories')}</SelectItem>
                   {derivedCategories.map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
@@ -145,7 +147,7 @@ const LibraryManagement = () => {
             
             <Button onClick={() => navigate('/library')}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Book
+              {t('admin_library.add_book', 'Add Book')}
             </Button>
           </div>
           
@@ -155,24 +157,24 @@ const LibraryManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>ISBN</TableHead>
-                    <TableHead>Copies</TableHead>
-                    <TableHead>Available</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('admin_library.table_title', 'Title')}</TableHead>
+                    <TableHead>{t('admin_library.table_author', 'Author')}</TableHead>
+                    <TableHead>{t('admin_library.table_category', 'Category')}</TableHead>
+                    <TableHead>{t('admin_library.table_isbn', 'ISBN')}</TableHead>
+                    <TableHead>{t('admin_library.table_copies', 'Copies')}</TableHead>
+                    <TableHead>{t('admin_library.table_available', 'Available')}</TableHead>
+                    <TableHead>{t('admin_library.table_location', 'Location')}</TableHead>
+                    <TableHead className="text-right">{t('admin_library.table_actions', 'Actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {booksLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">Loading…</TableCell>
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">{t('admin_library.loading', 'Loading...')}</TableCell>
                     </TableRow>
                   ) : books.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">No books found.</TableCell>
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">{t('admin_library.no_books_found', 'No books found.')}</TableCell>
                     </TableRow>
                   ) : books.map((book) => (
                     <TableRow key={book.id}>
@@ -204,7 +206,7 @@ const LibraryManagement = () => {
                               navigate('/library');
                             }}
                           >
-                            Open Library
+                            {t('admin_library.open_library', 'Open Library')}
                             <ArrowRight className="ml-2 h-4 w-4" />
                           </Button>
                         </div>
@@ -219,7 +221,7 @@ const LibraryManagement = () => {
         
         <TabsContent value="borrowers" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Book Borrowers</h3>
+            <h3 className="text-lg font-medium">{t('admin_library.book_borrowers_title', 'Book Borrowers')}</h3>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -228,11 +230,11 @@ const LibraryManagement = () => {
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                {t('admin_library.export', 'Export')}
               </Button>
               <Button onClick={() => navigate('/library')}>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Issue Book
+                {t('admin_library.issue_book', 'Issue Book')}
               </Button>
             </div>
           </div>
@@ -242,23 +244,23 @@ const LibraryManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Grade</TableHead>
-                    <TableHead>Book</TableHead>
-                    <TableHead>Borrow Date</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('admin_library.table_student', 'Student')}</TableHead>
+                    <TableHead>{t('admin_library.table_grade', 'Grade')}</TableHead>
+                    <TableHead>{t('admin_library.table_book', 'Book')}</TableHead>
+                    <TableHead>{t('admin_library.table_borrow_date', 'Borrow Date')}</TableHead>
+                    <TableHead>{t('admin_library.table_due_date', 'Due Date')}</TableHead>
+                    <TableHead>{t('admin_library.table_status', 'Status')}</TableHead>
+                    <TableHead className="text-right">{t('admin_library.table_actions', 'Actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {borrowersLoading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">Loading…</TableCell>
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">{t('admin_library.loading', 'Loading...')}</TableCell>
                     </TableRow>
                   ) : borrowRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">No borrow records.</TableCell>
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">{t('admin_library.no_borrow_records', 'No borrow records.')}</TableCell>
                     </TableRow>
                   ) : borrowRecords.map((r) => (
                     <TableRow key={r.id}>
@@ -269,14 +271,14 @@ const LibraryManagement = () => {
                       <TableCell>{r.due_date ? r.due_date.slice(0, 10) : '—'}</TableCell>
                       <TableCell>
                         <Badge variant={r.status === 'overdue' ? 'destructive' : r.status === 'returned' ? 'success' : 'default'}>
-                          {r.status}
+                          {r.status === 'returned' ? t('admin_library.status_returned', 'returned') : r.status === 'overdue' ? t('admin_library.status_overdue', 'overdue') : t('admin_library.status_issued', 'issued')}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {r.status !== 'returned' && (
                             <Button variant="outline" size="sm" onClick={() => navigate('/library')}>
-                              Return
+                              {t('admin_library.return_action', 'Return')}
                             </Button>
                           )}
                         </div>
@@ -287,29 +289,27 @@ const LibraryManagement = () => {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="categories" className="space-y-4">
+        </TabsConten        <TabsContent value="categories" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Book Categories</h3>
+            <h3 className="text-lg font-medium">{t('admin_library.book_categories', 'Book Categories')}</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {booksLoading ? (
-              <div className="text-sm text-gray-500">Loading…</div>
+              <div className="text-sm text-gray-500">{t('admin_library.loading', 'Loading...')}</div>
             ) : derivedCategories.length === 0 ? (
-              <div className="text-sm text-gray-500">No categories yet (add books to create categories).</div>
+              <div className="text-sm text-gray-500">{t('admin_library.no_categories_yet', 'No categories yet (add books to create categories).')}</div>
             ) : derivedCategories.map((category) => (
               <Card key={category.id}>
                 <CardHeader className="pb-2">
                   <CardTitle>{category.name}</CardTitle>
-                  <CardDescription>Derived from book inventory</CardDescription>
+                  <CardDescription>{t('admin_library.derived_from_inventory', 'Derived from book inventory')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <BookOpen className="h-4 w-4 mr-2 text-gray-500" />
-                      <span className="text-sm text-gray-500">{category.books} books</span>
+                      <span className="text-sm text-gray-500">{t('admin_library.books_count', '{{count}} books', { count: category.books })}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -321,11 +321,11 @@ const LibraryManagement = () => {
         <TabsContent value="statistics" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-medium">Library Statistics</h3>
-              <p className="text-sm text-gray-500">Live overview aligned with the main Library workspace.</p>
+              <h3 className="text-lg font-medium">{t('admin_library.library_statistics_title', 'Library Statistics')}</h3>
+              <p className="text-sm text-gray-500">{t('admin_library.statistics_desc', 'Live overview aligned with the main Library workspace.')}</p>
             </div>
             <Button variant="outline" onClick={() => navigate('/library')}>
-              Open Full Library
+              {t('admin_library.open_full_library', 'Open Full Library')}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -338,7 +338,7 @@ const LibraryManagement = () => {
                     <BookOpen className="h-6 w-6 text-blue-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : (stats?.totalBooks ?? 0)}</h3>
-                  <p className="text-sm text-gray-500">Total Books</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.total_books', 'Total Books')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -350,7 +350,7 @@ const LibraryManagement = () => {
                     <BookMarked className="h-6 w-6 text-green-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : availableBooksCount}</h3>
-                  <p className="text-sm text-gray-500">Available Books</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.available_books', 'Available Books')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -362,7 +362,7 @@ const LibraryManagement = () => {
                     <User className="h-6 w-6 text-amber-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : (stats?.totalMembers ?? 0)}</h3>
-                  <p className="text-sm text-gray-500">Registered Members</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.registered_members', 'Registered Members')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -374,7 +374,7 @@ const LibraryManagement = () => {
                     <Calendar className="h-6 w-6 text-red-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : (stats?.totalOverdue ?? 0)}</h3>
-                  <p className="text-sm text-gray-500">Overdue Books</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.overdue_books_stat', 'Overdue Books')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -383,8 +383,8 @@ const LibraryManagement = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Borrowing Activity</CardTitle>
-                <CardDescription>Latest member transactions from the live library ledger</CardDescription>
+                <CardTitle>{t('admin_library.recent_borrowing_activity', 'Recent Borrowing Activity')}</CardTitle>
+                <CardDescription>{t('admin_library.recent_borrowing_desc', 'Latest member transactions from the live library ledger')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -396,17 +396,20 @@ const LibraryManagement = () => {
                           <div className="text-sm text-slate-500">{record.member_name || record.member_code}</div>
                         </div>
                         <Badge variant={record.status === 'overdue' ? 'destructive' : record.status === 'returned' ? 'success' : 'default'}>
-                          {record.status}
+                          {record.status === 'returned' ? t('admin_library.status_returned', 'returned') : record.status === 'overdue' ? t('admin_library.status_overdue', 'overdue') : t('admin_library.status_issued', 'issued')}
                         </Badge>
                       </div>
                       <div className="mt-2 text-xs text-slate-500">
-                        Borrowed {record.borrow_date ? record.borrow_date.slice(0, 10) : '—'} • Due {record.due_date ? record.due_date.slice(0, 10) : '—'}
+                        {t('admin_library.borrowed_due_label', 'Borrowed {{borrowDate}} • Due {{dueDate}}', {
+                          borrowDate: record.borrow_date ? record.borrow_date.slice(0, 10) : '—',
+                          dueDate: record.due_date ? record.due_date.slice(0, 10) : '—'
+                        })}
                       </div>
                     </div>
                   ))}
                   {borrowRecords.length === 0 && (
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                      Borrowing activity will appear here after books are issued.
+                      {t('admin_library.no_recent_borrowing_activity', 'Borrowing activity will appear here after books are issued.')}
                     </div>
                   )}
                 </div>
@@ -415,8 +418,8 @@ const LibraryManagement = () => {
             
             <Card>
               <CardHeader>
-                <CardTitle>Inventory by Category</CardTitle>
-                <CardDescription>Derived from the current admin book inventory</CardDescription>
+                <CardTitle>{t('admin_library.inventory_by_category', 'Inventory by Category')}</CardTitle>
+                <CardDescription>{t('admin_library.inventory_by_category_desc', 'Derived from the current admin book inventory')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -426,7 +429,7 @@ const LibraryManagement = () => {
                       <div key={category.id} className="rounded-lg border p-4">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-slate-900">{category.name}</span>
-                          <span className="text-slate-500">{category.books} books</span>
+                          <span className="text-slate-500">{t('admin_library.books_count', '{{count}} books', { count: category.books })}</span>
                         </div>
                         <div className="mt-3 h-2 rounded-full bg-slate-100">
                           <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${Math.max(ratio, category.books ? 8 : 0)}%` }} />
@@ -436,7 +439,7 @@ const LibraryManagement = () => {
                   })}
                   {derivedCategories.length === 0 && (
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                      Categories will appear after books are added to inventory.
+                      {t('admin_library.no_categories_invent', 'Categories will appear after books are added to inventory.')}
                     </div>
                   )}
                 </div>
@@ -446,28 +449,28 @@ const LibraryManagement = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle>Most Popular Books</CardTitle>
-              <CardDescription>Books with highest circulation</CardDescription>
+              <CardTitle>{t('admin_library.popular_books_title', 'Most Popular Books')}</CardTitle>
+              <CardDescription>{t('admin_library.popular_books_circ_desc', 'Books with highest circulation')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Times Borrowed</TableHead>
-                    <TableHead>Last Borrowed</TableHead>
+                    <TableHead>{t('admin_library.table_title', 'Title')}</TableHead>
+                    <TableHead>{t('admin_library.table_author', 'Author')}</TableHead>
+                    <TableHead>{t('admin_library.table_category', 'Category')}</TableHead>
+                    <TableHead>{t('admin_library.table_times_borrowed', 'Times Borrowed')}</TableHead>
+                    <TableHead>{t('admin_library.table_last_borrowed', 'Last Borrowed')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {popularLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">Loading…</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">{t('admin_library.loading', 'Loading...')}</TableCell>
                     </TableRow>
                   ) : popularBooks.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">No circulation data yet.</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">{t('admin_library.no_circulation_data', 'No circulation data yet.')}</TableCell>
                     </TableRow>
                   ) : popularBooks.map((b) => (
                     <TableRow key={b.id}>

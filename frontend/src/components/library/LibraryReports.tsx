@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { 
   Card, 
@@ -43,6 +44,7 @@ import libraryService from '../../services/libraryService';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FCCDE5'];
 
 const LibraryReports: React.FC = () => {
+  const { t } = useTranslation();
   const [timeRange, setTimeRange] = useState<string>('year');
   const [reportType, setReportType] = useState<string>('borrowing');
   const [isExporting, setIsExporting] = useState(false);
@@ -103,9 +105,9 @@ const LibraryReports: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success('Library report exported');
+      toast.success(t('admin_library.report_exported', 'Library report exported'));
     } catch (error) {
-      toast.error('Failed to export report');
+      toast.error(t('admin_library.failed_export_report', 'Failed to export report'));
     } finally {
       setIsExporting(false);
     }
@@ -121,9 +123,9 @@ const LibraryReports: React.FC = () => {
       w.document.open();
       w.document.write(`${html}<script>window.print();</script>`);
       w.document.close();
-      toast.success('Print dialog opened');
+      toast.success(t('admin_library.print_dialog_opened', 'Print dialog opened'));
     } catch (error) {
-      toast.error('Failed to print report');
+      toast.error(t('admin_library.failed_print_report', 'Failed to print report'));
     } finally {
       setIsPrinting(false);
     }
@@ -148,7 +150,7 @@ const LibraryReports: React.FC = () => {
   const ErrorAlert = ({ error }: { error: any }) => (
     <Alert variant="destructive">
       <AlertDescription>
-        Failed to load report data: {error?.message || 'Unknown error'}
+        {t('admin_library.failed_load_report_data', 'Failed to load report data: {{message}}', { message: error?.message || 'Unknown error' })}
       </AlertDescription>
     </Alert>
   );
@@ -162,31 +164,31 @@ const LibraryReports: React.FC = () => {
             <div className="flex flex-wrap gap-2 items-center">
               <div className="flex items-center">
                 <Filter className="mr-2 h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium">Report Options:</span>
+                <span className="text-sm font-medium">{t('admin_library.report_options', 'Report Options:')}</span>
               </div>
               
               <Select value={reportType} onValueChange={setReportType}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Report Type" />
+                  <SelectValue placeholder={t('admin_library.report_type', 'Report Type')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="borrowing">Borrowing Activity</SelectItem>
-                  <SelectItem value="categories">Category Distribution</SelectItem>
-                  <SelectItem value="borrowers">Borrower Types</SelectItem>
-                  <SelectItem value="popular">Popular Books</SelectItem>
-                  <SelectItem value="overdue">Overdue Trends</SelectItem>
+                  <SelectItem value="borrowing">{t('admin_library.borrowing_activity', 'Borrowing Activity')}</SelectItem>
+                  <SelectItem value="categories">{t('admin_library.category_distribution', 'Category Distribution')}</SelectItem>
+                  <SelectItem value="borrowers">{t('admin_library.borrower_types', 'Borrower Types')}</SelectItem>
+                  <SelectItem value="popular">{t('admin_library.popular_books', 'Popular Books')}</SelectItem>
+                  <SelectItem value="overdue">{t('admin_library.overdue_trends', 'Overdue Trends')}</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select value={timeRange} onValueChange={setTimeRange}>
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Time Range" />
+                  <SelectValue placeholder={t('admin_library.time_range', 'Time Range')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="quarter">This Quarter</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="month">{t('admin_library.this_month', 'This Month')}</SelectItem>
+                  <SelectItem value="quarter">{t('admin_library.this_quarter', 'This Quarter')}</SelectItem>
+                  <SelectItem value="year">{t('admin_library.this_year', 'This Year')}</SelectItem>
+                  <SelectItem value="all">{t('admin_library.all_time', 'All Time')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -202,16 +204,16 @@ const LibraryReports: React.FC = () => {
                 ) : (
                   <Printer className="mr-2 h-4 w-4" />
                 )}
-                Print
+                {t('admin_library.print', 'Print')}
               </Button>
               <Select onValueChange={(format) => handleExport(format as 'pdf' | 'excel' | 'csv')}>
                 <SelectTrigger className="w-[120px]" disabled={isExporting}>
-                  <SelectValue placeholder="Export" />
+                  <SelectValue placeholder={t('admin_library.export', 'Export')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pdf">Export PDF</SelectItem>
-                  <SelectItem value="excel">Export Excel</SelectItem>
-                  <SelectItem value="csv">Export CSV</SelectItem>
+                  <SelectItem value="pdf">{t('admin_library.export_pdf', 'Export PDF')}</SelectItem>
+                  <SelectItem value="excel">{t('admin_library.export_excel', 'Export Excel')}</SelectItem>
+                  <SelectItem value="csv">{t('admin_library.export_csv', 'Export CSV')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -225,10 +227,18 @@ const LibraryReports: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <BarChart2 className="mr-2 h-5 w-5 text-primary" />
-              Borrowing Activity
+              {t('admin_library.borrowing_activity', 'Borrowing Activity')}
             </CardTitle>
             <CardDescription>
-              Monthly borrowing and return trends for {timeRange === 'year' ? 'this year' : timeRange === 'quarter' ? 'this quarter' : timeRange === 'month' ? 'this month' : 'all time'}
+              {t('admin_library.borrowing_desc_time', 'Monthly borrowing and return trends for {{time}}', {
+                time: timeRange === 'year' 
+                  ? t('admin_library.this_year_lower', 'this year') 
+                  : timeRange === 'quarter' 
+                    ? t('admin_library.this_quarter_lower', 'this quarter') 
+                    : timeRange === 'month' 
+                      ? t('admin_library.this_month_lower', 'this month') 
+                      : t('admin_library.all_time_lower', 'all time')
+              })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -245,8 +255,8 @@ const LibraryReports: React.FC = () => {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="borrowed" fill="#8884d8" name="Borrowed" />
-                    <Bar dataKey="returned" fill="#82ca9d" name="Returned" />
+                    <Bar dataKey="borrowed" fill="#8884d8" name={t('admin_library.borrowed', 'Borrowed')} />
+                    <Bar dataKey="returned" fill="#82ca9d" name={t('admin_library.returned', 'Returned')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -257,7 +267,7 @@ const LibraryReports: React.FC = () => {
               <Card>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Borrowed</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('admin_library.total_borrowed', 'Total Borrowed')}</p>
                     <h3 className="text-2xl font-bold">
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -274,7 +284,7 @@ const LibraryReports: React.FC = () => {
               <Card>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Currently Out</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('admin_library.currently_out', 'Currently Out')}</p>
                     <h3 className="text-2xl font-bold">
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -291,7 +301,7 @@ const LibraryReports: React.FC = () => {
               <Card>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Digital Resources</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('admin_library.digital_resources_stat', 'Digital Resources')}</p>
                     <h3 className="text-2xl font-bold">
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -316,10 +326,10 @@ const LibraryReports: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <PieChartIcon className="mr-2 h-5 w-5 text-primary" />
-              Book Category Distribution
+              {t('admin_library.book_category_distribution', 'Book Category Distribution')}
             </CardTitle>
             <CardDescription>
-              Distribution of books by category in the library
+              {t('admin_library.category_distribution_desc', 'Distribution of books by category in the library')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -345,7 +355,7 @@ const LibraryReports: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value} books`, 'Count']} />
+                    <Tooltip formatter={(value) => [`${value} ${t('admin_library.books', 'books')}`, t('admin_library.count', 'Count')]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -356,7 +366,7 @@ const LibraryReports: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               <Card>
                 <CardContent className="p-4">
-                  <h3 className="text-lg font-semibold mb-2">Category Breakdown</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t('admin_library.category_breakdown', 'Category Breakdown')}</h3>
                   <ul className="space-y-2">
                     {categoryData?.slice(0, 4).map((category, index) => (
                       <li key={category.name} className="flex justify-between items-center">
@@ -367,7 +377,7 @@ const LibraryReports: React.FC = () => {
                           ></span>
                           {category.name}
                         </span>
-                        <span className="font-medium">{category.value} books</span>
+                        <span className="font-medium">{t('admin_library.books_count', '{{count}} books', { count: category.value })}</span>
                       </li>
                     ))}
                   </ul>
@@ -375,17 +385,23 @@ const LibraryReports: React.FC = () => {
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <h3 className="text-lg font-semibold mb-2">Category Insights</h3>
+                  <h3 className="text-lg font-semibold mb-2">{t('admin_library.category_insights', 'Category Insights')}</h3>
                   <p className="text-sm text-gray-600">
                     {categoryData && categoryData.length > 0 ? (
-                      `${categoryData[0].name} is the most popular category, making up ${Math.round((categoryData[0].value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100)}% of the library collection.`
+                      t('admin_library.category_insights_most_popular', '{{category}} is the most popular category, making up {{percent}}% of the library collection.', {
+                        category: categoryData[0].name,
+                        percent: Math.round((categoryData[0].value / categoryData.reduce((sum, cat) => sum + cat.value, 0)) * 100)
+                      })
                     ) : (
-                      'Loading category insights...'
+                      t('admin_library.loading_category_insights', 'Loading category insights...')
                     )}
                   </p>
                   {categoryData && categoryData.length > 2 && (
                     <p className="text-sm text-gray-600 mt-2">
-                      {categoryData[1].name} and {categoryData[2].name} follow as the second and third most common categories.
+                      {t('admin_library.category_insights_following', '{{cat1}} and {{cat2}} follow as the second and third most common categories.', {
+                        cat1: categoryData[1].name,
+                        cat2: categoryData[2].name
+                      })}
                     </p>
                   )}
                 </CardContent>
@@ -401,10 +417,10 @@ const LibraryReports: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <PieChartIcon className="mr-2 h-5 w-5 text-primary" />
-              Borrower Type Distribution
+              {t('admin_library.borrower_type_distribution', 'Borrower Type Distribution')}
             </CardTitle>
             <CardDescription>
-              Distribution of borrowings by user type
+              {t('admin_library.borrowings_by_user_desc', 'Distribution of borrowings by user type')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -430,7 +446,7 @@ const LibraryReports: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value}%`, 'Percentage']} />
+                    <Tooltip formatter={(value) => [`${value}%`, t('admin_library.percentage', 'Percentage')]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -443,7 +459,7 @@ const LibraryReports: React.FC = () => {
                 <Card key={type.name}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">{type.name} Borrowings</p>
+                      <p className="text-sm font-medium text-muted-foreground">{t('admin_library.borrowings_type_label', '{{type}} Borrowings', { type: type.name })}</p>
                       <h3 className="text-2xl font-bold">{type.value}%</h3>
                     </div>
                     <div className="p-2 bg-blue-100 rounded-full">
@@ -466,10 +482,10 @@ const LibraryReports: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <BarChart2 className="mr-2 h-5 w-5 text-primary" />
-              Most Popular Books
+              {t('admin_library.popular_books_title', 'Most Popular Books')}
             </CardTitle>
             <CardDescription>
-              Books with the highest number of borrowings
+              {t('admin_library.popular_books_desc', 'Books with the highest number of borrowings')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -490,7 +506,7 @@ const LibraryReports: React.FC = () => {
                     <YAxis type="category" dataKey="name" />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="borrows" fill="#8884d8" name="Number of Borrows" />
+                    <Bar dataKey="borrows" fill="#8884d8" name={t('admin_library.borrows_count_label', 'Number of Borrows')} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -498,19 +514,19 @@ const LibraryReports: React.FC = () => {
           </CardContent>
           <CardFooter className="border-t pt-4">
             <div className="w-full">
-              <h3 className="text-lg font-semibold mb-2">Popularity Insights</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('admin_library.popularity_insights', 'Popularity Insights')}</h3>
               {popularBooksData && popularBooksData.length > 0 ? (
                 <>
                   <p className="text-sm text-gray-600">
-                    "{popularBooksData[0].name}" is the most popular book with {popularBooksData[0].borrows} borrows
-                    {popularBooksData.length > 1 && `, followed by "${popularBooksData[1].name}" with ${popularBooksData[1].borrows} borrows`}.
+                    {t('admin_library.popular_book_insight_1', '\"{{title}}\" is the most popular book with {{count}} borrows', { title: popularBooksData[0].name, count: popularBooksData[0].borrows })}
+                    {popularBooksData.length > 1 && t('admin_library.popular_book_insight_2', ', followed by \"{{title}}\" with {{count}} borrows', { title: popularBooksData[1].name, count: popularBooksData[1].borrows })}.
                   </p>
                   <p className="text-sm text-gray-600 mt-2">
-                    Consider acquiring additional copies of these popular titles to meet demand.
+                    {t('admin_library.popular_books_recommendation', 'Consider acquiring additional copies of these popular titles to meet demand.')}
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-gray-600">Loading popularity insights...</p>
+                <p className="text-sm text-gray-600">{t('admin_library.loading_popularity_insights', 'Loading popularity insights...')}</p>
               )}
             </div>
           </CardFooter>
@@ -523,10 +539,10 @@ const LibraryReports: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <TrendingUp className="mr-2 h-5 w-5 text-primary" />
-              Overdue Books Trends
+              {t('admin_library.overdue_books_trends', 'Overdue Books Trends')}
             </CardTitle>
             <CardDescription>
-              Monthly trends of overdue books
+              {t('admin_library.overdue_trends_desc', 'Monthly trends of overdue books')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -548,7 +564,7 @@ const LibraryReports: React.FC = () => {
                       dataKey="count" 
                       stroke="#ff7300" 
                       strokeWidth={2}
-                      name="Overdue Books"
+                      name={t('admin_library.overdue_books', 'Overdue Books')}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -560,7 +576,7 @@ const LibraryReports: React.FC = () => {
               <Card>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Currently Overdue</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('admin_library.currently_overdue', 'Currently Overdue')}</p>
                     <h3 className="text-2xl font-bold">
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
@@ -577,7 +593,7 @@ const LibraryReports: React.FC = () => {
               <Card>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Fines</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('admin_library.total_fines', 'Total Fines')}</p>
                     <h3 className="text-2xl font-bold">
                       {statsLoading ? (
                         <Loader2 className="h-6 w-6 animate-spin" />

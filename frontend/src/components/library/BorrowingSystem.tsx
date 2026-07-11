@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { BookCopy, CalendarClock, Download, Plus, RotateCcw, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
@@ -35,6 +36,7 @@ const downloadCsv = (filename: string, rows: Array<Record<string, any>>) => {
 }
 
 const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<'current' | 'overdue' | 'history'>('current')
   const [search, setSearch] = useState('')
@@ -81,16 +83,16 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
     mutationFn: async () => {
       const book_id = Number(issueForm.book_id)
       const member_id = Number(issueForm.member_id)
-      if (!book_id || !member_id) throw new Error('Select a book and member')
+      if (!book_id || !member_id) throw new Error(t('admin_library.error_select_book_member', 'Select a book and member'))
       return libraryService.borrowBook({ book_id, member_id })
     },
     onSuccess: () => {
-      toast.success('Book issued')
+      toast.success(t('admin_library.book_issued', 'Book issued'))
       setIssueOpen(false)
       queryClient.invalidateQueries({ queryKey: ['library', 'borrow'] })
       queryClient.invalidateQueries({ queryKey: ['library', 'books'] })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || 'Failed to issue')
+    onError: (e: any) => toast.error(e?.response?.data?.message || e?.message || t('admin_library.failed_issue', 'Failed to issue'))
   })
 
   const returnMutation = useMutation({
@@ -98,11 +100,11 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
       return libraryService.returnBook({ borrow_record_id })
     },
     onSuccess: () => {
-      toast.success('Book returned')
+      toast.success(t('admin_library.book_returned', 'Book returned'))
       queryClient.invalidateQueries({ queryKey: ['library', 'borrow'] })
       queryClient.invalidateQueries({ queryKey: ['library', 'books'] })
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to return')
+    onError: (e: any) => toast.error(e?.response?.data?.message || t('admin_library.failed_return', 'Failed to return'))
   })
 
   const openIssue = () => {
@@ -131,7 +133,7 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
       return_date: r.return_date,
       fine: r.fine
     })))
-    toast.success('Exported records')
+    toast.success(t('admin_library.exported_records', 'Exported records'))
   }
 
   useEffect(() => {
@@ -141,9 +143,9 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
 
   const badgeForStatus = (s: string) => {
     const v = (s || '').toLowerCase()
-    if (v === 'active') return <Badge className="bg-indigo-100 text-indigo-800">Active</Badge>
-    if (v === 'overdue') return <Badge className="bg-rose-100 text-rose-800">Overdue</Badge>
-    if (v === 'returned') return <Badge className="bg-emerald-100 text-emerald-800">Returned</Badge>
+    if (v === 'active') return <Badge className="bg-indigo-100 text-indigo-800">{t('admin_library.status_active', 'Active')}</Badge>
+    if (v === 'overdue') return <Badge className="bg-rose-100 text-rose-800">{t('admin_library.status_overdue', 'Overdue')}</Badge>
+    if (v === 'returned') return <Badge className="bg-emerald-100 text-emerald-800">{t('admin_library.status_returned', 'Returned')}</Badge>
     return <Badge className="bg-slate-100 text-slate-800">{s}</Badge>
   }
 
@@ -165,12 +167,12 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2"><BookCopy className="h-5 w-5" /> Borrowing</CardTitle>
-            <CardDescription>Issue, return, and track borrowed books</CardDescription>
+            <CardTitle className="flex items-center gap-2"><BookCopy className="h-5 w-5" /> {t('admin_library.borrowing', 'Borrowing')}</CardTitle>
+            <CardDescription>{t('admin_library.borrowing_desc', 'Issue, return, and track borrowed books')}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportCurrent}><Download className="h-4 w-4 mr-2" /> Export</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openIssue}><Plus className="h-4 w-4 mr-2" /> Issue Book</Button>
+            <Button variant="outline" onClick={exportCurrent}><Download className="h-4 w-4 mr-2" /> {t('admin_library.export', 'Export')}</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openIssue}><Plus className="h-4 w-4 mr-2" /> {t('admin_library.issue_book', 'Issue Book')}</Button>
           </div>
         </div>
       </CardHeader>
@@ -179,16 +181,16 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
           <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
             <TabsList>
-              <TabsTrigger value="current">Current</TabsTrigger>
-              <TabsTrigger value="overdue">Overdue</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="current">{t('admin_library.current', 'Current')}</TabsTrigger>
+              <TabsTrigger value="overdue">{t('admin_library.overdue', 'Overdue')}</TabsTrigger>
+              <TabsTrigger value="history">{t('admin_library.history', 'History')}</TabsTrigger>
             </TabsList>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search book, member, ISBN" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-9" placeholder={t('admin_library.search_borrowing_placeholder', 'Search book, member, ISBN')} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button variant="outline" onClick={() => { setSearch(''); queryClient.invalidateQueries({ queryKey: ['library', 'borrow'] }) }}>
-              <RotateCcw className="h-4 w-4 mr-2" /> Reset
+              <RotateCcw className="h-4 w-4 mr-2" /> {t('admin_library.reset', 'Reset')}
             </Button>
           </div>
 
@@ -226,14 +228,14 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
         <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Issue book</DialogTitle>
-              <DialogDescription>Select a book and member to issue.</DialogDescription>
+              <DialogTitle>{t('admin_library.issue_book_title', 'Issue book')}</DialogTitle>
+              <DialogDescription>{t('admin_library.issue_book_desc', 'Select a book and member to issue.')}</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Book</Label>
+                <Label>{t('admin_library.book_label', 'Book')}</Label>
                 <Select value={issueForm.book_id} onValueChange={(v) => setIssueForm((p) => ({ ...p, book_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select book" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_book', 'Select book')} /></SelectTrigger>
                   <SelectContent>
                     {bookOptions.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)}>{b.label}</SelectItem>
@@ -242,22 +244,22 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Member</Label>
+                <Label>{t('admin_library.member_label', 'Member')}</Label>
                 <Select value={issueForm.member_id} onValueChange={(v) => setIssueForm((p) => ({ ...p, member_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_member', 'Select member')} /></SelectTrigger>
                   <SelectContent>
                     {memberOptions.map((m) => (
                       <SelectItem key={m.id} value={String(m.id)}>{m.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="text-xs text-muted-foreground">Members are library members (not student IDs).</div>
+                <div className="text-xs text-muted-foreground">{t('admin_library.members_desc', 'Members are library members (not student IDs).')}</div>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setIssueOpen(false)}>{t('admin_library.cancel', 'Cancel')}</Button>
               <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={issueMutation.isPending} onClick={() => issueMutation.mutate()}>
-                {issueMutation.isPending ? 'Issuing…' : 'Issue'}
+                {issueMutation.isPending ? t('admin_library.issuing', 'Issuing…') : t('admin_library.issue', 'Issue')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -280,23 +282,24 @@ const BorrowTable = ({
   onReturn: (id: number) => void
   returning: boolean
 }) => {
+  const { t } = useTranslation()
   return (
     <div className="border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 dark:bg-slate-700">
           <tr>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">Book</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">Member</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">Dates</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">Status</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-slate-200">Actions</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.book', 'Book')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.member', 'Member')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.dates', 'Dates')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.status', 'Status')}</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-slate-200">{t('admin_library.actions', 'Actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
           {isLoading ? (
-            <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+            <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t('admin_library.loading', 'Loading…')}</td></tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No records.</td></tr>
+            <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t('admin_library.no_records', 'No records.')}</td></tr>
           ) : (
             rows.map((r) => (
               <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
@@ -311,14 +314,14 @@ const BorrowTable = ({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <CalendarClock className="h-4 w-4" />
-                    <span>Borrowed: {r.borrow_date?.slice(0, 10) || '—'}</span>
+                    <span>{t('admin_library.borrowed_label', 'Borrowed:')} {r.borrow_date?.slice(0, 10) || '—'}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">Due: {r.due_date?.slice(0, 10) || '—'}</div>
-                  {r.return_date ? <div className="text-xs text-muted-foreground mt-1">Returned: {r.return_date.slice(0, 10)}</div> : null}
+                  <div className="text-xs text-muted-foreground mt-1">{t('admin_library.due_label', 'Due:')} {r.due_date?.slice(0, 10) || '—'}</div>
+                  {r.return_date ? <div className="text-xs text-muted-foreground mt-1">{t('admin_library.returned_label', 'Returned:')} {r.return_date.slice(0, 10)}</div> : null}
                 </td>
                 <td className="px-4 py-3">
                   {badgeForStatus(r.status)}
-                  {r.fine > 0 ? <div className="text-xs text-rose-600 mt-1">Fine: {r.fine}</div> : null}
+                  {r.fine > 0 ? <div className="text-xs text-rose-600 mt-1">{t('admin_library.fine_label', 'Fine:')} {r.fine}</div> : null}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {(r.status || '').toLowerCase() === 'active' || (r.status || '').toLowerCase() === 'overdue' ? (
@@ -328,7 +331,7 @@ const BorrowTable = ({
                       disabled={returning}
                       onClick={() => onReturn(r.id)}
                     >
-                      Return
+                      {t('admin_library.return_action', 'Return')}
                     </Button>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   Card,
@@ -35,6 +36,7 @@ interface DigitalLibraryProps {
 }
 
 const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -76,20 +78,20 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
     },
     onSuccess: () => {
       invalidateResources();
-      toast.success(editingResource ? 'Resource updated' : 'Resource added');
+      toast.success(editingResource ? t('admin_library.resource_updated', 'Resource updated') : t('admin_library.resource_added', 'Resource added'));
       setDialogOpen(false);
       setEditingResource(null);
     },
-    onError: () => toast.error('Failed to save digital resource'),
+    onError: () => toast.error(t('admin_library.failed_save_resource', 'Failed to save digital resource')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (resourceId: number) => libraryService.deleteDigitalResource(resourceId),
     onSuccess: () => {
       invalidateResources();
-      toast.success('Resource deleted');
+      toast.success(t('admin_library.resource_deleted', 'Resource deleted'));
     },
-    onError: () => toast.error('Failed to delete resource'),
+    onError: () => toast.error(t('admin_library.failed_delete_resource', 'Failed to delete resource')),
   });
 
   const downloadMutation = useMutation({
@@ -98,7 +100,7 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
       invalidateResources();
       window.open(resource.url, '_blank', 'noopener,noreferrer');
     },
-    onError: () => toast.error('Failed to open download'),
+    onError: () => toast.error(t('admin_library.failed_download_resource', 'Failed to open download')),
   });
 
   const categories = useMemo(
@@ -152,7 +154,7 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
     };
 
     if (!payload.title || !payload.url) {
-      toast.error('Title and resource URL are required');
+      toast.error(t('admin_library.error_title_url_required', 'Title and resource URL are required'));
       return;
     }
 
@@ -190,34 +192,34 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
       </div>
       <CardContent className="p-4">
         <h3 className="font-bold truncate">{resource.title}</h3>
-        <p className="text-sm text-gray-500">{resource.author || 'School Library'}</p>
+        <p className="text-sm text-gray-500">{resource.author || t('admin_library.school_library', 'School Library')}</p>
         <div className="flex justify-between items-center mt-2">
           <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">{resource.category}</span>
-          <span className="text-xs">{resource.size || 'Online'}</span>
+          <span className="text-xs">{resource.size || t('admin_library.online', 'Online')}</span>
         </div>
         <p className="text-sm mt-2 line-clamp-2 text-gray-600">{resource.description}</p>
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-          <span>{resource.uploadDate || resource.created_at?.slice(0, 10) || 'Recently added'}</span>
-          <span>{resource.downloads || 0} downloads</span>
+          <span>{resource.uploadDate || resource.created_at?.slice(0, 10) || t('admin_library.recently_added', 'Recently added')}</span>
+          <span>{t('admin_library.downloads_count', '{{count}} downloads', { count: resource.downloads || 0 })}</span>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant="outline" size="sm" onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}>
             <Eye className="h-3 w-3 mr-1" />
-            View
+            {t('admin_library.view_action', 'View')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => downloadMutation.mutate(resource.id)} disabled={downloadMutation.isPending}>
             <Download className="h-3 w-3 mr-1" />
-            Download
+            {t('admin_library.download_action', 'Download')}
           </Button>
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Button variant="ghost" size="sm" onClick={() => openEditDialog(resource)}>
             <Pencil className="h-3 w-3 mr-1" />
-            Edit
+            {t('admin_library.edit_action', 'Edit')}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(resource.id)} disabled={deleteMutation.isPending}>
             <Trash2 className="h-3 w-3 mr-1" />
-            Remove
+            {t('admin_library.remove_action', 'Remove')}
           </Button>
         </div>
       </CardContent>
@@ -232,15 +234,15 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
             <div className="flex flex-wrap gap-2 items-center">
               <div className="flex items-center">
                 <Filter className="mr-2 h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium">Filters:</span>
+                <span className="text-sm font-medium">{t('admin_library.filters', 'Filters:')}</span>
               </div>
               
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Category" />
+                  <SelectValue placeholder={t('admin_library.category', 'Category')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t('admin_library.all_categories', 'All Categories')}</SelectItem>
                   {categories.filter(c => c !== 'all').map(category => (
                     <SelectItem key={category} value={category}>{category}</SelectItem>
                   ))}
@@ -249,11 +251,11 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
               
               <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Type" />
+                  <SelectValue placeholder={t('admin_library.type', 'Type')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {types.filter(t => t !== 'all').map(type => (
+                  <SelectItem value="all">{t('admin_library.all_types', 'All Types')}</SelectItem>
+                  {types.filter(type => type !== 'all').map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
                 </SelectContent>
@@ -261,7 +263,7 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
             </div>
             <Button onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Resource
+              {t('admin_library.add_resource', 'Add Resource')}
             </Button>
           </div>
         </CardContent>
@@ -271,23 +273,23 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
         <TabsList className="w-full md:w-auto">
           <TabsTrigger value="all" className="flex items-center">
             <BookOpen className="mr-2 h-4 w-4" />
-            All Resources
+            {t('admin_library.all_resources', 'All Resources')}
           </TabsTrigger>
           <TabsTrigger value="pdf" className="flex items-center">
             <FileText className="mr-2 h-4 w-4" />
-            Documents
+            {t('admin_library.documents', 'Documents')}
           </TabsTrigger>
           <TabsTrigger value="video" className="flex items-center">
             <Video className="mr-2 h-4 w-4" />
-            Videos
+            {t('admin_library.videos', 'Videos')}
           </TabsTrigger>
           <TabsTrigger value="audio" className="flex items-center">
             <Headphones className="mr-2 h-4 w-4" />
-            Audio
+            {t('admin_library.audio', 'Audio')}
           </TabsTrigger>
           <TabsTrigger value="other" className="flex items-center">
             <ImageIcon className="mr-2 h-4 w-4" />
-            Other
+            {t('admin_library.other', 'Other')}
           </TabsTrigger>
         </TabsList>
 
@@ -296,11 +298,11 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
             {isLoading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Loading digital resources...
+                {t('admin_library.loading_digital_resources', 'Loading digital resources...')}
               </div>
             ) : error ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-red-500">
-                Failed to load digital resources.
+                {t('admin_library.failed_load_digital_resources', 'Failed to load digital resources.')}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -308,7 +310,7 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
                   filteredResources.map((resource) => renderResourceCard(resource))
                 ) : (
                   <div className="col-span-full text-center py-8">
-                    <p className="text-gray-500">No resources found matching your criteria.</p>
+                    <p className="text-gray-500">{t('admin_library.no_resources_found', 'No resources found matching your criteria.')}</p>
                   </div>
                 )}
               </div>
@@ -320,26 +322,26 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{editingResource ? 'Edit Digital Resource' : 'Add Digital Resource'}</DialogTitle>
+            <DialogTitle>{editingResource ? t('admin_library.edit_digital_resource', 'Edit Digital Resource') : t('admin_library.add_digital_resource', 'Add Digital Resource')}</DialogTitle>
             <DialogDescription>
-              Manage online learning materials from the live library catalog.
+              {t('admin_library.manage_materials_desc', 'Manage online learning materials from the live library catalog.')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" placeholder="Resource title" value={String(formState.title || '')} onChange={(e) => setFormState((prev) => ({ ...prev, title: e.target.value }))} />
+                <Label htmlFor="title">{t('admin_library.title_label', 'Title')}</Label>
+                <Input id="title" placeholder={t('admin_library.resource_title_placeholder', 'Resource title')} value={String(formState.title || '')} onChange={(e) => setFormState((prev) => ({ ...prev, title: e.target.value }))} />
               </div>
               <div>
-                <Label htmlFor="author">Author/Creator</Label>
-                <Input id="author" placeholder="Author name" value={String(formState.author || '')} onChange={(e) => setFormState((prev) => ({ ...prev, author: e.target.value }))} />
+                <Label htmlFor="author">{t('admin_library.author_creator_label', 'Author/Creator')}</Label>
+                <Input id="author" placeholder={t('admin_library.author_name_placeholder', 'Author name')} value={String(formState.author || '')} onChange={(e) => setFormState((prev) => ({ ...prev, author: e.target.value }))} />
               </div>
               <div>
-                <Label htmlFor="type">Resource Type</Label>
+                <Label htmlFor="type">{t('admin_library.resource_type_label', 'Resource Type')}</Label>
                 <Select value={String(formState.type || 'PDF')} onValueChange={(value) => setFormState((prev) => ({ ...prev, type: value }))}>
                   <SelectTrigger id="type">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder={t('admin_library.select_type_placeholder', 'Select type')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PDF">PDF</SelectItem>
@@ -352,52 +354,52 @@ const DigitalLibrary: React.FC<DigitalLibraryProps> = ({ searchTerm }) => {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">{t('admin_library.category_label', 'Category')}</Label>
                 <Select value={String(formState.category || 'General')} onValueChange={(value) => setFormState((prev) => ({ ...prev, category: value }))}>
                   <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t('admin_library.select_category_placeholder', 'Select category')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="General">General</SelectItem>
-                    <SelectItem value="Science">Science</SelectItem>
-                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                    <SelectItem value="Literature">Literature</SelectItem>
-                    <SelectItem value="History">History</SelectItem>
-                    <SelectItem value="Arts">Arts</SelectItem>
-                    <SelectItem value="Technology">Technology</SelectItem>
-                    <SelectItem value="Languages">Languages</SelectItem>
-                    <SelectItem value="Physical Education">Physical Education</SelectItem>
+                    <SelectItem value="General">{t('admin_library.category_General', 'General')}</SelectItem>
+                    <SelectItem value="Science">{t('admin_library.category_Science', 'Science')}</SelectItem>
+                    <SelectItem value="Mathematics">{t('admin_library.category_Mathematics', 'Mathematics')}</SelectItem>
+                    <SelectItem value="Literature">{t('admin_library.category_Literature', 'Literature')}</SelectItem>
+                    <SelectItem value="History">{t('admin_library.category_History', 'History')}</SelectItem>
+                    <SelectItem value="Arts">{t('admin_library.category_Arts', 'Arts')}</SelectItem>
+                    <SelectItem value="Technology">{t('admin_library.category_Technology', 'Technology')}</SelectItem>
+                    <SelectItem value="Languages">{t('admin_library.category_Languages', 'Languages')}</SelectItem>
+                    <SelectItem value="Physical Education">{t('admin_library.category_Physical_Education', 'Physical Education')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="size">Display Size</Label>
+                <Label htmlFor="size">{t('admin_library.display_size_label', 'Display Size')}</Label>
                 <Input id="size" placeholder="5.2 MB" value={String(formState.size || '')} onChange={(e) => setFormState((prev) => ({ ...prev, size: e.target.value }))} />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Brief description of the resource" value={String(formState.description || '')} onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
+                <Label htmlFor="description">{t('admin_library.description_label', 'Description')}</Label>
+                <Textarea id="description" placeholder={t('admin_library.description_placeholder', 'Brief description of the resource')} value={String(formState.description || '')} onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))} rows={3} />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="thumbnail">Thumbnail Image</Label>
+                <Label htmlFor="thumbnail">{t('admin_library.thumbnail_image_label', 'Thumbnail Image')}</Label>
                 <Input id="thumbnail" placeholder="https://example.com/thumbnail.jpg" value={String(formState.thumbnail || '')} onChange={(e) => setFormState((prev) => ({ ...prev, thumbnail: e.target.value }))} />
               </div>
               <div className="col-span-2">
-                <Label htmlFor="url">Resource URL</Label>
+                <Label htmlFor="url">{t('admin_library.resource_url_label', 'Resource URL')}</Label>
                 <div className="flex gap-2">
                   <Input id="url" placeholder="https://example.com/resource" className="flex-1" value={String(formState.url || '')} onChange={(e) => setFormState((prev) => ({ ...prev, url: e.target.value }))} />
                   <Button variant="outline" onClick={() => formState.url && window.open(String(formState.url), '_blank', 'noopener,noreferrer')}>
                     <LinkIcon className="mr-2 h-4 w-4" />
-                    Open
+                    {t('admin_library.open_action', 'Open')}
                   </Button>
                 </div>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('admin_library.cancel', 'Cancel')}</Button>
             <Button type="submit" onClick={submitForm} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingResource ? 'Save Changes' : 'Add Resource'}
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editingResource ? t('admin_library.save_changes', 'Save Changes') : t('admin_library.add_resource', 'Add Resource')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -133,7 +133,7 @@ const LibraryPage = () => {
                 </Button>
               )}
               {activeTab === 'digital' && (
-                <Button className="glass-button" onClick={() => toast.info('Digital library upload is not connected yet')}>
+                <Button className="glass-button" onClick={() => toast.info(t('admin_library.upload_not_connected', 'Digital library upload is not connected yet'))}>
                   <Upload className="mr-2 h-4 w-4" />
                   {t('admin_library.upload_resource', 'Upload Resource')}
                 </Button>
@@ -142,7 +142,7 @@ const LibraryPage = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    const v = prompt('Scan/enter ISBN or keyword');
+                    const v = prompt(t('admin_library.scan_prompt', 'Scan/enter ISBN or keyword'));
                     if (!v) return;
                     setSearchTerm(v);
                   }}
