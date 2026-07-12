@@ -1,39 +1,47 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import '@testing-library/jest-dom';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { authService } from '../services';
 
 // Mock the authService
-jest.mock('../services', () => ({
+vi.mock('../services', () => ({
   authService: {
-    login: jest.fn(),
-    getCurrentUser: jest.fn(),
-    logout: jest.fn(),
-    refreshToken: jest.fn()
+    login: vi.fn(),
+    getCurrentUser: vi.fn(),
+    logout: vi.fn().mockImplementation(async () => {
+      window.localStorage.removeItem('token');
+      window.localStorage.removeItem('refreshToken');
+    }),
+    refreshToken: vi.fn()
   }
 }));
 
+vi.mock('../utils/jwt', () => ({
+  getJwtExpirationMs: () => Date.now() + 1000000
+}));
+
 const mockAuthService = authService as unknown as {
-  login: jest.Mock;
-  getCurrentUser: jest.Mock;
-  logout: jest.Mock;
-  refreshToken: jest.Mock;
+  login: any;
+  getCurrentUser: any;
+  logout: any;
+  refreshToken: any;
 };
 
 // Mock localStorage
 const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn()
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn()
 };
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 
 // Mock useNavigate
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom') as any;
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom') as any;
   return {
     ...actual,
     useNavigate: () => mockNavigate

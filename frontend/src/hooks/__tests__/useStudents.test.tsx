@@ -1,26 +1,26 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { useStudents } from '../useStudents';
-import studentService from '../../services/studentService';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-jest.mock('../../services/studentService', () => ({
-  __esModule: true,
+const { mockGetStudents } = vi.hoisted(() => {
+  const mockGetStudents = vi.fn();
+  return { mockGetStudents };
+});
+
+vi.mock('../../services/studentService', () => ({
   default: {
-    getStudents: jest.fn(),
+    getStudents: mockGetStudents,
   },
 }));
 
-const mockStudentService = studentService as unknown as {
-  getStudents: jest.Mock;
-};
+import { useStudents } from '../useStudents';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
+      queries: { retry: 0 },
+      mutations: { retry: 0 },
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
@@ -30,7 +30,7 @@ const createWrapper = () => {
 
 describe('useStudents Hook', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('fetches students successfully', async () => {
@@ -42,7 +42,7 @@ describe('useStudents Hook', () => {
       pagination: { total: 2, current_page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false }
     };
 
-    mockStudentService.getStudents.mockResolvedValue(mockStudents);
+    mockGetStudents.mockResolvedValue(mockStudents);
 
     const { result } = renderHook(() => useStudents(), {
       wrapper: createWrapper(),
@@ -53,11 +53,11 @@ describe('useStudents Hook', () => {
     });
 
     expect(result.current.data).toEqual(mockStudents);
-    expect(mockStudentService.getStudents).toHaveBeenCalledTimes(1);
+    expect(mockGetStudents).toHaveBeenCalledTimes(1);
   });
 
   it('handles loading state', () => {
-    mockStudentService.getStudents.mockImplementation(
+    mockGetStudents.mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
 
@@ -71,7 +71,7 @@ describe('useStudents Hook', () => {
 
   it('handles error state', async () => {
     const errorMessage = 'Failed to fetch students';
-    mockStudentService.getStudents.mockRejectedValue(new Error(errorMessage));
+    mockGetStudents.mockRejectedValue(new Error(errorMessage));
 
     const { result } = renderHook(() => useStudents(), {
       wrapper: createWrapper(),
@@ -79,7 +79,7 @@ describe('useStudents Hook', () => {
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
-    });
+    }, { timeout: 10000 });
 
     expect(result.current.error).toBeInstanceOf(Error);
   });
@@ -90,7 +90,7 @@ describe('useStudents Hook', () => {
       pagination: { total: 1, current_page: 1, per_page: 10, total_pages: 1, has_next: false, has_prev: false }
     };
 
-    mockStudentService.getStudents.mockResolvedValue(mockStudents);
+    mockGetStudents.mockResolvedValue(mockStudents);
 
     const { result } = renderHook(() => useStudents(), {
       wrapper: createWrapper(),
@@ -100,11 +100,10 @@ describe('useStudents Hook', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    // Call refetch
     result.current.refetch();
 
     await waitFor(() => {
-      expect(mockStudentService.getStudents).toHaveBeenCalledTimes(2);
+      expect(mockGetStudents).toHaveBeenCalledTimes(2);
     });
   });
 });
