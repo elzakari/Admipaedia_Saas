@@ -2,6 +2,7 @@ import React, { useState, useEffect, FormEvent, useRef } from "react";
 import { useCreateStudent, useUpdateStudent } from "@/hooks/useStudents";
 import { useToast } from "@/components/ui/use-toast";
 import type { Student } from "@/types/student.types";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { TouchFriendlyButton } from "../common/TouchFriendlyButton";
 import MobileOptimizedInput from "../common/MobileOptimizedInput";
@@ -170,6 +171,7 @@ interface StudentCreate {
 }
 
 const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
+  const { t } = useTranslation();
   const { student, isOpen, onClose, onSuccess } = props;
   const { toast } = useToast();
   const { mutateAsync: createStudentAsync } = useCreateStudent();
@@ -268,53 +270,53 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   // Validation rules
   const validationRules = {
     name: [
-      { rule: (value: string) => value.trim().length >= 2, message: "Name must be at least 2 characters" },
-      { rule: (value: string) => value.trim().length > 0, message: "Full name is required" }
+      { rule: (value: string) => value.trim().length >= 2, message: t('students_page.form.errors.name_length', 'Name must be at least 2 characters') },
+      { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.name_required', 'Full name is required') }
     ],
     email: [
-      { rule: (value: string) => value.trim().length > 0, message: "Email is required" },
-      { rule: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: "Invalid email format" }
+      { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.email_required', 'Email is required') },
+      { rule: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: t('students_page.form.errors.invalid_email', 'Invalid email format') }
     ],
     date_of_birth: [
-      { rule: (value: string) => value.trim().length > 0, message: "Date of birth is required" },
+      { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.dob_required', 'Date of birth is required') },
       { rule: (value: string) => {
         const age = calculateAge(value);
         const { minAge, maxAge } = getExpectedAgeRangeForClass(formData.class_id);
         return age >= minAge && age <= maxAge;
-      }, message: "Age should be appropriate for the selected class" }
+      }, message: t('students_page.form.errors.age_inappropriate', 'Age should be appropriate for the selected class') }
     ],
     gender: [
-      { rule: (value: string) => value.trim().length > 0, message: "Gender is required" }
+      { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.gender_required', 'Gender is required') }
     ],
     class_id: [
-      { rule: (value: string) => value.trim().length > 0, message: "Class is required" }
+      { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.class_required', 'Class is required') }
     ],
     parent_id: [
       { rule: (_value: string) => true, message: "" }
     ],
     phone: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid phone number format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_phone', 'Invalid phone number format') }
     ],
     telephone: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid telephone format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_telephone', 'Invalid telephone format') }
     ],
     whatsapp: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid WhatsApp format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_whatsapp', 'Invalid WhatsApp format') }
     ],
     fatherEmail: [
-      { rule: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: "Invalid father's email format" }
+      { rule: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: t('students_page.form.errors.invalid_father_email', "Invalid father's email format") }
     ],
     motherEmail: [
-      { rule: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: "Invalid mother's email format" }
+      { rule: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), message: t('students_page.form.errors.invalid_mother_email', "Invalid mother's email format") }
     ],
     fatherContact: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid father's contact format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_father_contact', "Invalid father's contact format") }
     ],
     motherContact: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid mother's contact format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_mother_contact', "Invalid mother's contact format") }
     ],
     physicianPhone: [
-      { rule: (value: string) => !value || validatePhone(value), message: "Invalid physician phone format" }
+      { rule: (value: string) => !value || validatePhone(value), message: t('students_page.form.errors.invalid_physician_phone', 'Invalid physician phone format') }
     ]
   };
   
@@ -478,12 +480,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
   // Form steps configuration
   const steps = [
-    { id: 0, title: 'Personal', description: 'Student personal information', icon: User },
-    { id: 1, title: 'Contact', description: 'Address and contact details', icon: Phone },
-    { id: 2, title: 'Medical Info', description: 'Medical history and needs', icon: Heart },
-    { id: 3, title: 'Enrollment', description: 'Academic background and class placement', icon: GraduationCap },
-    { id: 4, title: 'Parent/Guardian', description: 'Parent or guardian details', icon: Users },
-    { id: 5, title: 'Review', description: 'Review and submit', icon: Check }
+    { id: 0, title: t('students_page.form.steps.personal', 'Personal'), description: t('students_page.form.steps.personal_desc', 'Student personal information'), icon: User },
+    { id: 1, title: t('students_page.form.steps.contact', 'Contact'), description: t('students_page.form.steps.contact_desc', 'Address and contact details'), icon: Phone },
+    { id: 2, title: t('students_page.form.steps.medical', 'Medical Info'), description: t('students_page.form.steps.medical_desc', 'Medical history and needs'), icon: Heart },
+    { id: 3, title: t('students_page.form.steps.enrollment', 'Enrollment'), description: t('students_page.form.steps.enrollment_desc', 'Academic background and class placement'), icon: GraduationCap },
+    { id: 4, title: t('students_page.form.steps.parent', 'Parent/Guardian'), description: t('students_page.form.steps.parent_desc', 'Parent or guardian details'), icon: Users },
+    { id: 5, title: t('students_page.form.steps.review', 'Review'), description: t('students_page.form.steps.review_desc', 'Review and submit'), icon: Check }
   ];
 
   // Helper functions
@@ -814,8 +816,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
   const saveProgress = () => {
     toast({
-      title: "Progress Saved",
-      description: "Your form progress has been saved locally.",
+      title: t('students_page.form.toast.progress_saved_title', 'Progress Saved'),
+      description: t('students_page.form.toast.progress_saved_desc', 'Your form progress has been saved locally.'),
       id: ""
     });
   };
@@ -826,8 +828,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     
     if (!validateForm()) {
       toast({
-        title: "Validation Error",
-        description: "Please fix all errors in the form before submitting.",
+        title: t('students_page.form.toast.validation_error_title', 'Validation Error'),
+        description: t('students_page.form.toast.validation_error_desc', 'Please fix all errors in the form before submitting.'),
         id: ""
       });
       return;
@@ -919,8 +921,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         }
         
         toast({
-          title: "Success",
-          description: "Student updated successfully!",
+          title: t('common.success', 'Success'),
+          description: t('students_page.form.toast.update_success', 'Student updated successfully!'),
           id: ""
         });
       } else {
@@ -942,8 +944,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         }
 
         toast({
-          title: "Success",
-          description: "Student created successfully!",
+          title: t('common.success', 'Success'),
+          description: t('students_page.form.toast.create_success', 'Student created successfully!'),
           id: ""
         });
       }
@@ -971,26 +973,26 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         setErrors(prev => ({ ...prev, ...newErrors }));
         
         toast({
-          title: "Validation Error",
-          description: "Please check the form for errors and try again.",
+          title: t('students_page.form.toast.validation_error_title', 'Validation Error'),
+          description: t('students_page.form.toast.validation_error_try_again', 'Please check the form for errors and try again.'),
           id: ""
         });
       } else if (error?.response?.status === 409) {
         toast({
-          title: "Conflict Error",
-          description: "A student with this admission number already exists.",
+          title: t('students_page.form.toast.conflict_error_title', 'Conflict Error'),
+          description: t('students_page.form.toast.conflict_error_desc', 'A student with this admission number already exists.'),
           id: ""
         });
       } else if (error?.response?.status === 403) {
         toast({
-          title: "Permission Error",
-          description: "You don't have permission to perform this action.",
+          title: t('students_page.form.toast.permission_error_title', 'Permission Error'),
+          description: t('students_page.form.toast.permission_error_desc', "You don't have permission to perform this action."),
           id: ""
         });
       } else {
         toast({
-          title: "Error",
-          description: error?.message || `Failed to ${student?.id ? 'update' : 'create'} student. Please try again.`,
+          title: t('common.error', 'Error'),
+          description: error?.message || t('students_page.form.toast.submit_failed', 'Failed to submit student. Please try again.'),
           id: ""
         });
       }
@@ -1015,9 +1017,9 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 </Avatar>
                 <div className="flex-1 space-y-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">Profile Picture</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">{t('students_page.form.profile_picture', 'Profile Picture')}</h3>
                     <p className="text-xs text-slate-500">
-                      Admin can set the student profile picture here and lock it from regular changes. This photo also appears on the academic terminal report.
+                      {t('students_page.form.profile_picture_help', 'Admin can set the student profile picture here and lock it from regular changes. This photo also appears on the academic terminal report.')}
                     </p>
                   </div>
                   <input
@@ -1030,8 +1032,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                       if (!file) return;
                       if (file.size > 2 * 1024 * 1024) {
                         toast({
-                          title: "Image Too Large",
-                          description: "Student profile picture must be 2MB or less.",
+                          title: t('students_page.form.toast.image_large_title', 'Image Too Large'),
+                          description: t('students_page.form.toast.image_large_desc', 'Student profile picture must be 2MB or less.'),
                           id: ""
                         });
                         e.target.value = '';
@@ -1050,7 +1052,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                       className={ADMIN_SECONDARY_BUTTON_CLASS}
                       icon={<Camera className="h-4 w-4" />}
                     >
-                      {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                      {photoPreview ? t('students_page.form.change_photo', 'Change Photo') : t('students_page.form.upload_photo', 'Upload Photo')}
                     </TouchFriendlyButton>
                     <TouchFriendlyButton
                       type="button"
@@ -1062,11 +1064,11 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                       className={ADMIN_SECONDARY_BUTTON_CLASS}
                       disabled={!photoPreview}
                     >
-                      Remove Photo
+                      {t('students_page.form.remove_photo', 'Remove Photo')}
                     </TouchFriendlyButton>
                   </div>
                   {photoFile && (
-                    <p className="text-xs text-slate-500">Selected file: {photoFile.name}</p>
+                    <p className="text-xs text-slate-500">{t('students_page.form.selected_file', 'Selected file:')} {photoFile.name}</p>
                   )}
                   <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input
@@ -1075,7 +1077,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                       onChange={(e) => setFormData(prev => ({ ...prev, profile_picture_locked: e.target.checked }))}
                     />
                     <Lock className="h-4 w-4 text-slate-500" />
-                    <span>Lock student profile picture from non-admin changes</span>
+                    <span>{t('students_page.form.lock_profile_picture', 'Lock student profile picture from non-admin changes')}</span>
                   </label>
                 </div>
               </div>
@@ -1083,77 +1085,77 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedInput
-                label="First Name"
+                label={t('students_page.form.first_name', 'First Name')}
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleInputEvent}
                 error={errors.first_name}
-                placeholder="Enter first name"
+                placeholder={t('students_page.form.first_name_placeholder', 'Enter first name')}
                 autoComplete="given-name"
                 leftIcon={<User className="h-4 w-4" />}
                 required
               />
 
               <MobileOptimizedInput
-                label="Middle Name"
+                label={t('students_page.form.middle_name', 'Middle Name')}
                 name="middle_name"
                 value={formData.middle_name}
                 onChange={handleInputEvent}
                 error={errors.middle_name}
-                placeholder="Enter middle name (optional)"
+                placeholder={t('students_page.form.middle_name_placeholder', 'Enter middle name (optional)')}
                 autoComplete="additional-name"
                 leftIcon={<User className="h-4 w-4" />}
               />
 
               <MobileOptimizedInput
-                label="Last Name"
+                label={t('students_page.form.last_name', 'Last Name')}
                 name="last_name"
                 value={formData.last_name}
                 onChange={handleInputEvent}
                 error={errors.last_name}
-                placeholder="Enter last name"
+                placeholder={t('students_page.form.last_name_placeholder', 'Enter last name')}
                 autoComplete="family-name"
                 leftIcon={<User className="h-4 w-4" />}
                 required
               />
               
               <MobileOptimizedInput
-                label="Admission Number"
+                label={t('common.admission_number', 'Admission Number')}
                 name="admission_number"
                 value={formData.admission_number}
                 onChange={handleInputEvent}
                 error={errors.admission_number}
-                placeholder="Enter admission number"
+                placeholder={t('students_page.form.admission_number_placeholder', 'Enter admission number')}
                 required
               />
               
               <MobileOptimizedInput
-                label="Email Address"
+                label={t('teachers_page.profile.email', 'Email Address')}
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleInputEvent}
                 error={errors.email}
-                placeholder="Enter email address"
+                placeholder={t('students_page.form.email_placeholder', 'Enter email address')}
                 autoComplete="email"
                 leftIcon={<Mail className="h-4 w-4" />}
                 required
               />
               
               <MobileOptimizedInput
-                label="Phone Number"
+                label={t('teachers_page.profile.phone', 'Phone Number')}
                 name="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={handleInputEvent}
                 error={errors.phone}
-                placeholder="Enter phone number"
+                placeholder={t('students_page.form.phone_placeholder', 'Enter phone number')}
                 autoComplete="tel"
                 leftIcon={<Phone className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Date of Birth"
+                label={t('common.date_of_birth', 'Date of Birth')}
                 name="date_of_birth"
                 type="date"
                 value={formData.date_of_birth}
@@ -1163,27 +1165,27 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               />
               
               <MobileOptimizedSelect
-                label="Gender"
+                label={t('common.gender', 'Gender')}
                 value={formData.gender}
                 onChange={(value: string) => handleInputChange('gender', value)}
                 error={errors.gender}
-                placeholder="Select gender"
+                placeholder={t('admission_form.placeholders.select_gender', 'Select gender')}
                 options={[
-                  { value: 'male', label: 'Male' },
-                  { value: 'female', label: 'Female' },
-                  { value: 'other', label: 'Other' }
+                  { value: 'male', label: t('admission_form.genders.male', 'Male') },
+                  { value: 'female', label: t('admission_form.genders.female', 'Female') },
+                  { value: 'other', label: t('admission_form.genders.other', 'Other') }
                 ]}
                 required
               />
             </div>
             
             <MobileOptimizedTextarea
-              label="Address"
+              label={t('common.address', 'Address')}
               name="address"
               value={formData.address}
               onChange={handleInputEvent}
               error={errors.address}
-              placeholder="Enter full address"
+              placeholder={t('admission_form.placeholders.home_address', 'Enter full address')}
               autoComplete="street-address"
               rows={3}
             />
@@ -1195,76 +1197,76 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedInput
-                label="Telephone"
+                label={t('students_page.form.telephone', 'Telephone')}
                 name="telephone"
                 type="tel"
                 value={formData.telephone}
                 onChange={handleInputEvent}
                 error={errors.telephone}
-                placeholder="Enter telephone number"
+                placeholder={t('students_page.form.telephone_placeholder', 'Enter telephone number')}
                 leftIcon={<Phone className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="WhatsApp"
+                label={t('students_page.form.whatsapp', 'WhatsApp')}
                 name="whatsapp"
                 type="tel"
                 value={formData.whatsapp}
                 onChange={handleInputEvent}
                 error={errors.whatsapp}
-                placeholder="Enter WhatsApp number"
+                placeholder={t('students_page.form.whatsapp_placeholder', 'Enter WhatsApp number')}
                 leftIcon={<Phone className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Place of Birth"
+                label={t('common.place_of_birth', 'Place of Birth')}
                 name="placeOfBirth"
                 value={formData.placeOfBirth}
                 onChange={handleInputEvent}
-                placeholder="Enter place of birth"
+                placeholder={t('common.place_of_birth', 'Enter place of birth')}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Religious Denomination"
+                label={t('admission_form.fields.religion', 'Religious Denomination')}
                 name="religiousDenomination"
                 value={formData.religiousDenomination}
                 onChange={handleInputEvent}
-                placeholder="Enter religious denomination"
+                placeholder={t('admission_form.placeholders.religion', 'Enter religious denomination')}
               />
               
               <MobileOptimizedInput
-                label="City"
+                label={t('admission_form.fields.city', 'City')}
                 name="city"
                 value={formData.city}
                 onChange={handleInputEvent}
-                placeholder="Enter city"
+                placeholder={t('admission_form.placeholders.city', 'Enter city')}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Country"
+                label={t('admission_form.fields.state', 'Country')}
                 name="country"
                 value={formData.country}
                 onChange={handleInputEvent}
-                placeholder="Enter country"
+                placeholder={t('admission_form.fields.state', 'Enter country')}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
 
               <MobileOptimizedInput
-                label="Nationality"
+                label={t('admission_form.fields.nationality', 'Nationality')}
                 name="nationality"
                 value={formData.nationality}
                 onChange={handleInputEvent}
-                placeholder="Enter nationality"
+                placeholder={t('admission_form.fields.nationality', 'Enter nationality')}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
 
               <MobileOptimizedSelect
-                label="Blood Group"
+                label={t('common.blood_group', 'Blood Group')}
                 value={formData.bloodGroup}
                 onChange={(value: string) => handleInputChange('bloodGroup', value)}
-                placeholder="Select blood group"
+                placeholder={t('admission_form.placeholders.select_blood_group', 'Select blood group')}
                 options={[
                   { value: 'A+', label: 'A+' },
                   { value: 'A-', label: 'A-' },
@@ -1280,37 +1282,37 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             
             <div className="grid grid-cols-1 gap-4">
               <MobileOptimizedTextarea
-                label="Postal Address"
+                label={t('admission_form.fields.postal_address', 'Postal Address')}
                 name="postalAddress"
                 value={formData.postalAddress}
                 onChange={handleInputEvent}
-                placeholder="Enter postal address"
+                placeholder={t('admission_form.fields.postal_address', 'Enter postal address')}
                 rows={2}
               />
               
               <MobileOptimizedTextarea
-                label="Residential Address"
+                label={t('admission_form.fields.home_address', 'Residential Address')}
                 name="residentialAddress"
                 value={formData.residentialAddress}
                 onChange={handleInputEvent}
-                placeholder="Enter residential address"
+                placeholder={t('admission_form.fields.home_address', 'Enter residential address')}
                 rows={2}
               />
               
               <MobileOptimizedInput
-                label="Digital Address"
+                label={t('admission_form.fields.digital_address', 'Digital Address')}
                 name="digitalAddress"
                 value={formData.digitalAddress}
                 onChange={handleInputEvent}
-                placeholder="Enter digital address (GPS)"
+                placeholder={t('admission_form.fields.digital_address', 'Enter digital address (GPS)')}
               />
               
               <MobileOptimizedInput
-                label="Local Landmark"
+                label={t('admission_form.fields.local_landmark', 'Local Landmark')}
                 name="localLandmark"
                 value={formData.localLandmark}
                 onChange={handleInputEvent}
-                placeholder="Enter local landmark"
+                placeholder={t('admission_form.fields.local_landmark', 'Enter local landmark')}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
             </div>
@@ -1322,60 +1324,60 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedInput
-                label="Physician Name"
+                label={t('admission_form.placeholders.physician_name', 'Physician Name')}
                 name="physicianName"
                 value={formData.physicianName}
                 onChange={handleInputEvent}
-                placeholder="Enter physician name"
+                placeholder={t('admission_form.placeholders.physician_name', 'Enter physician name')}
                 leftIcon={<User className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Physician Phone"
+                label={t('admission_form.placeholders.physician_phone', 'Physician Phone')}
                 name="physicianPhone"
                 type="tel"
                 value={formData.physicianPhone}
                 onChange={handleInputEvent}
                 error={errors.physicianPhone}
-                placeholder="Enter physician phone"
+                placeholder={t('admission_form.placeholders.physician_phone', 'Enter physician phone')}
                 leftIcon={<Phone className="h-4 w-4" />}
               />
             </div>
             
             <div className="grid grid-cols-1 gap-4">
               <MobileOptimizedTextarea
-                label="Medical Conditions"
+                label={t('common.medical_conditions', 'Medical Conditions')}
                 name="medicalConditions"
                 value={formData.medicalConditions}
                 onChange={handleInputEvent}
-                placeholder="Enter any existing medical conditions"
+                placeholder={t('common.medical_conditions', 'Enter any existing medical conditions')}
                 rows={3}
               />
 
               <MobileOptimizedTextarea
-                label="Special Circumstances"
+                label={t('admission_form.fields.special_circumstances', 'Special Circumstances')}
                 name="specialCircumstance"
                 value={formData.specialCircumstance}
                 onChange={handleInputEvent}
-                placeholder="Enter any special circumstances"
+                placeholder={t('admission_form.fields.special_circumstances', 'Enter any special circumstances')}
                 rows={3}
               />
               
               <MobileOptimizedTextarea
-                label="Allergies"
+                label={t('common.allergies', 'Allergies')}
                 name="allergies"
                 value={formData.allergies}
                 onChange={handleInputEvent}
-                placeholder="Enter any known allergies"
+                placeholder={t('common.allergies', 'Enter any known allergies')}
                 rows={3}
               />
               
               <MobileOptimizedTextarea
-                label="Current Medication"
+                label={t('admission_form.fields.medications', 'Current Medication')}
                 name="medication"
                 value={formData.medication}
                 onChange={handleInputEvent}
-                placeholder="Enter current medications"
+                placeholder={t('admission_form.fields.medications', 'Enter current medications')}
                 rows={3}
               />
             </div>
@@ -1387,11 +1389,11 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedSelect
-                label="Class"
+                label={t('common.class', 'Class')}
                 value={formData.class_id}
                 onChange={(value: string) => handleInputChange('class_id', value)}
                 error={errors.class_id}
-                placeholder="Select class"
+                placeholder={t('teachers_page.assign.select_class_placeholder', 'Select class')}
                 options={classOptions.length > 0 ? classOptions : [
                   { value: '1', label: 'Class 1' },
                   { value: '2', label: 'Class 2' },
@@ -1404,45 +1406,45 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               />
               
               <MobileOptimizedSelect
-                label="Parent/Guardian"
+                label={t('common.parent_guardian', 'Parent/Guardian')}
                 value={formData.parent_id}
                 onChange={(value: string) => handleInputChange('parent_id', value)}
                 error={errors.parent_id}
-                placeholder="Select parent/guardian"
+                placeholder={t('students_page.form.select_parent_placeholder', 'Select parent/guardian')}
                 options={parentOptions.length > 0 ? parentOptions : []}
               />
               
               <MobileOptimizedInput
-                label="Previous School"
+                label={t('admission_form.fields.prev_school_name', 'Previous School')}
                 name="previousSchool"
                 value={formData.previousSchool}
                 onChange={handleInputEvent}
-                placeholder="Enter previous school"
+                placeholder={t('admission_form.placeholders.prev_school_name', 'Enter previous school')}
                 leftIcon={<GraduationCap className="h-4 w-4" />}
               />
               
               <MobileOptimizedInput
-                label="Previous Class"
+                label={t('admission_form.fields.prev_school_class', 'Previous Class')}
                 name="previousClass"
                 value={formData.previousClass}
                 onChange={handleInputEvent}
-                placeholder="Enter previous class"
+                placeholder={t('admission_form.placeholders.prev_school_class', 'Enter previous class')}
               />
               
               <MobileOptimizedInput
-                label="Previous Team/House"
+                label={t('students_page.form.previous_team', 'Previous Team/House')}
                 name="previousTeam"
                 value={formData.previousTeam}
                 onChange={handleInputEvent}
-                placeholder="Enter previous team or house"
+                placeholder={t('students_page.form.previous_team_placeholder', 'Enter previous team or house')}
               />
               
               <MobileOptimizedInput
-                label="Previous Academic Year"
+                label={t('students_page.form.previous_year', 'Previous Academic Year')}
                 name="previousYear"
                 value={formData.previousYear}
                 onChange={handleInputEvent}
-                placeholder="Enter previous academic year"
+                placeholder={t('students_page.form.previous_year_placeholder', 'Enter previous academic year')}
               />
             </div>
           </div>
@@ -1455,64 +1457,64 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Father's Information
+                {t('students_page.form.father_info', "Father's Information")}
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MobileOptimizedInput
-                  label="Father's Name"
+                  label={t('students_page.form.father_name', "Father's Name")}
                   name="fatherName"
                   value={formData.fatherName}
                   onChange={handleInputEvent}
-                  placeholder="Enter father's name"
+                  placeholder={t('students_page.form.father_name_placeholder', "Enter father's name")}
                   leftIcon={<User className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Father's Contact"
+                  label={t('students_page.form.father_contact', "Father's Contact")}
                   name="fatherContact"
                   type="tel"
                   value={formData.fatherContact}
                   onChange={handleInputEvent}
                   error={errors.fatherContact}
-                  placeholder="Enter father's contact"
+                  placeholder={t('students_page.form.father_contact_placeholder', "Enter father's contact")}
                   leftIcon={<Phone className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Father's Email"
+                  label={t('students_page.form.father_email', "Father's Email")}
                   name="fatherEmail"
                   type="email"
                   value={formData.fatherEmail}
                   onChange={handleInputEvent}
                   error={errors.fatherEmail}
-                  placeholder="Enter father's email"
+                  placeholder={t('students_page.form.father_email_placeholder', "Enter father's email")}
                   leftIcon={<Mail className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Father's Profession"
+                  label={t('students_page.form.father_profession', "Father's Profession")}
                   name="fatherProfession"
                   value={formData.fatherProfession}
                   onChange={handleInputEvent}
-                  placeholder="Enter father's profession"
+                  placeholder={t('students_page.form.father_profession_placeholder', "Enter father's profession")}
                 />
                 
                 <MobileOptimizedInput
-                  label="Father's Workplace"
+                  label={t('students_page.form.father_workplace', "Father's Workplace")}
                   name="fatherWorkplace"
                   value={formData.fatherWorkplace}
                   onChange={handleInputEvent}
-                  placeholder="Enter father's workplace"
+                  placeholder={t('students_page.form.father_workplace_placeholder', "Enter father's workplace")}
                 />
               </div>
               
               <MobileOptimizedTextarea
-                label="Father's Address"
+                label={t('students_page.form.father_address', "Father's Address")}
                 name="fatherAddress"
                 value={formData.fatherAddress}
                 onChange={handleInputEvent}
-                placeholder="Enter father's address"
+                placeholder={t('students_page.form.father_address_placeholder', "Enter father's address")}
                 rows={2}
               />
             </div>
@@ -1521,64 +1523,64 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Mother's Information
+                {t('students_page.form.mother_info', "Mother's Information")}
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MobileOptimizedInput
-                  label="Mother's Name"
+                  label={t('students_page.form.mother_name', "Mother's Name")}
                   name="motherName"
                   value={formData.motherName}
                   onChange={handleInputEvent}
-                  placeholder="Enter mother's name"
+                  placeholder={t('students_page.form.mother_name_placeholder', "Enter mother's name")}
                   leftIcon={<User className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Mother's Contact"
+                  label={t('students_page.form.mother_contact', "Mother's Contact")}
                   name="motherContact"
                   type="tel"
                   value={formData.motherContact}
                   onChange={handleInputEvent}
                   error={errors.motherContact}
-                  placeholder="Enter mother's contact"
+                  placeholder={t('students_page.form.mother_contact_placeholder', "Enter mother's contact")}
                   leftIcon={<Phone className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Mother's Email"
+                  label={t('students_page.form.mother_email', "Mother's Email")}
                   name="motherEmail"
                   type="email"
                   value={formData.motherEmail}
                   onChange={handleInputEvent}
                   error={errors.motherEmail}
-                  placeholder="Enter mother's email"
+                  placeholder={t('students_page.form.mother_email_placeholder', "Enter mother's email")}
                   leftIcon={<Mail className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Mother's Profession"
+                  label={t('students_page.form.mother_profession', "Mother's Profession")}
                   name="motherProfession"
                   value={formData.motherProfession}
                   onChange={handleInputEvent}
-                  placeholder="Enter mother's profession"
+                  placeholder={t('students_page.form.mother_profession_placeholder', "Enter mother's profession")}
                 />
                 
                 <MobileOptimizedInput
-                  label="Mother's Workplace"
+                  label={t('students_page.form.mother_workplace', "Mother's Workplace")}
                   name="motherWorkplace"
                   value={formData.motherWorkplace}
                   onChange={handleInputEvent}
-                  placeholder="Enter mother's workplace"
+                  placeholder={t('students_page.form.mother_workplace_placeholder', "Enter mother's workplace")}
                 />
               </div>
               
               <MobileOptimizedTextarea
-                label="Mother's Address"
+                label={t('students_page.form.mother_address', "Mother's Address")}
                 name="motherAddress"
                 value={formData.motherAddress}
                 onChange={handleInputEvent}
-                placeholder="Enter mother's address"
+                placeholder={t('students_page.form.mother_address_placeholder', "Enter mother's address")}
                 rows={2}
               />
             </div>
@@ -1587,27 +1589,27 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Guardian's Information (If different from parents)
+                {t('students_page.form.guardian_info', "Guardian's Information (If different from parents)")}
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MobileOptimizedInput
-                  label="Guardian's Name"
+                  label={t('students_page.form.guardian_name', "Guardian's Name")}
                   name="guardianName"
                   value={formData.guardianName}
                   onChange={handleInputEvent}
-                  placeholder="Enter guardian's name"
+                  placeholder={t('students_page.form.guardian_name_placeholder', "Enter guardian's name")}
                   leftIcon={<User className="h-4 w-4" />}
                 />
                 
                 <MobileOptimizedInput
-                  label="Guardian's Contact"
+                  label={t('students_page.form.guardian_contact', "Guardian's Contact")}
                   name="guardianContact"
                   type="tel"
                   value={formData.guardianContact}
                   onChange={handleInputEvent}
                   error={errors.guardianContact}
-                  placeholder="Enter guardian's contact"
+                  placeholder={t('students_page.form.guardian_contact_placeholder', "Enter guardian's contact")}
                   leftIcon={<Phone className="h-4 w-4" />}
                 />
               </div>
@@ -1621,10 +1623,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Review Information</h3>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">{t('students_page.form.review_info', 'Review Information')}</h3>
               </div>
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                Please review all the information below before submitting. You can go back to any section to make changes.
+                {t('students_page.form.review_help', 'Please review all the information below before submitting. You can go back to any section to make changes.')}
               </p>
             </div>
             
@@ -1632,21 +1634,21 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="space-y-4">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Basic Information
+                {t('students_page.form.basic_info', 'Basic Information')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div><span className="font-medium">First Name:</span> {formData.first_name}</div>
-                <div><span className="font-medium">Middle Name:</span> {formData.middle_name || 'N/A'}</div>
-                <div><span className="font-medium">Last Name:</span> {formData.last_name}</div>
-                <div><span className="font-medium">Admission Number:</span> {formData.admission_number}</div>
-                <div><span className="font-medium">Email:</span> {formData.email}</div>
-                <div><span className="font-medium">Phone:</span> {formData.phone}</div>
-                <div><span className="font-medium">Date of Birth:</span> {formData.date_of_birth}</div>
-                <div><span className="font-medium">Gender:</span> {formData.gender}</div>
+                <div><span className="font-medium">{t('students_page.form.first_name', 'First Name')}:</span> {formData.first_name}</div>
+                <div><span className="font-medium">{t('students_page.form.middle_name', 'Middle Name')}:</span> {formData.middle_name || 'N/A'}</div>
+                <div><span className="font-medium">{t('students_page.form.last_name', 'Last Name')}:</span> {formData.last_name}</div>
+                <div><span className="font-medium">{t('common.admission_number', 'Admission Number')}:</span> {formData.admission_number}</div>
+                <div><span className="font-medium">{t('teachers_page.profile.email', 'Email')}:</span> {formData.email}</div>
+                <div><span className="font-medium">{t('teachers_page.profile.phone', 'Phone')}:</span> {formData.phone}</div>
+                <div><span className="font-medium">{t('common.date_of_birth', 'Date of Birth')}:</span> {formData.date_of_birth}</div>
+                <div><span className="font-medium">{t('common.gender', 'Gender')}:</span> {formData.gender}</div>
               </div>
               {formData.address && (
                 <div className="text-sm">
-                  <span className="font-medium">Address:</span> {formData.address}
+                  <span className="font-medium">{t('common.address', 'Address')}:</span> {formData.address}
                 </div>
               )}
             </div>
@@ -1656,16 +1658,16 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Phone className="h-4 w-4" />
-                  Contact Information
+                  {t('admission_form.step_titles.address', 'Contact Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  {formData.telephone && <div><span className="font-medium">Telephone:</span> {formData.telephone}</div>}
-                  {formData.whatsapp && <div><span className="font-medium">WhatsApp:</span> {formData.whatsapp}</div>}
-                  {formData.placeOfBirth && <div><span className="font-medium">Place of Birth:</span> {formData.placeOfBirth}</div>}
-                  {formData.nationality && <div><span className="font-medium">Nationality:</span> {formData.nationality}</div>}
-                  {formData.bloodGroup && <div><span className="font-medium">Blood Group:</span> {formData.bloodGroup}</div>}
-                  {formData.city && <div><span className="font-medium">City:</span> {formData.city}</div>}
-                  {formData.country && <div><span className="font-medium">Country:</span> {formData.country}</div>}
+                  {formData.telephone && <div><span className="font-medium">{t('students_page.form.telephone', 'Telephone')}:</span> {formData.telephone}</div>}
+                  {formData.whatsapp && <div><span className="font-medium">{t('students_page.form.whatsapp', 'WhatsApp')}:</span> {formData.whatsapp}</div>}
+                  {formData.placeOfBirth && <div><span className="font-medium">{t('common.place_of_birth', 'Place of Birth')}:</span> {formData.placeOfBirth}</div>}
+                  {formData.nationality && <div><span className="font-medium">{t('admission_form.fields.nationality', 'Nationality')}:</span> {formData.nationality}</div>}
+                  {formData.bloodGroup && <div><span className="font-medium">{t('common.blood_group', 'Blood Group')}:</span> {formData.bloodGroup}</div>}
+                  {formData.city && <div><span className="font-medium">{t('admission_form.fields.city', 'City')}:</span> {formData.city}</div>}
+                  {formData.country && <div><span className="font-medium">{t('admission_form.fields.state', 'Country')}:</span> {formData.country}</div>}
                 </div>
               </div>
             )}
@@ -1675,13 +1677,13 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Heart className="h-4 w-4" />
-                  Medical Information
+                  {t('students_page.form.steps.medical', 'Medical Information')}
                 </h4>
                 <div className="grid grid-cols-1 gap-2 text-sm">
-                  {formData.physicianName && <div><span className="font-medium">Physician:</span> {formData.physicianName}</div>}
-                  {formData.medicalConditions && <div><span className="font-medium">Medical Conditions:</span> {formData.medicalConditions}</div>}
-                  {formData.allergies && <div><span className="font-medium">Allergies:</span> {formData.allergies}</div>}
-                  {formData.specialCircumstance && <div><span className="font-medium">Special Circumstances:</span> {formData.specialCircumstance}</div>}
+                  {formData.physicianName && <div><span className="font-medium">{t('admission_form.placeholders.physician_name', 'Physician')}:</span> {formData.physicianName}</div>}
+                  {formData.medicalConditions && <div><span className="font-medium">{t('common.medical_conditions', 'Medical Conditions')}:</span> {formData.medicalConditions}</div>}
+                  {formData.allergies && <div><span className="font-medium">{t('common.allergies', 'Allergies')}:</span> {formData.allergies}</div>}
+                  {formData.specialCircumstance && <div><span className="font-medium">{t('admission_form.fields.special_circumstances', 'Special Circumstances')}:</span> {formData.specialCircumstance}</div>}
                 </div>
               </div>
             )}
@@ -1690,13 +1692,13 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             <div className="space-y-4">
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />
-                Academic Information
+                {t('students_page.form.steps.enrollment', 'Academic Information')}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div><span className="font-medium">Class:</span> {formData.class_id ? `Class ${formData.class_id}` : 'Not selected'}</div>
-                <div><span className="font-medium">Parent/Guardian:</span> {formData.parent_id || 'Not selected'}</div>
-                {formData.previousSchool && <div><span className="font-medium">Previous School:</span> {formData.previousSchool}</div>}
-                {formData.previousClass && <div><span className="font-medium">Previous Class:</span> {formData.previousClass}</div>}
+                <div><span className="font-medium">{t('common.class', 'Class')}:</span> {formData.class_id ? `${t('common.class', 'Class')} ${formData.class_id}` : t('students_page.form.not_selected', 'Not selected')}</div>
+                <div><span className="font-medium">{t('common.parent_guardian', 'Parent/Guardian')}:</span> {formData.parent_id || t('students_page.form.not_selected', 'Not selected')}</div>
+                {formData.previousSchool && <div><span className="font-medium">{t('admission_form.fields.prev_school_name', 'Previous School')}:</span> {formData.previousSchool}</div>}
+                {formData.previousClass && <div><span className="font-medium">{t('admission_form.fields.prev_school_class', 'Previous Class')}:</span> {formData.previousClass}</div>}
               </div>
             </div>
             
@@ -1705,15 +1707,15 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               <div className="space-y-4">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  Parent/Guardian Information
+                  {t('admission_form.step_titles.guardian', 'Parent/Guardian Information')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  {formData.fatherName && <div><span className="font-medium">Father's Name:</span> {formData.fatherName}</div>}
-                  {formData.fatherContact && <div><span className="font-medium">Father's Contact:</span> {formData.fatherContact}</div>}
-                  {formData.motherName && <div><span className="font-medium">Mother's Name:</span> {formData.motherName}</div>}
-                  {formData.motherContact && <div><span className="font-medium">Mother's Contact:</span> {formData.motherContact}</div>}
-                  {formData.guardianName && <div><span className="font-medium">Guardian's Name:</span> {formData.guardianName}</div>}
-                  {formData.guardianContact && <div><span className="font-medium">Guardian's Contact:</span> {formData.guardianContact}</div>}
+                  {formData.fatherName && <div><span className="font-medium">{t('students_page.form.father_name', "Father's Name")}:</span> {formData.fatherName}</div>}
+                  {formData.fatherContact && <div><span className="font-medium">{t('students_page.form.father_contact', "Father's Contact")}:</span> {formData.fatherContact}</div>}
+                  {formData.motherName && <div><span className="font-medium">{t('students_page.form.mother_name', "Mother's Name")}:</span> {formData.motherName}</div>}
+                  {formData.motherContact && <div><span className="font-medium">{t('students_page.form.mother_contact', "Mother's Contact")}:</span> {formData.motherContact}</div>}
+                  {formData.guardianName && <div><span className="font-medium">{t('students_page.form.guardian_name', "Guardian's Name")}:</span> {formData.guardianName}</div>}
+                  {formData.guardianContact && <div><span className="font-medium">{t('students_page.form.guardian_contact', "Guardian's Contact")}:</span> {formData.guardianContact}</div>}
                 </div>
               </div>
             )}
@@ -1738,12 +1740,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl font-semibold">
-            {student ? 'Edit Student' : 'Add New Student'}
+            {student ? t('students_page.form.edit_student', 'Edit Student') : t('teachers_page.add_teacher', 'Add New Student')}
           </DialogTitle>
           <DialogDescription>
             {student 
-              ? `Update details for ${student.first_name} ${student.last_name}` 
-              : 'Enter information for the new student record using the same intake flow as admissions, with admin-only enrollment fields.'}
+              ? `${t('students_page.form.update_details_for', 'Update details for')} ${student.first_name} ${student.last_name}` 
+              : t('students_page.form.new_student_desc', 'Enter information for the new student record using the same intake flow as admissions, with admin-only enrollment fields.')}
           </DialogDescription>
         </DialogHeader>
         
@@ -1780,7 +1782,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                   <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
                     <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                     <AlertDescription className="text-red-700 dark:text-red-300">
-                      Please fix the errors below before continuing.
+                      {t('students_page.form.fix_errors_alert', 'Please fix the errors below before continuing.')}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -1805,7 +1807,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               className={`flex items-center gap-2 ${ADMIN_SECONDARY_BUTTON_CLASS}`}
             >
               <ChevronLeft className="h-4 w-4" />
-              Previous
+              {t('admission_form.previous', 'Previous')}
             </TouchFriendlyButton>
             
             <div className="flex gap-2">
@@ -1815,7 +1817,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 onClick={saveProgress}
                 className={`text-sm ${ADMIN_SECONDARY_BUTTON_CLASS}`}
               >
-                Save Progress
+                {t('students_page.form.save_progress', 'Save Progress')}
               </TouchFriendlyButton>
               
               <TouchFriendlyButton
@@ -1824,7 +1826,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 onClick={onClose}
                 className={ADMIN_SECONDARY_BUTTON_CLASS}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </TouchFriendlyButton>
             </div>
             
@@ -1834,7 +1836,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 onClick={nextStep}
                 className={`flex items-center gap-2 ${ADMIN_PRIMARY_BUTTON_CLASS}`}
               >
-                Next
+                {t('admission_form.next_step', 'Next')}
                 <ChevronRight className="h-4 w-4" />
               </TouchFriendlyButton>
             ) : (
@@ -1847,12 +1849,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {student ? 'Updating...' : 'Creating...'}
+                    {student ? t('common.updating', 'Updating...') : t('common.creating', 'Creating...')}
                   </>
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    {student ? 'Update Student' : 'Create Student'}
+                    {student ? t('students_page.form.update_student', 'Update Student') : t('students_page.form.create_student', 'Create Student')}
                   </>
                 )}
               </TouchFriendlyButton>
