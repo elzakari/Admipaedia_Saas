@@ -93,7 +93,8 @@ describe('StudentFormModal Component', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /First Name/i }), { target: { value: 'John' } });
     fireEvent.change(screen.getByRole('textbox', { name: /Last Name/i }), { target: { value: 'Doe' } });
     fireEvent.change(screen.getByLabelText(/Date of Birth/i), { target: { value: '2010-01-01' } });
-    fireEvent.change(screen.getByLabelText(/Gender/i), { target: { value: 'male' } });
+    fireEvent.click(screen.getByLabelText(/Gender/i));
+    fireEvent.click(screen.getByText('Male'));
     
     // Enter invalid email in step 0
     const emailInput = screen.getByLabelText(/Email Address/i);
@@ -104,8 +105,8 @@ describe('StudentFormModal Component', () => {
     
     await waitFor(() => {
       expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument();
-      // Verify we are still on Step 1 (Basic Info) indicator
-      expect(screen.getByText('Basic Info')).toBeInTheDocument();
+      // Verify we are still on Step 1 (Personal) indicator
+      expect(screen.getByText('Personal')).toBeInTheDocument();
     });
   });
 });

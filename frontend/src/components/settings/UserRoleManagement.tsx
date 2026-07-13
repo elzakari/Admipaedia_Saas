@@ -522,7 +522,7 @@ const UserRoleManagement = () => {
                 <Button variant="outline" onClick={resetCreateDialog}>
                   {t('common.cancel', 'Cancel')}
                 </Button>
-                <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
+                <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending} data-testid="save-role-btn">
                   {createRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {createRoleMutation.isPending
                     ? t('admin_settings.creating_role', 'Creating...')
@@ -613,6 +613,7 @@ const UserRoleManagement = () => {
                                 size="icon"
                                 onClick={() => handleDeleteRole(role)}
                                 title={t('common.delete', 'Delete')}
+                                data-testid={`delete-role-${role.id}`}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

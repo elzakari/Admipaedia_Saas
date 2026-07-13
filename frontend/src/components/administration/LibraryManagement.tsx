@@ -289,7 +289,9 @@ const LibraryManagement = () => {
               </Table>
             </CardContent>
           </Card>
-        </TabsConten        <TabsContent value="categories" className="space-y-4">
+        </TabsContent>
+        
+        <TabsContent value="categories" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">{t('admin_library.book_categories', 'Book Categories')}</h3>
           </div>

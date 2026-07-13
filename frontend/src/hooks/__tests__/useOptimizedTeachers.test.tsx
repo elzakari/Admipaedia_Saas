@@ -1,11 +1,12 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useOptimizedTeachers } from '../useOptimizedTeachers';
-import * as teacherService from '../../services/teacherService';
+import { teacherService } from '../../services/teacherService';
 import { mockTeacher, mockApiResponse } from '../../utils/testUtils';
 
-jest.mock('../../services/teacherService');
-const mockedTeacherService = teacherService as jest.Mocked<typeof teacherService>;
+vi.mock('../../services/teacherService');
+const mockedTeacherService = teacherService as any;
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -24,7 +25,7 @@ const createWrapper = () => {
 
 describe('useOptimizedTeachers', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('fetches teachers successfully', async () => {
@@ -76,15 +77,11 @@ describe('useOptimizedTeachers', () => {
     mockedTeacherService.getTeachers
       .mockResolvedValueOnce({
         data: [mockTeacher],
-        total: 20,
-        page: 1,
-        limit: 10,
+        pagination: { current_page: 1, total_pages: 2, total: 20, per_page: 10 }
       })
       .mockResolvedValueOnce({
         data: [{ ...mockTeacher, id: '2', name: 'Jane Doe' }],
-        total: 20,
-        page: 2,
-        limit: 10,
+        pagination: { current_page: 2, total_pages: 2, total: 20, per_page: 10 }
       });
 
     const { result } = renderHook(

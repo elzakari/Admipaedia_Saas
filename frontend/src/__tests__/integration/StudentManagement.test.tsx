@@ -101,8 +101,8 @@ const mockStudents: Student[] = [
     mother_name: 'Jane Doe',
     mother_email: 'jane.doe@example.com',
     mother_contact: '0987654322',
-    profile_image: null,
-    class_name: 'Grade 10A',
+    profile_image: 'https://example.com/avatar.jpg',
+    class_name: 'Grade 1',
     enrollment_date: '2023-09-01',
     parent_name: undefined,
     parent_phone: undefined,
@@ -162,8 +162,8 @@ const mockStudents: Student[] = [
     mother_name: 'Carol Smith',
     mother_email: 'carol.smith@example.com',
     mother_contact: '0987654324',
-    profile_image: null,
-    class_name: 'Grade 9B',
+    profile_image: 'https://example.com/avatar.jpg',
+    class_name: 'Grade 2',
     enrollment_date: '2023-09-01',
     parent_name: undefined,
     parent_phone: undefined,
@@ -203,8 +203,8 @@ const mockStudents: Student[] = [
 const mockClasses: Class[] = [
   {
     id: 1,
-    name: 'Grade 10A',
-    grade_level: '10',
+    name: 'Grade 1',
+    grade_level: '1',
     academic_year: '2023-2024',
     status: 'active',
     created_at: '2023-09-01T00:00:00Z',
@@ -215,8 +215,8 @@ const mockClasses: Class[] = [
   },
   {
     id: 2,
-    name: 'Grade 9B',
-    grade_level: '9',
+    name: 'Grade 2',
+    grade_level: '2',
     academic_year: '2023-2024',
     status: 'active',
     created_at: '2023-09-01T00:00:00Z',
@@ -267,6 +267,10 @@ describe('Student Management Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
+    // Clean up Radix scroll/pointer locks from other runs
+    document.body.removeAttribute('data-scroll-locked');
+    document.body.style.pointerEvents = '';
+    
     // Mock localStorage
     const localStorageMock = {
       getItem: jest.fn(),
@@ -287,6 +291,11 @@ describe('Student Management Integration Tests', () => {
     mockStudentService.createStudent.mockResolvedValue({ data: mockStudents[0], success: true });
     mockStudentService.updateStudent.mockResolvedValue({ data: mockStudents[0], success: true });
     mockStudentService.deleteStudent.mockResolvedValue({ success: true });
+    
+    mockClassService.getClasses.mockResolvedValue({
+      data: mockClasses,
+      pagination: { total: 2, total_pages: 1, current_page: 1, per_page: 10 }
+    });
     
     // Properly assign the bulkUpdateClass method with correct typing
     mockStudentService.bulkUpdateClass = jest.fn<(studentIds: number[], classId: number) => Promise<{ success: boolean }>>().mockResolvedValue({ success: true });
@@ -342,7 +351,7 @@ describe('Student Management Integration Tests', () => {
 
   describe('Search and Filtering', () => {
     it('should filter students by search term', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>
@@ -367,7 +376,7 @@ describe('Student Management Integration Tests', () => {
     });
 
     it('should filter students by class', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>
@@ -391,7 +400,7 @@ describe('Student Management Integration Tests', () => {
     });
 
     it('should filter students by status', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>
@@ -415,7 +424,7 @@ describe('Student Management Integration Tests', () => {
 
   describe('Student CRUD Operations', () => {
     it('should create a new student', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>
@@ -438,7 +447,7 @@ describe('Student Management Integration Tests', () => {
     });
 
     it('should delete a student', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>
@@ -488,7 +497,7 @@ describe('Student Management Integration Tests', () => {
 
   describe('Data Validation', () => {
     it('should show validation errors for invalid form data', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
       
       render(
         <TestWrapper>

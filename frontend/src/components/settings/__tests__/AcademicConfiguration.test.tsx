@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import AcademicConfiguration from '../AcademicConfiguration';
@@ -53,7 +53,11 @@ const mockAcademicConfiguration = {
     { id: '1', minScore: 80, maxScore: 100, grade: 'A', description: 'Excellent', gradePoint: 4.0 }
   ],
   assessmentTypes: [
-    { id: '1', name: 'Exams', weight: 40, description: 'Major examinations', isActive: true }
+    { id: '1', name: 'Exams', weight: 40, description: 'Major examinations', isActive: true },
+    { id: '2', name: 'Assignments', weight: 20, description: 'Class assignments', isActive: true },
+    { id: '3', name: 'Quizzes', weight: 15, description: 'Short quizzes', isActive: true },
+    { id: '4', name: 'Projects', weight: 15, description: 'Term projects', isActive: true },
+    { id: '5', name: 'Class Participation', weight: 10, description: 'Active participation', isActive: true }
   ],
   assessmentWeights: {
     exams: 40,
@@ -145,7 +149,10 @@ describe('AcademicConfiguration', () => {
 
     await user.click(screen.getByRole('tab', { name: /Assessment/i }));
 
-    const examsWeightInput = screen.getByLabelText(/Exams/i);
+    const examsNameInput = screen.getByDisplayValue('Exams');
+    const row = examsNameInput.closest('tr');
+    if (!row) throw new Error('Could not find Exams row');
+    const examsWeightInput = within(row).getByRole('spinbutton');
     await user.clear(examsWeightInput);
     await user.type(examsWeightInput, '50');
 

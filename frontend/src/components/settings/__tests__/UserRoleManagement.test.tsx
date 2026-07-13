@@ -144,7 +144,7 @@ describe('UserRoleManagement', () => {
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
-        title: 'Validation Error',
+        title: 'Error',
       }));
       expect(rbacApi.createRole).not.toHaveBeenCalled();
     });

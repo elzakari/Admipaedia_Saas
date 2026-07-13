@@ -37,7 +37,7 @@ describe('parentService portal workflow helpers', () => {
     const result = await parentService.getChildHomeworkData(11);
 
     expect(mockApi.get).toHaveBeenCalledWith('/parents/children/11/homework');
-    expect(result).toEqual([{ id: 1, title: 'Math Homework' }]);
+    expect(result).toEqual([{ id: 1, title: 'Math Homework', subject: 'Subject' }]);
   });
 
   it('unwraps parent messages from success_response payloads', async () => {

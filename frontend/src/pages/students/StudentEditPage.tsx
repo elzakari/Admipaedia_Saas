@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import studentService from '../../services/studentService';
 import { useToast } from '../../components/ui/use-toast';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
+import { useTranslation } from 'react-i18next';
 
 const StudentEditPage: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -28,8 +30,8 @@ const StudentEditPage: React.FC = () => {
       if (!Number.isInteger(studentId) || studentId <= 0) {
         setLoading(false);
         toast({
-          title: "Error",
-          description: "Invalid student record",
+          title: t('common.error', 'Error'),
+          description: t('students_page.invalid_student', 'Invalid student record'),
           variant: "destructive"
         });
         navigate('/students', { replace: true });
@@ -44,8 +46,8 @@ const StudentEditPage: React.FC = () => {
         setFormData(studentData);
       } catch (error) {
         toast({
-            title: "Error",
-            description: "Failed to fetch student data",
+            title: t('common.error', 'Error'),
+            description: t('students_page.failed_fetch', 'Failed to fetch student data'),
             variant: "destructive"
         });
       } finally {
@@ -54,7 +56,7 @@ const StudentEditPage: React.FC = () => {
     };
 
     fetchStudent();
-  }, [id]);
+  }, [id, t]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev: any) => ({
@@ -72,15 +74,15 @@ const StudentEditPage: React.FC = () => {
       setSaving(true);
       await studentService.updateStudent(studentId, formData);
       toast({
-        title: "Success",
-        description: "Student updated successfully",
+        title: t('common.success', 'Success'),
+        description: t('students_page.update_success', 'Student updated successfully'),
         variant: "default"
       });
       navigate(`/students/${id}`);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to update student",
+        title: t('common.error', 'Error'),
+        description: t('students_page.update_failed', 'Failed to update student'),
         variant: "destructive"
       });
     } finally {
@@ -99,10 +101,10 @@ const StudentEditPage: React.FC = () => {
   if (!student) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <h2 className="text-2xl font-bold text-gray-600 mb-2">Student Not Found</h2>
+        <h2 className="text-2xl font-bold text-gray-600 mb-2">{t('students_page.no_students_found', 'Student Not Found')}</h2>
         <Button onClick={() => navigate('/students')} variant="outline" className={ADMIN_SECONDARY_BUTTON_CLASS}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Students
+          {t('common.back_to_students', 'Back to Students')}
         </Button>
       </div>
     );
@@ -122,7 +124,7 @@ const StudentEditPage: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Student</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t('students_page.edit_student', 'Edit Student')}</h1>
             <p className="text-gray-600">{student.display_name}</p>
           </div>
         </div>
@@ -130,11 +132,11 @@ const StudentEditPage: React.FC = () => {
         <div className="flex space-x-2">
           <Button variant="outline" onClick={() => navigate(`/students/${id}`)} className={ADMIN_SECONDARY_BUTTON_CLASS}>
             <X className="h-4 w-4 mr-2" />
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={saving} className={ADMIN_PRIMARY_BUTTON_CLASS}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('common.saving', 'Saving...') : t('common.save_changes', 'Save Changes')}
           </Button>
         </div>
       </div>
@@ -144,12 +146,12 @@ const StudentEditPage: React.FC = () => {
         {/* Personal Information */}
         <Card>
           <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
+            <CardTitle>{t('common.personal_information', 'Personal Information')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="first_name">First Name</Label>
+                <Label htmlFor="first_name">{t('students_page.first_name', 'First Name')}</Label>
                 <Input
                   id="first_name"
                   value={formData.first_name || ''}
@@ -157,7 +159,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="last_name">Last Name</Label>
+                <Label htmlFor="last_name">{t('students_page.last_name', 'Last Name')}</Label>
                 <Input
                   id="last_name"
                   value={formData.last_name || ''}
@@ -165,7 +167,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="middle_name">Middle Name</Label>
+                <Label htmlFor="middle_name">{t('students_page.middle_name', 'Middle Name')}</Label>
                 <Input
                   id="middle_name"
                   value={formData.middle_name || ''}
@@ -173,7 +175,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('teachers_page.profile.email', 'Email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -182,7 +184,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">{t('teachers_page.profile.phone', 'Phone')}</Label>
                 <Input
                   id="phone"
                   value={formData.phone || ''}
@@ -190,7 +192,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="date_of_birth">Date of Birth</Label>
+                <Label htmlFor="date_of_birth">{t('common.date_of_birth', 'Date of Birth')}</Label>
                 <Input
                   id="date_of_birth"
                   type="date"
@@ -199,34 +201,34 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="gender">Gender</Label>
+                <Label htmlFor="gender">{t('common.gender', 'Gender')}</Label>
                 <Select value={formData.gender || ''} onValueChange={(value) => handleInputChange('gender', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
+                    <SelectValue placeholder={t('common.select_gender', 'Select gender')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
+                    <SelectItem value="Male">{t('common.male', 'Male')}</SelectItem>
+                    <SelectItem value="Female">{t('common.female', 'Female')}</SelectItem>
+                    <SelectItem value="Other">{t('common.other', 'Other')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status">{t('teachers_page.profile.status', 'Status')}</Label>
                 <Select value={formData.status || ''} onValueChange={(value) => handleInputChange('status', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder={t('common.select_status', 'Select status')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
+                    <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
+                    <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
+                    <SelectItem value="suspended">{t('common.suspended', 'Suspended')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="mt-4">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('common.address', 'Address')}</Label>
               <Textarea
                 id="address"
                 value={formData.address || ''}
@@ -240,12 +242,12 @@ const StudentEditPage: React.FC = () => {
         {/* Academic Information */}
         <Card>
           <CardHeader>
-            <CardTitle>Academic Information</CardTitle>
+            <CardTitle>{t('academics_page.management_title', 'Academic Information')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="admission_number">Admission Number</Label>
+                <Label htmlFor="admission_number">{t('common.admission_number', 'Admission Number')}</Label>
                 <Input
                   id="admission_number"
                   value={formData.admission_number || ''}
@@ -254,7 +256,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="enrollment_date">Enrollment Date</Label>
+                <Label htmlFor="enrollment_date">{t('students_page.profile.enrollment_date', 'Enrollment Date')}</Label>
                 <Input
                   id="enrollment_date"
                   type="date"
@@ -269,12 +271,12 @@ const StudentEditPage: React.FC = () => {
         {/* Health Information */}
         <Card>
           <CardHeader>
-            <CardTitle>Health Information</CardTitle>
+            <CardTitle>{t('common.health_information', 'Health Information')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="blood_group">Blood Group</Label>
+                <Label htmlFor="blood_group">{t('common.blood_group', 'Blood Group')}</Label>
                 <Input
                   id="blood_group"
                   value={formData.blood_group || ''}
@@ -282,7 +284,7 @@ const StudentEditPage: React.FC = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="allergies">Allergies</Label>
+                <Label htmlFor="allergies">{t('common.allergies', 'Allergies')}</Label>
                 <Input
                   id="allergies"
                   value={formData.allergies || ''}
@@ -291,7 +293,7 @@ const StudentEditPage: React.FC = () => {
               </div>
             </div>
             <div className="mt-4">
-              <Label htmlFor="medical_conditions">Medical Conditions</Label>
+              <Label htmlFor="medical_conditions">{t('common.medical_conditions', 'Medical Conditions')}</Label>
               <Textarea
                 id="medical_conditions"
                 value={formData.medical_conditions || ''}
