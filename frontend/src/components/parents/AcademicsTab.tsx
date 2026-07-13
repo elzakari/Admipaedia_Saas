@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
 import { Separator } from "../../components/ui/separator";
+import { useTranslation } from "react-i18next";
 
 interface AcademicsTabProps {
   currentAcademicData: any;
 }
 
 const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
+  const { t } = useTranslation();
   // Combine recent and upcoming exams or use just one of them
   const exams = [...(currentAcademicData.recentExams || []), ...(currentAcademicData.upcomingExams || [])];
   const subjects = Array.isArray(currentAcademicData.subjects) ? currentAcademicData.subjects : [];
@@ -19,8 +21,8 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glass-card md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg">Academic Performance</CardTitle>
-            <CardDescription>Current Term Subject Scores</CardDescription>
+            <CardTitle className="text-lg">{t('parent_portal.my_children.academic_performance', 'Academic Performance')}</CardTitle>
+            <CardDescription>{t('parent_portal.my_children.subject_scores_desc', 'Current Term Subject Scores')}</CardDescription>
           </CardHeader>
           <CardContent>
             {subjects.length > 0 ? (
@@ -40,7 +42,7 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
                     <div className="flex items-center">
                       <Progress value={subject.score ?? 0} className="flex-grow mr-4" />
                       <span className="text-xs text-indigo-700">
-                        {subject.teacher || "Teacher unavailable"}
+                        {subject.teacher || t('parent_portal.my_children.teacher_unavailable', 'Teacher unavailable')}
                       </span>
                     </div>
                   </div>
@@ -48,7 +50,7 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
-                No subject scores are available for this child yet.
+                {t('parent_portal.my_children.no_subject_scores', 'No subject scores are available for this child yet.')}
               </div>
             )}
           </CardContent>
@@ -56,7 +58,7 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
 
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="text-lg">Overall Performance</CardTitle>
+            <CardTitle className="text-lg">{t('parent_portal.my_children.overall_performance', 'Overall Performance')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center justify-center p-4">
@@ -85,18 +87,23 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
                 </svg>
                 <div className="absolute flex flex-col items-center justify-center">
                   <span className="text-3xl font-bold text-indigo-900">{currentAcademicData.overallPercentage}%</span>
-                  <span className="text-sm text-indigo-700">Grade {currentAcademicData.overallGrade}</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.grade_class_short', 'Grade {{grade}}', { grade: currentAcademicData.overallGrade })}</span>
                 </div>
               </div>
               
               <div className="mt-6 w-full space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Class Rank:</span>
-                  <span className="text-sm font-medium text-indigo-900">{currentAcademicData.classRank} of {currentAcademicData.totalStudents}</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.class_rank_label', 'Class Rank')}:</span>
+                  <span className="text-sm font-medium text-indigo-900">
+                    {t('parent_portal.my_children.rank_out_of_simple', '{{rank}} of {{total}}', {
+                      rank: currentAcademicData.classRank,
+                      total: currentAcademicData.totalStudents
+                    })}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Percentile:</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.percentile_label', 'Percentile')}:</span>
                   <span className="text-sm font-medium text-indigo-900">
                     {Math.round(((currentAcademicData.totalStudents - currentAcademicData.classRank) / currentAcademicData.totalStudents) * 100)}%
                   </span>
@@ -110,7 +117,7 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
       {/* Exams and assessments */}
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-lg">Exams & Assessments</CardTitle>
+          <CardTitle className="text-lg">{t('parent_portal.my_children.exams_assessments', 'Exams & Assessments')}</CardTitle>
         </CardHeader>
         <CardContent>
           {exams.length > 0 ? (
@@ -125,18 +132,18 @@ const AcademicsTab = ({ currentAcademicData }: AcademicsTabProps) => {
                     </div>
                     <div className="ml-3">
                       <p className="text-sm font-medium text-indigo-900">{exam.name}</p>
-                      <p className="text-xs text-indigo-700">{exam.date || "Date unavailable"}</p>
+                      <p className="text-xs text-indigo-700">{exam.date || t('parent_portal.my_children.date_unavailable', 'Date unavailable')}</p>
                     </div>
                   </div>
                   <Badge variant={exam.score ? "success" : "outline"}>
-                    {exam.score ? `${exam.score}/${exam.maxScore ?? 100}` : "Upcoming"}
+                    {exam.score ? `${exam.score}/${exam.maxScore ?? 100}` : t('parent_portal.my_children.status_upcoming', 'Upcoming')}
                   </Badge>
                 </div>
               ))}
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
-              No exams or assessments are available yet.
+              {t('parent_portal.my_children.no_exams', 'No exams or assessments are available yet.')}
             </div>
           )}
         </CardContent>

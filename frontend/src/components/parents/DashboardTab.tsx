@@ -288,11 +288,11 @@ function DashboardTab({
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-indigo-900">Assignment Progress</h3>
-              <p className="text-sm text-indigo-700">Track homework status and grading for this child.</p>
+              <h3 className="text-base font-semibold text-indigo-900">{t('parent_portal.my_children.assignment_progress', 'Assignment Progress')}</h3>
+              <p className="text-sm text-indigo-700">{t('parent_portal.my_children.track_homework', 'Track homework status and grading for this child.')}</p>
             </div>
             <Badge variant="outline" className="text-xs">
-              {homeworkData?.length || 0} total
+              {homeworkData?.length || 0} {t('common.total', 'total')}
             </Badge>
           </div>
 
@@ -304,7 +304,7 @@ function DashboardTab({
                     <div>
                       <div className="text-sm font-semibold text-indigo-900">{assignment.title}</div>
                       <div className="text-xs text-indigo-700">
-                        {assignment.subject} • Due {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '—'}
+                        {assignment.subject} • {t('common.due', 'Due')} {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : '—'}
                       </div>
                     </div>
                     <Badge
@@ -317,20 +317,20 @@ function DashboardTab({
                       }
                       className="capitalize"
                     >
-                      {assignment.status}
+                      {t(`parent_portal.my_children.status_${assignment.status}`, assignment.status)}
                     </Badge>
                   </div>
                   {assignment.score != null ? (
-                    <div className="mt-2 text-xs text-indigo-700">Score: {assignment.score}</div>
+                    <div className="mt-2 text-xs text-indigo-700">{t('common.score', 'Score')}: {assignment.score}</div>
                   ) : null}
                   {assignment.feedback ? (
-                    <div className="mt-2 text-xs text-indigo-700">Feedback: {assignment.feedback}</div>
+                    <div className="mt-2 text-xs text-indigo-700">{t('common.feedback', 'Feedback')}: {assignment.feedback}</div>
                   ) : null}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-indigo-700">No assignments available for this child yet.</div>
+            <div className="text-sm text-indigo-700">{t('parent_portal.my_children.no_assignments', 'No assignments available for this child yet.')}</div>
           )}
         </CardContent>
       </Card>

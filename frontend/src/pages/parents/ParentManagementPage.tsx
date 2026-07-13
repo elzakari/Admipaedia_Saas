@@ -148,7 +148,15 @@ function ParentManagementPage() {
       return;
     }
 
-    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Status', 'Children Count'];
+    const headers = [
+      t('common.id', 'ID'),
+      t('common.first_name', 'First Name'),
+      t('common.last_name', 'Last Name'),
+      t('auth.email', 'Email'),
+      t('common.phone', 'Phone'),
+      t('common.status', 'Status'),
+      t('admin_parents.children_count', 'Children Count')
+    ];
     const csvData = parents.map(p => [
       p.id,
       p.firstName,

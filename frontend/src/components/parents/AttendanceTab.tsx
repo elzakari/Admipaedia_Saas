@@ -2,12 +2,14 @@ import { CheckCircle, Clock, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Separator } from "../../components/ui/separator";
+import { useTranslation } from "react-i18next";
 
 interface AttendanceTabProps {
   currentAttendanceData: any;
 }
 
 const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
+  const { t } = useTranslation();
   // Calculate total days
   const totalDays = currentAttendanceData.present + currentAttendanceData.absent + currentAttendanceData.late;
   
@@ -29,8 +31,8 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glass-card md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg">Attendance History</CardTitle>
-            <CardDescription>Recent attendance records</CardDescription>
+            <CardTitle className="text-lg">{t('parent_portal.my_children.attendance_history', 'Attendance History')}</CardTitle>
+            <CardDescription>{t('parent_portal.my_children.recent_attendance_desc', 'Recent attendance records')}</CardDescription>
           </CardHeader>
           <CardContent>
             {recentRecords.length > 0 ? (
@@ -53,19 +55,19 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
                         <p className="text-sm font-medium text-indigo-900">{record.date}</p>
                         <p className="text-xs text-indigo-700">{record.time}</p>
                         {record.reason && (
-                          <p className="text-xs text-indigo-700">Reason: {record.reason}</p>
+                          <p className="text-xs text-indigo-700">{t('common.reason', 'Reason')}: {record.reason}</p>
                         )}
                       </div>
                     </div>
                     <Badge variant={record.status === "Excused" ? "secondary" : "destructive"}>
-                      {record.status}
+                      {t(`parent_portal.my_children.status_${record.status.toLowerCase()}`, record.status)}
                     </Badge>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
-                No recent attendance exceptions are available.
+                {t('parent_portal.my_children.no_attendance_exceptions', 'No recent attendance exceptions are available.')}
               </div>
             )}
           </CardContent>
@@ -73,7 +75,7 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
 
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="text-lg">Attendance Summary</CardTitle>
+            <CardTitle className="text-lg">{t('parent_portal.my_children.attendance_summary', 'Attendance Summary')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center justify-center p-4">
@@ -102,27 +104,35 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
                 </svg>
                 <div className="absolute flex flex-col items-center justify-center">
                   <span className="text-3xl font-bold text-indigo-900">{currentAttendanceData.attendancePercentage}%</span>
-                  <span className="text-sm text-indigo-700">Present</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.present_label', 'Present')}</span>
                 </div>
               </div>
               
               <div className="mt-6 w-full space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Present:</span>
-                  <span className="text-sm font-medium text-green-600">{currentAttendanceData.present} days</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.present_label', 'Present')}:</span>
+                  <span className="text-sm font-medium text-green-600">
+                    {t('parent_portal.my_children.days_count', '{{count}} days', { count: currentAttendanceData.present })}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Late:</span>
-                  <span className="text-sm font-medium text-amber-600">{currentAttendanceData.late} days</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.late_label', 'Late')}:</span>
+                  <span className="text-sm font-medium text-amber-600">
+                    {t('parent_portal.my_children.days_count', '{{count}} days', { count: currentAttendanceData.late })}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Absent:</span>
-                  <span className="text-sm font-medium text-red-600">{currentAttendanceData.absent} days</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.absent_label', 'Absent')}:</span>
+                  <span className="text-sm font-medium text-red-600">
+                    {t('parent_portal.my_children.days_count', '{{count}} days', { count: currentAttendanceData.absent })}
+                  </span>
                 </div>
                 <Separator className="my-2" />
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-indigo-700">Total School Days:</span>
-                  <span className="text-sm font-medium text-indigo-900">{totalDays} days</span>
+                  <span className="text-sm text-indigo-700">{t('parent_portal.my_children.total_school_days', 'Total School Days')}:</span>
+                  <span className="text-sm font-medium text-indigo-900">
+                    {t('parent_portal.my_children.days_count', '{{count}} days', { count: totalDays })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -133,7 +143,7 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
       {/* Monthly attendance trend */}
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-lg">Monthly Attendance Trend</CardTitle>
+          <CardTitle className="text-lg">{t('parent_portal.my_children.monthly_attendance_trend', 'Monthly Attendance Trend')}</CardTitle>
         </CardHeader>
         <CardContent>
           {monthlyAttendance.length > 0 ? (
@@ -157,7 +167,7 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-indigo-200 bg-white/60 px-4 py-6 text-sm text-indigo-700">
-              No monthly attendance breakdown is available yet.
+              {t('parent_portal.my_children.no_monthly_attendance', 'No monthly attendance breakdown is available yet.')}
             </div>
           )}
         </CardContent>

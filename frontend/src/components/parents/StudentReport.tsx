@@ -12,6 +12,7 @@ import { useToast } from "../ui/use-toast";
 import { cn } from "../../lib/utils";
 import { parentPortalIconButtonClass, parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
 import { resolveAvatarUrl } from "../../utils/avatar";
+import { useTranslation } from "react-i18next";
 
 interface StudentReportProps {
   currentChild: any;
@@ -33,6 +34,7 @@ const StudentReport = ({
   onClose,
   className,
 }: StudentReportProps) => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const studentId = Number(currentChild?.id || currentChild?.studentId || 0);
   const [reportMode, setReportMode] = useState<ReportMode>("report_card");
@@ -70,7 +72,7 @@ const StudentReport = ({
 
   const handleGenerateReport = async () => {
     if (!Number.isFinite(studentId) || studentId <= 0) {
-      setError("Student context is missing.");
+      setError(t('parent_portal.my_children.error.missing_student_context', 'Student context is missing.'));
       return;
     }
 
@@ -89,7 +91,7 @@ const StudentReport = ({
       }
     } catch (err: any) {
       console.error("Failed to generate parent report:", err);
-      setError(err?.message || "Unable to generate report right now.");
+      setError(err?.message || t('parent_portal.my_children.error.generate_failed', 'Unable to generate report right now.'));
       setReportCard(null);
       setAttendanceSummary(null);
     } finally {
@@ -120,8 +122,8 @@ const StudentReport = ({
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       toast({
-        title: "Download failed",
-        description: err?.message || "Unable to download the report card.",
+        title: t('parent_portal.my_children.error.download_failed', 'Download failed'),
+        description: err?.message || t('parent_portal.my_children.error.download_failed_desc', 'Unable to download the report card.'),
         variant: "destructive",
         id: "",
       });
@@ -133,8 +135,8 @@ const StudentReport = ({
       await enhancedReportsService.printReportCard(studentId, term, academicYear);
     } catch (err: any) {
       toast({
-        title: "Print failed",
-        description: err?.message || "Unable to print the report card.",
+        title: t('parent_portal.my_children.error.print_failed', 'Print failed'),
+        description: err?.message || t('parent_portal.my_children.error.print_failed_desc', 'Unable to print the report card.'),
         variant: "destructive",
         id: "",
       });
@@ -145,18 +147,18 @@ const StudentReport = ({
     <Card className={cn("glass-card overflow-hidden border border-indigo-100", className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-indigo-100/70">
         <div className="space-y-2">
-          <CardTitle className="text-indigo-950">Student Reports</CardTitle>
+          <CardTitle className="text-indigo-955">{t('parents_page.actions.reports', 'Student Reports')}</CardTitle>
           <div className="flex flex-wrap items-center gap-2 text-sm text-indigo-700">
             <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
               <CalendarDays className="mr-1 h-3.5 w-3.5" />
-              {currentChild?.class || "Class unavailable"}
+              {currentChild?.class || t('parent_portal.my_children.class_unavailable', 'Class unavailable')}
             </Badge>
             <Badge variant="outline" className="border-indigo-200 bg-white text-indigo-700">
-              {currentChild?.name || "Student"}
+              {currentChild?.name || t('parent_portal.my_children.student_fallback', 'Student')}
             </Badge>
           </div>
           <p className="text-sm text-indigo-600">
-            Generate the current child&apos;s live academic report card or attendance summary.
+            {t('parent_portal.my_children.generate_desc', "Generate the current child's live academic report card or attendance summary.")}
           </p>
         </div>
         <Button type="button" variant="ghost" size="icon" className={parentPortalIconButtonClass} onClick={onClose}>
@@ -167,20 +169,20 @@ const StudentReport = ({
       <CardContent className="space-y-6 p-6">
         <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr_auto]">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-indigo-700">Report Type</label>
+            <label className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.report_type_label', 'Report Type')}</label>
             <Select value={reportMode} onValueChange={(value) => setReportMode(value as ReportMode)}>
               <SelectTrigger className="border-indigo-200 bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="report_card">Report Card</SelectItem>
-                <SelectItem value="attendance">Attendance Summary</SelectItem>
+                <SelectItem value="report_card">{t('parent_portal.my_children.report_card_option', 'Report Card')}</SelectItem>
+                <SelectItem value="attendance">{t('parent_portal.my_children.attendance_option', 'Attendance Summary')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-indigo-700">Term</label>
+            <label className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.term_label', 'Term')}</label>
             <Select value={term} onValueChange={setTerm}>
               <SelectTrigger className="border-indigo-200 bg-white">
                 <SelectValue />
@@ -196,7 +198,7 @@ const StudentReport = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-indigo-700">Academic Year</label>
+            <label className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.academic_year_label', 'Academic Year')}</label>
             <Select value={academicYear} onValueChange={setAcademicYear} disabled={loadingYears}>
               <SelectTrigger className="border-indigo-200 bg-white">
                 <SelectValue />
@@ -214,7 +216,7 @@ const StudentReport = ({
           <div className="flex items-end">
             <Button className={parentPortalPrimaryButtonClass} onClick={handleGenerateReport} disabled={isLoading}>
               {isLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-              {isLoading ? "Generating..." : "Generate"}
+              {isLoading ? t('common.generating', 'Generating...') : t('common.generate', 'Generate')}
             </Button>
           </div>
         </div>
@@ -237,7 +239,7 @@ const StudentReport = ({
                   <AvatarFallback>{reportCard.student_info.name?.charAt(0) || 'S'}</AvatarFallback>
                 </Avatar>
                 <div>
-                <h3 className="text-xl font-semibold text-indigo-950">Academic Report Card</h3>
+                <h3 className="text-xl font-semibold text-indigo-950">{t('parent_portal.my_children.academic_report_title', 'Academic Report Card')}</h3>
                 <p className="text-sm text-indigo-600">
                   {reportCard.student_info.term} • {reportCard.student_info.academic_year}
                 </p>
@@ -249,27 +251,27 @@ const StudentReport = ({
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={handleDownloadPdf}>
                   <Download className="mr-2 h-4 w-4" />
-                  Download PDF
+                  {t('parent_portal.my_children.actions.download_pdf', 'Download PDF')}
                 </Button>
                 <Button variant="outline" className={parentPortalSecondaryButtonClass} onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />
-                  Print
+                  {t('common.print', 'Print')}
                 </Button>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Overall GPA</p>
-                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.academic_performance.overall_gpa ?? currentAcademicData?.overallGPA ?? 0}</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.overall_gpa_label', 'Overall GPA')}</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-955">{reportCard.academic_performance.overall_gpa ?? currentAcademicData?.overallGPA ?? 0}</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Class Position</p>
-                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.academic_performance.class_position || currentAcademicData?.rank || "N/A"}</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.class_position_label', 'Class Position')}</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-955">{reportCard.academic_performance.class_position || currentAcademicData?.rank || "N/A"}</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Attendance Rate</p>
-                <p className="mt-2 text-2xl font-bold text-indigo-950">{reportCard.attendance.attendance_rate}%</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.attendance_rate', 'Attendance Rate')}</p>
+                <p className="mt-2 text-2xl font-bold text-indigo-955">{reportCard.attendance.attendance_rate}%</p>
               </div>
             </div>
 
@@ -277,16 +279,16 @@ const StudentReport = ({
               <table className="min-w-full divide-y divide-indigo-100 text-sm">
                 <thead className="bg-indigo-50 text-left text-indigo-800">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Subject</th>
-                    <th className="px-4 py-3 font-semibold">Score</th>
-                    <th className="px-4 py-3 font-semibold">Grade</th>
-                    <th className="px-4 py-3 font-semibold">Remarks</th>
+                    <th className="px-4 py-3 font-semibold">{t('common.subject', 'Subject')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('common.score', 'Score')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('common.grade', 'Grade')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('parent_portal.my_children.remarks_label', 'Remarks')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-indigo-50 bg-white">
                   {reportCard.academic_performance.subjects.map((subject) => (
                     <tr key={subject.name}>
-                      <td className="px-4 py-3 font-medium text-indigo-950">{subject.name}</td>
+                      <td className="px-4 py-3 font-medium text-indigo-955">{subject.name}</td>
                       <td className="px-4 py-3 text-indigo-700">{subject.score}</td>
                       <td className="px-4 py-3 text-indigo-700">{subject.grade}</td>
                       <td className="px-4 py-3 text-indigo-600">{subject.remarks}</td>
@@ -295,16 +297,15 @@ const StudentReport = ({
                 </tbody>
               </table>
             </div>
-
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
-                <p className="text-sm font-semibold text-indigo-800">Teacher Comments</p>
-                <p className="mt-2 text-sm text-indigo-700">{reportCard.teacher_comments || "No teacher comments yet."}</p>
+                <p className="text-sm font-semibold text-indigo-800">{t('parent_portal.my_children.teacher_comments_label', 'Teacher Comments')}</p>
+                <p className="mt-2 text-sm text-indigo-700">{reportCard.teacher_comments || t('parent_portal.my_children.no_comments', 'No teacher comments yet.')}</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
-                <p className="text-sm font-semibold text-indigo-800">Promotion Status</p>
+                <p className="text-sm font-semibold text-indigo-800">{t('parent_portal.my_children.promotion_status_label', 'Promotion Status')}</p>
                 <p className="mt-2 text-sm text-indigo-700">{reportCard.progression_status.promotion_status}</p>
-                <p className="mt-1 text-xs text-indigo-500">Next level: {reportCard.progression_status.next_level}</p>
+                <p className="mt-1 text-xs text-indigo-500">{t('parent_portal.my_children.next_level_label', 'Next level')}: {reportCard.progression_status.next_level}</p>
               </div>
             </div>
           </div>
@@ -314,9 +315,9 @@ const StudentReport = ({
           <div className="space-y-6 rounded-xl border border-indigo-100 bg-white/80 p-6">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-indigo-950">Attendance Summary</h3>
+                <h3 className="text-xl font-semibold text-indigo-950">{t('parent_portal.my_children.attendance_summary', 'Attendance Summary')}</h3>
                 <p className="text-sm text-indigo-600">
-                  Monthly attendance overview for {currentChild?.name || "the selected student"}.
+                  {t('parent_portal.my_children.attendance_summary_desc', 'Monthly attendance overview for {{name}}.', { name: currentChild?.name || t('parent_portal.my_children.selected_student', 'the selected student') })}
                 </p>
               </div>
               <ClipboardList className="h-5 w-5 text-indigo-500" />
@@ -324,26 +325,26 @@ const StudentReport = ({
 
             <div className="grid gap-4 md:grid-cols-4">
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Attendance Rate</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.attendance_rate', 'Attendance Rate')}</p>
                 <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.percentage}%</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Present</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.present_label', 'Present')}</p>
                 <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.present}</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Absent</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.absent_label', 'Absent')}</p>
                 <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.absent}</p>
               </div>
               <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-                <p className="text-sm font-medium text-indigo-700">Late</p>
+                <p className="text-sm font-medium text-indigo-700">{t('parent_portal.my_children.late_label', 'Late')}</p>
                 <p className="mt-2 text-2xl font-bold text-indigo-950">{attendanceView.late}</p>
               </div>
             </div>
 
             <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-indigo-800">Overall Attendance Progress</p>
+                <p className="text-sm font-medium text-indigo-800">{t('parent_portal.my_children.overall_attendance_progress', 'Overall Attendance Progress')}</p>
                 <span className="text-sm font-semibold text-indigo-900">{attendanceView.percentage}%</span>
               </div>
               <Progress value={attendanceView.percentage} className="h-2" />
@@ -354,16 +355,16 @@ const StudentReport = ({
                 <table className="min-w-full divide-y divide-indigo-100 text-sm">
                   <thead className="bg-indigo-50 text-left text-indigo-800">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Month</th>
-                      <th className="px-4 py-3 font-semibold">Present</th>
-                      <th className="px-4 py-3 font-semibold">Absent</th>
-                      <th className="px-4 py-3 font-semibold">Late</th>
+                      <th className="px-4 py-3 font-semibold">{t('common.month', 'Month')}</th>
+                      <th className="px-4 py-3 font-semibold">{t('parent_portal.my_children.present_label', 'Present')}</th>
+                      <th className="px-4 py-3 font-semibold">{t('parent_portal.my_children.absent_label', 'Absent')}</th>
+                      <th className="px-4 py-3 font-semibold">{t('parent_portal.my_children.late_label', 'Late')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-indigo-50 bg-white">
                     {attendanceView.monthly.map((row: any, index: number) => (
                       <tr key={`${row.month}-${index}`}>
-                        <td className="px-4 py-3 font-medium text-indigo-950">{row.month}</td>
+                        <td className="px-4 py-3 font-medium text-indigo-955">{row.month}</td>
                         <td className="px-4 py-3 text-indigo-700">{row.present ?? 0}</td>
                         <td className="px-4 py-3 text-indigo-700">{row.absent ?? 0}</td>
                         <td className="px-4 py-3 text-indigo-700">{row.late ?? 0}</td>
@@ -374,7 +375,7 @@ const StudentReport = ({
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-6 text-sm text-indigo-600">
-                Generate the attendance summary to view detailed monthly data.
+                {t('parent_portal.my_children.generate_attendance_desc', 'Generate the attendance summary to view detailed monthly data.')}
               </div>
             )}
           </div>

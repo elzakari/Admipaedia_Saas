@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Search, Filter, Star, Trash, Reply, Mail, MailOpen, Archive } from "lucide-react";
 import { Input } from "../../components/ui/input";
 import { parentPortalPrimaryButtonClass, parentPortalSecondaryButtonClass } from "../../lib/parentPortalUi";
+import { useTranslation } from "react-i18next";
 
 interface MessagesTabProps {
   messagesData: any[];
@@ -14,6 +15,7 @@ interface MessagesTabProps {
 }
 
 const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
+  const { t } = useTranslation();
   const [activeFolder, setActiveFolder] = useState("inbox");
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,12 +57,12 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-indigo-900">Messages</h2>
+        <h2 className="text-xl font-bold text-indigo-900">{t('navigation.messages', 'Messages')}</h2>
         <Button 
           className={parentPortalPrimaryButtonClass}
           onClick={onComposeClick} // Use the prop here
         >
-          Compose New Message
+          {t('parent_portal.messages.compose', 'Compose New Message')}
         </Button>
       </div>
 
@@ -79,7 +81,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
               >
                 <div className="flex items-center">
                   <Mail className="h-4 w-4 mr-2" />
-                  <span>Inbox</span>
+                  <span>{t('parent_portal.messages.inbox', 'Inbox')}</span>
                 </div>
                 <Badge variant="outline">{normalizedMessages.filter(m => !m.archived).length}</Badge>
               </button>
@@ -94,7 +96,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
               >
                 <div className="flex items-center">
                   <Star className="h-4 w-4 mr-2" />
-                  <span>Starred</span>
+                  <span>{t('parent_portal.messages.starred', 'Starred')}</span>
                 </div>
                 <Badge variant="outline">{normalizedMessages.filter(m => m.starred).length}</Badge>
               </button>
@@ -109,7 +111,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
               >
                 <div className="flex items-center">
                   <Archive className="h-4 w-4 mr-2" />
-                  <span>Archived</span>
+                  <span>{t('parent_portal.messages.archived', 'Archived')}</span>
                 </div>
                 <Badge variant="outline">{normalizedMessages.filter(m => m.archived).length}</Badge>
               </button>
@@ -128,7 +130,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                     <div className="relative flex-1">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-indigo-400" />
                       <Input
-                        placeholder="Search messages..."
+                        placeholder={t('parent_portal.messages.search_placeholder', 'Search messages...') as string}
                         className="pl-8 bg-white bg-opacity-50"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -144,8 +146,8 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                   {filteredMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full p-4 text-center">
                       <MailOpen className="h-12 w-12 text-indigo-300 mb-2" />
-                      <p className="text-indigo-700">No messages found</p>
-                      <p className="text-xs text-indigo-500 mt-1">Try adjusting your search or filters</p>
+                      <p className="text-indigo-700">{t('parent_portal.messages.no_messages', 'No messages found')}</p>
+                      <p className="text-xs text-indigo-500 mt-1">{t('parent_portal.messages.adjust_filters', 'Try adjusting your search or filters')}</p>
                     </div>
                   ) : (
                     filteredMessages.map(message => (
@@ -219,7 +221,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                         <div>
                           <p className="font-medium text-indigo-900">{currentMessage.from}</p>
                           <p className="text-xs text-indigo-500">
-                            To: You • {currentMessage.date}{currentMessage.time ? ` at ${currentMessage.time}` : ""}
+                            {t('parent_portal.messages.to_you', 'To: You')} • {currentMessage.date}{currentMessage.time ? ` ${t('common.at', 'at')} ${currentMessage.time}` : ""}
                           </p>
                         </div>
                       </div>
@@ -229,7 +231,7 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                         
                         {currentMessage.attachments && currentMessage.attachments.length > 0 && (
                           <div className="mt-6">
-                            <p className="text-sm font-medium text-indigo-900 mb-2">Attachments ({currentMessage.attachments.length})</p>
+                            <p className="text-sm font-medium text-indigo-900 mb-2">{t('parent_portal.messages.attachments', 'Attachments')} ({currentMessage.attachments.length})</p>
                             <div className="grid grid-cols-2 gap-2">
                               {currentMessage.attachments.map((attachment: any, index: number) => (
                                 <div key={index} className="p-2 border border-indigo-100 rounded-md bg-white bg-opacity-50">
@@ -245,15 +247,15 @@ const MessagesTab = ({ messagesData, onComposeClick }: MessagesTabProps) => {
                     
                     <div className="p-4 border-t border-indigo-100">
                       <Button className="w-full glass-button">
-                        Reply to Message
+                        {t('parent_portal.messages.reply', 'Reply to Message')}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full p-4 text-center">
                     <Mail className="h-16 w-16 text-indigo-200 mb-4" />
-                    <p className="text-indigo-700 font-medium">Select a message to view</p>
-                    <p className="text-xs text-indigo-500 mt-1">Choose a message from the list to view its contents</p>
+                    <p className="text-indigo-700 font-medium">{t('parent_portal.messages.select_message', 'Select a message to view')}</p>
+                    <p className="text-xs text-indigo-500 mt-1">{t('parent_portal.messages.select_desc', 'Choose a message from the list to view its contents')}</p>
                   </div>
                 )}
               </div>

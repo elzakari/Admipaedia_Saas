@@ -20,12 +20,6 @@ type AcademicSubject = any;
 
 // Static constants inlined at module top-level to prevent Vite minifier TDZ circular reference errors
 const ALLOWED_TABS = ["dashboard", "academics", "attendance", "fees", "messages"];
-const TELEMETRY_TABS = [
-  { id: "dashboard", label: "Tableau de bord" },
-  { id: "academics", label: "Études" },
-  { id: "attendance", label: "Présence" },
-  { id: "fees", label: "Frais en attente" }
-];
 const EMPTY_TELEMETRY_FALLBACK = {
   grade_average: 0,
   attendance_rate: 0,

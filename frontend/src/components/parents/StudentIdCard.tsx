@@ -5,6 +5,7 @@ import { Printer, Download, X } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { TouchFriendlyButton } from "../../components/common/TouchFriendlyButton";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useTranslation } from "react-i18next";
 
 interface StudentData {
   name: string;
@@ -23,6 +24,7 @@ interface StudentIDCardProps {
 }
 
 const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery('(max-width: 640px)');
 
@@ -43,7 +45,7 @@ const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="glass-card overflow-hidden border border-indigo-100 max-w-md w-full">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-indigo-900">Student ID Card</CardTitle>
+          <CardTitle className="text-indigo-900">{t('parents_page.id_card', 'Student ID Card')}</CardTitle>
           <TouchFriendlyButton 
             variant="ghost"
             size={isMobile ? "md" : "sm"}
@@ -60,7 +62,7 @@ const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-bold">ADMIPAEDIA SCHOOL</h3>
-                  <p className="text-xs opacity-80">Student Identification Card</p>
+                  <p className="text-xs opacity-80">{t('parent_portal.my_children.id_card_subtitle', 'Student Identification Card')}</p>
                 </div>
                 <div className="bg-white text-indigo-900 text-xs font-bold px-2 py-1 rounded">
                   {student.bloodGroup || "A+"}
@@ -76,14 +78,14 @@ const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg">{student.name}</h4>
-                  <p className="text-sm opacity-90">Class: {student.class}</p>
+                  <p className="text-sm opacity-90">{t('parent_portal.my_children.grade_class', 'Class: {{grade}}', { grade: student.class })}</p>
                   <p className="text-sm opacity-90">ID: {student.studentId || student.admissionNumber}</p>
                 </div>
               </div>
               
               <div className="mt-4 text-xs">
-                <p>Emergency Contact: {student.emergencyContact}</p>
-                <p className="mt-1">Valid for Academic Year 2023-2024</p>
+                <p>{t('parent_portal.my_children.emergency_contact_label', 'Emergency Contact')}: {student.emergencyContact}</p>
+                <p className="mt-1">{t('parent_portal.my_children.id_card_validity', 'Valid for Academic Year 2023-2024')}</p>
               </div>
               
               <div className="absolute bottom-2 right-2 opacity-30">
@@ -104,7 +106,7 @@ const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
             onClick={handleDownload}
             icon={<Download className="h-4 w-4 mr-2" />}
           >
-            Download
+            {t('common.export', 'Download')}
           </TouchFriendlyButton>
           <TouchFriendlyButton
             variant="primary"
@@ -112,7 +114,7 @@ const StudentIdCard = ({ student, isOpen, onClose }: StudentIDCardProps) => {
             onClick={handlePrint}
             icon={<Printer className="h-4 w-4 mr-2" />}
           >
-            Print
+            {t('common.print', 'Print')}
           </TouchFriendlyButton>
         </CardFooter>
       </Card>
