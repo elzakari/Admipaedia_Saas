@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -47,6 +48,8 @@ export function TeachersGrid({
   onAssignClasses,
   onViewSchedule
 }: TeachersGridProps) {
+  const { t } = useTranslation();
+
   // Sorting state
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -146,15 +149,15 @@ export function TeachersGrid({
 
   // Format phone number
   const formatPhoneNumber = (phone?: string | any) => {
-    if (!phone || typeof phone !== 'string') return 'No phone';
+    if (!phone || typeof phone !== 'string') return t('teachers_page.no_phone', 'No phone');
     return phone.length > 10 ? `${phone.slice(0, 3)}-${phone.slice(3, 6)}-${phone.slice(6)}` : phone;
   };
 
   // Get years of experience
   const getExperience = (hireDate?: string) => {
-    if (!hireDate) return 'N/A';
+    if (!hireDate) return t('common.not_provided_short', 'N/A');
     const years = new Date().getFullYear() - new Date(hireDate).getFullYear();
-    return `${years} year${years !== 1 ? 's' : ''}`;
+    return t('teachers_page.experience_years', '{{count}} year', { count: years });
   };
 
   // Get sort icon
@@ -174,7 +177,7 @@ export function TeachersGrid({
   if (error) {
     return (
       <Card className="glass-card p-4">
-        <p className="text-red-500">Failed to load teachers data</p>
+        <p className="text-red-500">{t('teachers_page.load_failed', 'Failed to load teachers data')}</p>
       </Card>
     );
   }
@@ -182,7 +185,7 @@ export function TeachersGrid({
   if (!teachers?.length) {
     return (
       <Card className="glass-card p-8 text-center">
-        <p className="text-indigo-700">No teachers found. Add a new teacher to get started.</p>
+        <p className="text-indigo-700">{t('teachers_page.no_teachers_found_card', 'No teachers found. Add a new teacher to get started.')}</p>
       </Card>
     );
   }
@@ -192,7 +195,7 @@ export function TeachersGrid({
       {/* Sorting Controls Header */}
       <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-indigo-900">Sort by:</span>
+          <span className="text-sm font-medium text-indigo-900">{t('teachers_page.sort_by', 'Sort by')}:</span>
           <div className="flex gap-2">
             <Button
               variant={sortField === 'name' ? 'default' : 'outline'}
@@ -200,7 +203,7 @@ export function TeachersGrid({
               onClick={() => handleSort('name')}
               className="flex items-center gap-1"
             >
-              Name {getSortIcon('name')}
+              {t('teachers_page.sort.name', 'Name')} {getSortIcon('name')}
             </Button>
             <Button
               variant={sortField === 'specialization' ? 'default' : 'outline'}
@@ -208,7 +211,7 @@ export function TeachersGrid({
               onClick={() => handleSort('specialization')}
               className="flex items-center gap-1"
             >
-              Subject {getSortIcon('specialization')}
+              {t('teachers_page.sort.subject', 'Subject')} {getSortIcon('specialization')}
             </Button>
             <Button
               variant={sortField === 'status' ? 'default' : 'outline'}
@@ -216,7 +219,7 @@ export function TeachersGrid({
               onClick={() => handleSort('status')}
               className="flex items-center gap-1"
             >
-              Status {getSortIcon('status')}
+              {t('teachers_page.filters.status', 'Status')} {getSortIcon('status')}
             </Button>
             <Button
               variant={sortField === 'experience' ? 'default' : 'outline'}
@@ -224,7 +227,7 @@ export function TeachersGrid({
               onClick={() => handleSort('experience')}
               className="flex items-center gap-1"
             >
-              Experience {getSortIcon('experience')}
+              {t('teachers_page.sort.experience', 'Experience')} {getSortIcon('experience')}
             </Button>
             <Button
               variant={sortField === 'hireDate' ? 'default' : 'outline'}
@@ -232,14 +235,14 @@ export function TeachersGrid({
               onClick={() => handleSort('hireDate')}
               className="flex items-center gap-1"
             >
-              Hire Date {getSortIcon('hireDate')}
+              {t('teachers_page.sort.hire_date', 'Hire Date')} {getSortIcon('hireDate')}
             </Button>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
           <span className="text-sm text-indigo-600">
-            {sortedTeachers.length} teacher{sortedTeachers.length !== 1 ? 's' : ''}
+            {sortedTeachers.length} {t('teachers_page.teachers_count', 'teachers')}
           </span>
         </div>
       </div>
@@ -284,28 +287,28 @@ export function TeachersGrid({
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem onClick={() => onSelectTeacher(Number(teacher.id))}>
                         <Eye className="h-4 w-4 mr-2" />
-                        View Details
+                        {t('teachers_page.actions.view_details', 'View Details')}
                       </DropdownMenuItem>
                       {onViewProfile && (
                         <DropdownMenuItem onClick={() => onViewProfile(teacher)}>
                           <Users className="h-4 w-4 mr-2" />
-                          View Profile
+                          {t('teachers_page.actions.view_profile', 'View Profile')}
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => onEditTeacher(teacher)}>
                         <Edit className="h-4 w-4 mr-2" />
-                        Edit Teacher
+                        {t('teachers_page.actions.edit_teacher', 'Edit Teacher')}
                       </DropdownMenuItem>
                       {onAssignClasses && (
                         <DropdownMenuItem onClick={() => onAssignClasses(teacher)}>
                           <BookOpen className="h-4 w-4 mr-2" />
-                          Assign Classes
+                          {t('teachers_page.actions.assign_classes', 'Assign Classes')}
                         </DropdownMenuItem>
                       )}
                       {onViewSchedule && (
                         <DropdownMenuItem onClick={() => onViewSchedule(teacher)}>
                           <Calendar className="h-4 w-4 mr-2" />
-                          View Schedule
+                          {t('teachers_page.actions.view_schedule', 'View Schedule')}
                         </DropdownMenuItem>
                       )}
                       {onDeleteTeacher && (
@@ -316,7 +319,7 @@ export function TeachersGrid({
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Teacher
+                            {t('teachers_page.actions.delete_teacher', 'Delete Teacher')}
                           </DropdownMenuItem>
                         </>
                       )}
@@ -333,7 +336,7 @@ export function TeachersGrid({
                     </AvatarFallback>
                   </Avatar>
                   <Badge variant={getStatusVariant(teacher.status || 'active')} className="text-xs">
-                    {teacher.status || 'Active'}
+                    {t(`common.status.${teacher.status || 'active'}`, teacher.status || 'Active')}
                   </Badge>
                 </div>
               </div>
@@ -342,7 +345,7 @@ export function TeachersGrid({
               <div className="p-4 space-y-3">
                 <div className="text-center">
                   <h3 className="font-bold text-lg text-indigo-900 mb-1">{formatTeacherName(teacher)}</h3>
-                  <p className="text-sm font-medium text-indigo-700">{teacher.specialization || 'General Education'}</p>
+                  <p className="text-sm font-medium text-indigo-700">{teacher.specialization || t('teachers_page.general_education', 'General Education')}</p>
                   {teacher.employeeId && (
                     <p className="text-xs text-indigo-600 mt-1 truncate max-w-full">ID: {teacher.employeeId}</p>
                   )}
@@ -375,21 +378,21 @@ export function TeachersGrid({
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {teacher.hireDate && (
                       <div className="text-center p-2 bg-indigo-50 rounded">
-                        <div className="font-semibold text-indigo-900">Experience</div>
+                        <div className="font-semibold text-indigo-900">{t('teachers_page.sort.experience', 'Experience')}</div>
                         <div className="text-indigo-700">{getExperience(teacher.hireDate)}</div>
                       </div>
                     )}
                     
                     {teacher.classes && (
                       <div className="text-center p-2 bg-indigo-50 rounded">
-                        <div className="font-semibold text-indigo-900">Has Classes</div>
-                        <div className="text-indigo-700">Yes</div>
+                        <div className="font-semibold text-indigo-900">{t('teachers_page.has_classes', 'Has Classes')}</div>
+                        <div className="text-indigo-700">{t('common.yes', 'Yes')}</div>
                       </div>
                     )}
                     
                     {teacher.classes && Array.isArray(teacher.classes) && teacher.classes.length > 0 && (
                       <div className="text-center p-2 bg-indigo-50 rounded">
-                        <div className="font-semibold text-indigo-900">Classes</div>
+                        <div className="font-semibold text-indigo-900">{t('navigation.classes', 'Classes')}</div>
                         <div className="text-indigo-700">{teacher.classes.length}</div>
                       </div>
                     )}
@@ -408,7 +411,7 @@ export function TeachersGrid({
                     }}
                   >
                     <Eye className="h-3 w-3 mr-1" />
-                    View
+                    {t('common.view', 'View')}
                   </Button>
                   <Button 
                     variant="outline" 
@@ -420,7 +423,7 @@ export function TeachersGrid({
                     }}
                   >
                     <Edit className="h-3 w-3 mr-1" />
-                    Edit
+                    {t('common.edit', 'Edit')}
                   </Button>
                 </div>
               </div>

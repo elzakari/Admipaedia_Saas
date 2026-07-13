@@ -71,33 +71,39 @@ interface TeacherFiltersType {
 }
 
 // Loading Component
-const LoadingState: React.FC<{ message?: string }> = ({ message = 'Loading...' }) => (
-  <div className="flex items-center justify-center p-8">
-    <div className="flex items-center gap-3">
-      <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
-      <span className="text-gray-600">{message}</span>
+const LoadingState: React.FC<{ message?: string }> = ({ message }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center justify-center p-8">
+      <div className="flex items-center gap-3">
+        <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+        <span className="text-gray-600">{message || t('common.loading', 'Loading...')}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Error Component
 const ErrorDisplay: React.FC<{ error: any; onRetry?: () => void; title?: string }> = ({ 
   error, 
   onRetry, 
-  title = 'Error' 
-}) => (
-  <div className="flex flex-col items-center justify-center p-8 text-center">
-    <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-    <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-    <p className="text-gray-600 mb-4">{error?.message || 'An error occurred'}</p>
-    {onRetry && (
-      <Button onClick={onRetry} variant="outline">
-        <RefreshCw className="w-4 h-4 mr-2" />
-        Try Again
-      </Button>
-    )}
-  </div>
-);
+  title 
+}) => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title || t('common.error', 'Error')}</h3>
+      <p className="text-gray-600 mb-4">{error?.message || t('common.error_occurred', 'An error occurred')}</p>
+      {onRetry && (
+        <Button onClick={onRetry} variant="outline">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          {t('teachers_page.dashboard.retry', 'Try Again')}
+        </Button>
+      )}
+    </div>
+  );
+};
 
 // Empty State Component
 const EmptyState: React.FC<{ 
@@ -222,11 +228,11 @@ const TeachersPage: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     try {
       await refetchTeachers();
-      toast.success('Teachers list refreshed successfully');
+      toast.success(t('teachers_page.toast.refresh_success', 'Teachers list refreshed successfully'));
     } catch (error) {
-      toast.error('Failed to refresh teachers list');
+      toast.error(t('teachers_page.toast.refresh_failed', 'Failed to refresh teachers list'));
     }
-  }, [refetchTeachers]);
+  }, [refetchTeachers, t]);
 
   // Missing handleTeacherSubmit function
   const handleFormSubmit = useCallback(async (data: Partial<Teacher>) => {
@@ -247,13 +253,13 @@ const TeachersPage: React.FC = () => {
         { id: selectedTeacher.id, data: updateData },
         {
           onSuccess: () => {
-            toast.success('Teacher updated successfully');
+            toast.success(t('teachers_page.form.update_success', 'Teacher updated successfully'));
             setIsEditModalOpen(false);
             setSelectedTeacher(null);
             refetchTeachers();
           },
           onError: (error: any) => {
-            toast.error(error?.message || 'Failed to update teacher');
+            toast.error(error?.message || t('teachers_page.form.update_failed', 'Failed to update teacher'));
           }
         }
       );
@@ -274,17 +280,17 @@ const TeachersPage: React.FC = () => {
         createData,
         {
           onSuccess: () => {
-            toast.success('Teacher created successfully');
+            toast.success(t('teachers_page.form.create_success', 'Teacher created successfully'));
             setIsAddModalOpen(false);
             refetchTeachers();
           },
           onError: (error: any) => {
-            toast.error(error?.message || 'Failed to create teacher');
+            toast.error(error?.message || t('teachers_page.form.create_failed', 'Failed to create teacher'));
           }
         }
       );
     }
-  }, [selectedTeacher, updateTeacher, createTeacher, refetchTeachers]);
+  }, [selectedTeacher, updateTeacher, createTeacher, refetchTeachers, t]);
 
   // Event handlers
   const handleSearch = useCallback((query: string) => {
@@ -340,17 +346,17 @@ const TeachersPage: React.FC = () => {
       teacherToDelete.id,
       {
         onSuccess: () => {
-          toast.success('Teacher deleted successfully');
+          toast.success(t('teachers_page.toast.delete_success', 'Teacher deleted successfully'));
           setIsDeleteDialogOpen(false);
           setTeacherToDelete(null);
           refetchTeachers();
         },
         onError: (error: any) => {
-          toast.error(error?.message || 'Failed to delete teacher');
+          toast.error(error?.message || t('teachers_page.toast.delete_failed', 'Failed to delete teacher'));
         }
       }
     );
-  }, [teacherToDelete, deleteTeacher, refetchTeachers]);
+  }, [teacherToDelete, deleteTeacher, refetchTeachers, t]);
 
   const handleFiltersChange = useCallback((newFilters: TeacherFiltersType) => {
     setFilters(newFilters);
@@ -388,13 +394,13 @@ const TeachersPage: React.FC = () => {
   const handleBulkDelete = useCallback(async (teacherIds: number[]) => {
     try {
       await Promise.all(teacherIds.map(id => teacherService.deleteTeacher(id)));
-      toast.success(`${teacherIds.length} teachers deleted successfully`);
+      toast.success(t('teachers_page.bulk.delete_success', '{{count}} teachers deleted successfully', { count: teacherIds.length }));
       setSelectedTeachers([]);
       refetchTeachers();
     } catch (error) {
-      toast.error('Failed to delete selected teachers');
+      toast.error(t('teachers_page.bulk.delete_failed_toast', 'Failed to delete selected teachers'));
     }
-  }, [refetchTeachers]);
+  }, [refetchTeachers, t]);
 
   const handleBulkExport = useCallback((teacherIds: number[]) => {
     const selectedData = teachers.filter(t => teacherIds.includes(t.id));
@@ -412,19 +418,20 @@ const TeachersPage: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    toast.success('Teachers exported successfully');
-  }, [teachers]);
+    toast.success(t('teachers_page.bulk.export_success', 'Exporting {{count}} teachers', { count: teacherIds.length }));
+  }, [teachers, t]);
 
   const handleBulkStatusUpdate = useCallback(async (teacherIds: number[], status: string) => {
     try {
       await Promise.all(teacherIds.map(id => teacherService.updateTeacherStatus(id, status as any)));
-      toast.success(`Status updated for ${teacherIds.length} teachers`);
+      const statusLabel = t(`common.status.${status}`, status);
+      toast.success(t('teachers_page.bulk.status_update_success', '{{count}} teachers updated to {{status}}', { count: teacherIds.length, status: statusLabel }));
       setSelectedTeachers([]);
       refetchTeachers();
     } catch (error) {
-      toast.error('Failed to update status for selected teachers');
+      toast.error(t('teachers_page.bulk.status_update_failed', 'Failed to update status for selected teachers'));
     }
-  }, [refetchTeachers]);
+  }, [refetchTeachers, t]);
 
   const handleTeacherSelection = useCallback((teacher: Teacher, isSelected: boolean) => {
     if (isSelected) {
@@ -452,8 +459,8 @@ const TeachersPage: React.FC = () => {
     timetableService
       .getTeacherTimetable(teacher.id)
       .then((t) => setTimetable(t))
-      .catch(() => toast.error('Failed to load teacher timetable'));
-  }, []);
+      .catch(() => toast.error(t('teachers_page.timetable.load_failed', 'Failed to load teacher timetable')));
+  }, [t]);
 
   // Early returns for loading and error states
   if (isLoadingTeachers && teachers.length === 0) {

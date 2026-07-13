@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Teacher } from "../../../types/teacher.types";
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "../../../components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "../../../components/ui/avatar";
@@ -14,6 +15,8 @@ interface TeacherProfileProps {
 }
 
 export function TeacherProfile({ teacher, onEditClick, compact = false }: TeacherProfileProps) {
+  const { t } = useTranslation();
+  
   // Format teacher name
   const formatTeacherName = (teacher: Teacher) => {
     // First try to use full_name if available from backend
@@ -36,15 +39,15 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
           </Avatar>
           <CardTitle className="text-indigo-900">{formatTeacherName(teacher)}</CardTitle>
           <p className="text-sm text-indigo-700">
-            {teacher.specialization} Teacher
+            {t('teachers_page.profile.teacher_specialization', '{{specialization}} Teacher', { specialization: teacher.specialization || 'General' })}
           </p>
           <div className="flex items-center mt-2">
             <Badge variant="outline" className="mr-2">
-              ID: {teacher.employeeId}
+              {t('teachers_page.profile.id_label', 'ID')}: {teacher.employeeId}
             </Badge>
             <Badge variant={teacher.status === 'active' ? 'success' : 
                     teacher.status === 'on_leave' ? 'warning' : 'destructive'}>
-              {teacher.status.replace('_', ' ').charAt(0).toUpperCase() + teacher.status.replace('_', ' ').slice(1)}
+              {t(`common.status.${teacher.status}`, teacher.status.replace('_', ' ').charAt(0).toUpperCase() + teacher.status.replace('_', ' ').slice(1))}
             </Badge>
           </div>
         </div>
@@ -60,15 +63,15 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
               </div>
               <div className="flex items-center">
                 <Phone className="h-4 w-4 mr-2 text-indigo-700" />
-                <span className="text-sm text-indigo-900">{teacher.phone || 'Not provided'}</span>
+                <span className="text-sm text-indigo-900">{teacher.phone || t('common.not_provided', 'Not provided')}</span>
               </div>
               <div className="flex items-center">
                 <GraduationCap className="h-4 w-4 mr-2 text-indigo-700" />
-                <span className="text-sm text-indigo-900">{teacher.qualification || 'Not provided'}</span>
+                <span className="text-sm text-indigo-900">{teacher.qualification || t('common.not_provided', 'Not provided')}</span>
               </div>
               <div className="flex items-center">
                 <Calendar className="h-4 w-4 mr-2 text-indigo-700" />
-                <span className="text-sm text-indigo-900">Joined: {new Date(teacher.joinDate || '').toLocaleDateString()}</span>
+                <span className="text-sm text-indigo-900">{t('teachers_page.profile.joined_label', 'Joined')}: {new Date(teacher.joinDate || '').toLocaleDateString()}</span>
               </div>
             </>
           ) : (
@@ -80,7 +83,7 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
               </div>
               <div className="flex items-center">
                 <Phone className="h-3 w-3 mr-1 text-indigo-700" />
-                <span className="text-xs text-indigo-900">{teacher.phone || 'N/A'}</span>
+                <span className="text-xs text-indigo-900">{teacher.phone || t('common.not_provided_short', 'N/A')}</span>
               </div>
             </div>
           )}
@@ -88,7 +91,7 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
 
         {/* Attendance progress */}
         <div>
-          <h4 className="text-sm font-medium text-indigo-700 mb-2">Attendance Rate</h4>
+          <h4 className="text-sm font-medium text-indigo-700 mb-2">{t('teachers_page.profile.attendance_rate', 'Attendance Rate')}</h4>
           <div className="flex items-center">
             <Progress value={98} className="flex-grow mr-4" />
             <span className="font-medium text-indigo-900">98%</span>
@@ -100,21 +103,21 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
           <>
             <Button variant="outline" className="flex items-center glass-button-outline">
               <FileText className="h-4 w-4 mr-2" />
-              Full Profile
+              {t('teachers_page.profile.full_profile_btn', 'Full Profile')}
             </Button>
             <Button 
               className="flex items-center glass-button"
               onClick={onEditClick}
             >
               <Edit3 className="h-4 w-4 mr-2" />
-              Edit
+              {t('common.edit', 'Edit')}
             </Button>
           </>
         ) : (
           <>
             <Button variant="outline" size="sm" className="flex items-center glass-button-outline">
               <FileText className="h-3 w-3 mr-1" />
-              Profile
+              {t('teachers_page.profile.profile_btn', 'Profile')}
             </Button>
             <Button 
               size="sm"
@@ -122,7 +125,7 @@ export function TeacherProfile({ teacher, onEditClick, compact = false }: Teache
               onClick={onEditClick}
             >
               <Edit3 className="h-3 w-3 mr-1" />
-              Edit
+              {t('common.edit', 'Edit')}
             </Button>
           </>
         )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Teacher } from "../../../types/teacher.types";
 import { TeacherStats } from "./TeacherStats";
 import { TeacherDashboardAnalytics } from "../../../components/teachers/TeacherDashboardAnalytics";
@@ -17,6 +18,7 @@ interface TeacherDashboardTabProps {
 }
 
 export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardTabProps) {
+  const { t } = useTranslation();
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [aiInsights, setAiInsights] = useState<any>(null);
@@ -39,9 +41,9 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
         } catch (error: any) {
           console.error("Error fetching teacher insights:", error);
           if (error.response && error.response.status === 403) {
-            setInsightsError("You don't have permission to access these analytics. Please contact an administrator.");
+            setInsightsError(t("teachers_page.dashboard.insights_forbidden", "You don't have permission to access these analytics. Please contact an administrator."));
           } else {
-            setInsightsError("Failed to load AI insights. Please try again later.");
+            setInsightsError(t("teachers_page.dashboard.insights_failed", "Failed to load AI insights. Please try again later."));
           }
         }
       } catch (error) {
@@ -62,10 +64,10 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
       {/* Main Dashboard Tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="analytics">Analyses</TabsTrigger>
-          <TabsTrigger value="assignments">Devoirs assignés</TabsTrigger>
-          <TabsTrigger value="ai-insights">Analyses IA</TabsTrigger>
+          <TabsTrigger value="overview">{t("teachers_page.dashboard.overview_tab", "Overview")}</TabsTrigger>
+          <TabsTrigger value="analytics">{t("navigation.analytics", "Analytics")}</TabsTrigger>
+          <TabsTrigger value="assignments">{t("navigation.assignments", "Assignments")}</TabsTrigger>
+          <TabsTrigger value="ai-insights">{t("teachers_page.dashboard.ai_insights_tab", "AI Insights")}</TabsTrigger>
         </TabsList>
         
         {/* Overview Tab */}
@@ -82,11 +84,15 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                     <Calendar className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium">Upcoming Classes</h3>
-                    <p className="text-sm text-gray-500">Next: {analyticsData?.upcomingLessons?.[0]?.subject || "No upcoming classes"}</p>
+                    <h3 className="font-medium">{t("teachers_page.dashboard.upcoming_classes", "Upcoming Classes")}</h3>
+                    <p className="text-sm text-gray-500">
+                      {analyticsData?.upcomingLessons?.[0]?.subject 
+                        ? t("teachers_page.dashboard.next_class", "Next: {{subject}}", { subject: analyticsData.upcomingLessons[0].subject }) 
+                        : t("teachers_page.dashboard.no_upcoming_classes", "No upcoming classes")}
+                    </p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full mt-4">View Schedule</Button>
+                <Button variant="outline" className="w-full mt-4">{t("teachers_page.actions.view_schedule", "View Schedule")}</Button>
               </CardContent>
             </Card>
             
@@ -97,11 +103,11 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                     <Clock className="h-6 w-6 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium">Pending Tasks</h3>
-                    <p className="text-sm text-gray-500">{analyticsData?.pendingTasks || 0} tasks need attention</p>
+                    <h3 className="font-medium">{t("teachers_page.dashboard.pending_tasks", "Pending Tasks")}</h3>
+                    <p className="text-sm text-gray-500">{t("teachers_page.dashboard.tasks_need_attention", "{{count}} tasks need attention", { count: analyticsData?.pendingTasks || 0 })}</p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full mt-4">View Tasks</Button>
+                <Button variant="outline" className="w-full mt-4">{t("teachers_page.dashboard.view_tasks", "View Tasks")}</Button>
               </CardContent>
             </Card>
             
@@ -112,11 +118,11 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                     <FileText className="h-6 w-6 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium">Recent Activities</h3>
-                    <p className="text-sm text-gray-500">{analyticsData?.recentActivities?.length || 0} new activities</p>
+                    <h3 className="font-medium">{t("teachers_page.dashboard.recent_activities", "Recent Activities")}</h3>
+                    <p className="text-sm text-gray-500">{t("teachers_page.dashboard.new_activities_count", "{{count}} new activities", { count: analyticsData?.recentActivities?.length || 0 })}</p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full mt-4">View All</Button>
+                <Button variant="outline" className="w-full mt-4">{t("common.show_all", "View All")}</Button>
               </CardContent>
             </Card>
           </div>
@@ -125,7 +131,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
           {analyticsData?.recentActivities && analyticsData.recentActivities.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle>{t("teachers_page.dashboard.recent_activity_title", "Recent Activity")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -135,8 +141,8 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         {activity.icon || <FileText className="h-5 w-5 text-indigo-600" />}
                       </div>
                       <div>
-                        <p className="font-medium">{activity.title || "Activity"}</p>
-                        <p className="text-sm text-gray-500">{activity.description || "No description"}</p>
+                        <p className="font-medium">{activity.title || t("teachers_page.dashboard.activity", "Activity")}</p>
+                        <p className="text-sm text-gray-500">{activity.description || t("teachers_page.dashboard.no_description", "No description")}</p>
                         <p className="text-xs text-gray-400 mt-1">{activity.timestamp || ""}</p>
                       </div>
                     </div>
@@ -149,8 +155,8 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
           {/* At-Risk Students Summary */}
           <Card>
             <CardHeader>
-              <CardTitle>At-Risk Students</CardTitle>
-              <CardDescription>Students who may need additional support</CardDescription>
+              <CardTitle>{t("teachers_page.dashboard.at_risk_students", "At-Risk Students")}</CardTitle>
+              <CardDescription>{t("teachers_page.dashboard.at_risk_description", "Students who may need additional support")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -164,14 +170,14 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         <h4 className="font-medium">{student.name}</h4>
                         <p className="text-sm text-muted-foreground">{student.reason}</p>
                       </div>
-                      <Button variant="outline" size="sm">View Details</Button>
+                      <Button variant="outline" size="sm">{t("teachers_page.dashboard.view_details", "View Details")}</Button>
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted-foreground">No at-risk students identified</p>
+                  <p className="text-muted-foreground">{t("teachers_page.dashboard.no_at_risk_students", "No at-risk students identified")}</p>
                 )}
                 {analyticsData?.atRiskStudents?.length > 3 && (
-                  <Button variant="outline" className="w-full">View All At-Risk Students</Button>
+                  <Button variant="outline" className="w-full">{t("teachers_page.dashboard.view_all_at_risk", "View All At-Risk Students")}</Button>
                 )}
               </div>
             </CardContent>
@@ -182,8 +188,8 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
         <TabsContent value="analytics">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Analytics</CardTitle>
-              <CardDescription>Comprehensive view of your teaching performance and student outcomes</CardDescription>
+              <CardTitle>{t("teachers_page.dashboard.performance_analytics", "Performance Analytics")}</CardTitle>
+              <CardDescription>{t("teachers_page.dashboard.performance_description", "Comprehensive view of your teaching performance and student outcomes")}</CardDescription>
             </CardHeader>
             <CardContent>
               <TeacherDashboardAnalytics 
@@ -205,13 +211,13 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
         <TabsContent value="ai-insights">
           <Card>
             <CardHeader>
-              <CardTitle>AI-Powered Teaching Insights</CardTitle>
-              <CardDescription>Personalized recommendations and analytics to enhance your teaching effectiveness</CardDescription>
+              <CardTitle>{t("teachers_page.dashboard.ai_insights_title", "AI-Powered Teaching Insights")}</CardTitle>
+              <CardDescription>{t("teachers_page.dashboard.ai_insights_desc", "Personalized recommendations and analytics to enhance your teaching effectiveness")}</CardDescription>
             </CardHeader>
             <CardContent>
               {insightsLoading ? (
                 <div className="flex justify-center items-center h-40">
-                  <p>Loading AI insights...</p>
+                  <p>{t("teachers_page.dashboard.loading_insights", "Loading AI insights...")}</p>
                 </div>
               ) : insightsError ? (
                 <div className="p-4 rounded-lg bg-red-50 border border-red-100 text-center">
@@ -227,15 +233,15 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         .then(setAiInsights)
                         .catch(error => {
                           if (error.response && error.response.status === 403) {
-                            setInsightsError("You don't have permission to access these analytics. Please contact an administrator.");
+                            setInsightsError(t("teachers_page.dashboard.insights_forbidden", "You don't have permission to access these analytics. Please contact an administrator."));
                           } else {
-                            setInsightsError("Failed to load AI insights. Please try again later.");
+                            setInsightsError(t("teachers_page.dashboard.insights_failed", "Failed to load AI insights. Please try again later."));
                           }
                         })
                         .finally(() => setInsightsLoading(false));
                     }}
                   >
-                    Retry
+                    {t("teachers_page.dashboard.retry", "Retry")}
                   </Button>
                 </div>
               ) : aiInsights ? (
@@ -244,7 +250,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                   <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
                     <h3 className="text-lg font-medium flex items-center text-blue-700">
                       <TrendingUp className="h-5 w-5 mr-2" />
-                      Performance Prediction
+                      {t("teachers_page.dashboard.performance_prediction", "Performance Prediction")}
                     </h3>
                     <div className="mt-2 flex items-center gap-4">
                       <div className="text-3xl font-bold text-blue-800">{aiInsights.performancePrediction.score}%</div>
@@ -253,11 +259,11 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         aiInsights.performancePrediction.trend === 'declining' ? 'bg-red-100 text-red-800 border-red-200' : 
                         'bg-gray-100 text-gray-800 border-gray-200'
                       }`}>
-                        {aiInsights.performancePrediction.trend}
+                        {t(`teachers_page.dashboard.trend.${aiInsights.performancePrediction.trend}`, aiInsights.performancePrediction.trend)}
                       </Badge>
                     </div>
                     <div className="mt-3">
-                      <p className="text-sm font-medium text-blue-700">Key Factors:</p>
+                      <p className="text-sm font-medium text-blue-700">{t("teachers_page.dashboard.key_factors", "Key Factors:")}</p>
                       <ul className="mt-1 list-disc list-inside text-sm text-blue-600">
                         {aiInsights.performancePrediction.factors.map((factor: string, i: number) => (
                           <li key={i}>{factor}</li>
@@ -270,16 +276,16 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                   <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
                     <h3 className="text-lg font-medium flex items-center text-purple-700">
                       <Clock className="h-5 w-5 mr-2" />
-                      Workload Analysis
+                      {t("teachers_page.dashboard.workload_analysis", "Workload Analysis")}
                     </h3>
                     <div className="mt-2 flex items-center gap-4">
                       <div className="text-3xl font-bold text-purple-800">{aiInsights.workloadAnalysis.currentLoad}%</div>
                       <div className="text-sm text-purple-600">
-                        Current load vs {aiInsights.workloadAnalysis.recommendedLoad}% recommended
+                        {t("teachers_page.dashboard.recommended_load", "Current load vs {{recommended}}% recommended", { recommended: aiInsights.workloadAnalysis.recommendedLoad })}
                       </div>
                     </div>
                     <div className="mt-3">
-                      <p className="text-sm font-medium text-purple-700">Suggestions:</p>
+                      <p className="text-sm font-medium text-purple-700">{t("teachers_page.dashboard.suggestions", "Suggestions:")}</p>
                       <ul className="mt-1 list-disc list-inside text-sm text-purple-600">
                         {aiInsights.workloadAnalysis.suggestions.map((suggestion: string, i: number) => (
                           <li key={i}>{suggestion}</li>
@@ -292,15 +298,15 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                   <div className="p-4 rounded-lg bg-green-50 border border-green-100">
                     <h3 className="text-lg font-medium flex items-center text-green-700">
                       <Users className="h-5 w-5 mr-2" />
-                      Student Engagement
+                      {t("teachers_page.dashboard.student_engagement", "Student Engagement")}
                     </h3>
                     <div className="mt-2 flex items-center gap-4">
                       <div className="text-3xl font-bold text-green-800">{aiInsights.studentEngagement.averageScore}/5</div>
-                      <div className="text-sm text-green-600">Average engagement score</div>
+                      <div className="text-sm text-green-600">{t("teachers_page.dashboard.average_engagement", "Average engagement score")}</div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                       <div>
-                        <p className="text-sm font-medium text-green-700">Top Strengths:</p>
+                        <p className="text-sm font-medium text-green-700">{t("teachers_page.dashboard.top_strengths", "Top Strengths:")}</p>
                         <ul className="mt-1 list-disc list-inside text-sm text-green-600">
                           {aiInsights.studentEngagement.topStrengths.map((strength: string, i: number) => (
                             <li key={i}>{strength}</li>
@@ -308,7 +314,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         </ul>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-green-700">Improvement Areas:</p>
+                        <p className="text-sm font-medium text-green-700">{t("teachers_page.dashboard.improvement_areas", "Improvement Areas:")}</p>
                         <ul className="mt-1 list-disc list-inside text-sm text-green-600">
                           {aiInsights.studentEngagement.improvementAreas.map((area: string, i: number) => (
                             <li key={i}>{area}</li>
@@ -322,14 +328,14 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                   <div className="p-4 rounded-lg bg-amber-50 border border-amber-100">
                     <h3 className="text-lg font-medium flex items-center text-amber-700">
                       <BookOpen className="h-5 w-5 mr-2" />
-                      Professional Development
+                      {t("teachers_page.dashboard.professional_development", "Professional Development")}
                     </h3>
                     <div className="mt-2">
-                      <p className="text-sm font-medium text-amber-800">Career Path: <span className="font-bold">{aiInsights.professionalDevelopment.careerPath}</span></p>
+                      <p className="text-sm font-medium text-amber-800">{t("teachers_page.dashboard.career_path", "Career Path")}: <span className="font-bold">{aiInsights.professionalDevelopment.careerPath}</span></p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                       <div>
-                        <p className="text-sm font-medium text-amber-700">Recommended Courses:</p>
+                        <p className="text-sm font-medium text-amber-700">{t("teachers_page.dashboard.recommended_courses", "Recommended Courses:")}</p>
                         <ul className="mt-1 list-disc list-inside text-sm text-amber-600">
                           {aiInsights.professionalDevelopment.recommendedCourses.map((course: string, i: number) => (
                             <li key={i}>{course}</li>
@@ -337,7 +343,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         </ul>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-amber-700">Skill Gaps:</p>
+                        <p className="text-sm font-medium text-amber-700">{t("teachers_page.dashboard.skill_gaps", "Skill Gaps:")}</p>
                         <ul className="mt-1 list-disc list-inside text-sm text-amber-600">
                           {aiInsights.professionalDevelopment.skillGaps.map((gap: string, i: number) => (
                             <li key={i}>{gap}</li>
@@ -349,7 +355,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                 </div>
               ) : (
                 <div className="text-center p-6">
-                  <p className="text-muted-foreground">Unable to load AI insights. Please try again later.</p>
+                  <p className="text-muted-foreground">{t("teachers_page.dashboard.insights_unable", "Unable to load AI insights. Please try again later.")}</p>
                   <Button variant="outline" className="mt-4" onClick={() => {
                     setInsightsLoading(true);
                     AITeacherService.generateTeacherInsights(teacher.id)
@@ -357,7 +363,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                       .catch(console.error)
                       .finally(() => setInsightsLoading(false));
                   }}>
-                    Retry
+                    {t("teachers_page.dashboard.retry", "Retry")}
                   </Button>
                 </div>
               )}

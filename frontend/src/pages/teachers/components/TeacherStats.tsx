@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Teacher } from "../../../types/teacher.types";
 import { Card, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
@@ -129,6 +130,8 @@ export function TeacherStats({ teacher, classesCount }: TeacherStatsProps) {
     },
   ];
 
+  const { t } = useTranslation();
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -141,24 +144,34 @@ export function TeacherStats({ teacher, classesCount }: TeacherStatsProps) {
     );
   }
 
+  const getStatTranslationKey = (name: string) => {
+    switch (name) {
+      case "Students Taught":
+        return "teachers_page.stats.students_taught";
+      case "Classes Assigned":
+        return "teachers_page.stats.classes_assigned";
+      case "Pending Grades":
+        return "teachers_page.stats.pending_grades";
+      case "Attendance Rate":
+        return "teachers_page.stats.attendance_rate";
+      default:
+        return "";
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
-
-        // Map English backend names to clean French terminology
-        let nameFr = stat.name;
-        if (stat.name === "Students Taught") nameFr = "Total Élèves";
-        else if (stat.name === "Classes Assigned") nameFr = "Classes Assignées";
-        else if (stat.name === "Pending Grades") nameFr = "Notes en Attente";
-        else if (stat.name === "Attendance Rate") nameFr = "Présence Moyenne";
+        const translationKey = getStatTranslationKey(stat.name);
+        const translatedName = translationKey ? t(translationKey, stat.name) : stat.name;
 
         return (
           <Card key={index} className="glass-card border border-slate-200 dark:border-slate-800 rounded-2xl hover:-translate-y-0.5 transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-indigo-700/70 dark:text-indigo-300/70">{nameFr}</p>
+                  <p className="text-sm font-medium text-indigo-700/70 dark:text-indigo-300/70">{translatedName}</p>
                   <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-1">{stat.value}</p>
                   <div className="mt-1.5">
                     <Badge variant={stat.trendDirection === "up" ? "success" : "destructive"} className="text-[10px] px-1.5 py-0">

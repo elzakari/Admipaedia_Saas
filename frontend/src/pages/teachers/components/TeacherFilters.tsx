@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -43,6 +44,8 @@ export function TeacherFilters({
   isCollapsed = false,
   onToggleCollapse 
 }: TeacherFiltersProps) {
+  const { t } = useTranslation();
+
   const updateFilter = (key: keyof TeacherFilters, value: string) => {
     onFiltersChange({ ...filters, [key]: value === 'all' ? undefined : (value || undefined) });
   };
@@ -55,6 +58,26 @@ export function TeacherFilters({
 
   const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
+  // Translate filter label keys
+  const getFilterLabel = (key: string) => {
+    switch(key) {
+      case 'search': return t('common.search', 'Search');
+      case 'status': return t('teachers_page.filters.status', 'Status');
+      case 'specialization': return t('teachers_page.filters.specialization', 'Specialization');
+      default: return key;
+    }
+  };
+
+  // Translate status value
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return t('common.status.active', 'Active');
+      case 'inactive': return t('common.status.inactive', 'Inactive');
+      case 'on_leave': return t('common.status.on_leave', 'On Leave');
+      default: return status;
+    }
+  };
+
   if (isCollapsed) {
     return (
       <div className="flex items-center gap-2 mb-4">
@@ -65,7 +88,7 @@ export function TeacherFilters({
           className="flex items-center gap-2"
         >
           <Filter className="h-4 w-4" />
-          Filters
+          {t('teachers_page.filters.title', 'Filters')}
           {activeFiltersCount > 0 && (
             <Badge variant="secondary" className="ml-1">
               {activeFiltersCount}
@@ -78,7 +101,7 @@ export function TeacherFilters({
           {Object.entries(filters).map(([key, value]) => 
             value ? (
               <Badge key={key} variant="outline" className="text-xs">
-                {key}: {value}
+                {getFilterLabel(key)}: {key === 'status' ? getStatusLabel(value) : (key === 'specialization' ? t(`teachers_page.specializations.${value.toLowerCase().replace(' ', '_')}`, value) : value)}
                 <X 
                   className="h-3 w-3 ml-1 cursor-pointer" 
                   onClick={() => removeFilter(key as keyof TeacherFilters)}
@@ -97,10 +120,10 @@ export function TeacherFilters({
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Advanced Filters
+            {t('teachers_page.filters.advanced_title', 'Advanced Filters')}
             {activeFiltersCount > 0 && (
               <Badge variant="secondary">
-                {activeFiltersCount} active
+                {activeFiltersCount} {t('teachers_page.filters.active_count', 'active')}
               </Badge>
             )}
           </CardTitle>
@@ -112,7 +135,7 @@ export function TeacherFilters({
               disabled={activeFiltersCount === 0}
             >
               <RotateCcw className="h-4 w-4 mr-1" />
-              Clear All
+              {t('teachers_page.filters.clear_all', 'Clear All')}
             </Button>
             {onToggleCollapse && (
               <Button variant="ghost" size="sm" onClick={onToggleCollapse}>
@@ -125,40 +148,42 @@ export function TeacherFilters({
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="search">Search</Label>
+            <Label htmlFor="search">{t('common.search', 'Search')}</Label>
             <Input
               id="search"
-              placeholder="Name, email, or employee ID"
+              placeholder={t('teachers_page.filters.search_placeholder', 'Name, email, or employee ID')}
               value={filters.search || ''}
               onChange={(e) => updateFilter('search', e.target.value)}
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status">{t('teachers_page.filters.status', 'Status')}</Label>
             <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value)}>
               <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
+                <SelectValue placeholder={t('teachers_page.filters.all_statuses', 'All statuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="on_leave">On Leave</SelectItem>
+                <SelectItem value="all">{t('teachers_page.filters.all_statuses', 'All statuses')}</SelectItem>
+                <SelectItem value="active">{t('common.status.active', 'Active')}</SelectItem>
+                <SelectItem value="inactive">{t('common.status.inactive', 'Inactive')}</SelectItem>
+                <SelectItem value="on_leave">{t('common.status.on_leave', 'On Leave')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="specialization">Specialization</Label>
+            <Label htmlFor="specialization">{t('teachers_page.filters.specialization', 'Specialization')}</Label>
             <Select value={filters.specialization || 'all'} onValueChange={(value) => updateFilter('specialization', value)}>
               <SelectTrigger>
-                <SelectValue placeholder="All specializations" />
+                <SelectValue placeholder={t('teachers_page.filters.all_specializations', 'All specializations')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All specializations</SelectItem>
+                <SelectItem value="all">{t('teachers_page.filters.all_specializations', 'All specializations')}</SelectItem>
                 {SPECIALIZATIONS.map(spec => (
-                  <SelectItem key={spec} value={spec}>{spec}</SelectItem>
+                  <SelectItem key={spec} value={spec}>
+                    {t(`teachers_page.specializations.${spec.toLowerCase().replace(' ', '_')}`, spec)}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

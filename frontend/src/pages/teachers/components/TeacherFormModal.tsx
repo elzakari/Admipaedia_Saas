@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,21 +20,18 @@ import { toast } from "sonner";
 import { getFormClasses, getModalClasses } from "../../../styles/design-system";
 import { cn } from "../../../lib/utils";
 
-// Updated schema - status is required, not optional with default
-const teacherSchema = z.object({
-  firstName: z.string().min(2, "First name is required"),
-  lastName: z.string().min(2, "Last name is required"),
-  email: z.string().email("Invalid email address"),
-  employeeId: z.string().min(1, "Employee ID is required"),
-  status: z.enum(["active", "inactive", "on_leave"]), // Required field, no default
-  phoneNumber: z.string().optional(),
-  qualification: z.string().optional(),
-  specialization: z.string().optional(),
-  joinDate: z.string().optional(),
-});
-
 // Form data type
-type FormData = z.infer<typeof teacherSchema>;
+type FormData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  employeeId: string;
+  status: "active" | "inactive" | "on_leave";
+  phoneNumber?: string;
+  qualification?: string;
+  specialization?: string;
+  joinDate?: string;
+};
 
 // Transform function to convert form data to API format
 const transformFormDataToAPI = (data: FormData): TeacherCreate => {
@@ -73,10 +71,24 @@ interface TeacherFormModalProps {
 }
 
 export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalProps) {
+  const { t } = useTranslation();
   const isEditMode = !!teacher;
   const { mutate: createTeacher, isPending: isCreating } = useCreateTeacher();
   const { mutate: updateTeacher, isPending: isUpdating } = useUpdateTeacher();
   
+  // Zod schema with localized errors
+  const teacherSchema = z.object({
+    firstName: z.string().min(2, t("teachers_page.form.errors.first_name_required", "First name is required")),
+    lastName: z.string().min(2, t("teachers_page.form.errors.last_name_required", "Last name is required")),
+    email: z.string().email(t("teachers_page.form.errors.invalid_email", "Invalid email address")),
+    employeeId: z.string().min(1, t("teachers_page.form.errors.employee_id_required", "Employee ID is required")),
+    status: z.enum(["active", "inactive", "on_leave"]), // Required field, no default
+    phoneNumber: z.string().optional(),
+    qualification: z.string().optional(),
+    specialization: z.string().optional(),
+    joinDate: z.string().optional(),
+  });
+
   // Get design system classes
   const formClasses = getFormClasses();
   const modalClasses = getModalClasses();
@@ -139,12 +151,12 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
           { id: teacher.id, data: updateData },
           {
             onSuccess: () => {
-              toast.success("Teacher updated successfully");
+              toast.success(t("teachers_page.form.update_success", "Teacher updated successfully"));
               onClose();
             },
             onError: (error: any) => {
               console.error("Update error:", error);
-              toast.error(error?.message || "Failed to update teacher");
+              toast.error(error?.message || t("teachers_page.form.update_failed", "Failed to update teacher"));
             },
           }
         );
@@ -156,19 +168,19 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
           createData,
           {
             onSuccess: () => {
-              toast.success("Teacher created successfully");
+              toast.success(t("teachers_page.form.create_success", "Teacher created successfully"));
               onClose();
             },
             onError: (error: any) => {
               console.error("Create error:", error);
-              toast.error(error?.message || "Failed to create teacher");
+              toast.error(error?.message || t("teachers_page.form.create_failed", "Failed to create teacher"));
             },
           }
         );
       }
     } catch (error) {
       console.error("Form submission error:", error);
-      toast.error("An unexpected error occurred");
+      toast.error(t("common.error", "An unexpected error occurred"));
     }
   };
 
@@ -182,7 +194,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
       <DialogContent className={cn("sm:max-w-[600px] max-h-[90vh] overflow-y-auto ds-modal-content")}>
         <DialogHeader className={cn(modalClasses.header)}>
           <DialogTitle className={cn(modalClasses.title, "ds-modal-title")}>
-            {isEditMode ? "Edit Teacher" : "Add New Teacher"}
+            {isEditMode ? t("teachers_page.form.edit_title", "Edit Teacher") : t("teachers_page.form.add_title", "Add New Teacher")}
           </DialogTitle>
         </DialogHeader>
         
@@ -191,7 +203,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* First Name */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="firstName" className={cn(formClasses.labelRequired)}>
-                First Name
+                {t("teachers_page.form.first_name", "First Name")}
               </Label>
               <Input
                 id="firstName"
@@ -201,7 +213,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.firstName && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter first name"
+                placeholder={t("teachers_page.form.first_name_placeholder", "Enter first name")}
               />
               {errors.firstName && (
                 <p className={cn(formClasses.error)}>{errors.firstName.message}</p>
@@ -211,7 +223,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Last Name */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="lastName" className={cn(formClasses.labelRequired)}>
-                Last Name
+                {t("teachers_page.form.last_name", "Last Name")}
               </Label>
               <Input
                 id="lastName"
@@ -221,7 +233,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.lastName && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter last name"
+                placeholder={t("teachers_page.form.last_name_placeholder", "Enter last name")}
               />
               {errors.lastName && (
                 <p className={cn(formClasses.error)}>{errors.lastName.message}</p>
@@ -233,7 +245,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Email */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="email" className={cn(formClasses.labelRequired)}>
-                Email
+                {t("auth.email", "Email")}
               </Label>
               <Input
                 id="email"
@@ -244,21 +256,21 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.email && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter email address"
+                placeholder={t("auth.email_placeholder", "Enter email address")}
                 disabled={isEditMode}
               />
               {errors.email && (
                 <p className={cn(formClasses.error)}>{errors.email.message}</p>
               )}
               {isEditMode ? (
-                <p className="text-xs text-muted-foreground">Email is managed on the user account.</p>
+                <p className="text-xs text-muted-foreground">{t("teachers_page.form.email_managed", "Email is managed on the user account.")}</p>
               ) : null}
             </div>
 
             {/* Phone Number */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="phoneNumber" className={cn(formClasses.label)}>
-                Phone Number
+                {t("teachers_page.form.phone", "Phone Number")}
               </Label>
               <Input
                 id="phoneNumber"
@@ -268,7 +280,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.phoneNumber && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter phone number"
+                placeholder={t("teachers_page.form.phone_placeholder", "Enter phone number")}
               />
               {errors.phoneNumber && (
                 <p className={cn(formClasses.error)}>{errors.phoneNumber.message}</p>
@@ -280,7 +292,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Employee ID */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="employeeId" className={cn(formClasses.labelRequired)}>
-                Employee ID
+                {t("teachers_page.form.employee_id", "Employee ID")}
               </Label>
               <Input
                 id="employeeId"
@@ -290,7 +302,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.employeeId && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter employee ID"
+                placeholder={t("teachers_page.form.employee_id_placeholder", "Enter employee ID")}
               />
               {errors.employeeId && (
                 <p className={cn(formClasses.error)}>{errors.employeeId.message}</p>
@@ -300,7 +312,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Join Date */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="joinDate" className={cn(formClasses.label)}>
-                Join Date
+                {t("teachers_page.form.join_date", "Join Date")}
               </Label>
               <Input
                 id="joinDate"
@@ -322,7 +334,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Qualification */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="qualification" className={cn(formClasses.label)}>
-                Qualification
+                {t("teachers_page.form.qualification", "Qualification")}
               </Label>
               <Input
                 id="qualification"
@@ -332,7 +344,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.qualification && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter qualification"
+                placeholder={t("teachers_page.form.qualification_placeholder", "Enter qualification")}
               />
               {errors.qualification && (
                 <p className={cn(formClasses.error)}>{errors.qualification.message}</p>
@@ -342,7 +354,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
             {/* Specialization */}
             <div className={cn(formClasses.field)}>
               <Label htmlFor="specialization" className={cn(formClasses.label)}>
-                Specialization
+                {t("teachers_page.filters.specialization", "Specialization")}
               </Label>
               <Input
                 id="specialization"
@@ -352,7 +364,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                   errors.specialization && formClasses.inputError,
                   "ds-form-input"
                 )}
-                placeholder="Enter specialization"
+                placeholder={t("teachers_page.form.specialization_placeholder", "Enter specialization")}
               />
               {errors.specialization && (
                 <p className={cn(formClasses.error)}>{errors.specialization.message}</p>
@@ -363,7 +375,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
           {/* Status */}
           <div className={cn(formClasses.field)}>
             <Label htmlFor="status" className={cn(formClasses.labelRequired)}>
-              Status
+              {t("teachers_page.filters.status", "Status")}
             </Label>
             <Select
               value={statusValue}
@@ -374,12 +386,12 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
                 errors.status && "border-error-500 focus:ring-error-500",
                 "ds-form-select"
               )}>
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder={t("teachers_page.filters.status", "Select status")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="on_leave">On Leave</SelectItem>
+                <SelectItem value="active">{t("common.status.active", "Active")}</SelectItem>
+                <SelectItem value="inactive">{t("common.status.inactive", "Inactive")}</SelectItem>
+                <SelectItem value="on_leave">{t("common.status.on_leave", "On Leave")}</SelectItem>
               </SelectContent>
             </Select>
             {errors.status && (
@@ -395,7 +407,7 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
               disabled={isCreating || isUpdating}
               className="ds-form-button-secondary"
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               type="submit"
@@ -405,10 +417,10 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
               {isCreating || isUpdating ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{isEditMode ? "Updating..." : "Creating..."}</span>
+                  <span>{isEditMode ? t("teachers_page.form.updating", "Updating...") : t("teachers_page.form.creating", "Creating...")}</span>
                 </div>
               ) : (
-                isEditMode ? "Update Teacher" : "Create Teacher"
+                isEditMode ? t("teachers_page.form.update_btn", "Update Teacher") : t("teachers_page.form.create_btn", "Create Teacher")
               )}
             </Button>
           </DialogFooter>
