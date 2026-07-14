@@ -329,7 +329,7 @@ const StudentProfilePage: React.FC = () => {
                 <div className="space-y-1 text-sm">
                   <p className="flex items-center"><GraduationCap className="h-4 w-4 mr-2 text-gray-400" />{student.class_name || t('common.not_assigned', 'Not Assigned')}</p>
                   <p className="flex items-center"><Calendar className="h-4 w-4 mr-2 text-gray-400" />{t('students_page.profile.enrollment_date', 'Enrolled')}: {new Date(student.enrollment_date).toLocaleDateString()}</p>
-                  <Badge className={getStatusColor(student.status)}>{student.status}</Badge>
+                  <Badge className={getStatusColor(student.status)}>{t('common.' + student.status?.toLowerCase(), student.status)}</Badge>
                 </div>
               </div>
               
@@ -452,7 +452,12 @@ const StudentProfilePage: React.FC = () => {
                   </div>
                   <div>
                     <label className="font-medium text-gray-700">{t('common.gender', 'Gender')}</label>
-                    <p className="text-gray-900">{student.gender}</p>
+                    <p className="text-gray-900">
+                      {student.gender?.toLowerCase() === 'female' ? t('common.gender_female', 'Female') : 
+                       student.gender?.toLowerCase() === 'male' ? t('common.gender_male', 'Male') : 
+                       student.gender?.toLowerCase() === 'other' ? t('common.gender_other', 'Other') : 
+                       student.gender}
+                    </p>
                   </div>
                   {student.place_of_birth && (
                     <div>
@@ -532,7 +537,7 @@ const StudentProfilePage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="font-medium text-gray-700">{t('teachers_page.profile.status', 'Status')}</label>
-                    <Badge className={getStatusColor(student.status)}>{student.status}</Badge>
+                    <Badge className={getStatusColor(student.status)}>{t('common.' + student.status?.toLowerCase(), student.status)}</Badge>
                   </div>
                   <div>
                     <label className="font-medium text-gray-700">{t('students_page.profile.overall_performance', 'Overall Performance')}</label>
@@ -576,10 +581,13 @@ const StudentProfilePage: React.FC = () => {
                     {attendanceRecords.map((record, index) => (
                       <tr key={index} className="border-b">
                         <td className="p-2">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="p-2">{record.subject}</td>
+                        <td className="p-2">{t(record.subject, record.subject)}</td>
                         <td className="p-2">
                           <Badge className={getAttendanceStatusColor(record.status)}>
-                            {record.status}
+                            {record.status?.toLowerCase() === 'present' ? t('common.status_present', 'present') :
+                             record.status?.toLowerCase() === 'late' ? t('common.status_late', 'late') :
+                             record.status?.toLowerCase() === 'absent' ? t('common.status_absent', 'absent') :
+                             record.status}
                           </Badge>
                         </td>
                       </tr>
@@ -615,8 +623,13 @@ const StudentProfilePage: React.FC = () => {
                   <tbody>
                     {gradeRecords.map((record, index) => (
                       <tr key={index} className="border-b">
-                        <td className="p-2">{record.subject}</td>
-                        <td className="p-2">{record.exam_type}</td>
+                        <td className="p-2">{t(record.subject, record.subject)}</td>
+                        <td className="p-2">
+                           {record.exam_type?.toLowerCase() === 'mid-term' ? t('common.exam_midterm', 'Mid-term') :
+                            record.exam_type?.toLowerCase() === 'quiz' ? t('common.exam_quiz', 'Quiz') :
+                            record.exam_type?.toLowerCase() === 'assignment' ? t('common.exam_assignment', 'Assignment') :
+                            record.exam_type}
+                        </td>
                         <td className="p-2">{record.marks_obtained}/{record.total_marks}</td>
                         <td className="p-2">
                           <div className="flex items-center space-x-2">
