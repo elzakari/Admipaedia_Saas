@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Progress } from '../../components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { studentService } from '../../services/studentService';
+import analyticsService from '../../services/analyticsService';
 import StudentPrintView from '../../components/students/StudentPrintView';
 import { Label } from '../../components/ui/label';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
@@ -124,9 +125,21 @@ const StudentProfilePage: React.FC = () => {
       
       try {
         setLoading(true);
-        // Fetch student details
-        const studentResp: any = await studentService.getStudentById(studentId);
+        const [studentResp, attendanceReport, gradeReport] = await Promise.all([
+          studentService.getStudentById(studentId),
+          analyticsService.getStudentAttendanceReport(studentId).catch((reportError) => {
+            console.warn(`Failed to load attendance report for student ${studentId}:`, reportError);
+            return null;
+          }),
+          analyticsService.getStudentGradeReport(studentId).catch((reportError) => {
+            console.warn(`Failed to load grade report for student ${studentId}:`, reportError);
+            return null;
+          })
+        ]);
+
         const studentData: any = studentResp?.data || {};
+        const liveAttendanceRate = Number(attendanceReport?.summary?.attendance_rate);
+        const liveOverallAverage = Number(gradeReport?.overall_average);
         
         // Transform Student to StudentProfile by adding missing fields
         const studentProfile: StudentProfile = {
@@ -137,8 +150,12 @@ const StudentProfilePage: React.FC = () => {
           class_id: studentData.class_id?.toString(),
           date_of_birth: studentData.date_of_birth || '2000-01-01',
           enrollment_date: studentData.enrollment_date || studentData.created_at || new Date().toISOString(),
-          attendance_percentage: studentData.attendance_percentage || 0,
-          performance_average: studentData.performance_average || 0,
+          attendance_percentage: Number.isFinite(liveAttendanceRate)
+            ? liveAttendanceRate
+            : Number(studentData.attendance_percentage || 0),
+          performance_average: Number.isFinite(liveOverallAverage)
+            ? liveOverallAverage
+            : Number(studentData.performance_average || 0),
           class_name: studentData.class_name || `Class ${studentData.class_id || 'Unknown'}`,
           parent_name: (studentData.parent_name as any) || studentData.father_name || studentData.mother_name || 'No parent name provided',
           parent_email: (studentData.parent_email as any) || studentData.father_email || studentData.mother_email || 'No parent email provided',
@@ -151,22 +168,25 @@ const StudentProfilePage: React.FC = () => {
         
         setStudent(studentProfile);
         
-        // Fetch attendance records (mock data for now)
-        const mockAttendance: AttendanceRecord[] = [
-          { date: '2024-01-15', status: 'present', subject: 'Mathematics' },
-          { date: '2024-01-15', status: 'present', subject: 'English' },
-          { date: '2024-01-16', status: 'late', subject: 'Science' },
-          { date: '2024-01-17', status: 'absent', subject: 'History' },
-        ];
-        setAttendanceRecords(mockAttendance);
-        
-        // Fetch grade records (mock data for now)
-        const mockGrades: GradeRecord[] = [
-          { subject: 'Mathematics', exam_type: 'Mid-term', marks_obtained: 85, total_marks: 100, percentage: 85, grade: 'A', date: '2024-01-10' },
-          { subject: 'English', exam_type: 'Quiz', marks_obtained: 78, total_marks: 100, percentage: 78, grade: 'B+', date: '2024-01-12' },
-          { subject: 'Science', exam_type: 'Assignment', marks_obtained: 92, total_marks: 100, percentage: 92, grade: 'A+', date: '2024-01-14' },
-        ];
-        setGradeRecords(mockGrades);
+        const liveAttendance: AttendanceRecord[] = (attendanceReport?.daily_records || []).map((record) => ({
+          date: record.date,
+          status: record.status,
+          subject: record.subject || t('common.general', 'General')
+        }));
+        setAttendanceRecords(liveAttendance);
+
+        const liveGrades: GradeRecord[] = (gradeReport?.subjects || []).flatMap((subjectReport) =>
+          (subjectReport.grades || []).map((grade) => ({
+            subject: subjectReport.subject_name,
+            exam_type: grade.assessment_type || t('common.assessment', 'Assessment'),
+            marks_obtained: Number(grade.score || 0),
+            total_marks: Number(grade.max_score || 0),
+            percentage: Number(grade.percentage || 0),
+            grade: subjectReport.grade_letter || '',
+            date: grade.date
+          }))
+        );
+        setGradeRecords(liveGrades);
         
       } catch (err) {
         setError(t('students_page.failed_fetch', 'Failed to fetch student data'));
@@ -392,7 +412,7 @@ const StudentProfilePage: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span>{t('common.total_subjects', 'Total Subjects')}</span>
-                    <span className="font-medium">{gradeRecords.length}</span>
+                    <span className="font-medium">{new Set(gradeRecords.map((record) => record.subject)).size}</span>
                   </div>
                 </div>
               </CardContent>
@@ -578,20 +598,28 @@ const StudentProfilePage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {attendanceRecords.map((record, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="p-2">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="p-2">{t(record.subject, record.subject)}</td>
-                        <td className="p-2">
-                          <Badge className={getAttendanceStatusColor(record.status)}>
-                            {record.status?.toLowerCase() === 'present' ? t('common.status_present', 'present') :
-                             record.status?.toLowerCase() === 'late' ? t('common.status_late', 'late') :
-                             record.status?.toLowerCase() === 'absent' ? t('common.status_absent', 'absent') :
-                             record.status}
-                          </Badge>
+                    {attendanceRecords.length > 0 ? (
+                      attendanceRecords.map((record, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="p-2">{new Date(record.date).toLocaleDateString()}</td>
+                          <td className="p-2">{t(record.subject, record.subject)}</td>
+                          <td className="p-2">
+                            <Badge className={getAttendanceStatusColor(record.status)}>
+                              {record.status?.toLowerCase() === 'present' ? t('common.status_present', 'present') :
+                               record.status?.toLowerCase() === 'late' ? t('common.status_late', 'late') :
+                               record.status?.toLowerCase() === 'absent' ? t('common.status_absent', 'absent') :
+                               record.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                          {t('common.no_attendance_records', 'No attendance records found')}
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -621,30 +649,38 @@ const StudentProfilePage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {gradeRecords.map((record, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="p-2">{t(record.subject, record.subject)}</td>
-                        <td className="p-2">
-                           {record.exam_type?.toLowerCase() === 'mid-term' ? t('common.exam_midterm', 'Mid-term') :
-                            record.exam_type?.toLowerCase() === 'quiz' ? t('common.exam_quiz', 'Quiz') :
-                            record.exam_type?.toLowerCase() === 'assignment' ? t('common.exam_assignment', 'Assignment') :
-                            record.exam_type}
+                    {gradeRecords.length > 0 ? (
+                      gradeRecords.map((record, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="p-2">{t(record.subject, record.subject)}</td>
+                          <td className="p-2">
+                             {record.exam_type?.toLowerCase() === 'mid-term' ? t('common.exam_midterm', 'Mid-term') :
+                              record.exam_type?.toLowerCase() === 'quiz' ? t('common.exam_quiz', 'Quiz') :
+                              record.exam_type?.toLowerCase() === 'assignment' ? t('common.exam_assignment', 'Assignment') :
+                              record.exam_type}
+                          </td>
+                          <td className="p-2">{record.marks_obtained}/{record.total_marks}</td>
+                          <td className="p-2">
+                            <div className="flex items-center space-x-2">
+                              <Progress value={record.percentage} className="w-16" />
+                              <span>{record.percentage}%</span>
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <Badge variant={record.percentage >= 80 ? 'default' : record.percentage >= 60 ? 'secondary' : 'destructive'}>
+                              {record.grade}
+                            </Badge>
+                          </td>
+                          <td className="p-2">{new Date(record.date).toLocaleDateString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                          {t('common.no_grade_records', 'No grade records found')}
                         </td>
-                        <td className="p-2">{record.marks_obtained}/{record.total_marks}</td>
-                        <td className="p-2">
-                          <div className="flex items-center space-x-2">
-                            <Progress value={record.percentage} className="w-16" />
-                            <span>{record.percentage}%</span>
-                          </div>
-                        </td>
-                        <td className="p-2">
-                          <Badge variant={record.percentage >= 80 ? 'default' : record.percentage >= 60 ? 'secondary' : 'destructive'}>
-                            {record.grade}
-                          </Badge>
-                        </td>
-                        <td className="p-2">{new Date(record.date).toLocaleDateString()}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
