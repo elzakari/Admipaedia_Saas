@@ -10,6 +10,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { AlertCircle, TrendingUp, TrendingDown, Users, Clock, Calendar, BookOpen, Award, FileText, Loader2 } from 'lucide-react';
 import { AssignmentManagement } from './AssignmentManagement';
 import analyticsService, { TeacherAnalytics } from '../../services/analyticsService';
+import { useTranslation } from 'react-i18next';
 
 interface TeacherDashboardAnalyticsProps {
   teacherId: number;
@@ -56,6 +57,7 @@ export function TeacherDashboardAnalytics({
   attendanceData, 
   performanceData 
 }: TeacherDashboardAnalyticsProps) {
+  const { t } = useTranslation();
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   
@@ -84,7 +86,7 @@ export function TeacherDashboardAnalytics({
         <CardContent className="flex items-center justify-center h-96">
           <div className="flex items-center space-x-2">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading analytics data...</span>
+            <span>{t('teachers_page.analytics.loading', 'Loading analytics data...')}</span>
           </div>
         </CardContent>
       </Card>
@@ -97,11 +99,11 @@ export function TeacherDashboardAnalytics({
         <CardContent className="flex flex-col items-center justify-center h-96 space-y-4">
           <AlertCircle className="h-12 w-12 text-red-500" />
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-red-700">Failed to Load Analytics</h3>
-            <p className="text-red-600 mt-2">Unable to fetch analytics data. Please try again.</p>
+            <h3 className="text-lg font-semibold text-red-700">{t('teachers_page.analytics.failed_load', 'Failed to Load Analytics')}</h3>
+            <p className="text-red-600 mt-2">{t('teachers_page.analytics.unable_fetch', 'Unable to fetch analytics data. Please try again.')}</p>
           </div>
           <Button onClick={() => refetch()} variant="outline">
-            Retry
+            {t('teachers_page.dashboard.retry', 'Retry')}
           </Button>
         </CardContent>
       </Card>
@@ -111,33 +113,33 @@ export function TeacherDashboardAnalytics({
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Class Analytics Dashboard</CardTitle>
+        <CardTitle>{t('teachers_page.analytics.dashboard_title', 'Class Analytics Dashboard')}</CardTitle>
         <CardDescription>
-          Comprehensive analytics to track student performance, attendance, and engagement
+          {t('teachers_page.analytics.dashboard_desc', 'Comprehensive analytics to track student performance, attendance, and engagement')}
         </CardDescription>
         
         <div className="flex flex-col sm:flex-row gap-2 mt-4">
           <Select value={selectedClass} onValueChange={setSelectedClass}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Select class" />
+              <SelectValue placeholder={t('teachers_page.analytics.select_class', 'Select class')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Classes</SelectItem>
-              <SelectItem value="class-10a">Grade 10A</SelectItem>
-              <SelectItem value="class-9b">Grade 9B</SelectItem>
-              <SelectItem value="class-11c">Grade 11C</SelectItem>
+              <SelectItem value="all">{t('teachers_page.analytics.all_classes', 'All Classes')}</SelectItem>
+              <SelectItem value="class-10a">{t('teachers_page.analytics.grade_10a', 'Grade 10A')}</SelectItem>
+              <SelectItem value="class-9b">{t('teachers_page.analytics.grade_9b', 'Grade 9B')}</SelectItem>
+              <SelectItem value="class-11c">{t('teachers_page.analytics.grade_11c', 'Grade 11C')}</SelectItem>
             </SelectContent>
           </Select>
           
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Select period" />
+              <SelectValue placeholder={t('teachers_page.analytics.select_period', 'Select period')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
+              <SelectItem value="week">{t('teachers_page.analytics.period_week', 'This Week')}</SelectItem>
+              <SelectItem value="month">{t('teachers_page.analytics.period_month', 'This Month')}</SelectItem>
+              <SelectItem value="quarter">{t('teachers_page.analytics.period_quarter', 'This Quarter')}</SelectItem>
+              <SelectItem value="year">{t('teachers_page.analytics.period_year', 'This Year')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -146,10 +148,10 @@ export function TeacherDashboardAnalytics({
       <CardContent>
         <Tabs defaultValue="attendance" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="engagement">Engagement</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="attendance">{t('navigation.attendance', 'Attendance')}</TabsTrigger>
+            <TabsTrigger value="performance">{t('common.performance', 'Performance')}</TabsTrigger>
+            <TabsTrigger value="engagement">{t('teachers_page.analytics.engagement_tab', 'Engagement')}</TabsTrigger>
+            <TabsTrigger value="assignments">{t('navigation.assignments', 'Assignments')}</TabsTrigger>
           </TabsList>
           
           {/* Attendance Tab */}
@@ -158,41 +160,41 @@ export function TeacherDashboardAnalytics({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Overall Attendance</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('students_page.profile.attendance_rate', 'Overall Attendance')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.attendance?.overall_rate?.toFixed(1) || 0}%</div>
-                  <p className="text-xs text-muted-foreground">Class average</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.class_average', 'Class average')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.present_today', 'Present Today')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.attendance?.status_breakdown?.present || 0}</div>
-                  <p className="text-xs text-muted-foreground">Students present</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.students_present', 'Students present')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Late Arrivals</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.late_arrivals', 'Late Arrivals')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.attendance?.status_breakdown?.late || 0}</div>
-                  <p className="text-xs text-muted-foreground">Students late</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.students_late', 'Students late')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Absences</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('common.status_absent', 'Absences')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.attendance?.status_breakdown?.absent || 0}</div>
-                  <p className="text-xs text-muted-foreground">Students absent</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.students_absent', 'Students absent')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -200,7 +202,7 @@ export function TeacherDashboardAnalytics({
             {/* Attendance trend chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Daily Attendance Trends</CardTitle>
+                <CardTitle>{t('teachers_page.analytics.daily_trends', 'Daily Attendance Trends')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -221,7 +223,7 @@ export function TeacherDashboardAnalytics({
             {/* At-risk students based on attendance */}
             <Card>
               <CardHeader>
-                <CardTitle>Attendance Concerns</CardTitle>
+                <CardTitle>{t('teachers_page.analytics.attendance_concerns', 'Attendance Concerns')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -241,25 +243,25 @@ export function TeacherDashboardAnalytics({
                           <div className="flex items-center justify-between">
                             <h4 className="font-medium">{student.name}</h4>
                             <Badge variant={student.attendance_rate < 70 ? 'destructive' : 'secondary'}>
-                              {student.attendance_rate}% attendance
+                              {t('teachers_page.analytics.percent_attendance', '{{rate}}% attendance', { rate: student.attendance_rate })}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Risk factors: {student.risk_factors?.join(', ') || 'Low attendance'}
+                            {t('teachers_page.analytics.risk_factors', 'Risk factors')}: {student.risk_factors?.map((rf: string) => t(`teachers_page.analytics.risk_${rf.toLowerCase().replace(' ', '_')}`, rf)).join(', ') || t('teachers_page.analytics.low_attendance', 'Low attendance')}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Last activity: {student.last_activity || 'N/A'}
+                            {t('teachers_page.analytics.last_activity', 'Last activity')}: {student.last_activity || t('common.na', 'N/A')}
                           </p>
                         </div>
                         <Button variant="outline" size="sm">
-                          Contact
+                          {t('teachers_page.analytics.contact_btn', 'Contact')}
                         </Button>
                       </div>
                     ))
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No attendance concerns at this time</p>
+                      <p>{t('teachers_page.analytics.no_concerns', 'No attendance concerns at this time')}</p>
                     </div>
                   )}
                 </div>
@@ -273,31 +275,31 @@ export function TeacherDashboardAnalytics({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Class Average</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.stats.class_assigned', 'Class Average')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.performance?.average_grade?.toFixed(1) || 0}%</div>
-                  <p className="text-xs text-muted-foreground">Overall performance</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.overall_perf_desc', 'Overall performance')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Top Performers</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.top_performers', 'Top Performers')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{performanceChartData.find(d => d.name.includes('A'))?.value || 0}</div>
-                  <p className="text-xs text-muted-foreground">Students with A grades</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.students_a_grades', 'Students with A grades')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Need Support</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.need_support', 'Need Support')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{performanceChartData.find(d => d.name.includes('F'))?.value || 0}</div>
-                  <p className="text-xs text-muted-foreground">Students below 60%</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.students_below_60', 'Students below 60%')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -306,7 +308,7 @@ export function TeacherDashboardAnalytics({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Grade Distribution</CardTitle>
+                  <CardTitle>{t('common.grade_distribution', 'Grade Distribution')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -334,7 +336,7 @@ export function TeacherDashboardAnalytics({
               {/* Performance trend */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Performance Trend</CardTitle>
+                  <CardTitle>{t('common.performance_trends', 'Performance Trend')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -358,41 +360,41 @@ export function TeacherDashboardAnalytics({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Class Participation</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.class_participation', 'Class Participation')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.engagement?.class_participation || 85}%</div>
-                  <p className="text-xs text-muted-foreground">+5% from last month</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.participation_trend', '+5% from last month')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">On-Time Submissions</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.ontime_submissions', 'On-Time Submissions')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.engagement?.assignment_completion_rate || analytics?.assignments?.average_submission_rate?.toFixed(0) || 78}%</div>
-                  <p className="text-xs text-muted-foreground">Assignment completion</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.assignment_completion', 'Assignment completion')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Resource Usage</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.resource_usage', 'Resource Usage')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.engagement?.resource_usage || 65}%</div>
-                  <p className="text-xs text-muted-foreground">+10% from last month</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.resource_trend', '+10% from last month')}</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Discussion Posts</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.discussion_posts', 'Discussion Posts')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{analytics?.engagement?.discussion_posts || 142}</div>
-                  <p className="text-xs text-muted-foreground">This month</p>
+                  <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.this_month', 'This month')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -401,8 +403,8 @@ export function TeacherDashboardAnalytics({
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Engagement Insights</CardTitle>
-                  <CardDescription>AI-powered insights to improve student engagement</CardDescription>
+                  <CardTitle>{t('teachers_page.dashboard.ai_insights_title', 'Engagement Insights')}</CardTitle>
+                  <CardDescription>{t('teachers_page.analytics.ai_insights_desc', 'AI-powered insights to improve student engagement')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-4 rounded-lg border">
@@ -411,11 +413,11 @@ export function TeacherDashboardAnalytics({
                         <Users className="h-5 w-5 text-purple-500" />
                       </div>
                       <div>
-                        <h4 className="font-medium">Group Activities</h4>
-                        <p className="text-sm text-muted-foreground">Students show 15% higher engagement in collaborative activities</p>
+                        <h4 className="font-medium">{t('teachers_page.analytics.group_activities', 'Group Activities')}</h4>
+                        <p className="text-sm text-muted-foreground">{t('teachers_page.analytics.group_activities_desc', 'Students show 15% higher engagement in collaborative activities')}</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">View Details</Button>
+                    <Button variant="outline" size="sm">{t('teachers_page.analytics.view_details', 'View Details')}</Button>
                   </div>
                   
                   <div className="flex items-center justify-between p-4 rounded-lg border">
@@ -424,11 +426,11 @@ export function TeacherDashboardAnalytics({
                         <Clock className="h-5 w-5 text-blue-500" />
                       </div>
                       <div>
-                        <h4 className="font-medium">Time of Day Impact</h4>
-                        <p className="text-sm text-muted-foreground">Morning activities have 20% higher completion rates</p>
+                        <h4 className="font-medium">{t('teachers_page.analytics.time_of_day', 'Time of Day Impact')}</h4>
+                        <p className="text-sm text-muted-foreground">{t('teachers_page.analytics.time_of_day_desc', 'Morning activities have 20% higher completion rates')}</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">View Details</Button>
+                    <Button variant="outline" size="sm">{t('teachers_page.analytics.view_details', 'View Details')}</Button>
                   </div>
                   
                   <div className="flex items-center justify-between p-4 rounded-lg border">
@@ -437,11 +439,11 @@ export function TeacherDashboardAnalytics({
                         <BookOpen className="h-5 w-5 text-green-500" />
                       </div>
                       <div>
-                        <h4 className="font-medium">Interactive Content</h4>
-                        <p className="text-sm text-muted-foreground">Multimedia lessons increase retention by 30%</p>
+                        <h4 className="font-medium">{t('teachers_page.analytics.interactive_content', 'Interactive Content')}</h4>
+                        <p className="text-sm text-muted-foreground">{t('teachers_page.analytics.interactive_content_desc', 'Multimedia lessons increase retention by 30%')}</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">View Details</Button>
+                    <Button variant="outline" size="sm">{t('teachers_page.analytics.view_details', 'View Details')}</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -455,41 +457,41 @@ export function TeacherDashboardAnalytics({
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Assignments</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.total_assignments', 'Total Assignments')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{analytics?.assignments?.total_assignments || 0}</div>
-                    <p className="text-xs text-muted-foreground">This semester</p>
+                    <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.this_semester', 'This semester')}</p>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Grading</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t('teachers_page.stats.pending_grades', 'Pending Grading')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{analytics?.assignments?.pending_grading || 0}</div>
-                    <p className="text-xs text-muted-foreground">Need attention</p>
+                    <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.need_attention', 'Need attention')}</p>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t('admin_fees.overdue', 'Overdue')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{analytics?.assignments?.overdue_assignments || 0}</div>
-                    <p className="text-xs text-muted-foreground">Past deadline</p>
+                    <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.past_deadline', 'Past deadline')}</p>
                   </CardContent>
                 </Card>
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Avg Submission Rate</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t('teachers_page.analytics.avg_submission_rate', 'Avg Submission Rate')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{analytics?.assignments?.average_submission_rate?.toFixed(0) || 0}%</div>
-                    <p className="text-xs text-muted-foreground">Class average</p>
+                    <p className="text-xs text-muted-foreground">{t('teachers_page.analytics.class_average', 'Class average')}</p>
                   </CardContent>
                 </Card>
               </div>
