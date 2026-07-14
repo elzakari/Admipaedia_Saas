@@ -81,6 +81,16 @@ const StudentProfilePage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
 
+  const getTranslatedValue = (value: string | undefined) => {
+    if (!value) return '';
+    if (value === 'No email provided') return t('common.no_email_provided', 'No email provided');
+    if (value === 'No phone provided') return t('common.no_phone_provided', 'No phone provided');
+    if (value === 'No parent name provided') return t('students_page.profile.no_parent_name', 'No parent name provided');
+    if (value === 'No parent email provided') return t('students_page.profile.no_parent_email', 'No parent email provided');
+    if (value === 'No parent phone provided') return t('students_page.profile.no_parent_phone', 'No parent phone provided');
+    return value;
+  };
+
   const handleGenerateSetupLink = async () => {
     if (!student) return;
     try {
@@ -309,8 +319,8 @@ const StudentProfilePage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900 mb-2">{t('common.personal_information', 'Personal Info')}</h3>
                 <div className="space-y-1 text-sm">
                   <p className="flex items-center"><User className="h-4 w-4 mr-2 text-gray-400" />{student.full_name}</p>
-                  <p className="flex items-center"><Mail className="h-4 w-4 mr-2 text-gray-400" />{student.email}</p>
-                  <p className="flex items-center"><Phone className="h-4 w-4 mr-2 text-gray-400" />{student.phone}</p>
+                  <p className="flex items-center"><Mail className="h-4 w-4 mr-2 text-gray-400" />{getTranslatedValue(student.email)}</p>
+                  <p className="flex items-center"><Phone className="h-4 w-4 mr-2 text-gray-400" />{getTranslatedValue(student.phone)}</p>
                 </div>
               </div>
               
@@ -398,18 +408,18 @@ const StudentProfilePage: React.FC = () => {
               <CardContent>
                 <div className="space-y-3">
                   {student.parent_name && (
-                    <p><span className="font-medium">{t('students_page.profile.parent_name', 'Name')}:</span> {student.parent_name}</p>
+                    <p><span className="font-medium">{t('students_page.profile.parent_name', 'Name')}:</span> {getTranslatedValue(student.parent_name)}</p>
                   )}
                   {student.parent_email && (
                     <p className="flex items-center">
                       <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                      {student.parent_email}
+                      {getTranslatedValue(student.parent_email)}
                     </p>
                   )}
                   {student.parent_phone && (
                     <p className="flex items-center">
                       <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                      {student.parent_phone}
+                      {getTranslatedValue(student.parent_phone)}
                     </p>
                   )}
                 </div>
@@ -461,11 +471,11 @@ const StudentProfilePage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="font-medium text-gray-700">{t('teachers_page.profile.email', 'Email')}</label>
-                    <p className="text-gray-900">{student.email}</p>
+                    <p className="text-gray-900">{getTranslatedValue(student.email)}</p>
                   </div>
                   <div>
                     <label className="font-medium text-gray-700">{t('teachers_page.profile.phone', 'Phone')}</label>
-                    <p className="text-gray-900">{student.phone}</p>
+                    <p className="text-gray-900">{getTranslatedValue(student.phone)}</p>
                   </div>
                   {student.address && (
                     <div>
@@ -644,8 +654,8 @@ const StudentProfilePage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><strong>{t('teachers_page.profile.name', 'Name')}:</strong> {student.full_name}</div>
               <div><strong>{t('common.admission_number', 'Admission Number')}:</strong> {student.admission_number}</div>
-              <div><strong>{t('teachers_page.profile.email', 'Email')}:</strong> {student.email}</div>
-              <div><strong>{t('teachers_page.profile.phone', 'Phone')}:</strong> {student.phone}</div>
+              <div><strong>{t('teachers_page.profile.email', 'Email')}:</strong> {getTranslatedValue(student.email)}</div>
+              <div><strong>{t('teachers_page.profile.phone', 'Phone')}:</strong> {getTranslatedValue(student.phone)}</div>
               <div><strong>{t('common.date_of_birth', 'Date of Birth')}:</strong> {new Date(student.date_of_birth).toLocaleDateString()}</div>
               <div><strong>{t('common.gender', 'Gender')}:</strong> {student.gender}</div>
               {student.address && <div><strong>{t('common.address', 'Address')}:</strong> {student.address}</div>}
@@ -667,9 +677,9 @@ const StudentProfilePage: React.FC = () => {
             <div>
               <h2 className="text-xl font-bold mb-4">{t('students_page.profile.parent_info', 'Parent/Guardian Information')}</h2>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><strong>{t('students_page.profile.parent_name', 'Name')}:</strong> {student.parent_name}</div>
-                {student.parent_email && <div><strong>{t('auth.email', 'Email')}:</strong> {student.parent_email}</div>}
-                {student.parent_phone && <div><strong>{t('students_page.profile.parent_phone', 'Phone')}:</strong> {student.parent_phone}</div>}
+                <div><strong>{t('students_page.profile.parent_name', 'Name')}:</strong> {getTranslatedValue(student.parent_name)}</div>
+                {student.parent_email && <div><strong>{t('auth.email', 'Email')}:</strong> {getTranslatedValue(student.parent_email)}</div>}
+                {student.parent_phone && <div><strong>{t('students_page.profile.parent_phone', 'Phone')}:</strong> {getTranslatedValue(student.parent_phone)}</div>}
               </div>
             </div>
           )}

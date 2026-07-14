@@ -76,7 +76,9 @@
     "status": {
       "ongoing": "En cours"
     },
-    "remove": "Retirer"
+    "remove": "Retirer",
+    "no_email_provided": "Aucune adresse e-mail fournie",
+    "no_phone_provided": "Aucun numéro de téléphone fourni"
   },
   "auth": {
     "email": "Adresse e-mail",
@@ -1277,7 +1279,10 @@
       "linked_to_parent": "Lié au dossier parent",
       "legacy_contact": "Contact hérité uniquement",
       "attention_level": "Niveau d'attention",
-      "enrollment_date": "Date d'inscription"
+      "enrollment_date": "Date d'inscription",
+      "no_parent_name": "Aucun nom de parent fourni",
+      "no_parent_email": "Aucune adresse e-mail de parent fournie",
+      "no_parent_phone": "Aucun numéro de téléphone de parent fourni"
     },
     "delete_student_title": "Supprimer l'élève",
     "delete_student_confirm": "Êtes-vous sûr de vouloir supprimer l'élève",

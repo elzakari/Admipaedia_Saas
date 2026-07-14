@@ -76,7 +76,9 @@
     "status": {
       "ongoing": "Ongoing"
     },
-    "remove": "Remove"
+    "remove": "Remove",
+    "no_email_provided": "No email provided",
+    "no_phone_provided": "No phone provided"
   },
   "auth": {
     "email": "Email Address",
@@ -1277,7 +1279,10 @@
       "linked_to_parent": "Linked to parent record",
       "legacy_contact": "Legacy contact only",
       "attention_level": "Attention Level",
-      "enrollment_date": "Enrollment Date"
+      "enrollment_date": "Enrollment Date",
+      "no_parent_name": "No parent name provided",
+      "no_parent_email": "No parent email provided",
+      "no_parent_phone": "No parent phone provided"
     },
     "delete_student_title": "Delete Student",
     "delete_student_confirm": "Are you sure you want to delete",
