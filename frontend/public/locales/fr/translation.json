@@ -105,7 +105,8 @@
     "status_absent": "absent",
     "exam_midterm": "Mi-trimestre",
     "exam_quiz": "Quiz",
-    "exam_assignment": "Devoir"
+    "exam_assignment": "Devoir",
+    "performance_summary": "Synthèse des performances"
   },
   "auth": {
     "email": "Adresse e-mail",

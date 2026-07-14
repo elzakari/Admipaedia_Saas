@@ -105,7 +105,8 @@
     "status_absent": "absent",
     "exam_midterm": "Mid-term",
     "exam_quiz": "Quiz",
-    "exam_assignment": "Assignment"
+    "exam_assignment": "Assignment",
+    "performance_summary": "Performance Summary"
   },
   "auth": {
     "email": "Email Address",
