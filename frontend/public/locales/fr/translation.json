@@ -217,7 +217,8 @@
     },
     "navigation": "Navigation",
     "data": "Données",
-    "action": "Action"
+    "action": "Action",
+    "analytics": "Analyses"
   },
   "classes": {
     "select_class_title": "Sélectionner une classe",

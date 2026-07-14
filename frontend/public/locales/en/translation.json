@@ -217,7 +217,8 @@
     },
     "navigation": "Navigation",
     "data": "Data",
-    "action": "Action"
+    "action": "Action",
+    "analytics": "Analytics"
   },
   "classes": {
     "select_class_title": "Select a Class",
