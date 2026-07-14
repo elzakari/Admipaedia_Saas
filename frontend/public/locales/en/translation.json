@@ -1406,7 +1406,8 @@
         "image_large_desc": "Student profile picture must be 2MB or less.",
         "update_success": "Student updated successfully!",
         "create_success": "Student created successfully!"
-      }
+      },
+      "add_student": "Add New Student"
     }
   },
   "teachers_page": {

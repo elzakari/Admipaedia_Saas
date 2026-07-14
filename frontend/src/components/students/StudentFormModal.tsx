@@ -1740,7 +1740,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl font-semibold">
-            {student ? t('students_page.form.edit_student', 'Edit Student') : t('teachers_page.add_teacher', 'Add New Student')}
+            {student ? t('students_page.form.edit_student', 'Edit Student') : t('students_page.form.add_student', 'Add New Student')}
           </DialogTitle>
           <DialogDescription>
             {student 

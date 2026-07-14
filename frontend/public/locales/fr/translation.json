@@ -1406,7 +1406,8 @@
         "image_large_desc": "La photo de profil de l'élève doit être inférieure ou égale à 2 Mo.",
         "update_success": "Élève mis à jour avec succès !",
         "create_success": "Élève créé avec succès !"
-      }
+      },
+      "add_student": "Ajouter un nouvel élève"
     }
   },
   "teachers_page": {
