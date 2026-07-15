@@ -14,6 +14,7 @@ import teacherService from '../../services/teacherService';
 import classService from '../../services/classService';
 import academicService from '../../services/academicService';
 import authService, { User } from '../../services/authService';
+import { useTranslation } from 'react-i18next';
 
 interface ClassFormData {
   name: string;
@@ -39,6 +40,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   onSuccess,
   classData
 }) => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [formData, setFormData] = useState<ClassFormData>({
     name: '',
@@ -103,9 +105,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   }, [teachersData]);
 
   const allTeacherOptions = React.useMemo(() => [
-    { value: 'none', label: 'No Teacher Assigned', email: '' },
+    { value: 'none', label: t('classes.form.no_teacher_assigned', 'No Teacher Assigned'), email: '' },
     ...teacherOptions
-  ], [teacherOptions]);
+  ], [teacherOptions, t]);
 
   // Enhanced form reset with proper error clearing
   const resetFormData = () => {
@@ -372,10 +374,10 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {classData ? 'Edit Class' : 'Create New Class'}
+            {classData ? t('classes_page.form.edit_class', 'Edit Class') : t('classes_page.form.create_class', 'Create New Class')}
           </DialogTitle>
           <DialogDescription>
-            Fill out class details below; teacher selection is optional.
+            {t('classes_page.form.form_desc', 'Fill out class details below; teacher selection is optional.')}
           </DialogDescription>
         </DialogHeader>
         {/* Enhanced Teacher Loading/Error State */}
@@ -383,7 +385,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
-              <span>Failed to load teachers. Some features may be limited.</span>
+              <span>{t('classes_page.form.failed_load_teachers', 'Failed to load teachers. Some features may be limited.')}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -396,7 +398,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 ) : (
                   <RefreshCw className="h-3 w-3" />
                 )}
-                Retry
+                {t('teachers_page.dashboard.retry', 'Retry')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -406,7 +408,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           {/* Class Name */}
           <div className="space-y-2">
             <Label htmlFor="name">
-              Class Name <span className="text-red-500">*</span>
+              {t('classes_page.form.class_name', 'Class Name')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="name"
@@ -417,21 +419,21 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   setErrors(prev => ({ ...prev, name: '' }));
                 }
               }}
-              placeholder="Enter class name (e.g., Class 1A, Grade 5 Blue)"
+              placeholder={t('classes_page.form.class_name_placeholder', 'Enter class name (e.g., Class 1A, Grade 5 Blue)')}
               className={errors.name ? 'border-red-500' : ''}
             />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name}</p>
             )}
             <p className="text-xs text-gray-500">
-              Use the base class name here. Add the stream below for setups like `Class 1 A` and `Class 1 B`.
+              {t('classes_page.form.class_name_help', 'Use the base class name here. Add the stream below for setups like Class 1 A and Class 1 B.')}
             </p>
           </div>
 
           {/* Grade Level */}
           <div className="space-y-2">
             <Label htmlFor="grade_level">
-              Grade Level <span className="text-red-500">*</span>
+              {t('classes_page.form.grade_level', 'Grade Level')} <span className="text-red-500">*</span>
             </Label>
             <Select
               value={formData.grade_level}
@@ -443,16 +445,16 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               }}
             >
               <SelectTrigger className={errors.grade_level ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Select grade level" />
+                <SelectValue placeholder={t('classes_page.form.select_grade_level', 'Select grade level')} />
               </SelectTrigger>
               <SelectContent>
                 {isLoadingGradeLevels ? (
                   <SelectItem value="loading" disabled>
-                    Loading grade levels...
+                    {t('classes_page.form.loading_grade_levels', 'Loading grade levels...')}
                   </SelectItem>
                 ) : gradeLevelsError ? (
                   <SelectItem value="error" disabled>
-                    Error loading grade levels
+                    {t('classes_page.form.error_loading_grade_levels', 'Error loading grade levels')}
                   </SelectItem>
                 ) : Array.isArray(gradeLevelsData) && gradeLevelsData.length > 0 ? (
                   gradeLevelsData.map((level: any) => (
@@ -462,7 +464,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   ))
                 ) : (
                   <SelectItem value="none" disabled>
-                    No grade levels available
+                    {t('classes_page.form.no_grade_levels', 'No grade levels available')}
                   </SelectItem>
                 )}
               </SelectContent>
@@ -473,24 +475,24 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="section">Section / Stream</Label>
+            <Label htmlFor="section">{t('classes_page.form.section_stream', 'Section / Stream')}</Label>
             <Input
               id="section"
               value={formData.section}
               onChange={(e) => {
                 setFormData(prev => ({ ...prev, section: e.target.value }));
               }}
-              placeholder="e.g., A, B, Science, Arts"
+              placeholder={t('classes_page.form.section_placeholder', 'e.g., A, B, Science, Arts')}
             />
             <p className="text-xs text-gray-500">
-              Display preview: {[formData.name.trim(), formData.section.trim()].filter(Boolean).join(' ') || 'Class preview'}
+              {t('classes_page.form.class_preview', 'Display preview: {{preview}}', { preview: [formData.name.trim(), formData.section.trim()].filter(Boolean).join(' ') || t('classes_page.form.class_preview_placeholder', 'Class preview') })}
             </p>
           </div>
 
           {/* Academic Year */}
           <div className="space-y-2">
             <Label htmlFor="academic_year">
-              Academic Year <span className="text-red-500">*</span>
+              {t('classes_page.form.academic_year', 'Academic Year')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="academic_year"
@@ -501,7 +503,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   setErrors(prev => ({ ...prev, academic_year: '' }));
                 }
               }}
-              placeholder="e.g., 2024/2025 or 2024-2025"
+              placeholder={t('classes_page.form.academic_year_placeholder', 'e.g., 2024/2025 or 2024-2025')}
               className={errors.academic_year ? 'border-red-500' : ''}
             />
             {errors.academic_year && (
@@ -511,7 +513,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
           {/* Room Number */}
           <div className="space-y-2">
-            <Label htmlFor="room_number">Room Number</Label>
+            <Label htmlFor="room_number">{t('classes_page.form.room_number', 'Room Number')}</Label>
             <Input
               id="room_number"
               value={formData.room_number}
@@ -521,7 +523,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   setErrors(prev => ({ ...prev, room_number: '' }));
                 }
               }}
-              placeholder="e.g., A101, Room 15"
+              placeholder={t('classes_page.form.room_number_placeholder', 'e.g., A101, Room 15')}
               className={errors.room_number ? 'border-red-500' : ''}
             />
             {errors.room_number && (
@@ -531,7 +533,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
           {/* Capacity */}
           <div className="space-y-2">
-            <Label htmlFor="capacity">Class Capacity</Label>
+            <Label htmlFor="capacity">{t('classes_page.form.class_capacity', 'Class Capacity')}</Label>
             <Input
               id="capacity"
               type="number"
@@ -544,7 +546,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   setErrors(prev => ({ ...prev, capacity: '' }));
                 }
               }}
-              placeholder="Maximum number of students"
+              placeholder={t('classes_page.form.class_capacity_placeholder', 'Maximum number of students')}
               className={errors.capacity ? 'border-red-500' : ''}
             />
             {errors.capacity && (
@@ -554,7 +556,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
           {/* Teacher Assignment */}
           <div className="space-y-2">
-            <Label htmlFor="teacher_id">Class Teacher</Label>
+            <Label htmlFor="teacher_id">{t('classes_page.form.class_teacher', 'Class Teacher')}</Label>
             <Select
               value={formData.teacher_id}
               onValueChange={(value) => {
@@ -568,10 +570,10 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               <SelectTrigger className={errors.teacher_id ? 'border-red-500' : ''}>
                 <SelectValue placeholder={
                   isLoadingTeachers 
-                    ? "Loading teachers..." 
+                    ? t('classes_page.form.loading_teachers', "Loading teachers...") 
                     : teachersError 
-                    ? "Error loading teachers" 
-                    : "Select a teacher (optional)"
+                    ? t('classes_page.form.error_loading_teachers', "Error loading teachers") 
+                    : t('classes_page.form.select_teacher_optional', "Select a teacher (optional)")
                 } />
               </SelectTrigger>
               <SelectContent>
@@ -593,14 +595,14 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             {isLoadingTeachers && (
               <p className="text-sm text-gray-500 flex items-center">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                Loading teachers...
+                {t('classes_page.form.loading_teachers', 'Loading teachers...')}
               </p>
             )}
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t('classes_page.form.description', 'Description')}</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -610,7 +612,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   setErrors(prev => ({ ...prev, description: '' }));
                 }
               }}
-              placeholder="Optional description or notes about the class"
+              placeholder={t('classes_page.form.description_placeholder', 'Optional description or notes about the class')}
               rows={3}
               maxLength={500}
               className={errors.description ? 'border-red-500' : ''}
@@ -620,7 +622,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 <p className="text-sm text-red-500">{errors.description}</p>
               )}
               <p className="text-xs text-gray-500 ml-auto">
-                {formData.description.length}/500 characters
+                {t('classes_page.form.characters_count', '{{count}}/500 characters', { count: formData.description.length })}
               </p>
             </div>
           </div>
@@ -633,7 +635,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               onClick={onClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('classes_page.form.btn_cancel', 'Cancel')}
             </Button>
             <Button
               type="submit"
@@ -643,10 +645,10 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {classData ? 'Updating...' : 'Creating...'}
+                  {classData ? t('classes_page.form.btn_updating', 'Updating...') : t('classes_page.form.btn_creating', 'Creating...')}
                 </>
               ) : (
-                classData ? 'Update Class' : 'Create Class'
+                classData ? t('classes_page.form.btn_update', 'Update Class') : t('classes_page.form.btn_create', 'Create Class')
               )}
             </Button>
           </div>

@@ -14,6 +14,7 @@ import { FormValidationProvider } from '../common/FormValidationProvider';
 import { BookOpen, Hash, FileText, Building, Clock, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errorHandling';
 import { academicStructureService } from '@/services/departmentService';
+import { useTranslation } from 'react-i18next';
 import type { SubjectCreate, SubjectUpdate } from '@/services/subjectService';
 import type { AcademicStructure } from '@/types/academic_structure.types';
 
@@ -43,6 +44,7 @@ function buildAutoCode(subjectName: string, deptName: string, serial: number): s
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: SubjectFormModalProps) {
+  const { t }                  = useTranslation();
   const isMobile             = useMediaQuery('(max-width: 640px)');
   const { height, isVisible } = useMobileKeyboard();
 
@@ -108,21 +110,21 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Subject name is required';
+      newErrors.name = t('academics.subjects.errors.name_required', 'Subject name is required');
     } else if (formData.name.length < 2) {
-      newErrors.name = 'Subject name must be at least 2 characters';
+      newErrors.name = t('academics.subjects.errors.name_min', 'Subject name must be at least 2 characters');
     }
 
     if (codeOverride && !customCode.trim()) {
-      newErrors.code = 'Subject code is required when overriding';
+      newErrors.code = t('academics.subjects.errors.code_required', 'Subject code is required when overriding');
     }
 
     if (!formData.department_id) {
-      newErrors.department_id = 'Discipline / department is required';
+      newErrors.department_id = t('academics.subjects.errors.department_required', 'Discipline / department is required');
     }
 
     if (formData.credit_hours < 1 || formData.credit_hours > 10) {
-      newErrors.credit_hours = 'Credit hours must be between 1 and 10';
+      newErrors.credit_hours = t('academics.subjects.errors.credit_hours_range', 'Credit hours must be between 1 and 10');
     }
 
     setErrors(newErrors);
@@ -133,7 +135,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast.error('Please fix the errors in the form');
+      toast.error(t('common.errors.fix_errors', 'Please fix the errors in the form'));
       return;
     }
     setIsSubmitting(true);
@@ -153,17 +155,17 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
       if (subjectData) {
         const updatePayload: SubjectUpdate = payload;
         await updateSubject.mutateAsync({ id: subjectData.id, data: updatePayload });
-        toast.success('Subject updated successfully');
+        toast.success(t('academics.subjects.toast.update_success', 'Subject updated successfully'));
       } else {
         await createSubject.mutateAsync(payload);
-        toast.success('Subject created successfully');
+        toast.success(t('academics.subjects.toast.create_success', 'Subject created successfully'));
       }
 
       if (onSuccess) onSuccess();
       onClose();
     } catch (error: any) {
       const msg = error.response?.data?.message || error.message || getErrorMessage(error)
-                  || 'Failed to save subject. Please try again.';
+                  || t('academics.subjects.toast.save_failed', 'Failed to save subject. Please try again.');
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -183,12 +185,12 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
         >
           <DialogHeader>
             <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`}>
-              {subjectData ? 'Edit Subject' : 'Add New Subject'}
+              {subjectData ? t('academics.subjects.edit_subject', 'Edit Subject') : t('academics.subjects.add_subject', 'Add New Subject')}
             </DialogTitle>
             <DialogDescription>
               {subjectData
-                ? 'Update the details of this subject.'
-                : 'Create a new academic subject. The subject code is auto-generated from the name and discipline.'}
+                ? t('academics.subjects.edit_subject_desc', 'Update the details of this subject.')
+                : t('academics.subjects.add_subject_desc', 'Create a new academic subject. The subject code is auto-generated from the name and discipline.')}
             </DialogDescription>
           </DialogHeader>
 
@@ -196,13 +198,13 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
             <FormSection>
               <FormRow>
                 {/* Subject name */}
-                <FormField label="Subject Name" htmlFor="name" error={errors.name} required>
+                <FormField label={t('academics.subjects.subject_name', 'Subject Name')} htmlFor="name" error={errors.name} required>
                   <MobileOptimizedInput
                     id="name"
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter subject name"
+                    placeholder={t('academics.subjects.subject_name_placeholder', 'Enter subject name')}
                     leftIcon={<BookOpen className="h-4 w-4" />}
                     error={errors.name}
                     autoComplete="off"
@@ -210,10 +212,10 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                 </FormField>
 
                 {/* Discipline / Department — live from API */}
-                <FormField label="Discipline" htmlFor="department_id" error={errors.department_id} required>
+                <FormField label={t('academics.subjects.discipline', 'Discipline')} htmlFor="department_id" error={errors.department_id} required>
                   {deptsLoading ? (
                     <div className="flex items-center gap-2 h-10 px-3 text-sm text-slate-500">
-                      <RefreshCw className="h-3 w-3 animate-spin" /> Loading…
+                      <RefreshCw className="h-3 w-3 animate-spin" /> {t('common.loading', 'Loading...')}
                     </div>
                   ) : (
                     <MobileOptimizedSelect
@@ -221,7 +223,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                       onChange={(value: string) =>
                         setFormData(prev => ({ ...prev, department_id: value ? Number(value) : '' }))
                       }
-                      placeholder={departments.length === 0 ? 'No disciplines yet — create one first' : 'Select discipline'}
+                      placeholder={departments.length === 0 ? t('academics.subjects.no_disciplines', 'No disciplines yet — create one first') : t('academics.subjects.select_discipline', 'Select discipline')}
                       error={errors.department_id}
                       options={deptOptions}
                     />
@@ -232,7 +234,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
               {/* Code row — auto-generated or manual override */}
               <FormRow>
                 <FormField
-                  label={codeOverride ? 'Subject Code (Manual)' : 'Subject Code (Auto-generated)'}
+                  label={codeOverride ? t('academics.subjects.code_manual', 'Subject Code (Manual)') : t('academics.subjects.code_auto', 'Subject Code (Auto-generated)')}
                   htmlFor="code"
                   error={errors.code}
                 >
@@ -255,14 +257,14 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                           size="sm"
                           onClick={() => { setCodeOverride(false); setCustomCode(''); }}
                         >
-                          Auto
+                          {t('academics.subjects.auto_btn', 'Auto')}
                         </TouchFriendlyButton>
                       )}
                     </div>
                   ) : (
                     <div className="flex gap-2 items-center">
                       <div className="flex-1 h-10 px-3 flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-mono text-slate-500">
-                        {autoCode || <span className="text-slate-300">enter name & discipline…</span>}
+                        {autoCode || <span className="text-slate-300">{t('academics.subjects.enter_info_placeholder', 'enter name & discipline…')}</span>}
                       </div>
                       <TouchFriendlyButton
                         type="button"
@@ -270,14 +272,14 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                         size="sm"
                         onClick={() => { setCodeOverride(true); setCustomCode(''); }}
                       >
-                        Override
+                        {t('academics.subjects.override_btn', 'Override')}
                       </TouchFriendlyButton>
                     </div>
                   )}
                 </FormField>
 
                 {/* Credit Hours */}
-                <FormField label="Credit Hours" htmlFor="credit_hours" error={errors.credit_hours} required>
+                <FormField label={t('academics.timetable.credit_hours', 'Credit Hours')} htmlFor="credit_hours" error={errors.credit_hours} required>
                   <MobileOptimizedInput
                     id="credit_hours"
                     type="number"
@@ -294,17 +296,17 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                 </FormField>
               </FormRow>
 
-              <FormField label="Description" htmlFor="description" error={errors.description}>
+              <FormField label={t('academics.timetable.description', 'Description')} htmlFor="description" error={errors.description}>
                 <MobileOptimizedTextarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter subject description (optional)"
+                  placeholder={t('academics.subjects.description_placeholder', 'Enter subject description (optional)')}
                   rows={3}
                 />
               </FormField>
 
-              <FormField label="Status" htmlFor="is_active">
+              <FormField label={t('common.status', 'Status')} htmlFor="is_active">
                 <div className="flex items-center space-x-3">
                   {formData.is_active
                     ? <ToggleRight className="h-5 w-5 text-green-600" />
@@ -321,7 +323,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                         : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    {formData.is_active ? 'Active' : 'Inactive'}
+                    {formData.is_active ? t('common.status.active', 'Active') : t('common.status.inactive', 'Inactive')}
                   </TouchFriendlyButton>
                 </div>
               </FormField>
@@ -333,14 +335,14 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                 size={isMobile ? 'lg' : 'md'}
                 className={isMobile ? 'w-full order-2' : ''}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </TouchFriendlyButton>
               <TouchFriendlyButton
                 type="submit" loading={isSubmitting}
                 size={isMobile ? 'lg' : 'md'}
                 className={isMobile ? 'w-full order-1' : ''}
               >
-                {subjectData ? 'Update Subject' : 'Create Subject'}
+                {subjectData ? t('academics.subjects.btn_update', 'Update Subject') : t('academics.subjects.btn_create', 'Create Subject')}
               </TouchFriendlyButton>
             </DialogFooter>
           </ResponsiveForm>
