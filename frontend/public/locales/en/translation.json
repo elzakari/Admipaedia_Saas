@@ -106,7 +106,17 @@
     "exam_midterm": "Mid-term",
     "exam_quiz": "Quiz",
     "exam_assignment": "Assignment",
-    "performance_summary": "Performance Summary"
+    "performance_summary": "Performance Summary",
+    "class": "Class",
+    "teacher": "Teacher",
+    "errors": {
+      "fix_errors": "Please fix the errors in the form"
+    },
+    "terms": {
+      "term_1": "Term 1",
+      "term_2": "Term 2",
+      "term_3": "Term 3"
+    }
   },
   "auth": {
     "email": "Email Address",
@@ -3136,5 +3146,39 @@
     "generated_success_title": "Report Generated Successfully",
     "generated_success_desc": "Your {{title}} has been generated.",
     "generated_at": "Generated: {{time}}"
+  },
+  "academics": {
+    "timetable": {
+      "edit_slot": "Edit Time Slot",
+      "add_slot": "Add Time Slot",
+      "edit_slot_desc": "Update the details of this timetable slot.",
+      "add_slot_desc": "Fill in the details to add a new lesson to the timetable.",
+      "day_of_week": "Day of Week",
+      "term": "Term",
+      "timeframe": "Timeframe",
+      "select_timeframe": "Select Timeframe",
+      "period_info_class_start": "Class start: {{startTime}} • Subject credit hours: {{creditHours}} • Required hourly slots: {{requiredSlots}}",
+      "period_info_placeholder": "Select a class and subject to automate the available timeframe options.",
+      "room_number": "Room Number",
+      "select_class": "Select Class",
+      "select_subject": "Select Subject",
+      "select_class_first": "Select class first",
+      "subject_credit_info": "This subject uses {{hours}} credit hour(s), so matching consecutive timeframe slots are locked automatically to avoid clashes.",
+      "no_subjects_assigned": "No subjects are assigned to this class yet. Add the subject, then assign its class and teacher in Settings > Academic > Subjects before creating timetable slots.",
+      "select_teacher": "Select Teacher",
+      "select_subject_first": "Select subject first",
+      "update_slot": "Update Slot",
+      "create_slot": "Create Slot",
+      "errors": {
+        "period_required": "Timeframe is required",
+        "subject_required": "Subject is required",
+        "class_required": "Class is required",
+        "teacher_required": "Teacher is required"
+      },
+      "toast": {
+        "update_success": "Time slot updated successfully",
+        "create_success": "Time slot created successfully"
+      }
+    }
   }
 }

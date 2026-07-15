@@ -14,6 +14,7 @@ import { useMobileKeyboard } from '../../hooks/useMobileKeyboard';
 import { FormValidationProvider } from '../common/FormValidationProvider';
 import { Clock, BookOpen, GraduationCap, User, MapPin, Calendar, Hash } from 'lucide-react';
 import { getErrorMessage } from '@/utils/errorHandling';
+import { useTranslation } from 'react-i18next';
 
 const formatCreditHours = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -74,9 +75,26 @@ export function TimeSlotFormModal({
   disableClassSelection = false,
   disableTermSelection = false,
 }: TimeSlotFormModalProps) {
+  const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { height, isVisible } = useMobileKeyboard();
   
+  const translatedDayOptions = useMemo(() => [
+    { value: 'Monday', label: t('common.days.monday', 'Monday') },
+    { value: 'Tuesday', label: t('common.days.tuesday', 'Tuesday') },
+    { value: 'Wednesday', label: t('common.days.wednesday', 'Wednesday') },
+    { value: 'Thursday', label: t('common.days.thursday', 'Thursday') },
+    { value: 'Friday', label: t('common.days.friday', 'Friday') },
+    { value: 'Saturday', label: t('common.days.saturday', 'Saturday') },
+    { value: 'Sunday', label: t('common.days.sunday', 'Sunday') },
+  ], [t]);
+
+  const translatedTermOptions = useMemo(() => [
+    { value: 'Term 1', label: t('common.terms.term_1', 'Term 1') },
+    { value: 'Term 2', label: t('common.terms.term_2', 'Term 2') },
+    { value: 'Term 3', label: t('common.terms.term_3', 'Term 3') },
+  ], [t]);
+
   const [formData, setFormData] = useState({
     day_of_week: 'Monday',
     period_id: 0,
@@ -199,10 +217,10 @@ export function TimeSlotFormModal({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.period_id) newErrors.period_id = 'Timeframe is required';
-    if (!formData.subject_id) newErrors.subject_id = 'Subject is required';
-    if (!formData.class_id) newErrors.class_id = 'Class is required';
-    if (!formData.teacher_id) newErrors.teacher_id = 'Teacher is required';
+    if (!formData.period_id) newErrors.period_id = t('academics.timetable.errors.period_required', 'Timeframe is required');
+    if (!formData.subject_id) newErrors.subject_id = t('academics.timetable.errors.subject_required', 'Subject is required');
+    if (!formData.class_id) newErrors.class_id = t('academics.timetable.errors.class_required', 'Class is required');
+    if (!formData.teacher_id) newErrors.teacher_id = t('academics.timetable.errors.teacher_required', 'Teacher is required');
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -261,7 +279,7 @@ export function TimeSlotFormModal({
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Please fix the errors in the form');
+      toast.error(t('common.errors.fix_errors', 'Please fix the errors in the form'));
       return;
     }
     
@@ -278,10 +296,10 @@ export function TimeSlotFormModal({
           slotId: slotData.id,
           updates: payload as any
         });
-        toast.success('Time slot updated successfully');
+        toast.success(t('academics.timetable.toast.update_success', 'Time slot updated successfully'));
       } else {
         await createTimeSlot.mutateAsync(payload as any);
-        toast.success('Time slot created successfully');
+        toast.success(t('academics.timetable.toast.create_success', 'Time slot created successfully'));
       }
       
       if (onSuccess) onSuccess();
@@ -306,30 +324,30 @@ export function TimeSlotFormModal({
         >
           <DialogHeader>
             <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`}>
-              {slotData ? 'Edit Time Slot' : 'Add Time Slot'}
+              {slotData ? t('academics.timetable.edit_slot', 'Edit Time Slot') : t('academics.timetable.add_slot', 'Add Time Slot')}
             </DialogTitle>
             <DialogDescription>
-              {slotData ? 'Update the details of this timetable slot.' : 'Fill in the details to add a new lesson to the timetable.'}
+              {slotData ? t('academics.timetable.edit_slot_desc', 'Update the details of this timetable slot.') : t('academics.timetable.add_slot_desc', 'Fill in the details to add a new lesson to the timetable.')}
             </DialogDescription>
           </DialogHeader>
           
           <ResponsiveForm onSubmit={handleSubmit}>
             <FormSection>
               <FormRow>
-                <FormField label="Day of Week" htmlFor="day_of_week" error={errors.day_of_week} required>
+                <FormField label={t('academics.timetable.day_of_week', 'Day of Week')} htmlFor="day_of_week" error={errors.day_of_week} required>
                   <MobileOptimizedSelect
                     value={formData.day_of_week}
                     onChange={(value: string) => handleInputChange('day_of_week', value)}
-                    options={dayOptions}
+                    options={translatedDayOptions}
                     leftIcon={<Calendar className="h-4 w-4" />}
                   />
                 </FormField>
                 
-                <FormField label="Term" htmlFor="term" error={errors.term} required>
+                <FormField label={t('academics.timetable.term', 'Term')} htmlFor="term" error={errors.term} required>
                   <MobileOptimizedSelect
                     value={formData.term}
                     onChange={(value: string) => handleInputChange('term', value)}
-                    options={termOptions}
+                    options={translatedTermOptions}
                     leftIcon={<Hash className="h-4 w-4" />}
                     disabled={disableTermSelection}
                   />
@@ -337,22 +355,22 @@ export function TimeSlotFormModal({
               </FormRow>
 
               <FormRow>
-                <FormField label="Timeframe" htmlFor="period_id" error={errors.period_id} required>
+                <FormField label={t('academics.timetable.timeframe', 'Timeframe')} htmlFor="period_id" error={errors.period_id} required>
                   <MobileOptimizedSelect
                     value={formData.period_id.toString()}
                     onChange={(value: string) => handleInputChange('period_id', parseInt(value))}
                     options={periodOptions}
-                    placeholder="Select Timeframe"
+                    placeholder={t('academics.timetable.select_timeframe', 'Select Timeframe')}
                     leftIcon={<Clock className="h-4 w-4" />}
                   />
                   <div className="mt-2 text-xs text-slate-500">
                     {formData.class_id
-                      ? `Class start: ${selectedClass?.start_time || periodMeta?.class_start_time || '08:00'} • Subject credit hours: ${formatCreditHours(selectedSubject?.credit_hours)} • Required hourly slots: ${periodMeta?.required_period_count || 1}`
-                      : 'Select a class and subject to automate the available timeframe options.'}
+                      ? t('academics.timetable.period_info_class_start', 'Class start: {{startTime}} • Subject credit hours: {{creditHours}} • Required hourly slots: {{requiredSlots}}', { startTime: selectedClass?.start_time || periodMeta?.class_start_time || '08:00', creditHours: formatCreditHours(selectedSubject?.credit_hours), requiredSlots: periodMeta?.required_period_count || 1 })
+                      : t('academics.timetable.period_info_placeholder', 'Select a class and subject to automate the available timeframe options.')}
                   </div>
                 </FormField>
                 
-                <FormField label="Room Number" htmlFor="room_id" error={errors.room_id}>
+                <FormField label={t('academics.timetable.room_number', 'Room Number')} htmlFor="room_id" error={errors.room_id}>
                   <MobileOptimizedInput
                     id="room_id"
                     type="text"
@@ -366,28 +384,28 @@ export function TimeSlotFormModal({
               </FormRow>
 
               <FormRow>
-                <FormField label="Class" htmlFor="class_id" error={errors.class_id} required>
+                <FormField label={t('common.class', 'Class')} htmlFor="class_id" error={errors.class_id} required>
                   <MobileOptimizedSelect
                     value={formData.class_id.toString()}
                     onChange={(value: string) => handleInputChange('class_id', parseInt(value))}
                     options={classOptions}
-                    placeholder="Select Class"
+                    placeholder={t('academics.timetable.select_class', 'Select Class')}
                     leftIcon={<GraduationCap className="h-4 w-4" />}
                     disabled={disableClassSelection}
                   />
                 </FormField>
                 
-                <FormField label="Subject" htmlFor="subject_id" error={errors.subject_id} required>
+                <FormField label={t('common.subject', 'Subject')} htmlFor="subject_id" error={errors.subject_id} required>
                   <MobileOptimizedSelect
                     value={formData.subject_id.toString()}
                     onChange={(value: string) => handleInputChange('subject_id', parseInt(value))}
                     options={subjectOptions}
-                    placeholder={formData.class_id ? "Select Subject" : "Select class first"}
+                    placeholder={formData.class_id ? t('academics.timetable.select_subject', 'Select Subject') : t('academics.timetable.select_class_first', 'Select class first')}
                     leftIcon={<BookOpen className="h-4 w-4" />}
                   />
                   {selectedSubject && (
                     <div className="mt-2 text-xs text-slate-500">
-                      This subject uses {formatCreditHours(selectedSubject.credit_hours)} credit hour(s), so matching consecutive timeframe slots are locked automatically to avoid clashes.
+                      {t('academics.timetable.subject_credit_info', 'This subject uses {{hours}} credit hour(s), so matching consecutive timeframe slots are locked automatically to avoid clashes.', { hours: formatCreditHours(selectedSubject.credit_hours) })}
                     </div>
                   )}
                 </FormField>
@@ -395,17 +413,17 @@ export function TimeSlotFormModal({
 
               {formData.class_id > 0 && subjectOptions.length === 0 && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  No subjects are assigned to this class yet. Add the subject, then assign its class and teacher in Settings &gt; Academic &gt; Subjects before creating timetable slots.
+                  {t('academics.timetable.no_subjects_assigned', 'No subjects are assigned to this class yet. Add the subject, then assign its class and teacher in Settings > Academic > Subjects before creating timetable slots.')}
                 </div>
               )}
 
               <FormRow>
-                <FormField label="Teacher" htmlFor="teacher_id" error={errors.teacher_id} required>
+                <FormField label={t('common.teacher', 'Teacher')} htmlFor="teacher_id" error={errors.teacher_id} required>
                   <MobileOptimizedSelect
                     value={formData.teacher_id.toString()}
                     onChange={(value: string) => handleInputChange('teacher_id', parseInt(value))}
                     options={teacherOptions}
-                    placeholder={formData.subject_id ? "Select Teacher" : "Select subject first"}
+                    placeholder={formData.subject_id ? t('academics.timetable.select_teacher', 'Select Teacher') : t('academics.timetable.select_subject_first', 'Select subject first')}
                     leftIcon={<User className="h-4 w-4" />}
                   />
                 </FormField>
@@ -420,7 +438,7 @@ export function TimeSlotFormModal({
                 size={isMobile ? "lg" : "md"}
                 className={isMobile ? 'w-full order-2' : ''}
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </TouchFriendlyButton>
               <TouchFriendlyButton
                 type="submit"
@@ -428,7 +446,7 @@ export function TimeSlotFormModal({
                 size={isMobile ? "lg" : "md"}
                 className={isMobile ? 'w-full order-1' : ''}
               >
-                {slotData ? 'Update Slot' : 'Create Slot'}
+                {slotData ? t('academics.timetable.update_slot', 'Update Slot') : t('academics.timetable.create_slot', 'Create Slot')}
               </TouchFriendlyButton>
             </DialogFooter>
           </ResponsiveForm>

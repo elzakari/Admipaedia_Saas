@@ -106,7 +106,17 @@
     "exam_midterm": "Mi-trimestre",
     "exam_quiz": "Quiz",
     "exam_assignment": "Devoir",
-    "performance_summary": "Synthèse des performances"
+    "performance_summary": "Synthèse des performances",
+    "class": "Classe",
+    "teacher": "Enseignant",
+    "errors": {
+      "fix_errors": "Veuillez corriger les erreurs dans le formulaire"
+    },
+    "terms": {
+      "term_1": "Trimestre 1",
+      "term_2": "Trimestre 2",
+      "term_3": "Trimestre 3"
+    }
   },
   "auth": {
     "email": "Adresse e-mail",
@@ -3136,5 +3146,39 @@
     "generated_success_title": "Rapport Généré avec Succès",
     "generated_success_desc": "Votre {{title}} a été généré.",
     "generated_at": "Généré le: {{time}}"
+  },
+  "academics": {
+    "timetable": {
+      "edit_slot": "Modifier le créneau horaire",
+      "add_slot": "Ajouter un créneau horaire",
+      "edit_slot_desc": "Mettre à jour les détails de ce créneau de l'emploi du temps.",
+      "add_slot_desc": "Renseigner les informations pour ajouter un nouveau cours à l'emploi du temps.",
+      "day_of_week": "Jour de la semaine",
+      "term": "Trimestre",
+      "timeframe": "Créneau horaire",
+      "select_timeframe": "Sélectionner le créneau horaire",
+      "period_info_class_start": "Début des cours : {{startTime}} • Heures de cours de la matière : {{creditHours}} • Créneaux horaires requis : {{requiredSlots}}",
+      "period_info_placeholder": "Sélectionner une classe et une matière pour automatiser les options de créneaux horaires disponibles.",
+      "room_number": "Numéro de salle",
+      "select_class": "Sélectionner la classe",
+      "select_subject": "Sélectionner la matière",
+      "select_class_first": "Sélectionner d'abord la classe",
+      "subject_credit_info": "Cette matière utilise {{hours}} heure(s) de cours, les créneaux consécutifs correspondants sont donc verrouillés automatiquement pour éviter les conflits.",
+      "no_subjects_assigned": "Aucune matière n'est encore attribuée à cette classe. Ajoutez la matière, puis attribuez sa classe et son enseignant dans Paramètres > Académique > Matières avant de créer des créneaux horaires.",
+      "select_teacher": "Sélectionner l'enseignant",
+      "select_subject_first": "Sélectionner d'abord la matière",
+      "update_slot": "Modifier le créneau",
+      "create_slot": "Créer le créneau",
+      "errors": {
+        "period_required": "Le créneau horaire est requis",
+        "subject_required": "La matière est requise",
+        "class_required": "La classe est requise",
+        "teacher_required": "L'enseignant est requis"
+      },
+      "toast": {
+        "update_success": "Créneau horaire mis à jour avec succès",
+        "create_success": "Créneau horaire créé avec succès"
+      }
+    }
   }
 }
