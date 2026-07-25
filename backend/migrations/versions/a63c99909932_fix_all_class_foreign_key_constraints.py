@@ -16,7 +16,20 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(connection, table_name):
+    inspector = sa.inspect(connection)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(connection, table_name, column_name):
+    if not _table_exists(connection, table_name):
+        return False
+    inspector = sa.inspect(connection)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
 def upgrade():
+    connection = op.get_bind()
     # Fix students.class_id - should be SET NULL (students can exist without a class)
     with op.batch_alter_table('students', schema=None) as batch_op:
         batch_op.drop_constraint('students_class_id_fkey', type_='foreignkey')
@@ -34,9 +47,10 @@ def upgrade():
     
     # Fix grades.class_id - should be CASCADE (grades are tied to class context)
     # NOTE: The actual constraint name is 'fk_grades_class_id', not 'grades_class_id_fkey'
-    with op.batch_alter_table('grades', schema=None) as batch_op:
-        batch_op.drop_constraint('fk_grades_class_id', type_='foreignkey')
-        batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
+    if _table_exists(connection, 'grades') and _column_exists(connection, 'grades', 'class_id'):
+        op.execute('ALTER TABLE grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
+        with op.batch_alter_table('grades', schema=None) as batch_op:
+            batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
     
     # Fix assignments.class_id - should be CASCADE (assignments are class-specific)
     with op.batch_alter_table('assignments', schema=None) as batch_op:
@@ -84,6 +98,7 @@ def upgrade():
 
 
 def downgrade():
+    connection = op.get_bind()
     # Reverse all the changes by removing ondelete clauses
     # Note: Only reversing the constraints that actually exist
     
@@ -95,9 +110,10 @@ def downgrade():
         batch_op.drop_constraint('assignments_class_id_fkey', type_='foreignkey')
         batch_op.create_foreign_key('assignments_class_id_fkey', 'classes', ['class_id'], ['id'])
     
-    with op.batch_alter_table('grades', schema=None) as batch_op:
-        batch_op.drop_constraint('fk_grades_class_id', type_='foreignkey')
-        batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'])
+    if _table_exists(connection, 'grades') and _column_exists(connection, 'grades', 'class_id'):
+        op.execute('ALTER TABLE grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
+        with op.batch_alter_table('grades', schema=None) as batch_op:
+            batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'])
     
     with op.batch_alter_table('exams', schema=None) as batch_op:
         batch_op.drop_constraint('exams_class_id_fkey', type_='foreignkey')

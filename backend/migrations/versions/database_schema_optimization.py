@@ -15,6 +15,25 @@ down_revision = 'add_advanced_stem_tables'
 branch_labels = None
 depends_on = None
 
+def _table_exists(connection, table_name):
+    inspector = sa.inspect(connection)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(connection, table_name, column_name):
+    if not _table_exists(connection, table_name):
+        return False
+    inspector = sa.inspect(connection)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
+def _index_exists(connection, table_name, index_name):
+    if not _table_exists(connection, table_name):
+        return False
+    inspector = sa.inspect(connection)
+    return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
+
+
 def upgrade():
     """
     Database Schema Optimization Implementation
@@ -58,18 +77,25 @@ def upgrade():
     
     # === ACADEMIC PERFORMANCE INDEXES ===
     
+    connection = op.get_bind()
+
     # Grades table optimizations
-    op.create_index('idx_grades_student_id', 'grades', ['student_id'])
-    op.create_index('idx_grades_subject_id', 'grades', ['subject_id'])
-    op.create_index('idx_grades_class_id', 'grades', ['class_id'])
-    op.create_index('idx_grades_academic_year', 'grades', ['academic_year'])
-    op.create_index('idx_grades_term', 'grades', ['term'])
-    op.create_index('idx_grades_student_subject', 'grades', ['student_id', 'subject_id'])
-    op.create_index('idx_grades_class_subject_term', 'grades', ['class_id', 'subject_id', 'term'])
-    op.create_index('idx_grades_student_year_term', 'grades', ['student_id', 'academic_year', 'term'])
-    op.create_index('idx_grades_percentage', 'grades', ['percentage'])
-    op.create_index('idx_grades_is_final', 'grades', ['is_final'], 
-                   postgresql_where=sa.text("is_final = true"))
+    if _table_exists(connection, 'grades'):
+        grade_index_specs = [
+            ('idx_grades_student_id', ['student_id'], {}),
+            ('idx_grades_subject_id', ['subject_id'], {}),
+            ('idx_grades_class_id', ['class_id'], {}),
+            ('idx_grades_academic_year', ['academic_year'], {}),
+            ('idx_grades_term', ['term'], {}),
+            ('idx_grades_student_subject', ['student_id', 'subject_id'], {}),
+            ('idx_grades_class_subject_term', ['class_id', 'subject_id', 'term'], {}),
+            ('idx_grades_student_year_term', ['student_id', 'academic_year', 'term'], {}),
+            ('idx_grades_percentage', ['percentage'], {}),
+            ('idx_grades_is_final', ['is_final'], {'postgresql_where': sa.text("is_final = true")}),
+        ]
+        for index_name, columns, kwargs in grade_index_specs:
+            if all(_column_exists(connection, 'grades', column) for column in columns) and not _index_exists(connection, 'grades', index_name):
+                op.create_index(index_name, 'grades', columns, **kwargs)
     
     # Attendance table optimizations
     op.create_index('idx_attendance_student_id', 'attendance', ['student_id'])

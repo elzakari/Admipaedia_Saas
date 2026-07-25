@@ -14,8 +14,28 @@ down_revision = '2505e0eb938c'  # Latest migration from the list
 branch_labels = None
 depends_on = None
 
+def _table_exists(connection, table_name):
+    inspector = sa.inspect(connection)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(connection, table_name, column_name):
+    if not _table_exists(connection, table_name):
+        return False
+    inspector = sa.inspect(connection)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
+def _index_exists(connection, table_name, index_name):
+    if not _table_exists(connection, table_name):
+        return False
+    inspector = sa.inspect(connection)
+    return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
+
+
 def upgrade():
     """Add strategic indexes for performance optimization"""
+    connection = op.get_bind()
     
     # === USER MODEL INDEXES ===
     # Frequently queried for authentication and user lookups
@@ -67,18 +87,23 @@ def upgrade():
     
     # === GRADE MODEL INDEXES ===
     # Essential for grade tracking and analytics
-    op.create_index('idx_grades_student_id', 'grades', ['student_id'])
-    op.create_index('idx_grades_exam_id', 'grades', ['exam_id'])
-    op.create_index('idx_grades_subject_id', 'grades', ['subject_id'])
-    op.create_index('idx_grades_class_id', 'grades', ['class_id'])
-    op.create_index('idx_grades_graded_by', 'grades', ['graded_by'])
-    op.create_index('idx_grades_term', 'grades', ['term'])
-    op.create_index('idx_grades_academic_year', 'grades', ['academic_year'])
-    op.create_index('idx_grades_assessment_type', 'grades', ['assessment_type'])
-    op.create_index('idx_grades_is_final', 'grades', ['is_final'])
-    # Composite indexes for analytics queries
-    op.create_index('idx_grades_student_term_year', 'grades', ['student_id', 'term', 'academic_year'])
-    op.create_index('idx_grades_class_subject_term', 'grades', ['class_id', 'subject_id', 'term'])
+    if _table_exists(connection, 'grades'):
+        grade_index_specs = [
+            ('idx_grades_student_id', ['student_id']),
+            ('idx_grades_exam_id', ['exam_id']),
+            ('idx_grades_subject_id', ['subject_id']),
+            ('idx_grades_class_id', ['class_id']),
+            ('idx_grades_graded_by', ['graded_by']),
+            ('idx_grades_term', ['term']),
+            ('idx_grades_academic_year', ['academic_year']),
+            ('idx_grades_assessment_type', ['assessment_type']),
+            ('idx_grades_is_final', ['is_final']),
+            ('idx_grades_student_term_year', ['student_id', 'term', 'academic_year']),
+            ('idx_grades_class_subject_term', ['class_id', 'subject_id', 'term']),
+        ]
+        for index_name, columns in grade_index_specs:
+            if all(_column_exists(connection, 'grades', column) for column in columns) and not _index_exists(connection, 'grades', index_name):
+                op.create_index(index_name, 'grades', columns)
     
     # === EXAM MODEL INDEXES ===
     # Important for exam scheduling and management
@@ -191,13 +216,15 @@ def upgrade():
     op.create_index('idx_students_created_at', 'students', ['created_at'])
     op.create_index('idx_teachers_created_at', 'teachers', ['created_at'])
     op.create_index('idx_classes_created_at', 'classes', ['created_at'])
-    op.create_index('idx_grades_created_at', 'grades', ['created_at'])
+    if _table_exists(connection, 'grades') and _column_exists(connection, 'grades', 'created_at') and not _index_exists(connection, 'grades', 'idx_grades_created_at'):
+        op.create_index('idx_grades_created_at', 'grades', ['created_at'])
     op.create_index('idx_exams_created_at', 'exams', ['created_at'])
     
     print("✅ Performance indexes created successfully!")
 
 def downgrade():
     """Remove all performance indexes"""
+    connection = op.get_bind()
     
     # === USER MODEL INDEXES ===
     op.drop_index('idx_users_username', 'users')
@@ -242,17 +269,22 @@ def downgrade():
     op.drop_index('idx_attendances_date_status', 'attendances')
     
     # === GRADE MODEL INDEXES ===
-    op.drop_index('idx_grades_student_id', 'grades')
-    op.drop_index('idx_grades_exam_id', 'grades')
-    op.drop_index('idx_grades_subject_id', 'grades')
-    op.drop_index('idx_grades_class_id', 'grades')
-    op.drop_index('idx_grades_graded_by', 'grades')
-    op.drop_index('idx_grades_term', 'grades')
-    op.drop_index('idx_grades_academic_year', 'grades')
-    op.drop_index('idx_grades_assessment_type', 'grades')
-    op.drop_index('idx_grades_is_final', 'grades')
-    op.drop_index('idx_grades_student_term_year', 'grades')
-    op.drop_index('idx_grades_class_subject_term', 'grades')
+    if _table_exists(connection, 'grades'):
+        for index_name in (
+            'idx_grades_student_id',
+            'idx_grades_exam_id',
+            'idx_grades_subject_id',
+            'idx_grades_class_id',
+            'idx_grades_graded_by',
+            'idx_grades_term',
+            'idx_grades_academic_year',
+            'idx_grades_assessment_type',
+            'idx_grades_is_final',
+            'idx_grades_student_term_year',
+            'idx_grades_class_subject_term',
+        ):
+            if _index_exists(connection, 'grades', index_name):
+                op.drop_index(index_name, 'grades')
     
     # === EXAM MODEL INDEXES ===
     op.drop_index('idx_exams_class_id', 'exams')
@@ -350,7 +382,8 @@ def downgrade():
     op.drop_index('idx_students_created_at', 'students')
     op.drop_index('idx_teachers_created_at', 'teachers')
     op.drop_index('idx_classes_created_at', 'classes')
-    op.drop_index('idx_grades_created_at', 'grades')
+    if _table_exists(connection, 'grades') and _index_exists(connection, 'grades', 'idx_grades_created_at'):
+        op.drop_index('idx_grades_created_at', 'grades')
     op.drop_index('idx_exams_created_at', 'exams')
     
     print("✅ Performance indexes removed successfully!")
