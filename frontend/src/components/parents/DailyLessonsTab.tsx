@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Calendar, CheckCircle2, ClipboardCheck, Link as LinkIcon, TriangleAlert } from "lucide-react";
+import { AlertTriangle, BookOpen, Calendar, CheckCircle2, ClipboardCheck, Link as LinkIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -75,7 +75,7 @@ export default function DailyLessonsTab({ lessons }: DailyLessonsTabProps) {
                   </div>
                   {lesson.child_was_absent ? (
                     <Badge variant="destructive" className="gap-1">
-                      <TriangleAlert className="h-3.5 w-3.5" />
+                      <AlertTriangle className="h-3.5 w-3.5" />
                       Missed while absent
                     </Badge>
                   ) : (

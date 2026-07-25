@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { DatePicker } from "../ui/date-picker";
 import { Card, CardContent } from "../ui/card";
-import { MoreHorizontal, Plus, BookOpen, Calendar as CalendarIcon, ClipboardCheck, Target, CircleCheck, Link as LinkIcon } from 'lucide-react';
+import { MoreHorizontal, Plus, BookOpen, Calendar as CalendarIcon, ClipboardCheck, Target, CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import classService from "../../services/classService";
@@ -199,7 +199,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                   {lesson.homework ? (
                     <div className="rounded-lg border bg-slate-50/70 p-3">
                       <div className="mb-1 flex items-center gap-2 text-sm font-medium">
-                        <CircleCheck className="h-4 w-4 text-indigo-600" />
+                        <CheckCircle2 className="h-4 w-4 text-indigo-600" />
                         Homework
                       </div>
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lesson.homework}</p>

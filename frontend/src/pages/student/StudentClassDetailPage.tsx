@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { AlertTriangle, BookOpen, ChevronRight, CircleCheck, ClipboardCheck, Link as LinkIcon, Megaphone, NotebookPen } from 'lucide-react';
+import { AlertTriangle, BookOpen, ChevronRight, CheckCircle2, ClipboardCheck, Link as LinkIcon, Megaphone, FileText } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import studentService from '../../services/studentService';
 
@@ -78,7 +78,7 @@ const StudentClassDetailPage: React.FC = () => {
                         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                           <div>
                             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              <NotebookPen className="h-4 w-4 text-indigo-600" />
+                              <FileText className="h-4 w-4 text-indigo-600" />
                               {lesson.title}
                             </div>
                             <div className="mt-1 text-xs text-slate-500">{lesson.date}</div>
@@ -114,7 +114,7 @@ const StudentClassDetailPage: React.FC = () => {
                         {lesson.homework ? (
                           <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
                             <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
-                              <CircleCheck className="h-4 w-4" />
+                              <CheckCircle2 className="h-4 w-4" />
                               Homework
                             </div>
                             <div className="mt-1 whitespace-pre-wrap text-amber-800 dark:text-amber-100">{lesson.homework}</div>

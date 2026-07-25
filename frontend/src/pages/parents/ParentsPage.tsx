@@ -1,7 +1,7 @@
 // Top-level imports
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Home, ChevronRight, AlertCircle, BarChart3, BookOpen, FileText, MessageSquare, Clipboard, CreditCard, NotebookPen } from "lucide-react";
+import { Home, ChevronRight, AlertCircle, BarChart3, BookOpen, FileText, MessageSquare, Clipboard, CreditCard } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
@@ -158,7 +158,7 @@ export default function ParentsPage() {
     placeholderData: (previousData) => previousData
   });
 
-  // 🌟 Defensive Injection Blueprint
+  // ðŸŒŸ Defensive Injection Blueprint
   const matchedGrade = useMemo(() => {
       if (!currentChildRaw || currentChildRaw.grade_level?.id === 'unassigned') {
           return { name: currentChildRaw?.grade_level?.name || 'Grade Unassigned', id: 'unassigned' };
@@ -319,7 +319,7 @@ export default function ParentsPage() {
       fee_structure: feeStructure,
       payment_history: paymentHistory,
       breakdownItems: feeStructure.map((item) => ({
-        item: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || item.category || t('parent_portal.my_children.fees', 'Fees'),
+        item: [item.category, item.term, item.academic_year].filter(Boolean).join(' â€¢ ') || item.category || t('parent_portal.my_children.fees', 'Fees'),
         amount: Number(item.amount ?? 0),
         balance: Number(item.balance ?? 0),
         status: item.status,
@@ -348,7 +348,7 @@ export default function ParentsPage() {
           id: String(index + 1),
           dueDate: item.due_date,
           amount: Number(item.balance ?? item.amount ?? 0),
-          description: [item.category, item.term, item.academic_year].filter(Boolean).join(' • ') || t('parent_portal.my_children.fees', 'Fees')
+          description: [item.category, item.term, item.academic_year].filter(Boolean).join(' â€¢ ') || t('parent_portal.my_children.fees', 'Fees')
         }))
     };
   }, [childFeeResponse, childSummary, dashboardCurrency, t]);
@@ -622,7 +622,7 @@ export default function ParentsPage() {
                 <TabsTrigger value="attendance">Attendance</TabsTrigger>
                 <TabsTrigger value="fees">Fees</TabsTrigger>
                 <TabsTrigger value="lessons" className="flex items-center gap-2">
-                  <NotebookPen className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                   Daily Lessons
                 </TabsTrigger>
                 <TabsTrigger value="messages">Messages</TabsTrigger>

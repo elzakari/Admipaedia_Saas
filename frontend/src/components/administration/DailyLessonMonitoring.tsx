@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, BookOpen, CalendarDays, CircleCheckBig, Clock3, Search, Users } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarDays, CheckCircle2, Clock3, Search, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
@@ -131,7 +131,7 @@ const DailyLessonMonitoring: React.FC = () => {
               <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.today_logs}</div>
               <div className="text-xs text-slate-500">{summary.completed_logs} marked completed</div>
             </div>
-            <CircleCheckBig className="h-5 w-5 text-emerald-600" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           </CardContent>
         </Card>
         <Card>
