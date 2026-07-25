@@ -1204,7 +1204,7 @@ def downgrade():
     sa.Column('discount_amount', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=True),
     sa.Column('penalty_amount', sa.NUMERIC(precision=10, scale=2), autoincrement=False, nullable=True),
     sa.Column('due_date', sa.DATE(), autoincrement=False, nullable=False),
-    sa.Column('status', postgresql.ENUM('PENDING', 'PAID', 'OVERDUE', 'CANCELLED', name='paymentstatus'), autoincrement=False, nullable=True),
+    sa.Column('status', postgresql.ENUM('PENDING', 'PAID', 'OVERDUE', 'CANCELLED', name='paymentstatus', create_type=False), autoincrement=False, nullable=True),
     sa.Column('scholarship_percentage', sa.NUMERIC(precision=5, scale=2), autoincrement=False, nullable=True),
     sa.Column('scholarship_reason', sa.VARCHAR(length=255), autoincrement=False, nullable=True),
     sa.Column('created_by', sa.INTEGER(), autoincrement=False, nullable=False),
