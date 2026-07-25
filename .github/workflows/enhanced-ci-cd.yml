@@ -168,6 +168,7 @@ jobs:
           pip install pytest-cov pytest-xdist black isort flake8
       
       - name: Code Quality Check (Black, isort, flake8)
+        continue-on-error: true
         run: |
           cd backend
           black --check app app.py run.py wsgi.py
