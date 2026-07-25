@@ -34,6 +34,20 @@ def _index_exists(connection, table_name, index_name):
     return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
 
 
+def _safe_create_index(connection, index_name, table_name, columns, **kwargs):
+    actual_table = table_name
+    if not _table_exists(connection, actual_table):
+        if table_name == 'attendance' and _table_exists(connection, 'attendances'):
+            actual_table = 'attendances'
+        else:
+            return
+    if not all(_column_exists(connection, actual_table, col) for col in columns):
+        return
+    if _index_exists(connection, actual_table, index_name):
+        return
+    op.create_index(index_name, actual_table, columns, **kwargs)
+
+
 def upgrade():
     """
     Database Schema Optimization Implementation
@@ -45,172 +59,158 @@ def upgrade():
     4. Foreign key constraint optimizations
     5. Query performance improvements
     """
+    connection = op.get_bind()
     
     # === CORE PERFORMANCE INDEXES ===
     
     # Users table optimizations
-    op.create_index('idx_users_email_status', 'users', ['email', 'status'])
-    op.create_index('idx_users_role_status', 'users', ['role', 'status'])
-    op.create_index('idx_users_last_login', 'users', ['last_login'])
-    op.create_index('idx_users_created_at', 'users', ['created_at'])
+    _safe_create_index(connection, 'idx_users_email_status', 'users', ['email', 'status'])
+    _safe_create_index(connection, 'idx_users_role_status', 'users', ['role', 'status'])
+    _safe_create_index(connection, 'idx_users_last_login', 'users', ['last_login'])
+    _safe_create_index(connection, 'idx_users_created_at', 'users', ['created_at'])
     
     # Students table optimizations
-    op.create_index('idx_students_class_id', 'students', ['class_id'])
-    op.create_index('idx_students_parent_id', 'students', ['parent_id'])
-    op.create_index('idx_students_admission_number', 'students', ['admission_number'])
-    op.create_index('idx_students_status_class', 'students', ['status', 'class_id'])
-    op.create_index('idx_students_gender_class', 'students', ['gender', 'class_id'])
+    _safe_create_index(connection, 'idx_students_class_id', 'students', ['class_id'])
+    _safe_create_index(connection, 'idx_students_parent_id', 'students', ['parent_id'])
+    _safe_create_index(connection, 'idx_students_admission_number', 'students', ['admission_number'])
+    _safe_create_index(connection, 'idx_students_status_class', 'students', ['status', 'class_id'])
+    _safe_create_index(connection, 'idx_students_gender_class', 'students', ['gender', 'class_id'])
     
     # Teachers table optimizations
-    op.create_index('idx_teachers_employee_id', 'teachers', ['employee_id'])
-    op.create_index('idx_teachers_status', 'teachers', ['status'])
-    op.create_index('idx_teachers_specialization', 'teachers', ['specialization'])
-    op.create_index('idx_teachers_joining_date', 'teachers', ['joining_date'])
+    _safe_create_index(connection, 'idx_teachers_employee_id', 'teachers', ['employee_id'])
+    _safe_create_index(connection, 'idx_teachers_status', 'teachers', ['status'])
+    _safe_create_index(connection, 'idx_teachers_specialization', 'teachers', ['specialization'])
+    _safe_create_index(connection, 'idx_teachers_joining_date', 'teachers', ['joining_date'])
     
     # Classes table optimizations
-    op.create_index('idx_classes_grade_level', 'classes', ['grade_level'])
-    op.create_index('idx_classes_academic_year', 'classes', ['academic_year'])
-    op.create_index('idx_classes_teacher_id', 'classes', ['teacher_id'])
-    op.create_index('idx_classes_grade_year', 'classes', ['grade_level', 'academic_year'])
-    op.create_index('idx_classes_status_active', 'classes', ['status'], 
-                   postgresql_where=sa.text("status = 'active'"))
+    _safe_create_index(connection, 'idx_classes_grade_level', 'classes', ['grade_level'])
+    _safe_create_index(connection, 'idx_classes_academic_year', 'classes', ['academic_year'])
+    _safe_create_index(connection, 'idx_classes_teacher_id', 'classes', ['teacher_id'])
+    _safe_create_index(connection, 'idx_classes_grade_year', 'classes', ['grade_level', 'academic_year'])
+    _safe_create_index(connection, 'idx_classes_status_active', 'classes', ['status'], 
+                       postgresql_where=sa.text("status = 'active'"))
     
     # === ACADEMIC PERFORMANCE INDEXES ===
     
-    connection = op.get_bind()
-
     # Grades table optimizations
-    if _table_exists(connection, 'grades'):
-        grade_index_specs = [
-            ('idx_grades_student_id', ['student_id'], {}),
-            ('idx_grades_subject_id', ['subject_id'], {}),
-            ('idx_grades_class_id', ['class_id'], {}),
-            ('idx_grades_academic_year', ['academic_year'], {}),
-            ('idx_grades_term', ['term'], {}),
-            ('idx_grades_student_subject', ['student_id', 'subject_id'], {}),
-            ('idx_grades_class_subject_term', ['class_id', 'subject_id', 'term'], {}),
-            ('idx_grades_student_year_term', ['student_id', 'academic_year', 'term'], {}),
-            ('idx_grades_percentage', ['percentage'], {}),
-            ('idx_grades_is_final', ['is_final'], {'postgresql_where': sa.text("is_final = true")}),
-        ]
-        for index_name, columns, kwargs in grade_index_specs:
-            if all(_column_exists(connection, 'grades', column) for column in columns) and not _index_exists(connection, 'grades', index_name):
-                op.create_index(index_name, 'grades', columns, **kwargs)
+    grade_index_specs = [
+        ('idx_grades_student_id', ['student_id'], {}),
+        ('idx_grades_subject_id', ['subject_id'], {}),
+        ('idx_grades_class_id', ['class_id'], {}),
+        ('idx_grades_academic_year', ['academic_year'], {}),
+        ('idx_grades_term', ['term'], {}),
+        ('idx_grades_student_subject', ['student_id', 'subject_id'], {}),
+        ('idx_grades_class_subject_term', ['class_id', 'subject_id', 'term'], {}),
+        ('idx_grades_student_year_term', ['student_id', 'academic_year', 'term'], {}),
+        ('idx_grades_percentage', ['percentage'], {}),
+        ('idx_grades_is_final', ['is_final'], {'postgresql_where': sa.text("is_final = true")}),
+    ]
+    for index_name, columns, kwargs in grade_index_specs:
+        _safe_create_index(connection, index_name, 'grades', columns, **kwargs)
     
-    # Attendance table optimizations
-    op.create_index('idx_attendance_student_id', 'attendance', ['student_id'])
-    op.create_index('idx_attendance_class_id', 'attendance', ['class_id'])
-    op.create_index('idx_attendance_subject_id', 'attendance', ['subject_id'])
-    op.create_index('idx_attendance_date', 'attendance', ['date'])
-    op.create_index('idx_attendance_status', 'attendance', ['status'])
-    op.create_index('idx_attendance_student_date', 'attendance', ['student_id', 'date'])
-    op.create_index('idx_attendance_class_date', 'attendance', ['class_id', 'date'])
-    op.create_index('idx_attendance_student_month', 'attendance', ['student_id'], 
-                   postgresql_where=sa.text("date >= CURRENT_DATE - INTERVAL '30 days'"))
+    # Attendance table optimizations (table is named 'attendances')
+    attendance_index_specs = [
+        ('idx_attendance_student_id', ['student_id'], {}),
+        ('idx_attendance_class_id', ['class_id'], {}),
+        ('idx_attendance_subject_id', ['subject_id'], {}),
+        ('idx_attendance_date', ['date'], {}),
+        ('idx_attendance_status', ['status'], {}),
+        ('idx_attendance_student_date', ['student_id', 'date'], {}),
+        ('idx_attendance_class_date', ['class_id', 'date'], {}),
+        ('idx_attendance_student_month', ['student_id'], {'postgresql_where': sa.text("date >= CURRENT_DATE - INTERVAL '30 days'")}),
+    ]
+    for index_name, columns, kwargs in attendance_index_specs:
+        _safe_create_index(connection, index_name, 'attendances', columns, **kwargs)
     
     # Subjects table optimizations
-    op.create_index('idx_subjects_department_id', 'subjects', ['department_id'])
-    op.create_index('idx_subjects_code', 'subjects', ['code'])
-    op.create_index('idx_subjects_is_active', 'subjects', ['is_active'], 
-                   postgresql_where=sa.text("is_active = true"))
-    op.create_index('idx_subjects_credit_hours', 'subjects', ['credit_hours'])
+    _safe_create_index(connection, 'idx_subjects_department_id', 'subjects', ['department_id'])
+    _safe_create_index(connection, 'idx_subjects_code', 'subjects', ['code'])
+    _safe_create_index(connection, 'idx_subjects_is_active', 'subjects', ['is_active'], 
+                       postgresql_where=sa.text("is_active = true"))
+    _safe_create_index(connection, 'idx_subjects_credit_hours', 'subjects', ['credit_hours'])
     
     # === ASSOCIATION TABLE OPTIMIZATIONS ===
     
     # Teacher-Subject associations
-    op.create_index('idx_teacher_subjects_teacher', 'teacher_subjects', ['teacher_id'])
-    op.create_index('idx_teacher_subjects_subject', 'teacher_subjects', ['subject_id'])
+    _safe_create_index(connection, 'idx_teacher_subjects_teacher', 'teacher_subjects', ['teacher_id'])
+    _safe_create_index(connection, 'idx_teacher_subjects_subject', 'teacher_subjects', ['subject_id'])
     
     # Class-Subject associations
-    op.create_index('idx_class_subjects_class', 'class_subjects', ['class_id'])
-    op.create_index('idx_class_subjects_subject', 'class_subjects', ['subject_id'])
+    _safe_create_index(connection, 'idx_class_subjects_class', 'class_subjects', ['class_id'])
+    _safe_create_index(connection, 'idx_class_subjects_subject', 'class_subjects', ['subject_id'])
     
     # User-Roles associations
-    op.create_index('idx_user_roles_user', 'user_roles', ['user_id'])
-    op.create_index('idx_user_roles_role', 'user_roles', ['role_id'])
+    _safe_create_index(connection, 'idx_user_roles_user', 'user_roles', ['user_id'])
+    _safe_create_index(connection, 'idx_user_roles_role', 'user_roles', ['role_id'])
     
     # === SECURITY AND AUDIT INDEXES ===
     
     # Login history optimizations
-    op.create_index('idx_login_history_user_id', 'login_history', ['user_id'])
-    op.create_index('idx_login_history_timestamp', 'login_history', ['login_timestamp'])
-    op.create_index('idx_login_history_success', 'login_history', ['success'])
-    op.create_index('idx_login_history_ip', 'login_history', ['ip_address'])
-    op.create_index('idx_login_history_user_recent', 'login_history', ['user_id', 'login_timestamp'])
+    _safe_create_index(connection, 'idx_login_history_user_id', 'login_history', ['user_id'])
+    _safe_create_index(connection, 'idx_login_history_timestamp', 'login_history', ['login_timestamp'])
+    _safe_create_index(connection, 'idx_login_history_success', 'login_history', ['success'])
+    _safe_create_index(connection, 'idx_login_history_ip', 'login_history', ['ip_address'])
+    _safe_create_index(connection, 'idx_login_history_user_recent', 'login_history', ['user_id', 'login_timestamp'])
     
     # === STEM CURRICULUM OPTIMIZATIONS ===
     
-    # STEM learning modules (already has some indexes from previous migration)
-    op.create_index('idx_stem_modules_term', 'stem_learning_modules', ['term'])
-    op.create_index('idx_stem_modules_active', 'stem_learning_modules', ['is_active'], 
-                   postgresql_where=sa.text("is_active = true"))
-    op.create_index('idx_stem_modules_duration', 'stem_learning_modules', ['duration_weeks'])
+    # STEM learning modules
+    _safe_create_index(connection, 'idx_stem_modules_term', 'stem_learning_modules', ['term'])
+    _safe_create_index(connection, 'idx_stem_modules_active', 'stem_learning_modules', ['is_active'], 
+                       postgresql_where=sa.text("is_active = true"))
+    _safe_create_index(connection, 'idx_stem_modules_duration', 'stem_learning_modules', ['duration_weeks'])
     
-    # STEM assessment results optimizations
-    op.create_index('idx_stem_results_date', 'stem_assessment_results', ['assessment_date'])
-    op.create_index('idx_stem_results_percentage', 'stem_assessment_results', ['percentage'])
-    op.create_index('idx_stem_results_grade', 'stem_assessment_results', ['grade_letter'])
+    # STEM assessment results
+    _safe_create_index(connection, 'idx_stem_results_date', 'stem_assessment_results', ['assessment_date'])
+    _safe_create_index(connection, 'idx_stem_results_percentage', 'stem_assessment_results', ['percentage'])
+    _safe_create_index(connection, 'idx_stem_results_grade', 'stem_assessment_results', ['grade_letter'])
     
     # === LIBRARY AND RESOURCES ===
-    
-    # Library optimizations (if library table exists)
-    try:
-        op.create_index('idx_library_isbn', 'library', ['isbn'])
-        op.create_index('idx_library_category', 'library', ['category'])
-        op.create_index('idx_library_available', 'library', ['available_copies'])
-        op.create_index('idx_library_author_title', 'library', ['author', 'title'])
-    except:
-        pass  # Table might not exist yet
+    _safe_create_index(connection, 'idx_library_isbn', 'library', ['isbn'])
+    _safe_create_index(connection, 'idx_library_category', 'library', ['category'])
+    _safe_create_index(connection, 'idx_library_available', 'library', ['available_copies'])
+    _safe_create_index(connection, 'idx_library_author_title', 'library', ['author', 'title'])
     
     # === COMMUNICATION OPTIMIZATIONS ===
+    _safe_create_index(connection, 'idx_messages_sender', 'messages', ['sender_id'])
+    _safe_create_index(connection, 'idx_messages_recipient', 'messages', ['recipient_id'])
+    _safe_create_index(connection, 'idx_messages_timestamp', 'messages', ['timestamp'])
+    _safe_create_index(connection, 'idx_messages_read_status', 'messages', ['is_read'])
+    _safe_create_index(connection, 'idx_messages_conversation', 'messages', ['sender_id', 'recipient_id', 'timestamp'])
     
-    # Messages table (if exists)
-    try:
-        op.create_index('idx_messages_sender', 'messages', ['sender_id'])
-        op.create_index('idx_messages_recipient', 'messages', ['recipient_id'])
-        op.create_index('idx_messages_timestamp', 'messages', ['timestamp'])
-        op.create_index('idx_messages_read_status', 'messages', ['is_read'])
-        op.create_index('idx_messages_conversation', 'messages', ['sender_id', 'recipient_id', 'timestamp'])
-    except:
-        pass
-    
-    # Notifications table (if exists)
-    try:
-        op.create_index('idx_notifications_user', 'notifications', ['user_id'])
-        op.create_index('idx_notifications_type', 'notifications', ['notification_type'])
-        op.create_index('idx_notifications_read', 'notifications', ['is_read'])
-        op.create_index('idx_notifications_created', 'notifications', ['created_at'])
-        op.create_index('idx_notifications_unread', 'notifications', ['user_id', 'is_read'], 
+    _safe_create_index(connection, 'idx_notifications_user', 'notifications', ['user_id'])
+    _safe_create_index(connection, 'idx_notifications_type', 'notifications', ['notification_type'])
+    _safe_create_index(connection, 'idx_notifications_read', 'notifications', ['is_read'])
+    _safe_create_index(connection, 'idx_notifications_created', 'notifications', ['created_at'])
+    _safe_create_index(connection, 'idx_notifications_unread', 'notifications', ['user_id', 'is_read'], 
                        postgresql_where=sa.text("is_read = false"))
-    except:
-        pass
     
     # === ANALYTICS AND REPORTING INDEXES ===
-    
-    # Dashboard analytics optimizations
-    try:
-        op.create_index('idx_dashboard_metrics_date', 'dashboard_metrics', ['metric_date'])
-        op.create_index('idx_dashboard_metrics_type', 'dashboard_metrics', ['metric_type'])
-        op.create_index('idx_dashboard_metrics_class', 'dashboard_metrics', ['class_id'])
-    except:
-        pass
+    _safe_create_index(connection, 'idx_dashboard_metrics_date', 'dashboard_metrics', ['metric_date'])
+    _safe_create_index(connection, 'idx_dashboard_metrics_type', 'dashboard_metrics', ['metric_type'])
+    _safe_create_index(connection, 'idx_dashboard_metrics_class', 'dashboard_metrics', ['class_id'])
     
     # === CALENDAR AND EVENTS ===
-    
-    try:
-        op.create_index('idx_calendar_events_date', 'calendar_events', ['event_date'])
-        op.create_index('idx_calendar_events_type', 'calendar_events', ['event_type'])
-        op.create_index('idx_calendar_events_class', 'calendar_events', ['class_id'])
-        op.create_index('idx_calendar_events_upcoming', 'calendar_events', ['event_date'], 
+    _safe_create_index(connection, 'idx_calendar_events_date', 'calendar_events', ['event_date'])
+    _safe_create_index(connection, 'idx_calendar_events_type', 'calendar_events', ['event_type'])
+    _safe_create_index(connection, 'idx_calendar_events_class', 'calendar_events', ['class_id'])
+    _safe_create_index(connection, 'idx_calendar_events_upcoming', 'calendar_events', ['event_date'], 
                        postgresql_where=sa.text("event_date >= CURRENT_DATE"))
-    except:
-        pass
+
 
 def downgrade():
     """
     Remove all optimization indexes
     """
+    connection = op.get_bind()
+    inspector = sa.inspect(connection)
     
+    existing_indexes = {}
+    for table_name in inspector.get_table_names():
+        for idx in inspector.get_indexes(table_name):
+            if idx.get("name"):
+                existing_indexes[idx["name"]] = table_name
+
     # Drop all created indexes in reverse order
     indexes_to_drop = [
         # Calendar and Events
@@ -305,8 +305,6 @@ def downgrade():
         'idx_teachers_specialization',
         'idx_teachers_status',
         'idx_teachers_employee_id',
-        
-        # Students
         'idx_students_gender_class',
         'idx_students_status_class',
         'idx_students_admission_number',
@@ -321,7 +319,8 @@ def downgrade():
     ]
     
     for index_name in indexes_to_drop:
-        try:
-            op.drop_index(index_name)
-        except:
-            pass  # Index might not exist
+        if index_name in existing_indexes:
+            try:
+                op.drop_index(index_name, table_name=existing_indexes[index_name])
+            except Exception:
+                pass
