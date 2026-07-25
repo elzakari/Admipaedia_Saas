@@ -117,7 +117,7 @@ def upgrade():
         ('idx_attendance_status', ['status'], {}),
         ('idx_attendance_student_date', ['student_id', 'date'], {}),
         ('idx_attendance_class_date', ['class_id', 'date'], {}),
-        ('idx_attendance_student_month', ['student_id'], {'postgresql_where': sa.text("date >= CURRENT_DATE - INTERVAL '30 days'")}),
+        ('idx_attendance_student_month', ['student_id', 'date'], {}),
     ]
     for index_name, columns, kwargs in attendance_index_specs:
         _safe_create_index(connection, index_name, 'attendances', columns, **kwargs)
@@ -194,8 +194,7 @@ def upgrade():
     _safe_create_index(connection, 'idx_calendar_events_date', 'calendar_events', ['event_date'])
     _safe_create_index(connection, 'idx_calendar_events_type', 'calendar_events', ['event_type'])
     _safe_create_index(connection, 'idx_calendar_events_class', 'calendar_events', ['class_id'])
-    _safe_create_index(connection, 'idx_calendar_events_upcoming', 'calendar_events', ['event_date'], 
-                       postgresql_where=sa.text("event_date >= CURRENT_DATE"))
+    _safe_create_index(connection, 'idx_calendar_events_upcoming', 'calendar_events', ['event_date'])
 
 
 def downgrade():
