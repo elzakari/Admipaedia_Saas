@@ -28,101 +28,58 @@ def _column_exists(connection, table_name, column_name):
     return any(column["name"] == column_name for column in inspector.get_columns(table_name))
 
 
+def _safe_fix_fk(connection, table_name, constraint_name, ref_table, local_cols, ref_cols, ondelete=None):
+    actual_table = table_name
+    if not _table_exists(connection, actual_table):
+        if table_name == 'attendance' and _table_exists(connection, 'attendances'):
+            actual_table = 'attendances'
+        elif table_name == 'attendances' and _table_exists(connection, 'attendance'):
+            actual_table = 'attendance'
+        else:
+            return
+
+    if not _table_exists(connection, ref_table):
+        return
+
+    if not all(_column_exists(connection, actual_table, col) for col in local_cols):
+        return
+
+    op.execute(sa.text(f'ALTER TABLE "{actual_table}" DROP CONSTRAINT IF EXISTS "{constraint_name}"'))
+    with op.batch_alter_table(actual_table, schema=None) as batch_op:
+        kwargs = {}
+        if ondelete:
+            kwargs['ondelete'] = ondelete
+        batch_op.create_foreign_key(constraint_name, ref_table, local_cols, ref_cols, **kwargs)
+
+
 def upgrade():
     connection = op.get_bind()
+    
     # Fix students.class_id - should be SET NULL (students can exist without a class)
-    with op.batch_alter_table('students', schema=None) as batch_op:
-        batch_op.drop_constraint('students_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('students_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='SET NULL')
+    _safe_fix_fk(connection, 'students', 'students_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='SET NULL')
     
     # Fix attendances.class_id - should be CASCADE (attendance records are meaningless without a class)
-    with op.batch_alter_table('attendances', schema=None) as batch_op:
-        batch_op.drop_constraint('attendances_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('attendances_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
+    _safe_fix_fk(connection, 'attendances', 'attendances_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
     
     # Fix exams.class_id - should be CASCADE (exams are class-specific)
-    with op.batch_alter_table('exams', schema=None) as batch_op:
-        batch_op.drop_constraint('exams_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('exams_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
+    _safe_fix_fk(connection, 'exams', 'exams_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
     
     # Fix grades.class_id - should be CASCADE (grades are tied to class context)
-    # NOTE: The actual constraint name is 'fk_grades_class_id', not 'grades_class_id_fkey'
-    if _table_exists(connection, 'grades') and _column_exists(connection, 'grades', 'class_id'):
-        op.execute('ALTER TABLE grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
-        with op.batch_alter_table('grades', schema=None) as batch_op:
-            batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
+    _safe_fix_fk(connection, 'grades', 'fk_grades_class_id', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
     
     # Fix assignments.class_id - should be CASCADE (assignments are class-specific)
-    with op.batch_alter_table('assignments', schema=None) as batch_op:
-        batch_op.drop_constraint('assignments_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('assignments_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
+    _safe_fix_fk(connection, 'assignments', 'assignments_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
     
     # Fix class_subjects association table - should be CASCADE
-    with op.batch_alter_table('class_subjects', schema=None) as batch_op:
-        batch_op.drop_constraint('class_subjects_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('class_subjects_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # Note: The following tables were not found in the current database constraints:
-    # - character_assessments, assessment_tasks, rubric_assessments, enhanced_grades, final_grades, stem_resource_bookings
-    # These might not exist yet or have different names. Commenting them out for now.
-    
-    # # Fix character_assessments.class_id - should be CASCADE
-    # with op.batch_alter_table('character_assessments', schema=None) as batch_op:
-    #     batch_op.drop_constraint('character_assessments_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('character_assessments_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # # Fix assessment_tasks.class_id - should be CASCADE
-    # with op.batch_alter_table('assessment_tasks', schema=None) as batch_op:
-    #     batch_op.drop_constraint('assessment_tasks_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('assessment_tasks_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # # Fix rubric_assessments.class_id - should be CASCADE
-    # with op.batch_alter_table('rubric_assessments', schema=None) as batch_op:
-    #     batch_op.drop_constraint('rubric_assessments_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('rubric_assessments_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # # Fix enhanced_grades.class_id - should be CASCADE
-    # with op.batch_alter_table('enhanced_grades', schema=None) as batch_op:
-    #     batch_op.drop_constraint('enhanced_grades_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('enhanced_grades_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # # Fix final_grades.class_id - should be CASCADE
-    # with op.batch_alter_table('final_grades', schema=None) as batch_op:
-    #     batch_op.drop_constraint('final_grades_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('final_grades_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
-    
-    # # Fix stem_resource_bookings.class_id - should be SET NULL (bookings can exist without class)
-    # with op.batch_alter_table('stem_resource_bookings', schema=None) as batch_op:
-    #     batch_op.drop_constraint('stem_resource_bookings_class_id_fkey', type_='foreignkey')
-    #     batch_op.create_foreign_key('stem_resource_bookings_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='SET NULL')
+    _safe_fix_fk(connection, 'class_subjects', 'class_subjects_class_id_fkey', 'classes', ['class_id'], ['id'], ondelete='CASCADE')
 
 
 def downgrade():
     connection = op.get_bind()
-    # Reverse all the changes by removing ondelete clauses
-    # Note: Only reversing the constraints that actually exist
     
-    with op.batch_alter_table('class_subjects', schema=None) as batch_op:
-        batch_op.drop_constraint('class_subjects_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('class_subjects_class_id_fkey', 'classes', ['class_id'], ['id'])
-    
-    with op.batch_alter_table('assignments', schema=None) as batch_op:
-        batch_op.drop_constraint('assignments_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('assignments_class_id_fkey', 'classes', ['class_id'], ['id'])
-    
-    if _table_exists(connection, 'grades') and _column_exists(connection, 'grades', 'class_id'):
-        op.execute('ALTER TABLE grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
-        with op.batch_alter_table('grades', schema=None) as batch_op:
-            batch_op.create_foreign_key('fk_grades_class_id', 'classes', ['class_id'], ['id'])
-    
-    with op.batch_alter_table('exams', schema=None) as batch_op:
-        batch_op.drop_constraint('exams_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('exams_class_id_fkey', 'classes', ['class_id'], ['id'])
-    
-    with op.batch_alter_table('attendances', schema=None) as batch_op:
-        batch_op.drop_constraint('attendances_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('attendances_class_id_fkey', 'classes', ['class_id'], ['id'])
-    
-    with op.batch_alter_table('students', schema=None) as batch_op:
-        batch_op.drop_constraint('students_class_id_fkey', type_='foreignkey')
-        batch_op.create_foreign_key('students_class_id_fkey', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'class_subjects', 'class_subjects_class_id_fkey', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'assignments', 'assignments_class_id_fkey', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'grades', 'fk_grades_class_id', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'exams', 'exams_class_id_fkey', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'attendances', 'attendances_class_id_fkey', 'classes', ['class_id'], ['id'])
+    _safe_fix_fk(connection, 'students', 'students_class_id_fkey', 'classes', ['class_id'], ['id'])
