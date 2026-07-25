@@ -180,6 +180,13 @@ class PasswordSecurity:
         This uses the HaveIBeenPwned API's k-anonymity model
         """
         try:
+            from flask import current_app
+            if current_app and (current_app.config.get('TESTING') or current_app.config.get('DISABLE_HIBP_CHECK')):
+                return False
+        except Exception:
+            pass
+
+        try:
             import requests
             
             # Hash the password

@@ -6,7 +6,7 @@ def test_register(client, db):
     response = client.post('/api/v1/auth/register', json={
         'username': 'newuser',
         'email': 'new@example.com',
-        'password': 'password123',
+        'password': 'Password123!',
         'role': 'teacher'
     })
     
@@ -22,14 +22,14 @@ def test_login(client, db):
     client.post('/api/v1/auth/register', json={
         'username': 'loginuser',
         'email': 'login@example.com',
-        'password': 'password123',
+        'password': 'Password123!',
         'role': 'teacher'
     })
     
     # Then try to login
     response = client.post('/api/v1/auth/login', json={
         'email': 'login@example.com',
-        'password': 'password123'
+        'password': 'Password123!'
     })
     
     assert response.status_code == 200

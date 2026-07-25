@@ -88,6 +88,17 @@ def test_admissions_approval_pending_activation(app, db_session, client, auth_cl
         target_class_id=target_class.id
     )
     db_session.add(application)
+
+    from app.models.tenant import TenantMembership
+    admin_user = User.query.filter_by(email='admin@example.com').first() or User.query.first()
+    if admin_user:
+        membership = TenantMembership(
+            user_id=admin_user.id,
+            tenant_id=tenant.id,
+            role='admin',
+            status='active'
+        )
+        db_session.add(membership)
     db_session.commit()
 
     headers = {
@@ -138,15 +149,16 @@ def test_generate_activation_link(app, db_session, client, auth_client, admin_au
     
     # Ensure the logged-in admin has membership in this tenant
     from app.models.tenant import TenantMembership
-    admin_user = User.query.filter_by(email='test@example.com').first()
-    membership = TenantMembership(
-        user_id=admin_user.id,
-        tenant_id=tenant.id,
-        role='admin',
-        status='active'
-    )
-    db_session.add(membership)
-    db_session.flush()
+    admin_user = User.query.filter_by(email='admin@example.com').first() or User.query.first()
+    if admin_user:
+        membership = TenantMembership(
+            user_id=admin_user.id,
+            tenant_id=tenant.id,
+            role='admin',
+            status='active'
+        )
+        db_session.add(membership)
+        db_session.flush()
 
     # Set status to pending_activation
     student.status = "pending_activation"

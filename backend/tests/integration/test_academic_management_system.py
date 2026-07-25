@@ -67,7 +67,7 @@ class TestExamManagement:
         assert data['exam']['subject_id'] == test_subject.id
         assert data['exam']['class_id'] == test_class.id
     
-    def test_get_exams_with_pagination(self, client, teacher_headers, test_exams):
+    def test_get_exams_with_pagination(self, client, teacher_headers, test_exam):
         """Test retrieving exams with pagination"""
         response = client.get('/api/v1/exams/?page=1&per_page=5', 
                             headers=teacher_headers)

@@ -44,6 +44,7 @@ def role_required(roles):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
+            from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
             verify_jwt_in_request()
             
             # Get user identity from JWT (this is a user ID string)
@@ -55,7 +56,9 @@ def role_required(roles):
             
             if not user:
                 logger.warning("user_not_found", user_id=user_id)
-                return jsonify({"error": "User not found"}), 404
+                res = jsonify({"error": "User not found"})
+                res.status_code = 404
+                return res
                 
             normalized_roles = set(roles)
             if 'admin' in normalized_roles:
@@ -68,7 +71,9 @@ def role_required(roles):
                     logger.warning("unauthorized_access", 
                                   required_roles=list(normalized_roles), 
                                   user_role=user.role)
-                    return jsonify({"error": "Unauthorized access"}), 403
+                    res = jsonify({"error": "Unauthorized access"})
+                    res.status_code = 403
+                    return res
             
             return f(*args, **kwargs)
         return wrapper

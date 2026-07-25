@@ -180,6 +180,10 @@ class User(db.Model):
         """Check if user is active."""
         return self.status == 'active'
 
+    @is_active.setter
+    def is_active(self, value):
+        self.status = 'active' if value else 'inactive'
+
     def __repr__(self):
         return f'<User {self.username}>'
 

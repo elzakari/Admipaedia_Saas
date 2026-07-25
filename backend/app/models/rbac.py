@@ -148,6 +148,14 @@ class RBACRole(db.Model):
     level = db.Column(db.Integer, default=0)  # Hierarchy level (0 = highest)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
     
+    @property
+    def hierarchy_level(self):
+        return self.level
+
+    @hierarchy_level.setter
+    def hierarchy_level(self, value):
+        self.level = value
+    
     # Role constraints
     max_users = db.Column(db.Integer, nullable=True)  # Maximum users that can have this role
     auto_assign_conditions = db.Column(db.JSON, nullable=True)  # Conditions for auto-assignment

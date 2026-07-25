@@ -518,7 +518,7 @@ class TestAuthenticationIntegration:
         register_response = client.post('/api/v1/auth/register', json={
             'username': 'workflow',
             'email': 'workflow@example.com',
-            'password': 'WorkflowPass123!',
+            'password': 'ComplexPass123!',
             'role': 'teacher'
         })
         assert register_response.status_code == 201
@@ -526,7 +526,7 @@ class TestAuthenticationIntegration:
         # 2. Login
         login_response = client.post('/api/v1/auth/login', json={
             'email': 'workflow@example.com',
-            'password': 'WorkflowPass123!'
+            'password': 'ComplexPass123!'
         })
         assert login_response.status_code == 200
         

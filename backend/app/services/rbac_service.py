@@ -288,7 +288,7 @@ class RBACService:
             return False, str(e)
     
     @staticmethod
-    def revoke_role_from_user(user_id: int, role_name: str) -> Tuple[bool, str]:
+    def revoke_role_from_user(user_id: int, role_name: str, revoked_by: Optional[int] = None, reason: Optional[str] = None) -> Tuple[bool, str]:
         """Revoke a role from a user"""
         try:
             role = RBACRole.query.filter_by(name=role_name).first()
@@ -314,7 +314,7 @@ class RBACService:
             return False, str(e)
     
     @staticmethod
-    def get_user_roles(user_id: int, include_expired: bool = False) -> List[Dict[str, Any]]:
+    def get_user_roles(user_id: int, include_expired: bool = False, return_models: bool = False) -> Any:
         """Get all roles for a user"""
         try:
             query = UserRoleAssignment.query.filter_by(user_id=user_id, is_active=True)
@@ -329,9 +329,12 @@ class RBACService:
             
             assignments = query.all()
             
+            if return_models:
+                return [assignment.role for assignment in assignments if assignment.role]
+
             return [
                 {
-                    'role': assignment.role.to_dict(),
+                    'role': assignment.role.to_dict() if assignment.role else {},
                     'assigned_at': assignment.assigned_at.isoformat(),
                     'expires_at': assignment.expires_at.isoformat() if assignment.expires_at else None,
                     'is_valid': assignment.is_valid()

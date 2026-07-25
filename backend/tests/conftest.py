@@ -17,7 +17,10 @@ def app():
     app.config['TESTING'] = True
 
     if test_db_url.startswith('sqlite'):
+        from sqlalchemy.pool import StaticPool
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'poolclass': StaticPool,
+            'connect_args': {'check_same_thread': False},
             'execution_options': {
                 'schema_translate_map': {
                     'public': None
