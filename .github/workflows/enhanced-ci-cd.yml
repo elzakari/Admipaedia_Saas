@@ -41,9 +41,8 @@ jobs:
         run: |
           mkdir -p audit-reports
           cd frontend
-          npm ci --prefer-offline --no-audit
+          npm ci --workspaces=false --legacy-peer-deps --include=dev --no-audit --no-fund
           cd ../backend
-          python -m pip install --upgrade pip
           pip install pip-audit
       
       - name: Dependency Security Audit Report
@@ -86,7 +85,7 @@ jobs:
       - name: Install Frontend Dependencies
         run: |
           cd frontend
-          npm ci --prefer-offline --no-audit
+          npm ci --workspaces=false --legacy-peer-deps --include=dev --no-audit --no-fund
       
       - name: TypeScript Type Check
         run: |
@@ -234,7 +233,7 @@ jobs:
       - name: Run Cypress E2E Tests
         run: |
           cd frontend
-          npm ci
+          npm ci --workspaces=false --legacy-peer-deps --include=dev --no-audit --no-fund
           npm run test:e2e
         env:
           CYPRESS_baseUrl: http://localhost:3000
