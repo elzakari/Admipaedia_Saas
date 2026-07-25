@@ -149,6 +149,23 @@ export interface StudentTimetableResponse {
   timetable: StudentTimetableItem[];
 }
 
+export interface StudentSubjectLesson {
+  id: number;
+  title: string;
+  description?: string;
+  date: string;
+  status: string;
+  subject_id?: number | null;
+  subject_name?: string;
+  objectives?: string;
+  classwork?: string;
+  homework?: string;
+  notes?: string;
+  resources?: string[];
+  teacher_name?: string;
+  was_absent?: boolean;
+}
+
 const studentService = {
   getDashboardSummary: async (): Promise<StudentDashboardSummary> => {
     const response = await api.get('/student/dashboard-summary');
@@ -173,6 +190,11 @@ const studentService = {
   getCourses: async (): Promise<StudentCourseList> => {
     const response = await api.get('/student/courses');
     return (response.data?.data || response.data) as StudentCourseList;
+  },
+
+  getSubjectLessons: async (subjectId: number): Promise<StudentSubjectLesson[]> => {
+    const response = await api.get(`/student/subjects/${subjectId}/lessons`);
+    return (response.data?.lessons || response.data?.data?.lessons || []) as StudentSubjectLesson[];
   },
 
   getAssignments: async (status?: string): Promise<StudentAssignment[]> => {

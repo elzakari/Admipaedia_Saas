@@ -8,6 +8,7 @@ from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.rbac_decorators import require_permission, require_role
 from app.utils.tenant_context import tenant_required
 from marshmallow import ValidationError
+from datetime import datetime
 
 # Initialize schemas
 class_schema = ClassSchema()
@@ -225,6 +226,56 @@ subjects_schema = SubjectListSchema(many=True)
 # Add these routes at the end of the file
 
 # Lesson routes
+@classes_bp.route('/lesson-monitoring', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'school_admin', 'super_admin', 'super_manager'])
+@tenant_required
+def get_lesson_monitoring():
+    """Get tenant-wide daily lesson monitoring for administrators."""
+    def parse_date(value):
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError({'date': ['Invalid date format. Use YYYY-MM-DD.']})
+
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        class_id = request.args.get('class_id', type=int)
+        teacher_id = request.args.get('teacher_id', type=int)
+        status = request.args.get('status', type=str)
+        date_from = parse_date(request.args.get('date_from'))
+        date_to = parse_date(request.args.get('date_to'))
+
+        paginated_lessons, summary = LessonService.get_lesson_monitoring(
+            page=page,
+            per_page=per_page,
+            tenant_id=getattr(g, 'tenant_id', None),
+            class_id=class_id,
+            teacher_id=teacher_id,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+        return jsonify({
+            'success': True,
+            'lessons': [LessonService.serialize_lesson(lesson) for lesson in paginated_lessons.items],
+            'summary': summary,
+            'pagination': {
+                'total': paginated_lessons.total,
+                'pages': paginated_lessons.pages,
+                'page': paginated_lessons.page,
+                'per_page': paginated_lessons.per_page,
+                'next': paginated_lessons.next_num,
+                'prev': paginated_lessons.prev_num
+            }
+        }), 200
+    except ValidationError as err:
+        return jsonify({'success': False, 'errors': err.messages}), 400
+
 @classes_bp.route('/<int:class_id>/lessons', methods=['GET'])
 @jwt_required()
 @require_permission('lesson.read')
@@ -240,7 +291,7 @@ def get_class_lessons(class_id):
     
     return jsonify({
         'success': True,
-        'lessons': lessons_schema.dump(paginated_lessons.items),
+        'lessons': [LessonService.serialize_lesson(lesson) for lesson in paginated_lessons.items],
         'pagination': {
             'total': paginated_lessons.total,
             'pages': paginated_lessons.pages,
@@ -259,7 +310,10 @@ def create_class_lesson(class_id):
     try:
         data = lesson_create_schema.load(request.json)
         data['class_id'] = class_id
-        data['teacher_id'] = get_jwt_identity()
+        teacher_profile_id = LessonService.resolve_teacher_profile_id(get_jwt_identity())
+        if teacher_profile_id is None:
+            return jsonify({'success': False, 'message': 'Teacher profile not found'}), 404
+        data['teacher_id'] = teacher_profile_id
         
         lesson, error = LessonService.create_lesson(data)
         
@@ -269,7 +323,7 @@ def create_class_lesson(class_id):
         return jsonify({
             'success': True,
             'message': 'Lesson created successfully',
-            'lesson': lesson_schema.dump(lesson)
+            'lesson': LessonService.serialize_lesson(lesson)
         }), 201
     except ValidationError as err:
         return jsonify({'success': False, 'errors': err.messages}), 400
@@ -281,8 +335,11 @@ def update_class_lesson(class_id, lesson_id):
     """Update a lesson for a class."""
     try:
         data = lesson_update_schema.load(request.json, partial=True)
+        teacher_profile_id = LessonService.resolve_teacher_profile_id(get_jwt_identity())
+        if teacher_profile_id is None:
+            return jsonify({'success': False, 'message': 'Teacher profile not found'}), 404
         
-        lesson, error = LessonService.update_lesson(lesson_id, data, class_id, get_jwt_identity())
+        lesson, error = LessonService.update_lesson(lesson_id, data, class_id, teacher_profile_id)
         
         if error:
             return jsonify({'success': False, 'message': error}), 400
@@ -290,7 +347,7 @@ def update_class_lesson(class_id, lesson_id):
         return jsonify({
             'success': True,
             'message': 'Lesson updated successfully',
-            'lesson': lesson_schema.dump(lesson)
+            'lesson': LessonService.serialize_lesson(lesson)
         }), 200
     except ValidationError as err:
         return jsonify({'success': False, 'errors': err.messages}), 400
@@ -300,7 +357,11 @@ def update_class_lesson(class_id, lesson_id):
 @teacher_required
 def delete_class_lesson(class_id, lesson_id):
     """Delete a lesson from a class."""
-    success, error = LessonService.delete_lesson(lesson_id, class_id, get_jwt_identity())
+    teacher_profile_id = LessonService.resolve_teacher_profile_id(get_jwt_identity())
+    if teacher_profile_id is None:
+        return jsonify({'success': False, 'message': 'Teacher profile not found'}), 404
+
+    success, error = LessonService.delete_lesson(lesson_id, class_id, teacher_profile_id)
     
     if error:
         return jsonify({'success': False, 'message': error}), 400

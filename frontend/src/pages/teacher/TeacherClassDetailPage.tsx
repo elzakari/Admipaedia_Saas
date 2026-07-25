@@ -3,12 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { ChevronRight, Users, CalendarCheck2, BadgeCheck, ClipboardList, Megaphone, Loader2 } from 'lucide-react';
+import { ChevronRight, Users, CalendarCheck2, BadgeCheck, ClipboardList, Megaphone, Loader2, BookOpen } from 'lucide-react';
 import { TeacherClassRosterTab } from './components/TeacherClassRosterTab';
 import { TeacherClassAttendanceTab } from './components/TeacherClassAttendanceTab';
 import { TeacherClassGradebookTab } from './components/TeacherClassGradebookTab';
 import { TeacherClassAssignmentsTab } from './components/TeacherClassAssignmentsTab';
 import { TeacherClassAnnouncementsTab } from './components/TeacherClassAnnouncementsTab';
+import { ClassLessonsTab } from '../../components/classes/ClassLessonsTab';
 import api from '../../lib/api';
 import { getClassDisplayName } from '../../utils/formatters';
 import { resolveStudentAvatar } from '../../utils/avatar';
@@ -164,6 +165,10 @@ const TeacherClassDetailPage: React.FC = () => {
                     <ClipboardList className="h-4 w-4 mr-2" />
                     {t('teacher_portal.class_detail.tabs.assignments')}
                   </TabsTrigger>
+                  <TabsTrigger value="lessons" className="min-w-[140px]">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Daily Lessons
+                  </TabsTrigger>
                   <TabsTrigger value="announcements" className="min-w-[160px]">
                     <Megaphone className="h-4 w-4 mr-2" />
                     {t('teacher_portal.class_detail.tabs.announcements')}
@@ -185,6 +190,10 @@ const TeacherClassDetailPage: React.FC = () => {
 
               <TabsContent value="assignments" className="p-6">
                 <TeacherClassAssignmentsTab cls={cls} />
+              </TabsContent>
+
+              <TabsContent value="lessons" className="p-6">
+                <ClassLessonsTab classId={Number(classId)} editable />
               </TabsContent>
 
               <TabsContent value="announcements" className="p-6">

@@ -10,6 +10,7 @@ from app.schemas.grade import GradeSchema
 from app.schemas.message import MessageSchema
 from app.schemas.notification import NotificationSchema
 from app.services.message_service import MessageService
+from app.services.lesson_service import LessonService
 from app.utils.auth_utils import admin_required, teacher_required, parent_required
 from app.utils.tenant_context import tenant_required
 from app.utils.response import success_response, error_response, paginated_response
@@ -641,6 +642,56 @@ def get_child_homework(child_id):
     except Exception as e:
         logger.error(f"Error retrieving child homework: {str(e)}")
         return error_response(message="Failed to retrieve homework assignments", status_code=500)
+
+@parents_bp.route('/children/<int:child_id>/lessons', methods=['GET'])
+@jwt_required()
+@parent_required
+def get_child_lessons(child_id):
+    """Get recent daily lesson logs for a specific child."""
+    try:
+        current_user_id = get_jwt_identity()
+        parent = ParentService.get_parent_by_user_id(current_user_id)
+
+        if not parent:
+            return error_response(message="Parent profile not found", status_code=404)
+
+        children, _ = ParentService.get_children(parent.id)
+        child_ids = [child.id for child in children]
+
+        if child_id not in child_ids:
+            return error_response(message="Child not found or access denied", status_code=403)
+
+        from app.models.student import Student
+        from app.models.lesson import Lesson
+        from app.models.attendance import Attendance
+
+        child = Student.query.get(child_id)
+        if not child or not child.class_id:
+            return success_response(data={'lessons': []}, message="Lessons retrieved successfully")
+
+        limit = min(request.args.get('limit', 30, type=int), 90)
+        lessons = Lesson.query.filter_by(class_id=child.class_id).order_by(Lesson.date.desc(), Lesson.created_at.desc()).limit(limit).all()
+        absent_dates = {
+            record.date.isoformat()
+            for record in Attendance.query.filter_by(student_id=child.id, status='absent').all()
+            if getattr(record, 'date', None)
+        }
+
+        lesson_payload = [
+            {
+                **LessonService.serialize_lesson(lesson),
+                'child_was_absent': LessonService.serialize_lesson(lesson).get('date') in absent_dates,
+            }
+            for lesson in lessons
+        ]
+
+        return success_response(
+            data={'lessons': lesson_payload},
+            message="Lessons retrieved successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving child lessons: {str(e)}")
+        return error_response(message="Failed to retrieve lessons", status_code=500)
 
 @parents_bp.route('/children/<int:child_id>/fees', methods=['GET'])
 @jwt_required()

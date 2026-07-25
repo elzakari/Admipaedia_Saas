@@ -157,23 +157,21 @@ export function TimeSlotFormModal({
   );
 
   const teacherOptions = useMemo(() => {
-    if (!teachersData?.teachers) return [];
-    const allowedTeacherIds = new Set(
-      Array.isArray(selectedSubject?.teachers)
-        ? selectedSubject.teachers.map((teacher: any) => Number(teacher.id))
-        : []
-    );
+    const subjectTeachers = Array.isArray(selectedSubject?.teachers) ? selectedSubject.teachers : [];
 
-    const mappedTeachers = teachersData.teachers.map((teacher: any) => ({
-      value: teacher.id.toString(),
-      label: `${teacher.user?.first_name || teacher.first_name || ''} ${teacher.user?.last_name || teacher.last_name || ''}`.trim() || `Teacher ${teacher.id}`
-    }));
-
-    if (allowedTeacherIds.size === 0) {
-      return mappedTeachers;
+    if (subjectTeachers.length > 0) {
+      return subjectTeachers.map((teacher: any) => ({
+        value: String(teacher.id),
+        label: String(teacher.name || `Teacher ${teacher.id}`),
+      }));
     }
 
-    return mappedTeachers.filter((teacher) => allowedTeacherIds.has(Number(teacher.value)));
+    if (!teachersData?.teachers) return [];
+
+    return teachersData.teachers.map((teacher: any) => ({
+      value: teacher.id.toString(),
+      label: `${teacher.user?.first_name || teacher.first_name || ''} ${teacher.user?.last_name || teacher.last_name || ''}`.trim() || teacher.full_name || `Teacher ${teacher.id}`
+    }));
   }, [teachersData, selectedSubject]);
 
   const periodOptions = useMemo(() => {
@@ -254,7 +252,7 @@ export function TimeSlotFormModal({
       return;
     }
 
-    if (formData.teacher_id && !allowedTeacherIds.includes(Number(formData.teacher_id))) {
+    if (allowedTeacherIds.length > 0 && formData.teacher_id && !allowedTeacherIds.includes(Number(formData.teacher_id))) {
       setFormData((prev) => ({ ...prev, teacher_id: 0 }));
     }
   }, [selectedSubject, formData.teacher_id]);
@@ -426,6 +424,14 @@ export function TimeSlotFormModal({
                     placeholder={formData.subject_id ? t('academics.timetable.select_teacher', 'Select Teacher') : t('academics.timetable.select_subject_first', 'Select subject first')}
                     leftIcon={<User className="h-4 w-4" />}
                   />
+                  {formData.subject_id > 0 && teacherOptions.length === 0 && (
+                    <div className="mt-2 text-xs text-amber-700">
+                      {t(
+                        'academics.timetable.no_teachers_available',
+                        'No teachers are available for this subject yet. Assign a teacher in Settings > Academic > Subjects, or verify that active teachers can be loaded.'
+                      )}
+                    </div>
+                  )}
                 </FormField>
               </FormRow>
             </FormSection>

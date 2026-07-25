@@ -55,26 +55,62 @@ export interface ClassUpdate {
 export interface LessonData {
   title: string;
   description?: string;
-  subject_id: number;
   date: string;
-  start_time: string;
-  end_time: string;
-  lesson_type: 'regular' | 'exam' | 'practical' | 'field_trip';
-  materials?: string[];
+  status?: 'planned' | 'in-progress' | 'completed';
+  subject_id?: number;
+  subject_name?: string;
+  objectives?: string;
+  classwork?: string;
+  homework?: string;
+  notes?: string;
+  resources?: string[];
+  materials?: Array<Record<string, unknown>>;
 }
 
 export interface Lesson {
   id: number;
   title: string;
   description?: string;
-  subject_id: number;
+  subject_id?: number | null;
+  subject_name?: string;
   date: string;
-  start_time: string;
-  end_time: string;
-  lesson_type: 'regular' | 'exam' | 'practical' | 'field_trip';
-  materials?: string[];
+  status: 'planned' | 'in-progress' | 'completed' | string;
+  teacher_id?: number | null;
+  teacher_name?: string;
+  class_id?: number;
+  class_name?: string | null;
+  objectives?: string;
+  classwork?: string;
+  homework?: string;
+  notes?: string;
+  resources?: string[];
+  materials?: Array<Record<string, unknown>>;
   created_at: string;
   updated_at: string;
+}
+
+export interface LessonMonitoringSummary {
+  total_logs: number;
+  completed_logs: number;
+  in_progress_logs: number;
+  planned_logs: number;
+  today_logs: number;
+  classes_covered: number;
+  teachers_reporting: number;
+  classes_without_logs_today: number;
+}
+
+export interface LessonMonitoringResponse {
+  lessons: Lesson[];
+  summary: LessonMonitoringSummary;
+  pagination?: {
+    total?: number;
+    pages?: number;
+    page?: number;
+    per_page?: number;
+    next?: number | null;
+    prev?: number | null;
+  };
 }
 
 // Announcement data interface
@@ -229,6 +265,47 @@ const classService = {
     }
   },
 
+  getLessonMonitoring: async (params?: {
+    page?: number;
+    per_page?: number;
+    class_id?: number;
+    teacher_id?: number;
+    status?: string;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<LessonMonitoringResponse> => {
+    try {
+      const response = await api.get('/classes/lesson-monitoring', { params });
+      return {
+        lessons: response.data?.lessons || [],
+        summary: response.data?.summary || {
+          total_logs: 0,
+          completed_logs: 0,
+          in_progress_logs: 0,
+          planned_logs: 0,
+          today_logs: 0,
+          classes_covered: 0,
+          teachers_reporting: 0,
+          classes_without_logs_today: 0,
+        },
+        pagination: response.data?.pagination,
+      };
+    } catch (error) {
+      console.error('Error fetching lesson monitoring data:', error);
+      throw error;
+    }
+  },
+
+  getClassSubjects: async (classId: number): Promise<Array<{ id: number; name: string; teachers?: Array<{ id: number; name: string }> }>> => {
+    try {
+      const response = await api.get(`/classes/${classId}/subjects`, { params: { per_page: 200 } });
+      return response.data?.subjects || [];
+    } catch (error) {
+      console.error(`Error fetching subjects for class ${classId}:`, error);
+      throw error;
+    }
+  },
+
   // Get class resources
   getClassResources: async (classId: number): Promise<ClassResource[]> => {
     try {
@@ -247,6 +324,25 @@ const classService = {
       return response.data;
     } catch (error) {
       console.error(`Error creating lesson for class ${classId}:`, error);
+      throw error;
+    }
+  },
+
+  updateClassLesson: async (classId: number, lessonId: number, lessonData: Partial<LessonData>): Promise<{ lesson: Lesson }> => {
+    try {
+      const response = await api.put(`/classes/${classId}/lessons/${lessonId}`, lessonData);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating lesson ${lessonId} for class ${classId}:`, error);
+      throw error;
+    }
+  },
+
+  deleteClassLesson: async (classId: number, lessonId: number): Promise<void> => {
+    try {
+      await api.delete(`/classes/${classId}/lessons/${lessonId}`);
+    } catch (error) {
+      console.error(`Error deleting lesson ${lessonId} for class ${classId}:`, error);
       throw error;
     }
   },

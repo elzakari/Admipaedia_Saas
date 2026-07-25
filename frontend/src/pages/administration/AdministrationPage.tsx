@@ -12,7 +12,8 @@ import {
   Search as SearchIcon,
   GitBranch,
   LayoutGrid,
-  Sparkles
+  Sparkles,
+  ClipboardList
 } from 'lucide-react';
 
 import FinancialManagement from '../../components/administration/FinancialManagement';
@@ -25,6 +26,7 @@ import GhanaEducationService from '../../components/administration/GhanaEducatio
 import EducationSystemConfiguration from '../../components/administration/EducationSystemConfiguration';
 import CoreCompetencies from '../../components/administration/CoreCompetencies';
 import BranchesConfiguration from '../../components/administration/BranchesConfiguration';
+import DailyLessonMonitoring from '../../components/administration/DailyLessonMonitoring';
 
 import { useHeader } from '../../contexts/HeaderContext';
 import { useSaasTenant } from '@/hooks/useSaasTenant'
@@ -87,6 +89,14 @@ const AdministrationPage = () => {
       component: AcademicCalendar,
       description: 'Coordinate terms, events, schedules, and exam planning.',
       keywords: ['calendar', 'terms', 'events', 'exam', 'schedule']
+    },
+    {
+      value: 'daily-lessons',
+      label: 'Daily Lessons',
+      icon: ClipboardList,
+      component: DailyLessonMonitoring,
+      description: 'Monitor daily lesson delivery, class coverage, and teacher reporting across the school.',
+      keywords: ['daily lessons', 'lesson logs', 'teaching', 'coverage', 'monitoring', 'topics']
     },
     {
       value: 'library',

@@ -1,7 +1,7 @@
 // Top-level imports
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Home, ChevronRight, AlertCircle, BarChart3, BookOpen, FileText, MessageSquare, Clipboard, CreditCard } from "lucide-react";
+import { Home, ChevronRight, AlertCircle, BarChart3, BookOpen, FileText, MessageSquare, Clipboard, CreditCard, NotebookPen } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
@@ -19,7 +19,7 @@ type AcademicRecord = any;
 type AcademicSubject = any;
 
 // Static constants inlined at module top-level to prevent Vite minifier TDZ circular reference errors
-const ALLOWED_TABS = ["dashboard", "academics", "attendance", "fees", "messages"];
+const ALLOWED_TABS = ["dashboard", "academics", "attendance", "fees", "messages", "lessons"];
 const EMPTY_TELEMETRY_FALLBACK = {
   grade_average: 0,
   attendance_rate: 0,
@@ -35,6 +35,7 @@ import AttendanceTab from "../../components/parents/AttendanceTab";
 import ConnectedFeesTab from "../../components/parents/ConnectedFeesTab";
 import MessagesTab from "../../components/parents/MessagesTab";
 import StudentTelemetryTabs from "../../components/parents/StudentTelemetryTabs";
+import DailyLessonsTab from "../../components/parents/DailyLessonsTab";
 
 // Import modal components
 import StudentIdCard from "../../components/parents/StudentIdCard";
@@ -133,6 +134,15 @@ export default function ParentsPage() {
   const { data: childHomeworkResponse } = useQuery({
     queryKey: ['parent-child-homework', currentChildId],
     queryFn: () => parentService.getChildHomeworkData(currentChildId),
+    enabled: Number.isFinite(currentChildId) && currentChildId > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData
+  });
+
+  const { data: childLessonsResponse } = useQuery({
+    queryKey: ['parent-child-lessons', currentChildId],
+    queryFn: () => parentService.getChildLessonData(currentChildId),
     enabled: Number.isFinite(currentChildId) && currentChildId > 0,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -346,6 +356,10 @@ export default function ParentsPage() {
   const currentHomeworkData = useMemo(() => {
     return Array.isArray(childHomeworkResponse) ? childHomeworkResponse : [];
   }, [childHomeworkResponse]);
+
+  const currentLessonsData = useMemo(() => {
+    return Array.isArray(childLessonsResponse) ? childLessonsResponse : [];
+  }, [childLessonsResponse]);
 
   const currentMessagesData = useMemo(() => {
     return Array.isArray(parentMessagesResponse) ? parentMessagesResponse : [];
@@ -601,7 +615,18 @@ export default function ParentsPage() {
           {/* Main content area */}
           <div className="lg:w-3/4">
             <StudentTelemetryTabs currentStudentId={currentChild?.id || ""} />
-            <Tabs value={activeTab}>
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
+              <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-2">
+                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                <TabsTrigger value="academics">Academics</TabsTrigger>
+                <TabsTrigger value="attendance">Attendance</TabsTrigger>
+                <TabsTrigger value="fees">Fees</TabsTrigger>
+                <TabsTrigger value="lessons" className="flex items-center gap-2">
+                  <NotebookPen className="h-4 w-4" />
+                  Daily Lessons
+                </TabsTrigger>
+                <TabsTrigger value="messages">Messages</TabsTrigger>
+              </TabsList>
 
               <TabsContent value="dashboard">
                 <DashboardTab 
@@ -628,6 +653,10 @@ export default function ParentsPage() {
 
               <TabsContent value="fees">
                 <ConnectedFeesTab childId={currentChild?.id || ""} fallbackFeeData={currentFeeData} />
+              </TabsContent>
+
+              <TabsContent value="lessons">
+                <DailyLessonsTab lessons={currentLessonsData} />
               </TabsContent>
               
               <TabsContent value="messages">

@@ -354,6 +354,31 @@ const parentService = {
     }
   },
 
+  getChildLessonData: async (childId: number): Promise<Array<{
+    id: number;
+    title: string;
+    description?: string;
+    date: string;
+    status: string;
+    subject_id?: number | null;
+    subject_name?: string;
+    objectives?: string;
+    classwork?: string;
+    homework?: string;
+    notes?: string;
+    resources?: string[];
+    child_was_absent?: boolean;
+    teacher_name?: string;
+  }>> => {
+    try {
+      const response = await api.get(`/parents/children/${childId}/lessons`);
+      return unwrapParentCollection<any>(response.data, 'lessons');
+    } catch (error) {
+      console.error(`Error fetching lesson data for child ${childId}:`, error);
+      throw error;
+    }
+  },
+
   getChildGrades: async (childId: number, params?: {
     page?: number;
     per_page?: number;

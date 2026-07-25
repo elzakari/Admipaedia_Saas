@@ -15,6 +15,8 @@ from app.models.assignment_submission import AssignmentSubmission
 from app.models.attendance import Attendance
 from app.models.grade import Grade
 from app.models.timetable import TimetableSlot, Period
+from app.models.lesson import Lesson
+from app.services.lesson_service import LessonService
 
 @student_bp.route('/dashboard-summary', methods=['GET'])
 @jwt_required()
@@ -484,6 +486,43 @@ def get_student_timetable():
     return jsonify({
         'success': True,
         'timetable': timetable_data
+    }), 200
+
+@student_bp.route('/subjects/<int:subject_id>/lessons', methods=['GET'])
+@jwt_required()
+@require_role(['student'])
+@tenant_required
+def get_student_subject_lessons(subject_id):
+    user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(user_id)).first()
+    if not student:
+        return jsonify({'success': False, 'message': 'Student profile not found'}), 404
+
+    if not student.class_id:
+        return jsonify({'success': True, 'lessons': []}), 200
+
+    limit = min(request.args.get('limit', 30, type=int), 90)
+    lessons = Lesson.query.filter_by(class_id=student.class_id).order_by(Lesson.date.desc(), Lesson.created_at.desc()).limit(limit).all()
+
+    absent_dates = {
+        record.date.isoformat()
+        for record in Attendance.query.filter_by(student_id=student.id, status='absent').all()
+        if getattr(record, 'date', None)
+    }
+
+    lesson_payload = []
+    for lesson in lessons:
+        serialized = LessonService.serialize_lesson(lesson)
+        if serialized.get('subject_id') != subject_id:
+            continue
+        lesson_payload.append({
+            **serialized,
+            'was_absent': serialized.get('date') in absent_dates,
+        })
+
+    return jsonify({
+        'success': True,
+        'lessons': lesson_payload
     }), 200
 
 @student_bp.route('/calendar/events', methods=['GET'])
