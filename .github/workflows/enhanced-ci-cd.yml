@@ -39,16 +39,27 @@ jobs:
 
       - name: Install Audit Dependencies
         run: |
+          mkdir -p audit-reports
           cd frontend
           npm ci --prefer-offline --no-audit
           cd ../backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pip-audit
+          pip install pip-audit
       
-      - name: Dependency Security Audit
+      - name: Dependency Security Audit Report
         run: |
-          cd frontend && npm audit --audit-level high
-          cd ../backend && pip-audit
+          cd frontend
+          npm audit --audit-level high --json > ../audit-reports/npm-audit.json || true
+          cd ../backend
+          pip-audit -r requirements.txt -f json -o ../audit-reports/pip-audit.json || true
+
+      - name: Upload Dependency Audit Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: audit-reports/
+          retention-days: 7
 
       - name: Secret Scanning (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
