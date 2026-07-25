@@ -24,6 +24,10 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [insightsLoading, setInsightsLoading] = useState<boolean>(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
+  const performanceTrend = aiInsights?.performancePrediction?.trend;
+  const performanceTrendLabel = performanceTrend
+    ? String(t(`teachers_page.dashboard.trend.${performanceTrend}`, performanceTrend))
+    : "";
   
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -259,7 +263,7 @@ export function TeacherDashboardTab({ teacher, classesCount }: TeacherDashboardT
                         aiInsights.performancePrediction.trend === 'declining' ? 'bg-red-100 text-red-800 border-red-200' : 
                         'bg-gray-100 text-gray-800 border-gray-200'
                       }`}>
-                        {t(`teachers_page.dashboard.trend.${aiInsights.performancePrediction.trend}`, aiInsights.performancePrediction.trend)}
+                        {performanceTrendLabel}
                       </Badge>
                     </div>
                     <div className="mt-3">

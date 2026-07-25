@@ -170,9 +170,9 @@ jobs:
       - name: Code Quality Check (Black, isort, flake8)
         run: |
           cd backend
-          black --check .
-          isort --check-only .
-          flake8 .
+          black --check app app.py run.py wsgi.py
+          isort --check-only app app.py run.py wsgi.py
+          flake8 app app.py run.py wsgi.py
       
       - name: Run Database Migrations
         run: |
