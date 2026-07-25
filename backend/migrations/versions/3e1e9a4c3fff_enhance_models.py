@@ -48,28 +48,29 @@ def upgrade():
     op.execute('ALTER TABLE enhanced_grades DROP CONSTRAINT IF EXISTS enhanced_grades_assessment_type_id_fkey')
     
     # Drop constraints for tables that will be dropped or modified
-    op.drop_constraint('competency_indicators_domain_id_fkey', 'competency_indicators', type_='foreignkey')
-    op.drop_constraint('competency_indicators_proficiency_level_id_fkey', 'competency_indicators', type_='foreignkey')
-    op.drop_constraint('character_traits_domain_id_fkey', 'character_traits', type_='foreignkey')
-    op.drop_constraint('grading_schemes_grading_standard_id_fkey', 'grading_schemes', type_='foreignkey')
+    for tbl, constraint in [
+        ('competency_indicators', 'competency_indicators_domain_id_fkey'),
+        ('competency_indicators', 'competency_indicators_proficiency_level_id_fkey'),
+        ('character_traits', 'character_traits_domain_id_fkey'),
+        ('grading_schemes', 'grading_schemes_grading_standard_id_fkey')
+    ]:
+        if _fk_exists(connection, tbl, constraint):
+            op.drop_constraint(constraint, tbl, type_='foreignkey')
 
-    op.drop_table('assessment_types')
+    for tbl in [
+        'assessment_types', 'assessment_modes', 'differentiation_strategies',
+        'competency_domains', 'country_configs', 'fee_payments',
+        'grading_schemes_saas', 'assessment_frequencies', 'grading_standards',
+        'campuses', 'character_domains', 'fee_records', 'proficiency_levels',
+        'supported_languages'
+    ]:
+        if _table_exists(connection, tbl):
+            op.drop_table(tbl)
 
-    op.drop_table('assessment_modes')
-    op.drop_table('differentiation_strategies')
-    op.drop_table('competency_domains')
-    op.drop_table('country_configs')
-    op.drop_table('fee_payments')
-    op.drop_table('grading_schemes_saas')
-    op.drop_table('assessment_frequencies')
-    op.drop_table('grading_standards')
-    op.drop_table('campuses')
-    op.drop_table('character_domains')
-    op.drop_table('fee_records')
-    op.drop_table('proficiency_levels')
-    op.drop_table('supported_languages')
-    op.drop_index(op.f('idx_announcements_class_id'), table_name='announcements')
-    op.drop_index(op.f('idx_announcements_teacher_id'), table_name='announcements')
+    if _index_exists(connection, 'announcements', 'idx_announcements_class_id'):
+        op.drop_index(op.f('idx_announcements_class_id'), table_name='announcements')
+    if _index_exists(connection, 'announcements', 'idx_announcements_teacher_id'):
+        op.drop_index(op.f('idx_announcements_teacher_id'), table_name='announcements')
     op.alter_column('assessment_frameworks', 'subject_id',
                existing_type=sa.INTEGER(),
                nullable=False)
