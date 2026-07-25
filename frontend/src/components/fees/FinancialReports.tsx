@@ -1,32 +1,65 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Download, Calendar, Filter, ChevronDown, BarChart4, PieChart, TrendingUp, FileText, Printer } from 'lucide-react';
-import { feesService } from '../../services/feesService';
-import financialService from '../../services/financialService';
+import { Button } from '../ui/button';
+import { Download, Calendar, BarChart4, PieChart, TrendingUp, FileText, Printer } from 'lucide-react';
+import { toast } from 'sonner';
+import { useFeesOverview } from '../../hooks/useFeesOverview';
+import { formatCurrency } from '../../lib/utils';
 
 const FinancialReports = () => {
   const { t } = useTranslation();
   const [reportPeriod, setReportPeriod] = useState('current-term');
-  const { data: summary } = useQuery({
-    queryKey: ['fees', 'reports', 'summary'],
-    queryFn: () => financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString())
-  });
-  const { data: overdueResp } = useQuery({
-    queryKey: ['fees', 'reports', 'overdue'],
-    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 100 })
-  });
-  const { data: paymentsResp } = useQuery({
-    queryKey: ['fees', 'reports', 'payments'],
-    queryFn: () => feesService.getPayments({ page: 1, per_page: 100 })
-  });
+  const { recentPayments, overdueFees, metrics, isLoadingOverview } = useFeesOverview();
+  const totalRevenue = Number(metrics.totalCollected ?? 0);
+  const outstanding = Number(metrics.outstandingFees ?? 0);
+  const collectionRate = Number(metrics.collectionRate ?? 0);
+  const defaulterCount = overdueFees.length;
+  const recentPaymentsCount = recentPayments.length;
+  const reportCurrency = useMemo(
+    () => overdueFees[0]?.currency || recentPayments[0]?.currency || 'USD',
+    [overdueFees, recentPayments]
+  );
 
-  const totalRevenue = Number(summary?.total_revenue ?? 0);
-  const outstanding = Number(summary?.outstanding_fees ?? 0);
-  const collectionRate = Number(summary?.collection_rate ?? 0);
-  const defaulterCount = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees.length : 0;
-  const recentPaymentsCount = Array.isArray(paymentsResp?.payments) ? paymentsResp.payments.length : 0;
+  const paymentMethodRows = useMemo(
+    () => Object.entries(metrics.paymentMethodCounts || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([method, count]) => ({ method, count })),
+    [metrics.paymentMethodCounts]
+  );
+
+  const topDefaulters = useMemo(
+    () => overdueFees
+      .slice()
+      .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0))
+      .slice(0, 5),
+    [overdueFees]
+  );
+
+  const recentPaymentsRows = useMemo(
+    () => recentPayments.slice(0, 8),
+    [recentPayments]
+  );
+
+  const exportReport = (reportName: string, rows: Array<Record<string, string | number>>) => {
+    if (rows.length === 0) {
+      toast.info(t('admin_fees.no_report_data_to_export', 'No report data available to export.'));
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => headers.map((header) => JSON.stringify(row[header] ?? '')).join(','))
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${reportName}-${reportPeriod}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success(t('admin_fees.report_export_ready', 'Report export is ready.'));
+  };
   
   return (
     <div className="space-y-6">
@@ -50,14 +83,26 @@ const FinancialReports = () => {
                 <option value="custom">{t('admin_fees.custom_period', 'Custom Period')}</option>
               </select>
             </div>
-            <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700">
+            <Button variant="outline" onClick={() => window.print()}>
               <Printer className="h-4 w-4 mr-2" />
               {t('common.print', 'Print')}
-            </button>
-            <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700">
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => exportReport('financial-summary', [
+                {
+                  period: reportPeriod,
+                  total_revenue: totalRevenue,
+                  outstanding_balance: outstanding,
+                  collection_rate: collectionRate,
+                  defaulters: defaulterCount,
+                  recent_payments: recentPaymentsCount
+                }
+              ])}
+            >
               <Download className="h-4 w-4 mr-2" />
               {t('common.export', 'Export')}
-            </button>
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -67,7 +112,7 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('admin_fees.total_revenue', 'Total Revenue')}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{totalRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(totalRevenue, reportCurrency)}</p>
                 </div>
                 <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -79,7 +124,7 @@ const FinancialReports = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('admin_fees.outstanding', 'Outstanding')}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{outstanding.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(outstanding, reportCurrency)}</p>
                 </div>
                 <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -117,49 +162,125 @@ const FinancialReports = () => {
           
           {/* Report Sections */}
           <div className="space-y-6">
-            {/* Revenue Trends */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-              <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.revenue_trends', 'Revenue Trends')}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.revenue_trends_desc', 'Monthly fee collection for the current term')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.payment_methods', 'Payment Methods')}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.payment_methods_desc', 'Distribution by payment method')}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportReport(
+                      'payment-method-distribution',
+                      paymentMethodRows.map((row) => ({ payment_method: row.method, payment_count: row.count }))
+                    )}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    {t('common.export', 'Export')}
+                  </Button>
                 </div>
-                <button className="inline-flex items-center px-2 py-1 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700">
-                  <Download className="h-3 w-3 mr-1" />
-                  {t('common.export', 'Export')}
-                </button>
+                <div className="p-4 space-y-3">
+                  {paymentMethodRows.length === 0 ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.no_payment_methods', 'No payment method activity available yet.')}</div>
+                  ) : paymentMethodRows.map((row) => (
+                    <div key={row.method} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-gray-900 dark:text-white">{row.method.replace(/_/g, ' ')}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{row.count}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
+                        <div
+                          className="h-2 rounded-full bg-indigo-600"
+                          style={{ width: `${Math.max(10, (row.count / Math.max(recentPaymentsCount, 1)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="p-4">
-                <div className="h-80 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-                  <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.revenue_trend_chart_placeholder', 'Revenue trend chart will be rendered here')}</p>
+
+              <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.outstanding_fees', 'Outstanding Fees')}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.outstanding_fees_desc', 'Highest-priority overdue accounts')}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportReport(
+                      'outstanding-fees',
+                      topDefaulters.map((row: any) => ({
+                        student_name: row.student_name || `Student ${row.student_id}`,
+                        class_name: row.class_name || '',
+                        balance: Number(row.balance || 0),
+                        due_date: row.due_date || '',
+                        days_overdue: Number(row.days_overdue || 0)
+                      }))
+                    )}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    {t('common.export', 'Export')}
+                  </Button>
+                </div>
+                <div className="p-4 space-y-3">
+                  {topDefaulters.length === 0 ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.no_defaulters', 'No overdue balances at the moment.')}</div>
+                  ) : topDefaulters.map((record: any) => (
+                    <div key={record.id} className="rounded-lg border border-gray-100 dark:border-slate-700 px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{record.student_name || `Student ${record.student_id}`}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{record.class_name || '—'} • {record.days_overdue || 0} {t('admin_fees.days_label', 'days')}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-red-600 dark:text-red-400">{formatCurrency(Number(record.balance || 0), record.currency || reportCurrency)}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-            
-            {/* Payment Method Distribution */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 dark:border-slate-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.payment_methods', 'Payment Methods')}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.payment_methods_desc', 'Distribution by payment method')}</p>
+
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.recent_payments', 'Recent Payments')}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.recent_payments_desc', 'Latest completed fee payments in the current reporting view')}</p>
                 </div>
-                <div className="p-4">
-                  <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-                    <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.payment_method_chart_placeholder', 'Payment method chart will be rendered here')}</p>
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportReport(
+                    'recent-payments',
+                    recentPaymentsRows.map((payment: any) => ({
+                      student_name: payment.student_name || '',
+                      amount: Number(payment.amount || 0),
+                      currency: payment.currency || reportCurrency,
+                      payment_method: payment.payment_method || '',
+                      payment_date: payment.payment_date || '',
+                      reference_number: payment.reference_number || ''
+                    }))
+                  )}
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  {t('common.export', 'Export')}
+                </Button>
               </div>
-              
-              {/* Class-wise Collection */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 dark:border-slate-700">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('admin_fees.class_wise_collection', 'Class-wise Collection')}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.class_wise_collection_desc', 'Fee collection by class')}</p>
-                </div>
-                <div className="p-4">
-                  <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-slate-700 rounded-lg">
-                    <p className="text-gray-500 dark:text-gray-400">{t('admin_fees.class_wise_chart_placeholder', 'Class-wise collection chart will be rendered here')}</p>
-                  </div>
+              <div className="p-4">
+                <div className="space-y-3">
+                  {recentPaymentsRows.length === 0 ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('admin_fees.no_recent_payments', 'No recent payments available.')}</div>
+                  ) : recentPaymentsRows.map((payment: any) => (
+                    <div key={payment.id} className="flex items-center justify-between rounded-lg border border-gray-100 dark:border-slate-700 px-3 py-3">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{payment.student_name || t('admin_fees.student_payment', 'Student payment')}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{payment.payment_method || 'payment'} • {payment.payment_date || '—'}</div>
+                      </div>
+                      <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(payment.amount || 0), payment.currency || reportCurrency)}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -172,15 +293,71 @@ const FinancialReports = () => {
               </div>
               <div className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[
-                    { name: t('admin_fees.collection_summary', 'Collection Summary'), icon: <BarChart4 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" /> },
-                    { name: t('admin_fees.outstanding_fees', 'Outstanding Fees'), icon: <FileText className="h-5 w-5 text-red-600 dark:text-red-400" /> },
-                    { name: t('admin_fees.payment_history', 'Payment History'), icon: <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" /> },
-                    { name: t('admin_fees.defaulters_report', 'Defaulters Report'), icon: <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" /> },
-                    { name: t('admin_fees.class_wise_collection', 'Class-wise Collection'), icon: <BarChart4 className="h-5 w-5 text-blue-600 dark:text-blue-400" /> },
-                    { name: t('admin_fees.term_comparison', 'Term Comparison'), icon: <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" /> }
+                    {[
+                      {
+                        name: t('admin_fees.collection_summary', 'Collection Summary'),
+                        icon: <BarChart4 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />,
+                        exportRows: [{
+                          period: reportPeriod,
+                          total_revenue: totalRevenue,
+                          outstanding_balance: outstanding,
+                          collection_rate: collectionRate,
+                        }]
+                      },
+                      {
+                        name: t('admin_fees.outstanding_fees', 'Outstanding Fees'),
+                        icon: <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />,
+                        exportRows: topDefaulters.map((row: any) => ({
+                          student_name: row.student_name || `Student ${row.student_id}`,
+                          balance: Number(row.balance || 0),
+                          days_overdue: Number(row.days_overdue || 0)
+                        }))
+                      },
+                      {
+                        name: t('admin_fees.payment_history', 'Payment History'),
+                        icon: <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" />,
+                        exportRows: recentPaymentsRows.map((row: any) => ({
+                          student_name: row.student_name || '',
+                          amount: Number(row.amount || 0),
+                          payment_method: row.payment_method || '',
+                          payment_date: row.payment_date || ''
+                        }))
+                      },
+                      {
+                        name: t('admin_fees.defaulters_report', 'Defaulters Report'),
+                        icon: <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+                        exportRows: topDefaulters.map((row: any) => ({
+                          student_name: row.student_name || `Student ${row.student_id}`,
+                          class_name: row.class_name || '',
+                          balance: Number(row.balance || 0),
+                          due_date: row.due_date || ''
+                        }))
+                      },
+                      {
+                        name: t('admin_fees.payment_methods', 'Payment Methods'),
+                        icon: <PieChart className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
+                        exportRows: paymentMethodRows.map((row) => ({
+                          payment_method: row.method,
+                          payment_count: row.count
+                        }))
+                      },
+                      {
+                        name: t('admin_fees.term_comparison', 'Term Comparison'),
+                        icon: <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
+                        exportRows: [{
+                          reporting_period: reportPeriod,
+                          payments_last_7_days: metrics.paymentsLast7Days,
+                          collection_rate: collectionRate,
+                          overdue_count: metrics.overdueCount
+                        }]
+                      }
                   ].map((report, index) => (
-                    <div key={index} className="flex items-center p-3 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer">
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => exportReport(String(report.name).toLowerCase().replace(/\s+/g, '-'), report.exportRows)}
+                      className="flex items-center w-full p-3 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 text-left"
+                    >
                       <div className="mr-3">
                         {report.icon}
                       </div>
@@ -191,7 +368,7 @@ const FinancialReports = () => {
                       <div className="ml-auto">
                         <Download className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -246,9 +423,20 @@ const FinancialReports = () => {
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-slate-800">
+                  <Button
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                    disabled={isLoadingOverview}
+                    onClick={() => exportReport('custom-financial-report', [{
+                      period: reportPeriod,
+                      total_revenue: totalRevenue,
+                      outstanding_balance: outstanding,
+                      collection_rate: collectionRate,
+                      defaulters: defaulterCount,
+                      recent_payments: recentPaymentsCount
+                    }])}
+                  >
                     {t('admin_fees.generate_report_btn', 'Generate Report')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

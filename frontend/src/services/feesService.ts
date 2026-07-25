@@ -73,6 +73,31 @@ export type FeePayment = {
   created_at?: string | null
 }
 
+export type FeeReminderBatchResponse = {
+  success: boolean
+  audience: string
+  channels: string[]
+  count: number
+  fee_record_count: number
+  fee_records: number[]
+  total_balance: number
+  sample_recipients: Array<{
+    student_id: number
+    student_name: string
+    class_name?: string | null
+    balance: number
+    oldest_due_date?: string | null
+    days_overdue: number
+    fee_record_ids: number[]
+  }>
+  test_targets?: {
+    email?: string | null
+    phone?: string | null
+  }
+  delivery_mode?: string
+  message?: string
+}
+
 export const feesService = {
   getFeeTemplates: async (params?: { page?: number; per_page?: number; academic_year?: string; term?: string; class_id?: number }) => {
     const res = await api.get('/administration/fee-structures', { params })
@@ -122,6 +147,11 @@ export const feesService = {
   recordPayment: async (payload: { fee_record_id: number; amount: number; payment_method: string; reference_number?: string; payment_date?: string }) => {
     const res = await api.post('/administration/fee-payments', payload)
     return res.data as { success: boolean; fee_payment: FeePayment }
+  },
+
+  sendReminderBatch: async (payload: { audience: string; channels?: string[]; test_email?: string; test_phone?: string }) => {
+    const res = await api.post('/administration/fee-reminders/send', payload)
+    return res.data as FeeReminderBatchResponse
   },
 
   getFeeRecordPayments: async (feeRecordId: number) => {

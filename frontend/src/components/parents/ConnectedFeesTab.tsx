@@ -91,7 +91,8 @@ function toFeeDataFromLedger(payload: { fees: LedgerFee[]; payments: LedgerPayme
       date: formatDateIso(p.date),
       amount: Number(p.amount || 0),
       method: String(p.method || 'payment'),
-      status: 'completed'
+      status: 'completed',
+      receiptNumber: String(p.ref || p.id)
     }));
 
   return {
@@ -137,7 +138,8 @@ function toFeeDataFromParentFees(payload: ParentFeePayload): FeeData {
     date: formatDateIso(payment.date),
     amount: Number(payment.amount || 0),
     method: String(payment.method || 'payment'),
-    status: 'completed'
+    status: 'completed',
+    receiptNumber: String(payment.receipt_number || index + 1)
   }));
 
   return {

@@ -692,17 +692,26 @@ def get_overdue_fees_v2():
         class_id = request.args.get('class_id', type=int)
         academic_year = request.args.get('academic_year', type=str)
 
-        paginated = administration_service.get_all_fee_records(page=page, per_page=per_page, academic_year=academic_year, class_id=class_id)
         today = date.today()
+
+        query = StudentFee.query.join(FeeStructure).join(Student).filter(
+            StudentFee.balance > 0,
+            FeeStructure.due_date.isnot(None),
+            FeeStructure.due_date < today
+        )
+        if class_id:
+            query = query.filter(Student.class_id == class_id)
+        if academic_year:
+            query = query.filter(FeeStructure.academic_year == academic_year)
+
+        paginated = query.order_by(
+            FeeStructure.due_date.asc(),
+            StudentFee.id.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+
         overdue_items = []
         for r in paginated.items:
             due = getattr(r.structure, 'due_date', None)
-            if not due:
-                continue
-            if due >= today:
-                continue
-            if float(r.balance or 0) <= 0:
-                continue
             s = r.student
             cls = getattr(s, 'class_', None) if s else None
             overdue_items.append({
@@ -723,10 +732,12 @@ def get_overdue_fees_v2():
             'success': True,
             'overdue_fees': overdue_items,
             'pagination': {
-                'total': len(overdue_items),
-                'pages': 1,
-                'page': page,
-                'per_page': per_page
+                'total': paginated.total,
+                'pages': paginated.pages,
+                'page': paginated.page,
+                'per_page': paginated.per_page,
+                'next': paginated.next_num,
+                'prev': paginated.prev_num
             }
         }), 200
     except Exception as e:
@@ -741,25 +752,93 @@ def send_fee_reminders():
     try:
         data = request.get_json() or {}
         audience = (data.get('audience') or 'overdue').strip().lower()
+        channels = [
+            str(channel).strip().lower()
+            for channel in (data.get('channels') or [])
+            if str(channel).strip()
+        ]
+        test_email = (data.get('test_email') or '').strip()
+        test_phone = (data.get('test_phone') or '').strip()
 
         if audience != 'overdue':
             return jsonify({'success': False, 'message': 'Unsupported audience'}), 400
 
         today = date.today()
-        q = StudentFee.query.join(FeeStructure).filter(
+        q = StudentFee.query.join(FeeStructure).join(Student).filter(
             StudentFee.balance > 0,
             FeeStructure.due_date != None,
             FeeStructure.due_date < today
         )
 
-        fee_ids = [f.id for f in q.limit(500).all()]
-        student_ids = [f.student_id for f in q.limit(500).all()]
+        overdue_records = q.order_by(
+            FeeStructure.due_date.asc(),
+            StudentFee.balance.desc()
+        ).limit(500).all()
+
+        if not overdue_records:
+            return jsonify({
+                'success': True,
+                'audience': audience,
+                'channels': channels,
+                'count': 0,
+                'fee_record_count': 0,
+                'total_balance': 0,
+                'sample_recipients': [],
+                'test_targets': {
+                    'email': test_email or None,
+                    'phone': test_phone or None
+                },
+                'delivery_mode': 'preview_only',
+                'message': 'No overdue balances matched the current reminder audience'
+            }), 200
+
+        fee_ids = [record.id for record in overdue_records]
+        recipients = {}
+        for record in overdue_records:
+            student = record.student
+            structure = getattr(record, 'structure', None)
+            due_date = getattr(structure, 'due_date', None)
+            recipient = recipients.setdefault(record.student_id, {
+                'student_id': record.student_id,
+                'student_name': f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip() if student else f"Student {record.student_id}",
+                'class_name': (
+                    getattr(getattr(student, 'class_', None), 'display_name', None)
+                    or getattr(getattr(student, 'class_', None), 'name', None)
+                ) if student else None,
+                'balance': 0,
+                'oldest_due_date': due_date.isoformat() if due_date else None,
+                'days_overdue': (today - due_date).days if due_date else 0,
+                'fee_record_ids': []
+            })
+            recipient['balance'] += float(record.balance or 0)
+            recipient['fee_record_ids'].append(record.id)
+            if due_date:
+                current_oldest = recipient.get('oldest_due_date')
+                if not current_oldest or due_date.isoformat() < current_oldest:
+                    recipient['oldest_due_date'] = due_date.isoformat()
+                    recipient['days_overdue'] = (today - due_date).days
+
+        recipient_list = sorted(
+            recipients.values(),
+            key=lambda item: (item['days_overdue'], item['balance']),
+            reverse=True
+        )
 
         return jsonify({
             'success': True,
             'audience': audience,
-            'count': len(set(student_ids)),
-            'fee_records': fee_ids[:50]
+            'channels': channels,
+            'count': len(recipient_list),
+            'fee_record_count': len(fee_ids),
+            'fee_records': fee_ids[:50],
+            'total_balance': round(sum(float(record.balance or 0) for record in overdue_records), 2),
+            'sample_recipients': recipient_list[:5],
+            'test_targets': {
+                'email': test_email or None,
+                'phone': test_phone or None
+            },
+            'delivery_mode': 'preview_only',
+            'message': 'Reminder batch prepared. Delivery adapters are not configured for automatic sending in this workflow yet.'
         }), 200
     except Exception as e:
         current_app.logger.error(f"Error sending fee reminders: {str(e)}")

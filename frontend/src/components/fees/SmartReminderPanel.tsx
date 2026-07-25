@@ -11,6 +11,7 @@ import { Send, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../../lib/api'
 import { feesService } from '../../services/feesService'
+import { formatCurrency } from '../../lib/utils'
 
 const SmartReminderPanel = () => {
   const { t } = useTranslation();
@@ -20,6 +21,7 @@ const SmartReminderPanel = () => {
     testEmail: '',
     testPhone: ''
   })
+  const [batchPreview, setBatchPreview] = useState<any | null>(null)
 
   const { data: settingsResp } = useQuery({
     queryKey: ['fees', 'settings', 'reminders'],
@@ -42,20 +44,29 @@ const SmartReminderPanel = () => {
     queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 50 })
   })
 
-  const overdueCount = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees.length : 0
+  const overdueFees = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees : []
+  const overdueCount = overdueFees.length
+  const totalOverdueBalance = overdueFees.reduce((sum, fee) => sum + Number(fee.balance || 0), 0)
+  const longestOverdueDays = overdueFees.reduce((max, fee) => Math.max(max, Number(fee.days_overdue || 0)), 0)
+  const topOverdueAccounts = useMemo(
+    () => overdueFees
+      .slice()
+      .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0))
+      .slice(0, 3),
+    [overdueFees]
+  )
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      return feesService.sendReminderBatch({
         audience: sendForm.audience,
         channels: reminderChannels,
         test_email: sendForm.testEmail.trim() || undefined,
         test_phone: sendForm.testPhone.trim() || undefined
-      }
-      const res = await api.post('/administration/fee-reminders/send', payload)
-      return res.data
+      })
     },
     onSuccess: (data: any) => {
+      setBatchPreview(data)
       toast.success(t('admin_fees.reminder_batch_prepared', 'Reminder batch prepared for {{count}} recipient(s)', { count: data?.count || 0 })) 
       setSendOpen(false)
     },
@@ -93,9 +104,79 @@ const SmartReminderPanel = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
-            <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.overdue_fees', 'Overdue fees')}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.records_need_attention', '{{count}} records need attention', { count: overdueCount })}</div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.overdue_fees', 'Overdue fees')}</div>
+              <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{overdueCount}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.records_need_attention', '{{count}} records need attention', { count: overdueCount })}</div>
+            </div>
+            <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.outstanding_balance', 'Outstanding balance')}</div>
+              <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(totalOverdueBalance, 'USD')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.reminder_channels', 'Channels')}: {reminderChannels.join(', ') || '—'}</div>
+            </div>
+            <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.longest_overdue', 'Longest overdue')}</div>
+              <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{longestOverdueDays}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.days_label', 'days')}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.high_priority_accounts', 'High-priority accounts')}</div>
+              <div className="mt-3 space-y-3">
+                {topOverdueAccounts.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">{t('admin_fees.no_overdue_accounts', 'No overdue accounts at the moment.')}</div>
+                ) : topOverdueAccounts.map((item: any) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-md bg-slate-50 dark:bg-slate-800 px-3 py-2">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.student_name || `Student ${item.student_id}`}</div>
+                      <div className="text-xs text-slate-500">{item.class_name || '—'} • {item.days_overdue || 0} {t('admin_fees.days_label', 'days')}</div>
+                    </div>
+                    <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(Number(item.balance || 0), item.currency || 'USD')}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.last_batch_preview', 'Last batch preview')}</div>
+              <div className="mt-3 space-y-3">
+                {!batchPreview ? (
+                  <div className="text-sm text-muted-foreground">{t('admin_fees.batch_preview_empty', 'Run a reminder batch to preview recipients, balances, and configured channels.')}</div>
+                ) : (
+                  <>
+                    <div className="rounded-md bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
+                      <div className="font-medium text-slate-900 dark:text-slate-100">{batchPreview.message || t('admin_fees.batch_preview_ready', 'Batch preview ready')}</div>
+                      <div className="mt-1 text-slate-600 dark:text-slate-300">
+                        {t('admin_fees.reminder_batch_summary', '{{count}} recipients across {{records}} overdue records', {
+                          count: batchPreview.count || 0,
+                          records: batchPreview.fee_record_count || 0
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('admin_fees.delivery_mode_label', 'Delivery mode')}: {batchPreview.delivery_mode || 'preview_only'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('admin_fees.configured_channels', 'Configured: {{channels}}', { channels: (batchPreview.channels || []).join(', ') || '—' })}
+                    </div>
+                    <div className="space-y-2">
+                      {(batchPreview.sample_recipients || []).map((recipient: any) => (
+                        <div key={recipient.student_id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                          <div>
+                            <div className="font-medium">{recipient.student_name}</div>
+                            <div className="text-xs text-muted-foreground">{recipient.class_name || '—'} • {recipient.days_overdue || 0} {t('admin_fees.days_label', 'days')}</div>
+                          </div>
+                          <div className="font-semibold">{formatCurrency(Number(recipient.balance || 0), 'USD')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -11,6 +11,9 @@ export interface User {
   profile_image?: string;
   avatar_url?: string | null;
   phone?: string;
+  roles?: string[];
+  effective_roles?: string[];
+  effective_permissions?: string[];
   created_at?: string;
   updated_at?: string;
   last_login?: string;

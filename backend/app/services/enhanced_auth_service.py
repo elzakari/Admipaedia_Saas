@@ -19,9 +19,11 @@ from app.extensions import db, bcrypt
 from app.models.user import User, Role, LoginHistory
 from app.models.parent import Parent
 from app.models.security import LoginAttempt, SecurityEvent, PasswordHistory
+from app.models.rbac import UserRoleAssignment
 from app.models.session_token import SessionToken
 from app.utils.avatar_utils import normalize_avatar_url_for_response
 from app.utils.password_security import PasswordSecurity, AccountSecurity
+from app.utils.rbac_decorators import get_user_permissions
 from app.utils.security_enhancements import ThreatDetection, DeviceFingerprinting
 
 logger = structlog.get_logger()
@@ -552,6 +554,17 @@ class EnhancedAuthService:
     @classmethod
     def _serialize_user(cls, user: User) -> Dict:
         """Serialize user data for API response"""
+        active_assignments = UserRoleAssignment.query.filter_by(
+            user_id=user.id,
+            is_active=True
+        ).all()
+        effective_roles = sorted({
+            assignment.role.name
+            for assignment in active_assignments
+            if assignment.role and assignment.is_valid()
+        })
+        effective_permissions = sorted(get_user_permissions(user))
+
         return {
             'id': user.id,
             'username': user.username,
@@ -561,6 +574,8 @@ class EnhancedAuthService:
                 getattr(getattr(user, 'profile', None), 'avatar_url', None)
             ),
             'roles': [role.name for role in user.roles],
+            'effective_roles': effective_roles,
+            'effective_permissions': effective_permissions,
             'status': user.status,
             'mfa_enabled': user.mfa_enabled,
             'last_login': user.last_login.isoformat() if user.last_login else None,

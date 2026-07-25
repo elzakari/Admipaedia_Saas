@@ -153,7 +153,7 @@ const FinancialManagement: React.FC = () => {
 
   const loadFinancialSummary = async () => {
     // Pass filters correctly: (dateFrom, dateTo, academicYear)
-    const summaryResponse = await financialService.getFinancialSummary(undefined, undefined, '2024');
+    const summaryResponse = await financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString());
     // Unwrap nested backend shape if present
     const normalized = (summaryResponse as any)?.financial_summary ?? summaryResponse;
     setFinancialSummary(normalized as any);
@@ -501,6 +501,14 @@ const FinancialManagement: React.FC = () => {
                     Report
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openFeesWorkspace('reports')}
+                  >
+                    <BarChart className="mr-2 h-4 w-4" />
+                    Reports Workspace
+                  </Button>
+                  <Button
                     variant="default"
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-700"
@@ -631,6 +639,9 @@ const FinancialManagement: React.FC = () => {
                     <CardDescription>Generate official school financial documents</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6 space-y-4">
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/10 dark:text-emerald-300">
+                      Use the dedicated Fees workspace for reminder batches, collections reporting, exports, and fee-specific analytics.
+                    </div>
                     {[
                       { title: 'Income Statement', desc: 'Summary of income and expenses', color: 'blue' },
                       { title: 'Budget Report', desc: 'Detailed budget allocation and usage', color: 'emerald' },
@@ -646,7 +657,7 @@ const FinancialManagement: React.FC = () => {
                             <p className="text-xs text-gray-500">{report.desc}</p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="text-indigo-600" onClick={() => window.print()}>
+                        <Button variant="ghost" size="sm" className="text-indigo-600" onClick={() => openFeesWorkspace('reports')}>
                           Generate
                         </Button>
                       </div>

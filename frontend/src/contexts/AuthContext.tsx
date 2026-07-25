@@ -188,11 +188,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasRole = (roles: string | string[]) => {
     if (!user) return false;
 
+    const effectiveRoles = Array.isArray(user.effective_roles) ? user.effective_roles : [];
+    const assignedRoles = Array.isArray(user.roles) ? user.roles : [];
+    const availableRoles = new Set([user.role, ...effectiveRoles, ...assignedRoles].filter(Boolean));
+
     if (typeof roles === 'string') {
-      return user.role === roles;
+      return availableRoles.has(roles);
     }
 
-    return roles.includes(user.role);
+    return roles.some((role) => availableRoles.has(role));
   };
 
   return (

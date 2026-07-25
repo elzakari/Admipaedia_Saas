@@ -1,48 +1,14 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Clock, TrendingUp, Wallet } from 'lucide-react';
-import { feesService } from '../../services/feesService';
+import { useFeesOverview } from '../../hooks/useFeesOverview';
 
 const AIInsightsBar = () => {
   const { t } = useTranslation();
-  const { data: feeRecordsResp } = useQuery({
-    queryKey: ['fees', 'records', 'insights'],
-    queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 200 })
-  });
-
-  const { data: paymentsResp } = useQuery({
-    queryKey: ['fees', 'payments', 'insights'],
-    queryFn: () => feesService.getPayments({ page: 1, per_page: 200 })
-  });
-
-  const { data: overdueResp } = useQuery({
-    queryKey: ['fees', 'overdue', 'insights'],
-    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 200 })
-  });
-
-  const { collectionRatePct, outstandingBalance, paymentsLast7Days } = useMemo(() => {
-    const records = Array.isArray(feeRecordsResp?.fee_records) ? feeRecordsResp!.fee_records : [];
-    const totalFinal = records.reduce((acc, r) => acc + (Number(r.final_amount) || 0), 0);
-    const totalPaid = records.reduce((acc, r) => acc + (Number(r.paid_amount) || 0), 0);
-    const outstanding = records.reduce((acc, r) => acc + (Number(r.balance) || 0), 0);
-
-    const payments = Array.isArray(paymentsResp?.payments) ? paymentsResp!.payments : [];
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const last7 = payments.reduce((acc, p) => {
-      const dt = p.created_at ? new Date(p.created_at).getTime() : NaN;
-      if (!Number.isFinite(dt) || dt < cutoff) return acc;
-      return acc + (Number(p.amount) || 0);
-    }, 0);
-
-    return {
-      collectionRatePct: totalFinal > 0 ? Math.round((totalPaid / totalFinal) * 1000) / 10 : 0,
-      outstandingBalance: outstanding,
-      paymentsLast7Days: last7
-    };
-  }, [feeRecordsResp, paymentsResp]);
-
-  const overdueCount = Array.isArray(overdueResp?.overdue_fees) ? overdueResp!.overdue_fees.length : 0;
+  const { metrics } = useFeesOverview();
+  const { collectionRate, outstandingFees, paymentsLast7Days, overdueCount } = metrics;
+  const collectionRatePct = useMemo(() => Math.round(collectionRate * 10) / 10, [collectionRate]);
+  const outstandingBalance = outstandingFees;
 
   return (
     <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 rounded-lg p-4">

@@ -40,6 +40,16 @@ export const useRBAC = (): UseRBACReturn => {
       return;
     }
 
+    const authPermissions = Array.isArray(user.effective_permissions) ? user.effective_permissions : null;
+    const authRoles = Array.isArray(user.effective_roles) ? user.effective_roles : null;
+    if (authPermissions && authRoles) {
+      setUserPermissions(authPermissions);
+      setUserRoles(authRoles);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

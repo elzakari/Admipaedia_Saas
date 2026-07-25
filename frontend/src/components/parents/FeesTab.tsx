@@ -22,6 +22,7 @@ interface PaymentHistoryItem {
   amount: number;
   method: string;
   status: string;
+  receiptNumber?: string;
 }
 
 interface UpcomingPayment {
@@ -82,6 +83,30 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
   const paymentPercentage = Math.round(paymentRatio * 100);
   const dashArrayValue = paymentRatio * 251.2;
 
+  const downloadReceipt = (payment: PaymentHistoryItem) => {
+    const lines = [
+      t('parent_portal.my_children.receipt_title', 'ADMIPAEDIA Fee Receipt'),
+      `Receipt: ${payment.receiptNumber || payment.id}`,
+      `Date: ${payment.date || '—'}`,
+      `Method: ${payment.method || 'payment'}`,
+      `Amount: ${formatCurrency(Number(payment.amount || 0), currency)}`,
+      `Status: ${payment.status || 'completed'}`
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `fee-receipt-${payment.receiptNumber || payment.id}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success(t('parent_portal.my_children.toast.receipt_download_started', 'Receipt download started'));
+  };
+
+  const handlePayNow = () => {
+    if (dueSafe <= 0) return;
+    toast(t('parent_portal.my_children.toast.online_payment_pending', 'Online parent payments are not enabled yet. Please pay through the approved school payment channels or contact the accounts office.'));
+  };
+
   return (
     <>
       {/* Fee summary */}
@@ -127,7 +152,7 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full glass-button" disabled={dueSafe <= 0}>
+            <Button className="w-full glass-button" disabled={dueSafe <= 0} onClick={handlePayNow}>
               <CreditCard className="h-4 w-4 mr-2" />
               {t('parent_portal.my_children.pay_now', 'Pay Now')}
             </Button>
@@ -182,6 +207,11 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
                     {dueSafe > 0 ? t('parent_portal.my_children.status_pending', 'Pending') : t('parent_portal.my_children.status_paid', 'Paid')}
                   </Badge>
                 </div>
+                {dueSafe > 0 ? (
+                  <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    {t('parent_portal.my_children.online_payment_notice', 'Online parent payments are not active yet. Use the school-approved channels and keep the receipt for reconciliation.')}
+                  </div>
+                ) : null}
               </div>
             </div>
           </CardContent>
@@ -214,7 +244,7 @@ const FeesTab = ({ currentFeeData }: FeesTabProps) => {
                       size="sm" 
                       className="h-8 w-8 p-0" 
                       title={t('parent_portal.my_children.actions.download_receipt', 'Download receipt') as string}
-                      onClick={() => toast.success(t('parent_portal.my_children.toast.generating_receipt', 'Receipt for payment #{{id}} is being generated', { id: payment.id }))}
+                      onClick={() => downloadReceipt(payment)}
                     >
                       <Download className="h-4 w-4 text-indigo-700" />
                     </Button>

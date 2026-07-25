@@ -44,6 +44,21 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({ children }) => {
       return;
     }
 
+    const authPermissions = Array.isArray(user.effective_permissions) ? user.effective_permissions : null;
+    const authRoles = Array.isArray(user.effective_roles) ? user.effective_roles : null;
+    if (authPermissions && authRoles) {
+      setUserPermissions(authPermissions);
+      setUserRoles(authRoles);
+      setCurrentUser({
+        ...user,
+        effective_permissions: authPermissions,
+        effective_roles: authRoles
+      });
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

@@ -1,10 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { useQuery } from '@tanstack/react-query';
 import { Calendar, CreditCard, Download, FileText, Send } from 'lucide-react';
-import { feesService } from '../../services/feesService';
-import financialService from '../../services/financialService';
+import { useFeesOverview } from '../../hooks/useFeesOverview';
 
 const FeesDashboard = () => {
   const { t } = useTranslation();
@@ -17,35 +15,14 @@ const FeesDashboard = () => {
     window.dispatchEvent(new CustomEvent('fees:action', { detail: { tab, type } }))
   }
 
-  const { data: paymentsResp, isLoading: isLoadingPayments } = useQuery({
-    queryKey: ['fees', 'payments', 'recent'],
-    queryFn: () => feesService.getPayments({ page: 1, per_page: 5 })
-  });
-  const { data: feeRecordsResp } = useQuery({
-    queryKey: ['fees', 'records', 'dashboard'],
-    queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 100 })
-  });
-  const { data: overdueResp } = useQuery({
-    queryKey: ['fees', 'overdue', 'dashboard'],
-    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 10 })
-  });
-  const { data: summaryResp } = useQuery({
-    queryKey: ['fees', 'summary', 'dashboard'],
-    queryFn: () => financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString())
-  });
-
-  const recentPayments = Array.isArray(paymentsResp?.payments) ? paymentsResp!.payments : [];
-  const feeRecords = Array.isArray(feeRecordsResp?.fee_records) ? feeRecordsResp.fee_records : [];
-  const overdueFees = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees : [];
-  const paymentMethodCounts = recentPayments.reduce<Record<string, number>>((acc, payment) => {
-    const key = String(payment.payment_method || 'other');
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-  const totalExpected = feeRecords.reduce((sum, record) => sum + Number(record.total_amount ?? record.final_amount ?? 0), 0);
-  const totalCollected = Number(summaryResp?.total_revenue ?? 0);
-  const outstandingFees = Number(summaryResp?.outstanding_fees ?? 0);
-  const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : Number(summaryResp?.collection_rate ?? 0);
+  const { recentPayments, overdueFees, metrics, isLoadingPayments } = useFeesOverview();
+  const {
+    paymentMethodCounts,
+    totalExpected,
+    totalCollected,
+    outstandingFees,
+    collectionRate
+  } = metrics;
 
   return (
     <div className="space-y-6">

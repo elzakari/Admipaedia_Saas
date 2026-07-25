@@ -467,20 +467,16 @@ def get_current_user():
             session_token.last_used_at = now
             db.session.commit()
         
+        user_payload = EnhancedAuthService._serialize_user(user)
+        user_payload["password_changed_at"] = (
+            user.password_changed_at.isoformat()
+            if hasattr(user, 'password_changed_at') and user.password_changed_at
+            else None
+        )
+
         return jsonify({
             "success": True,
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "role": user.role,
-                "avatar_url": normalize_avatar_url_for_response(
-                    getattr(getattr(user, 'profile', None), 'avatar_url', None)
-                ),
-                "created_at": user.created_at.isoformat() if user.created_at else None,
-                "last_login": user.last_login.isoformat() if user.last_login else None,
-                "password_changed_at": user.password_changed_at.isoformat() if hasattr(user, 'password_changed_at') and user.password_changed_at else None
-            }
+            "user": user_payload
         }), 200
         
     except Exception as err:
