@@ -40,6 +40,35 @@ def _enum_exists(connection, name):
     return result.fetchone() is not None
 
 
+def _enum_labels(connection, name):
+    result = connection.execute(
+        sa.text(
+            "SELECT e.enumlabel "
+            "FROM pg_type t "
+            "JOIN pg_enum e ON t.oid = e.enumtypid "
+            "WHERE t.typname = :n "
+            "ORDER BY e.enumsortorder"
+        ),
+        {"n": name},
+    )
+    return [row[0] for row in result.fetchall()]
+
+
+def _normalize_academic_structure_type_enum(connection):
+    rename_map = {
+        "DISCIPLINE": "discipline",
+        "CYCLE": "cycle",
+        "OPERATIONAL": "operational",
+    }
+    labels = set(_enum_labels(connection, "academic_structure_type"))
+    for old_label, new_label in rename_map.items():
+        if old_label in labels and new_label not in labels:
+            op.execute(
+                f"ALTER TYPE academic_structure_type "
+                f"RENAME VALUE '{old_label}' TO '{new_label}'"
+            )
+
+
 def _constraint_exists(connection, table, constraint):
     result = connection.execute(
         sa.text(
@@ -60,6 +89,8 @@ def upgrade():
             "CREATE TYPE academic_structure_type AS ENUM "
             "('discipline', 'cycle', 'operational')"
         )
+    else:
+        _normalize_academic_structure_type_enum(conn)
 
     # 2. Add `structure_type` discriminator column
     if not _col_exists(conn, "departments", "structure_type"):
@@ -73,7 +104,7 @@ def upgrade():
                     create_type=False,   # already created above
                 ),
                 nullable=False,
-                server_default="discipline",
+                server_default=sa.text("'discipline'::academic_structure_type"),
             ),
         )
         # Back-fill existing rows → DISCIPLINE

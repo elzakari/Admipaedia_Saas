@@ -64,19 +64,8 @@ jobs:
       run:
         working-directory: ./backend
     
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: admipaedia_test
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-    
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -92,10 +81,11 @@ jobs:
       run: pytest
       continue-on-error: true
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/admipaedia_test
-        TEST_DB_URL: postgresql://postgres:postgres@localhost:5432/admipaedia_test
+        FLASK_ENV: testing
+        TEST_DB_URL: sqlite:///:memory:
     
     - name: Upload test coverage
       uses: codecov/codecov-action@v3
+      if: ${{ hashFiles('backend/coverage/**') != '' }}
       with:
         directory: ./backend/coverage

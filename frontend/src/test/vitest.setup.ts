@@ -30,6 +30,12 @@ if (typeof window !== 'undefined') {
   if (typeof window.cancelAnimationFrame !== 'function') {
     (window as any).cancelAnimationFrame = (id: any) => clearTimeout(id);
   }
+  if (typeof window.scrollTo !== 'function') {
+    (window as any).scrollTo = () => {};
+  }
+  if (typeof window.open !== 'function') {
+    (window as any).open = () => null;
+  }
   if (typeof window.matchMedia !== 'function') {
     (window as any).matchMedia = (query: string) => ({
       matches: false,
@@ -61,6 +67,20 @@ if (!(globalThis as any).IntersectionObserver) {
     }
     unobserve() {}
     disconnect() {}
+  };
+}
+
+if (!(globalThis as any).scrollTo) {
+  (globalThis as any).scrollTo = () => {};
+}
+
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
+if (typeof HTMLAnchorElement !== 'undefined') {
+  HTMLAnchorElement.prototype.click = function click() {
+    this.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   };
 }
 
