@@ -32,19 +32,30 @@ def app():
     with app.app_context():
         import sqlalchemy as sa
         if test_db_url.startswith('postgres'):
-            # More robust teardown for PostgreSQL to avoid Dependency errors
+            # Wipe entire schema cleanly (CASCADE handles FK dependencies)
             with _db.engine.connect() as conn:
                 conn.execute(sa.text('DROP SCHEMA public CASCADE; CREATE SCHEMA public;'))
                 conn.commit()
+
+            # Rebuild via Alembic so that raw-SQL DDL (e.g. custom enum types
+            # like academic_structure_type) is created exactly as migrations define it.
+            from alembic.config import Config
+            from alembic import command
+            import os as _os
+            migrations_dir = _os.path.join(_os.path.dirname(__file__), '..', 'migrations')
+            alembic_cfg = Config()
+            alembic_cfg.set_main_option('script_location', migrations_dir)
+            alembic_cfg.set_main_option('sqlalchemy.url', test_db_url)
+            command.upgrade(alembic_cfg, 'head')
         else:
             _db.drop_all()
-        
-        _db.create_all()
+            _db.create_all()
         
         yield app
         
         _db.session.remove()  # Clean up session
         _db.engine.dispose()  # PHYSICALLY close all Postgres connections
+
 
 @pytest.fixture(scope='function')
 def db(app):
