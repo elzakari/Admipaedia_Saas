@@ -63,8 +63,25 @@ RETURNING id
     if str(latest_tenant_id) == str(legacy_id):
         return
 
+    def _table_exists(connection, table_name):
+        insp = sa.inspect(connection)
+        return insp.has_table(table_name)
+
+    def _exec_safe(connection, stmt, *args, **kwargs):
+        nested = connection.begin_nested()
+        try:
+            res = connection.execute(stmt, *args, **kwargs)
+            nested.commit()
+            return res
+        except Exception as e:
+            nested.rollback()
+            return None
+
     def move(table: str):
-        conn.execute(
+        if not _table_exists(conn, table):
+            return
+        _exec_safe(
+            conn,
             sa.text(
                 f"""
 UPDATE {table}
