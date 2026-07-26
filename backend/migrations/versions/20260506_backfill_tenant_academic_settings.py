@@ -55,8 +55,20 @@ def _load_system_setting_value(conn, key: str):
     return value
 
 
+def _table_exists(conn, table_name: str) -> bool:
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables "
+        "WHERE table_schema = 'public' AND table_name = :t"
+    ), {"t": table_name}).fetchone()
+    return result is not None
+
+
 def upgrade():
     conn = op.get_bind()
+
+    # Guard: system_settings may not exist on fresh installs
+    if not _table_exists(conn, 'system_settings'):
+        return
 
     legacy_blob = _load_system_setting_json(conn, 'academic.settings') or {}
     legacy_school = {
