@@ -11,14 +11,10 @@ Always run `alembic heads` before generating a new revision. Never create a new 
 alembic heads
 ```
 
-### 2. Merge heads before generating new revisions
-If `alembic heads` returns more than one entry, immediately run a merge first:
+If `alembic heads` returns more than one entry, **stop and report** — do not proceed until the user resolves the split.
 
-```bash
-alembic merge heads -m "merge_heads_before_<feature>"
-```
-
-Only then generate the new revision.
+### 2. Maintain a strictly linear revision history
+**DO NOT use `alembic merge heads`**. This project requires a single-head linear chain. If multiple heads are detected, trace back through the `down_revision` graph to identify where the branch diverged and correct the offending migration files manually so the chain is linear again.
 
 ### 3. Verify foreign key dependencies exist before referencing them
 When writing raw SQL DDL that includes `REFERENCES <table>(id)`, explicitly confirm that `<table>` is created in an earlier migration in the `down_revision` chain. If the referenced table may not exist on fresh installs, guard the operation with a `table_exists()` check and make the FK conditional:
