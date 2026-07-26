@@ -90,13 +90,15 @@ def upgrade():
     # ── 1. notification_logs table ─────────────────────────────────────────
     print("  [1/7] notification_logs table...")
     if not table_exists(bind, 'notification_logs'):
-        bind.execute(text("""
+        branches_exists = table_exists(bind, 'branches')
+        branch_fk = "REFERENCES branches(id) ON DELETE SET NULL" if branches_exists else ""
+        bind.execute(text(f"""
             CREATE TABLE notification_logs (
                 id          SERIAL PRIMARY KEY,
                 tenant_id   UUID NOT NULL
                     REFERENCES tenants(id) ON DELETE CASCADE,
                 branch_id   UUID
-                    REFERENCES branches(id) ON DELETE SET NULL,
+                    {branch_fk},
                 channel     VARCHAR(20)  NOT NULL,
                 recipient   VARCHAR(255) NOT NULL,
                 subject     VARCHAR(255),
@@ -120,29 +122,32 @@ def upgrade():
 
     # ── 2. attendances.branch_id ────────────────────────────────────────────
     print("  [2/7] attendances.branch_id...")
-    if not column_exists(bind, 'attendances', 'branch_id'):
+    if table_exists(bind, 'branches') and not column_exists(bind, 'attendances', 'branch_id'):
         bind.execute(text(
             'ALTER TABLE "public"."attendances" '
             'ADD COLUMN "branch_id" UUID REFERENCES branches(id) ON DELETE SET NULL;'
         ))
         print("    [OK] Added.")
     else:
-        print("    [OK] Already exists — skipped.")
+        print("    [OK] Already exists or branches table absent — skipped.")
 
     # ── 3. branches columns (code / address / is_active) ───────────────────
     print("  [3/7] branches.code / address / is_active...")
-    for col_ddl, col_name in [
-        ('"code" VARCHAR(50)',       'code'),
-        ('"address" VARCHAR(255)',   'address'),
-        ('"is_active" BOOLEAN DEFAULT TRUE', 'is_active'),
-    ]:
-        if not column_exists(bind, 'branches', col_name):
-            bind.execute(text(
-                f'ALTER TABLE "public"."branches" ADD COLUMN {col_ddl};'
-            ))
-            print(f"    [OK] branches.{col_name} added.")
-        else:
-            print(f"    [OK] branches.{col_name} already exists — skipped.")
+    if table_exists(bind, 'branches'):
+        for col_ddl, col_name in [
+            ('"code" VARCHAR(50)',       'code'),
+            ('"address" VARCHAR(255)',   'address'),
+            ('"is_active" BOOLEAN DEFAULT TRUE', 'is_active'),
+        ]:
+            if not column_exists(bind, 'branches', col_name):
+                bind.execute(text(
+                    f'ALTER TABLE "public"."branches" ADD COLUMN {col_ddl};'
+                ))
+                print(f"    [OK] branches.{col_name} added.")
+            else:
+                print(f"    [OK] branches.{col_name} already exists — skipped.")
+    else:
+        print("    [OK] branches table absent — skipped.")
 
     # ── 4. pending_invoice_adjustments columns ──────────────────────────────
     print("  [4/7] pending_invoice_adjustments columns...")
