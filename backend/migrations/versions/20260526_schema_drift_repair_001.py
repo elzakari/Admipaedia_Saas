@@ -152,102 +152,116 @@ def upgrade():
     # ── 4. pending_invoice_adjustments columns ──────────────────────────────
     print("  [4/7] pending_invoice_adjustments columns...")
 
-    # currency: NOT NULL with constant DEFAULT — safe single-step on PG 11+
-    if not column_exists(bind, 'pending_invoice_adjustments', 'currency'):
-        bind.execute(text(
-            "ALTER TABLE \"public\".\"pending_invoice_adjustments\" "
-            "ADD COLUMN \"currency\" VARCHAR(3) NOT NULL DEFAULT 'USD';"
-        ))
-        print("    [OK] pending_invoice_adjustments.currency added.")
-    else:
-        print("    [OK] pending_invoice_adjustments.currency already exists — skipped.")
+    if table_exists(bind, 'pending_invoice_adjustments'):
+        # currency: NOT NULL with constant DEFAULT — safe single-step on PG 11+
+        if not column_exists(bind, 'pending_invoice_adjustments', 'currency'):
+            bind.execute(text(
+                "ALTER TABLE \"public\".\"pending_invoice_adjustments\" "
+                "ADD COLUMN \"currency\" VARCHAR(3) NOT NULL DEFAULT 'USD';"
+            ))
+            print("    [OK] pending_invoice_adjustments.currency added.")
+        else:
+            print("    [OK] pending_invoice_adjustments.currency already exists — skipped.")
 
-    if not column_exists(bind, 'pending_invoice_adjustments', 'description'):
-        bind.execute(text(
-            'ALTER TABLE "public"."pending_invoice_adjustments" '
-            'ADD COLUMN "description" TEXT;'
-        ))
-        print("    [OK] pending_invoice_adjustments.description added.")
-    else:
-        print("    [OK] pending_invoice_adjustments.description already exists — skipped.")
+        if not column_exists(bind, 'pending_invoice_adjustments', 'description'):
+            bind.execute(text(
+                'ALTER TABLE "public"."pending_invoice_adjustments" '
+                'ADD COLUMN "description" TEXT;'
+            ))
+            print("    [OK] pending_invoice_adjustments.description added.")
+        else:
+            print("    [OK] pending_invoice_adjustments.description already exists — skipped.")
 
-    if not column_exists(bind, 'pending_invoice_adjustments', 'updated_at'):
-        bind.execute(text(
-            'ALTER TABLE "public"."pending_invoice_adjustments" '
-            'ADD COLUMN "updated_at" TIMESTAMP WITH TIME ZONE;'
-        ))
-        print("    [OK] pending_invoice_adjustments.updated_at added.")
+        if not column_exists(bind, 'pending_invoice_adjustments', 'updated_at'):
+            bind.execute(text(
+                'ALTER TABLE "public"."pending_invoice_adjustments" '
+                'ADD COLUMN "updated_at" TIMESTAMP WITH TIME ZONE;'
+            ))
+            print("    [OK] pending_invoice_adjustments.updated_at added.")
+        else:
+            print("    [OK] pending_invoice_adjustments.updated_at already exists — skipped.")
     else:
-        print("    [OK] pending_invoice_adjustments.updated_at already exists — skipped.")
+        print("    [OK] pending_invoice_adjustments table absent — skipped.")
 
     # ── 5. system_settings_config SMTP columns ──────────────────────────────
     print("  [5/7] system_settings_config SMTP columns...")
-    smtp_columns = [
-        ('"smtp_host"       VARCHAR(255)', 'smtp_host'),
-        ('"smtp_password"   VARCHAR(255)', 'smtp_password'),
-        ('"smtp_username"   VARCHAR(255)', 'smtp_username'),
-        ('"smtp_port"       INTEGER',      'smtp_port'),
-        ('"smtp_encryption" VARCHAR(50)',  'smtp_encryption'),
-    ]
-    for col_ddl, col_name in smtp_columns:
-        if not column_exists(bind, 'system_settings_config', col_name):
-            bind.execute(text(
-                f'ALTER TABLE "public"."system_settings_config" ADD COLUMN {col_ddl};'
-            ))
-            print(f"    [OK] system_settings_config.{col_name} added.")
-        else:
-            print(f"    [OK] system_settings_config.{col_name} already exists — skipped.")
+    if table_exists(bind, 'system_settings_config'):
+        smtp_columns = [
+            ('"smtp_host"       VARCHAR(255)', 'smtp_host'),
+            ('"smtp_password"   VARCHAR(255)', 'smtp_password'),
+            ('"smtp_username"   VARCHAR(255)', 'smtp_username'),
+            ('"smtp_port"       INTEGER',      'smtp_port'),
+            ('"smtp_encryption" VARCHAR(50)',  'smtp_encryption'),
+        ]
+        for col_ddl, col_name in smtp_columns:
+            if not column_exists(bind, 'system_settings_config', col_name):
+                bind.execute(text(
+                    f'ALTER TABLE "public"."system_settings_config" ADD COLUMN {col_ddl};'
+                ))
+                print(f"    [OK] system_settings_config.{col_name} added.")
+            else:
+                print(f"    [OK] system_settings_config.{col_name} already exists — skipped.")
+    else:
+        print("    [OK] system_settings_config table absent — skipped.")
 
     # ── 6. email_verification_tokens.email (NOT NULL) ───────────────────────
     # 3-step: add nullable → backfill → set NOT NULL
     print("  [6/7] email_verification_tokens.email (NOT NULL — 3-step)...")
-    if not column_exists(bind, 'email_verification_tokens', 'email'):
-        # Step A: add as nullable
-        bind.execute(text(
-            'ALTER TABLE "public"."email_verification_tokens" '
-            'ADD COLUMN "email" VARCHAR(255);'
-        ))
-        print("    [OK] Step A: column added (nullable).")
+    if table_exists(bind, 'email_verification_tokens') and table_exists(bind, 'users'):
+        if not column_exists(bind, 'email_verification_tokens', 'email'):
+            # Step A: add as nullable
+            bind.execute(text(
+                'ALTER TABLE "public"."email_verification_tokens" '
+                'ADD COLUMN "email" VARCHAR(255);'
+            ))
+            print("    [OK] Step A: column added (nullable).")
 
-        # Step B: backfill from users.email via user_id
-        result = bind.execute(text("""
-            UPDATE email_verification_tokens evt
-            SET    email = u.email
-            FROM   users u
-            WHERE  evt.user_id = u.id
-              AND  evt.email IS NULL;
-        """))
-        print(f"    [OK] Step B: backfilled {result.rowcount} rows from users.email.")
+            # Step B: backfill from users.email via user_id
+            result = bind.execute(text("""
+                UPDATE email_verification_tokens evt
+                SET    email = u.email
+                FROM   users u
+                WHERE  evt.user_id = u.id
+                  AND  evt.email IS NULL;
+            """))
+            print(f"    [OK] Step B: backfilled {result.rowcount} rows from users.email.")
 
-        # Step C: fill remaining NULLs (orphaned tokens) with a safe placeholder
-        result = bind.execute(text("""
-            UPDATE email_verification_tokens
-            SET    email = 'unknown@placeholder.invalid'
-            WHERE  email IS NULL;
-        """))
-        if result.rowcount:
-            print(f"    [WARN] Step C: {result.rowcount} orphaned token(s) got placeholder email.")
+            # Step C: fill remaining NULLs (orphaned tokens) with a safe placeholder
+            result = bind.execute(text("""
+                UPDATE email_verification_tokens
+                SET    email = 'unknown@placeholder.invalid'
+                WHERE  email IS NULL;
+            """))
+            if result.rowcount:
+                print(f"    [WARN] Step C: {result.rowcount} orphaned token(s) got placeholder email.")
+            else:
+                print("    [OK] Step C: no orphaned tokens — no placeholder needed.")
+
+            # Step D: set NOT NULL
+            bind.execute(text(
+                'ALTER TABLE "public"."email_verification_tokens" '
+                'ALTER COLUMN "email" SET NOT NULL;'
+            ))
+            print("    [OK] Step D: NOT NULL constraint applied.")
         else:
-            print("    [OK] Step C: no orphaned tokens — no placeholder needed.")
-
-        # Step D: set NOT NULL
-        bind.execute(text(
-            'ALTER TABLE "public"."email_verification_tokens" '
-            'ALTER COLUMN "email" SET NOT NULL;'
-        ))
-        print("    [OK] Step D: NOT NULL constraint applied.")
+            print("    [OK] Already exists — skipped.")
     else:
-        print("    [OK] Already exists — skipped.")
+        print("    [OK] email_verification_tokens or users table absent — skipped.")
 
     # ── 7. Smoke test — verify all columns are queryable ───────────────────
     print("  [7/7] Smoke tests...")
-    smoke_queries = [
-        ("notification_logs",              "SELECT COUNT(*) FROM notification_logs"),
-        ("attendances.branch_id",          "SELECT COUNT(*) FROM attendances WHERE branch_id IS NOT NULL"),
-        ("pending_invoice_adjustments",    "SELECT COUNT(*) FROM pending_invoice_adjustments WHERE currency IS NOT NULL"),
-        ("system_settings_config smtp",    "SELECT COUNT(*) FROM system_settings_config WHERE smtp_host IS NOT NULL"),
-        ("email_verification_tokens.email","SELECT COUNT(*) FROM email_verification_tokens WHERE email IS NOT NULL"),
-    ]
+    smoke_queries = []
+    if table_exists(bind, 'notification_logs'):
+        smoke_queries.append(("notification_logs",              "SELECT COUNT(*) FROM notification_logs"))
+    if table_exists(bind, 'attendances') and column_exists(bind, 'attendances', 'branch_id'):
+        smoke_queries.append(("attendances.branch_id",          "SELECT COUNT(*) FROM attendances WHERE branch_id IS NOT NULL"))
+    if table_exists(bind, 'pending_invoice_adjustments') and column_exists(bind, 'pending_invoice_adjustments', 'currency'):
+        smoke_queries.append(("pending_invoice_adjustments",    "SELECT COUNT(*) FROM pending_invoice_adjustments WHERE currency IS NOT NULL"))
+    if table_exists(bind, 'system_settings_config') and column_exists(bind, 'system_settings_config', 'smtp_host'):
+        smoke_queries.append(("system_settings_config smtp",    "SELECT COUNT(*) FROM system_settings_config WHERE smtp_host IS NOT NULL"))
+    if table_exists(bind, 'email_verification_tokens') and column_exists(bind, 'email_verification_tokens', 'email'):
+        smoke_queries.append(("email_verification_tokens.email","SELECT COUNT(*) FROM email_verification_tokens WHERE email IS NOT NULL"))
+        
     for label, sql in smoke_queries:
         row = bind.execute(text(sql)).fetchone()
         print(f"    [OK] {label}: {row[0]} rows.")

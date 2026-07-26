@@ -34,9 +34,10 @@ def upgrade():
         op.execute("ALTER TABLE notifications ALTER COLUMN id SET DEFAULT nextval('notifications_id_seq')")
         
         # Ensure messages sequence exists
-        op.execute("CREATE SEQUENCE IF NOT EXISTS messages_id_seq")
-        op.execute("ALTER TABLE messages ALTER COLUMN id SET DEFAULT nextval('messages_id_seq')")
-        op.execute("SELECT setval('messages_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM messages), false)")
+        if _table_exists(connection, 'messages'):
+            op.execute("CREATE SEQUENCE IF NOT EXISTS messages_id_seq")
+            op.execute("ALTER TABLE messages ALTER COLUMN id SET DEFAULT nextval('messages_id_seq')")
+            op.execute("SELECT setval('messages_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM messages), false)")
 
     # 2. Create attachments table
     if not _table_exists(connection, 'attachments'):

@@ -14,6 +14,26 @@ down_revision = '20260604_bfa_apc'
 branch_labels = None
 depends_on = None
 
+def _table_exists(conn, table_name: str) -> bool:
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables "
+        "WHERE table_schema = 'public' AND table_name = :t"
+    ), {"t": table_name}).fetchone()
+    return result is not None
+
+def _exec_safe(conn, op_func, *args, **kwargs):
+    try:
+        op_func(*args, **kwargs)
+    except Exception as e:
+        print(f"Warning: safe execution failed: {e}")
+
+def _column_exists(conn, table_name, column_name):
+    result = conn.execute(sa.text(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = 'public' AND table_name = :t AND column_name = :c"
+    ), {"t": table_name, "c": column_name}).fetchone()
+    return result is not None
+
 def upgrade():
     connection = op.get_bind()
     
@@ -62,7 +82,7 @@ def upgrade():
         op.alter_column('class_subjects', 'id', nullable=False, server_default=sa.text("nextval('class_subjects_id_seq')"))
 
     # 4. Notifications.recipient_id cast validation and FK setup
-    if _table_exists(connection, 'notifications'):
+    if _table_exists(connection, 'notifications') and _column_exists(connection, 'notifications', 'recipient_id'):
         result_non_numeric = connection.execute(sa.text("SELECT id, recipient_id FROM notifications WHERE recipient_id IS NOT NULL AND recipient_id::text !~ '^[0-9]+$'")).fetchall()
         if result_non_numeric:
             raise ValueError(f"CRITICAL DATA CORRUPTION PREVENTED: Non-numeric values found in notifications.recipient_id, unable to cast: {result_non_numeric}")
@@ -74,19 +94,20 @@ def upgrade():
             _exec_safe(connection, op.execute, "ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS fk_notifications_recipient_id")
             _exec_safe(connection, op.execute, "ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS notifications_recipient_id_fkey")
 
-            # Alter column type to INTEGER
+            # Try to alter the column type to integer
             _exec_safe(connection, op.execute, "ALTER TABLE IF EXISTS notifications ALTER COLUMN recipient_id TYPE INTEGER USING (recipient_id::integer)")
 
-        # Bind new FK constraint
-        # First drop it to prevent duplicates
+        # Always ensure the FK exists (if the column exists)
+        # Drop it first to avoid duplicate if we are fixing the name
         _exec_safe(connection, op.execute, "ALTER TABLE IF EXISTS notifications DROP CONSTRAINT IF EXISTS fk_notifications_recipient_id")
+        
+        # Verify users table exists before adding FK
         if _table_exists(connection, 'users'):
             _exec_safe(
                 connection,
                 op.create_foreign_key,
                 'fk_notifications_recipient_id',
-                'notifications',
-                'users',
+                'notifications', 'users',
                 ['recipient_id'],
                 ['id'],
                 ondelete='SET NULL'

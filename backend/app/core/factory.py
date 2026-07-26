@@ -53,8 +53,9 @@ def create_app(config_name=None):
         from app.extensions import db
         is_production = app.config.get('ENV') == 'production' or os.environ.get('FLASK_ENV') == 'production'
         if not is_production:
-            if (app.config.get('AUTO_CREATE_DB') or app.config.get('INIT_DB_ON_START')) and not app.config.get('TESTING'):
-                db.create_all()
+            # We strictly use Alembic migrations, so we disable db.create_all()
+            # if (app.config.get('AUTO_CREATE_DB') or app.config.get('INIT_DB_ON_START')) and not app.config.get('TESTING'):
+            #     db.create_all()
 
             if app.config.get('INIT_DB_ON_START') and not app.config.get('TESTING'):
                 try:
