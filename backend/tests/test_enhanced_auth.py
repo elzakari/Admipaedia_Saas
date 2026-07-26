@@ -4,6 +4,7 @@ Tests for Enhanced Authentication System
 
 import pytest
 import json
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
@@ -14,41 +15,32 @@ from app.models.security import LoginAttempt
 from app.services.enhanced_auth_service import EnhancedAuthService
 from app.config import TestingConfig
 
-@pytest.fixture
-def app():
-    """Create test app"""
-    app = create_app('testing')
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
 
-@pytest.fixture
-def client(app):
-    """Create test client"""
-    return app.test_client()
 
 @pytest.fixture
 def test_user(app):
     """Create test user"""
+    from app.extensions import db as _db
     with app.app_context():
-        # Create admin role
-        admin_role = Role(name='admin', description='Administrator')
-        db.session.add(admin_role)
-        db.session.commit()
+        suffix = uuid.uuid4().hex[:6]
+        admin_role = Role.query.filter_by(name='admin').first()
+        if not admin_role:
+            admin_role = Role(name='admin', description='Administrator')
+            _db.session.add(admin_role)
+            _db.session.flush()
         
-        # Create test user
         user = User(
-            username='testuser',
-            email='test@example.com',
+            username=f'user_{suffix}',
+            email=f'user_{suffix}@example.com',
             first_name='Test',
-            last_name='User'
+            last_name='User',
+            status='active'
         )
         user.set_password('TestPassword123!')
-        user.roles.append(admin_role)
-        db.session.add(user)
-        db.session.commit()
+        if admin_role not in user.roles:
+            user.roles.append(admin_role)
+        _db.session.add(user)
+        _db.session.flush()
         
         return user
 
@@ -95,6 +87,7 @@ class TestEnhancedAuthService:
         with app.app_context():
             # Refresh user session
             test_user = db.session.merge(test_user)
+            db.session.commit()
             
             device_info = {
                 'ip_address': '127.0.0.1',
@@ -103,7 +96,7 @@ class TestEnhancedAuthService:
             }
             
             result = EnhancedAuthService.authenticate_with_security(
-                email='test@example.com',
+                email=test_user.email,
                 password='TestPassword123!',
                 device_info=device_info
             )
@@ -115,8 +108,10 @@ class TestEnhancedAuthService:
     def test_authenticate_invalid_credentials(self, app, test_user):
         """Test authentication with invalid credentials"""
         with app.app_context():
+            test_user = db.session.merge(test_user)
+            db.session.commit()
             result = EnhancedAuthService.authenticate_with_security(
-                email='test@example.com',
+                email=test_user.email,
                 password='wrongpassword'
             )
             
@@ -126,22 +121,24 @@ class TestEnhancedAuthService:
     def test_authenticate_case_insensitive_and_polymorphic(self, app, test_user):
         """Test case-insensitive and polymorphic authentication"""
         with app.app_context():
+            test_user = db.session.merge(test_user)
+            db.session.commit()
             # 1. Test case-insensitive email login
             result = EnhancedAuthService.authenticate_with_security(
-                email='TEST@EXAMPLE.COM',
+                email=test_user.email.upper(),
                 password='TestPassword123!'
             )
             assert result['success'] is True
 
             # 2. Test case-insensitive username login (polymorphic matching)
             result_username = EnhancedAuthService.authenticate_with_security(
-                email='TESTUSER',
+                email=test_user.username.upper(),
                 password='TestPassword123!'
             )
             assert result_username['success'] is True
 
             # 3. Test dictionary input payload
-            payload = {'email': 'TeSt@ExAmPlE.cOm', 'password': 'TestPassword123!'}
+            payload = {'email': test_user.email, 'password': 'TestPassword123!'}
             result_dict = EnhancedAuthService.authenticate_with_security(
                 email=payload,
                 password='TestPassword123!'
@@ -205,11 +202,12 @@ class TestEnhancedAuthService:
 class TestEnhancedAuthRoutes:
     """Test Enhanced Authentication Routes"""
     
-    def test_enhanced_login_success(self, client, test_user):
+    def test_enhanced_login_success(self, client, user_factory):
         """Test enhanced login endpoint"""
+        user = user_factory(email='enhanced_login@example.com', password='TestPassword123!', role='admin')
         response = client.post('/api/v1/auth/enhanced/login-enhanced', 
             json={
-                'email': 'test@example.com',
+                'email': 'enhanced_login@example.com',
                 'password': 'TestPassword123!',
                 'device_info': {
                     'fingerprint': 'test_fingerprint'
@@ -226,7 +224,7 @@ class TestEnhancedAuthRoutes:
         """Test enhanced login with invalid credentials"""
         response = client.post('/api/v1/auth/enhanced/login-enhanced', 
             json={
-                'email': 'test@example.com',
+                'email': test_user.email,
                 'password': 'wrongpassword'
             }
         )

@@ -56,57 +56,55 @@ def auth_client(app, client):
     """A test client with authentication."""
     from app.models.user import User
     from app.extensions import bcrypt
+    from flask_jwt_extended import create_access_token
     
     with app.app_context():
-        # Use _db.session so this is visible inside db_isolation's transaction
         user = _db.session.query(User).filter_by(email='test@example.com').first()
         if not user:
             user = User(
                 username='testuser',
                 email='test@example.com',
                 password_hash=bcrypt.generate_password_hash('password').decode('utf-8'),
-                role='admin'
+                role='admin',
+                status='active'
             )
             _db.session.add(user)
-            _db.session.flush()  # flush so the user gets an id, but don't commit
+            _db.session.flush()
+        else:
+            user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
+            user.role = 'admin'
+            user.status = 'active'
+            _db.session.flush()
         
-        # Login and get token
-        response = client.post('/api/v1/auth/login', json={
-            'email': 'test@example.com',
-            'password': 'password'
-        })
-        if response.json and response.json.get('access_token'):
-            token = response.json['access_token']
-            client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+        token = create_access_token(identity=user.id)
+        client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
         
     return client
 
 @pytest.fixture(scope='function')
-def auth_headers(app, client):
+def auth_headers(app):
     """Authorization headers for authenticated requests."""
-    # Ensure test user exists and obtain JWT
     from app.models.user import User
     from app.extensions import bcrypt
     from flask_jwt_extended import create_access_token
-    user_id = None
     with app.app_context():
-        user = User.query.filter_by(email='test@example.com').first()
+        user = _db.session.query(User).filter_by(email='test@example.com').first()
         if not user:
             user = User(
                 username='testuser',
                 email='test@example.com',
                 password_hash=bcrypt.generate_password_hash('password').decode('utf-8'),
-                role='admin'
+                role='admin',
+                status='active'
             )
             _db.session.add(user)
-            _db.session.commit()
-        user_id = user.id
-    resp = client.post('/api/v1/auth/login', json={'email': 'test@example.com', 'password': 'password'})
-    token = None
-    if getattr(resp, 'json', None):
-        token = resp.json.get('access_token')
-    if not token:
-        token = create_access_token(identity=user_id)
+            _db.session.flush()
+        else:
+            user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
+            user.role = 'admin'
+            user.status = 'active'
+            _db.session.flush()
+        token = create_access_token(identity=user.id)
     return {'Authorization': f'Bearer {token}'}
 
 @pytest.fixture(scope='function')
@@ -325,9 +323,13 @@ def unique_username(prefix: str = 'user'):
 @pytest.fixture
 def user_factory(db_session):
     from app.models.user import User
-    def _create_user(role: str = 'user'):
-        u = User(username=unique_username('testuser'), email=unique_email('testuser'), role=role)
-        u.set_password('Password123!')
+    def _create_user(role: str = 'user', email: str = None, password: str = None, username: str = None):
+        u = User(
+            username=username or unique_username('testuser'),
+            email=email or unique_email('testuser'),
+            role=role
+        )
+        u.set_password(password or 'Password123!')
         db_session.add(u)
         db_session.flush()
         return u

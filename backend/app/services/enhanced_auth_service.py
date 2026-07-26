@@ -140,6 +140,7 @@ class EnhancedAuthService:
             # Find user by email or username (case-insensitive polymorphic match)
             print(f"--- DB: FIND USER ---")
             user = User.query.filter((db.func.lower(User.email) == identifier) | (db.func.lower(User.username) == identifier)).first()
+            print(f"--- USER FOUND: {user}, hash={getattr(user, 'password_hash', None)} ---")
             
             if user and not user.password_hash:
                 print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")

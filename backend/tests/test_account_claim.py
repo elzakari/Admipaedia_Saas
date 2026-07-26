@@ -28,7 +28,7 @@ def create_test_student(db_session, user_factory, tenant_id):
     return s
 
 @pytest.mark.usefixtures('app_context', 'db_isolation')
-def test_admissions_approval_pending_activation(app, db_session, client, auth_client, admin_auth_headers):
+def test_admissions_approval_pending_activation(app, db_session, client, user_factory):
     """Test that approving an admission application creates a password-empty user with status 'pending_activation' and no spoofed email."""
     # 1. Create a Tenant
     tenant_id = uuid.uuid4()
@@ -90,24 +90,25 @@ def test_admissions_approval_pending_activation(app, db_session, client, auth_cl
     db_session.add(application)
 
     from app.models.tenant import TenantMembership
-    admin_user = User.query.filter_by(email='admin@example.com').first() or User.query.first()
-    if admin_user:
-        membership = TenantMembership(
-            user_id=admin_user.id,
-            tenant_id=tenant.id,
-            role='admin',
-            status='active'
-        )
-        db_session.add(membership)
+    from flask_jwt_extended import create_access_token
+    admin_user = user_factory(role='admin')
+    membership = TenantMembership(
+        user_id=admin_user.id,
+        tenant_id=tenant.id,
+        role='admin',
+        status='active'
+    )
+    db_session.add(membership)
     db_session.commit()
 
+    token = create_access_token(identity=admin_user.id)
     headers = {
         'X-Tenant-ID': str(tenant_id),
-        'Authorization': admin_auth_headers['Authorization']
+        'Authorization': f'Bearer {token}'
     }
 
     # Approve application
-    response = auth_client.post(
+    response = client.post(
         f"/api/v1/admissions/application/{application.id}/review",
         json={
             "status": "approved",
@@ -149,16 +150,16 @@ def test_generate_activation_link(app, db_session, client, auth_client, admin_au
     
     # Ensure the logged-in admin has membership in this tenant
     from app.models.tenant import TenantMembership
-    admin_user = User.query.filter_by(email='admin@example.com').first() or User.query.first()
-    if admin_user:
-        membership = TenantMembership(
-            user_id=admin_user.id,
-            tenant_id=tenant.id,
-            role='admin',
-            status='active'
-        )
-        db_session.add(membership)
-        db_session.flush()
+    from flask_jwt_extended import create_access_token
+    admin_user = user_factory(role='admin')
+    membership = TenantMembership(
+        user_id=admin_user.id,
+        tenant_id=tenant.id,
+        role='admin',
+        status='active'
+    )
+    db_session.add(membership)
+    db_session.flush()
 
     # Set status to pending_activation
     student.status = "pending_activation"
@@ -166,13 +167,14 @@ def test_generate_activation_link(app, db_session, client, auth_client, admin_au
     user.password_hash = None
     db_session.commit()
 
+    token = create_access_token(identity=admin_user.id)
     headers = {
         'X-Tenant-ID': str(tenant_id),
-        'Authorization': admin_auth_headers['Authorization']
+        'Authorization': f'Bearer {token}'
     }
 
     # Generate activation
-    response = auth_client.post(
+    response = client.post(
         f"/api/v1/students/{student.id}/generate-activation",
         headers=headers
     )

@@ -12,13 +12,25 @@ ADMIN_COMPATIBLE_ROLES = {
 }
 
 
+def _get_user_from_jwt():
+    raw_id = get_jwt_identity()
+    if isinstance(raw_id, dict):
+        raw_id = raw_id.get('sub') or raw_id.get('id') or raw_id.get('user_id')
+    try:
+        user_id = int(raw_id) if raw_id is not None else None
+    except (ValueError, TypeError):
+        user_id = raw_id
+    if user_id is None:
+        return None
+    return User.query.get(user_id)
+
+
 def admin_required(fn):
     """Decorator to check if the current user has an admin-capable role."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = _get_user_from_jwt()
         
         if not user or user.role not in ADMIN_COMPATIBLE_ROLES:
             return jsonify({
@@ -34,8 +46,7 @@ def teacher_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = _get_user_from_jwt()
         
         if not user or user.role not in ('teacher', 'admin', 'school_admin', 'super_admin', 'superadmin', 'super_manager'):
             return jsonify({
@@ -51,8 +62,7 @@ def student_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = _get_user_from_jwt()
         
         if not user or user.role != 'student':
             return jsonify({
@@ -68,8 +78,7 @@ def parent_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
+        user = _get_user_from_jwt()
         
         if not user or user.role != 'parent':
             return jsonify({
@@ -81,8 +90,8 @@ def parent_required(fn):
             from app.models.parent import Parent
             from app.extensions import db
 
-            if not Parent.query.filter_by(user_id=user_id).first():
-                db.session.add(Parent(user_id=user_id))
+            if not Parent.query.filter_by(user_id=user.id).first():
+                db.session.add(Parent(user_id=user.id))
                 db.session.commit()
         except Exception:
             pass

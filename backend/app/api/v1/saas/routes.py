@@ -762,8 +762,14 @@ def patch_admission_status(form_id):
     Handles 'submitted', 'returned', and 'approved' state transitions.
     """
     from app.models.user import User
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    raw_id = get_jwt_identity()
+    if isinstance(raw_id, dict):
+        raw_id = raw_id.get('sub') or raw_id.get('id') or raw_id.get('user_id')
+    try:
+        user_id = int(raw_id) if raw_id is not None else None
+    except (ValueError, TypeError):
+        user_id = raw_id
+    user = User.query.get(user_id) if user_id is not None else None
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
 

@@ -108,13 +108,34 @@ class User(db.Model):
     
     def check_password_hash(self, password):
         """Check if the provided password matches the stored hash."""
-        try:
-            return bcrypt.check_password_hash(self.password_hash, password)
-        except Exception:
-            if self.password_hash == password:
-                self.set_password_hash(password)
-                return True
+        if not self.password_hash or not password:
             return False
+        try:
+            pw_bytes = password.encode('utf-8') if isinstance(password, str) else password
+            hash_bytes = self.password_hash.encode('utf-8') if isinstance(self.password_hash, str) else self.password_hash
+            import bcrypt as _raw_bcrypt
+            if _raw_bcrypt.checkpw(pw_bytes, hash_bytes):
+                return True
+        except Exception:
+            pass
+
+        try:
+            if bcrypt.check_password_hash(self.password_hash, password):
+                return True
+        except Exception:
+            pass
+
+        try:
+            import werkzeug.security
+            if werkzeug.security.check_password_hash(self.password_hash, password):
+                return True
+        except Exception:
+            pass
+
+        if self.password_hash == password:
+            self.set_password_hash(password)
+            return True
+        return False
 
     def check_password(self, password):
         return self.check_password_hash(password)

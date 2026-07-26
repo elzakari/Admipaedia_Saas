@@ -57,6 +57,14 @@ def _get_requested_tenant_id() -> Optional[uuid.UUID]:
 def _load_request_user(user_id, *, load_full_user: bool = True) -> Optional[User]:
     if user_id is None:
         return None
+    if isinstance(user_id, dict):
+        user_id = user_id.get('sub') or user_id.get('id') or user_id.get('user_id')
+    try:
+        user_id = int(user_id) if user_id is not None else None
+    except (ValueError, TypeError):
+        pass
+    if user_id is None:
+        return None
     if load_full_user:
         return User.query.get(user_id)
     return (
@@ -87,13 +95,15 @@ def resolve_tenant_for_request(require_explicit: bool = True, *, load_full_user:
             return memberships[0].tenant_id, user, None
         return None, user, 'Tenant context required'
 
-    if user.role in ('super_admin', 'super_manager'):
-        exists = Tenant.query.filter_by(id=requested).first()
+    if user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
+        exists = Tenant.query.get(requested) or Tenant.query.filter((Tenant.id == str(requested)) | (Tenant.id == requested)).first()
         if not exists:
             return None, user, 'Tenant not found'
         return requested, user, None
 
-    membership = TenantMembership.query.filter_by(user_id=user.id, tenant_id=requested, status='active').first()
+    membership = TenantMembership.query.filter_by(user_id=user.id, status='active').filter(
+        (TenantMembership.tenant_id == str(requested)) | (TenantMembership.tenant_id == requested)
+    ).first()
     if not membership:
         return None, user, 'Tenant access denied'
     return requested, user, None
