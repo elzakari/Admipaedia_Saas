@@ -30,7 +30,15 @@ def app():
     
     # Create the database and the database tables
     with app.app_context():
-        _db.drop_all()
+        import sqlalchemy as sa
+        if test_db_url.startswith('postgres'):
+            # More robust teardown for PostgreSQL to avoid Dependency errors
+            with _db.engine.connect() as conn:
+                conn.execute(sa.text('DROP SCHEMA public CASCADE; CREATE SCHEMA public;'))
+                conn.commit()
+        else:
+            _db.drop_all()
+        
         _db.create_all()
         
         yield app
