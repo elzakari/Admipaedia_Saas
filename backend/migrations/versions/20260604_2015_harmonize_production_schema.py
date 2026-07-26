@@ -1,6 +1,6 @@
 """harmonize_production_schema
 
-Revision ID: 20260604_2015_harmonize_production_schema
+Revision ID: 20260604_harmonize_prod
 Revises: 20260604_bfa_apc
 Create Date: 2026-06-04 20:15:00.000000
 
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20260604_2015_harmonize_production_schema'
+revision = '20260604_harmonize_prod'
 down_revision = '20260604_bfa_apc'
 branch_labels = None
 depends_on = None

@@ -1,7 +1,7 @@
 """payment_gateway_seed
 
-Revision ID: 20260513_payment_gateway_seed_001
-Revises: 20260513_trial_plan_entitlements_001
+Revision ID: 20260513_pay_gw_seed_001
+Revises: 20260513_trial_entitle_001
 Create Date: 2026-05-13 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '20260513_payment_gateway_seed_001'
-down_revision = '20260513_trial_plan_entitlements_001'
+revision = '20260513_pay_gw_seed_001'
+down_revision = '20260513_trial_entitle_001'
 branch_labels = None
 depends_on = None
 

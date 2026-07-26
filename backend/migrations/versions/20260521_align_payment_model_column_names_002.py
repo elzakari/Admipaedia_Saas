@@ -1,6 +1,6 @@
-"""20260521_align_payment_model_column_names_002
+"""20260521_align_pay_cols_002
 
-Revision ID: 20260521_align_payment_model_column_names_002
+Revision ID: 20260521_align_pay_cols_002
 Revises: 20260521_seed_plan_features_001
 Create Date: 2026-05-21
 
@@ -50,7 +50,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 
-revision = '20260521_align_payment_model_column_names_002'
+revision = '20260521_align_pay_cols_002'
 down_revision = '20260521_seed_plan_features_001'
 branch_labels = None
 depends_on = None

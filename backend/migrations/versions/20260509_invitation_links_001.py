@@ -1,7 +1,7 @@
 """invitation_links
 
 Revision ID: 20260509_invitation_links_001
-Revises: 20260509_multi_country_payments_001
+Revises: 20260509_multi_pay_001
 Create Date: 2026-05-09 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = '20260509_invitation_links_001'
-down_revision = '20260509_multi_country_payments_001'
+down_revision = '20260509_multi_pay_001'
 branch_labels = None
 depends_on = None
 

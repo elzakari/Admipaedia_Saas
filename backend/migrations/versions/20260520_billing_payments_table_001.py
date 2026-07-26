@@ -1,6 +1,6 @@
 """create_billing_payments_table_001
 
-Revision ID: 20260520_billing_payments_table_001
+Revision ID: 20260520_billing_pay_001
 Revises: 20260520_merge_all_heads_001
 Create Date: 2026-05-20 00:00:00.000000
 
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260520_billing_payments_table_001'
+revision = '20260520_billing_pay_001'
 down_revision = '20260520_merge_all_heads_001'
 branch_labels = None
 depends_on = None

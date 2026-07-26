@@ -1,6 +1,6 @@
 """add_tenant_id_to_system_settings_config
 
-Revision ID: 20260527_add_tenant_id_to_system_settings_config
+Revision ID: 20260527_tenant_sys_cfg
 Revises: 171c6e2c9ef4
 Create Date: 2026-05-27 00:50:00.000000
 
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20260527_add_tenant_id_to_system_settings_config'
+revision = '20260527_tenant_sys_cfg'
 down_revision = '171c6e2c9ef4'
 branch_labels = None
 depends_on = None

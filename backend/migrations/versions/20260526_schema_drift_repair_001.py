@@ -1,7 +1,7 @@
 """Schema drift repair — missing tables and columns (2026-05-26 production)
 
 Revision ID: 20260526_schema_drift_repair_001
-Revises: 20260526_grade_levels_track_fk_patch
+Revises: 20260526_grd_lvl_fk_patch
 Create Date: 2026-05-26
 
 Resolves all items reported by schema-guard.sh after its partial run was
@@ -44,7 +44,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 revision = '20260526_schema_drift_repair_001'
-down_revision = '20260526_grade_levels_track_fk_patch'
+down_revision = '20260526_grd_lvl_fk_patch'
 branch_labels = None
 depends_on = None
 

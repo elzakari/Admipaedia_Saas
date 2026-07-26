@@ -1,7 +1,7 @@
 """Add FK constraint grade_levels.track_id -> grade_tracks and verify column exists
 
-Revision ID: 20260526_grade_levels_track_fk_patch
-Revises: 20260526_polymorphic_education_engine
+Revision ID: 20260526_grd_lvl_fk_patch
+Revises: 20260526_poly_edu_engine
 Create Date: 2026-05-26
 
 This patch ensures:
@@ -17,8 +17,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
 
-revision = '20260526_grade_levels_track_fk_patch'
-down_revision = '20260526_polymorphic_education_engine'
+revision = '20260526_grd_lvl_fk_patch'
+down_revision = '20260526_poly_edu_engine'
 branch_labels = None
 depends_on = None
 

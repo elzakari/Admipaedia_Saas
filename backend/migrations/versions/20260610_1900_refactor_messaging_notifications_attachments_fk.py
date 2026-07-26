@@ -1,7 +1,7 @@
 """refactor_messaging_notifications_attachments_fk
 
-Revision ID: 20260610_1900_refactor_messaging_notifications_attachments_fk
-Revises: 20260607_2200_polymorphic_academic_structure
+Revision ID: 20260610_msg_notif_attach_fk
+Revises: 20260607_poly_acad_struct
 Create Date: 2026-06-10 19:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = '20260610_1900_refactor_messaging_notifications_attachments_fk'
-down_revision = '20260607_2200_polymorphic_academic_structure'
+revision = '20260610_msg_notif_attach_fk'
+down_revision = '20260607_poly_acad_struct'
 branch_labels = None
 depends_on = None
 

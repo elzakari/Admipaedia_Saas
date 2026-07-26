@@ -1,7 +1,7 @@
 """seed_plan_features_001 — Seed all plan_features rows for Trial/Basic/Pro/Enterprise
 
 Revision ID: 20260521_seed_plan_features_001
-Revises: 20260520_consolidate_billing_invoice_payments_001
+Revises: 20260520_consol_billing_001
 Create Date: 2026-05-21
 
 The plan_features table is empty, causing EntitlementService.getSchoolFeatures()
@@ -26,7 +26,7 @@ from sqlalchemy import text
 
 
 revision = '20260521_seed_plan_features_001'
-down_revision = '20260520_consolidate_billing_invoice_payments_001'
+down_revision = '20260520_consol_billing_001'
 branch_labels = None
 depends_on = None
 

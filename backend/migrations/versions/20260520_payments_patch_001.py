@@ -1,7 +1,7 @@
 """payments_patch_001 – create billing_payments table and patch billing_invoices
 
 Revision ID: 20260520_payments_patch_001
-Revises: 20260513_payment_gateway_seed_001
+Revises: 20260513_pay_gw_seed_001
 Create Date: 2026-05-20 00:00:00.000000
 
 Creates the 'billing_payments' table (the SaaS billing payments table) if it
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = '20260520_payments_patch_001'
-down_revision = '20260513_payment_gateway_seed_001'
+down_revision = '20260513_pay_gw_seed_001'
 branch_labels = None
 depends_on = None
 

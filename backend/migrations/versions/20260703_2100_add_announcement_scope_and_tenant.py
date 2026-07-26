@@ -1,7 +1,7 @@
 """add_announcement_scope_and_tenant
 
-Revision ID: 20260703_2100_add_announcement_scope_and_tenant
-Revises: 20260623_1200_add_notification_user_states
+Revision ID: 20260703_announce_scope
+Revises: 20260623_notif_user_states
 Create Date: 2026-07-03 21:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260703_2100_add_announcement_scope_and_tenant'
-down_revision = '20260623_1200_add_notification_user_states'
+revision = '20260703_announce_scope'
+down_revision = '20260623_notif_user_states'
 branch_labels = None
 depends_on = None
 

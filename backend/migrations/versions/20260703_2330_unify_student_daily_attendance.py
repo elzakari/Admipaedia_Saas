@@ -1,7 +1,7 @@
 """unify_student_daily_attendance
 
-Revision ID: 20260703_2330_unify_student_daily_attendance
-Revises: 20260703_2100_add_announcement_scope_and_tenant
+Revision ID: 20260703_unify_stu_attend
+Revises: 20260703_announce_scope
 Create Date: 2026-07-03 23:30:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '20260703_2330_unify_student_daily_attendance'
-down_revision = '20260703_2100_add_announcement_scope_and_tenant'
+revision = '20260703_unify_stu_attend'
+down_revision = '20260703_announce_scope'
 branch_labels = None
 depends_on = None
 

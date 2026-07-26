@@ -1,15 +1,15 @@
 """polymorphic education engine
 
-Revision ID: 20260526_polymorphic_education_engine
-Revises: 20260521_align_payment_model_column_names_002
+Revision ID: 20260526_poly_edu_engine
+Revises: 20260521_align_pay_cols_002
 Create Date: 2026-05-26
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = '20260526_polymorphic_education_engine'
-down_revision = '20260521_align_payment_model_column_names_002'
+revision = '20260526_poly_edu_engine'
+down_revision = '20260521_align_pay_cols_002'
 branch_labels = None
 depends_on = None
 

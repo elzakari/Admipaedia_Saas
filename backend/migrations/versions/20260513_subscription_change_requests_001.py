@@ -1,7 +1,7 @@
 """subscription_change_requests
 
-Revision ID: 20260513_subscription_change_requests_001
-Revises: 20260513_trial_plan_entitlements_001
+Revision ID: 20260513_sub_change_req_001
+Revises: 20260513_trial_entitle_001
 Create Date: 2026-05-13 00:00:00.000000
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260513_subscription_change_requests_001'
-down_revision = '20260513_trial_plan_entitlements_001'
+revision = '20260513_sub_change_req_001'
+down_revision = '20260513_trial_entitle_001'
 branch_labels = None
 depends_on = None
 

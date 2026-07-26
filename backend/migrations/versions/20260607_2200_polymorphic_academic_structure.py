@@ -1,7 +1,7 @@
 """polymorphic_academic_structure
 
-Revision ID: 20260607_2200_polymorphic_academic_structure
-Revises: 20260605_2300_fix_notifications_id
+Revision ID: 20260607_poly_acad_struct
+Revises: 20260605_fix_notif_id
 Create Date: 2026-06-07 22:00:00.000000
 
 Adds the polymorphic discriminator column and supporting fields to the
@@ -13,8 +13,8 @@ Idempotent: all operations check for column existence before altering.
 from alembic import op
 import sqlalchemy as sa
 
-revision     = "20260607_2200_polymorphic_academic_structure"
-down_revision = "20260605_2300_fix_notifications_id"
+revision     = "20260607_poly_acad_struct"
+down_revision = "20260605_fix_notif_id"
 branch_labels = None
 depends_on    = None
 

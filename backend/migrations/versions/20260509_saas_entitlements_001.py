@@ -1,7 +1,7 @@
 """saas_entitlements
 
 Revision ID: 20260509_saas_entitlements_001
-Revises: 20260509_e_registration_billing_001
+Revises: 20260509_e_reg_billing_001
 Create Date: 2026-05-09 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from datetime import date
 
 
 revision = '20260509_saas_entitlements_001'
-down_revision = '20260509_e_registration_billing_001'
+down_revision = '20260509_e_reg_billing_001'
 branch_labels = None
 depends_on = None
 

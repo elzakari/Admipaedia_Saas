@@ -1,7 +1,7 @@
 """add_student_profile_picture_lock
 
-Revision ID: 20260706_1315_add_student_profile_picture_lock
-Revises: 20260703_2330_unify_student_daily_attendance
+Revision ID: 20260706_stu_pic_lock
+Revises: 20260703_unify_stu_attend
 Create Date: 2026-07-06 13:15:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '20260706_1315_add_student_profile_picture_lock'
-down_revision = '20260703_2330_unify_student_daily_attendance'
+revision = '20260706_stu_pic_lock'
+down_revision = '20260703_unify_stu_attend'
 branch_labels = None
 depends_on = None
 

@@ -1,7 +1,7 @@
 """e_registration_billing
 
-Revision ID: 20260509_e_registration_billing_001
-Revises: 20260506_backfill_acad_settings_001
+Revision ID: 20260509_e_reg_billing_001
+Revises: 20260506_bk_acad_set_001
 Create Date: 2026-05-09 00:00:00.000000
 
 """
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260509_e_registration_billing_001'
-down_revision = '20260506_backfill_acad_settings_001'
+revision = '20260509_e_reg_billing_001'
+down_revision = '20260506_bk_acad_set_001'
 branch_labels = None
 depends_on = None
 

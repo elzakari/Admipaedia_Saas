@@ -1,7 +1,7 @@
 """fix_notifications_id
 
-Revision ID: 20260605_2300_fix_notifications_id
-Revises: 20260604_2015_harmonize_production_schema
+Revision ID: 20260605_fix_notif_id
+Revises: 20260604_harmonize_prod
 Create Date: 2026-06-05 23:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20260605_2300_fix_notifications_id'
-down_revision = '20260604_2015_harmonize_production_schema'
+revision = '20260605_fix_notif_id'
+down_revision = '20260604_harmonize_prod'
 branch_labels = None
 depends_on = None
 

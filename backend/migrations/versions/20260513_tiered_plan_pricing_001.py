@@ -1,7 +1,7 @@
 """tiered_plan_pricing
 
 Revision ID: 20260513_tiered_plan_pricing_001
-Revises: 20260513_subscription_change_requests_001
+Revises: 20260513_sub_change_req_001
 Create Date: 2026-05-13 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 revision = '20260513_tiered_plan_pricing_001'
-down_revision = '20260513_subscription_change_requests_001'
+down_revision = '20260513_sub_change_req_001'
 branch_labels = None
 depends_on = None
 

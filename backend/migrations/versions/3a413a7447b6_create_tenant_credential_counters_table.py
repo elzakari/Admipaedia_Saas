@@ -1,7 +1,7 @@
 """create_tenant_credential_counters_table
 
 Revision ID: 3a413a7447b6
-Revises: 20260527_add_tenant_id_to_system_settings_config
+Revises: 20260527_tenant_sys_cfg
 Create Date: 2026-05-29 13:21:14.579881
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '3a413a7447b6'
-down_revision = '20260527_add_tenant_id_to_system_settings_config'
+down_revision = '20260527_tenant_sys_cfg'
 branch_labels = None
 depends_on = None
 

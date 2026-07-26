@@ -1,7 +1,7 @@
 """backfill_tenant_academic_settings
 
-Revision ID: 20260506_backfill_acad_settings_001
-Revises: 20260506_tenant_grading_schemes_001
+Revision ID: 20260506_bk_acad_set_001
+Revises: 20260506_grading_sch_001
 Create Date: 2026-05-06 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import json
 import uuid
 
 
-revision = '20260506_backfill_acad_settings_001'
-down_revision = '20260506_tenant_grading_schemes_001'
+revision = '20260506_bk_acad_set_001'
+down_revision = '20260506_grading_sch_001'
 branch_labels = None
 depends_on = None
 

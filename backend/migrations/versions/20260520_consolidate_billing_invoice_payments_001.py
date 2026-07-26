@@ -1,7 +1,7 @@
 """consolidate_billing_invoice_payments_001
 
-Revision ID: 20260520_consolidate_billing_invoice_payments_001
-Revises: 20260520_billing_payments_table_001
+Revision ID: 20260520_consol_billing_001
+Revises: 20260520_billing_pay_001
 Create Date: 2026-05-20 00:00:00.000000
 
 The Payment model (app/models/payments.py) now targets 'billing_invoice_payments'
@@ -22,8 +22,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260520_consolidate_billing_invoice_payments_001'
-down_revision = '20260520_billing_payments_table_001'
+revision = '20260520_consol_billing_001'
+down_revision = '20260520_billing_pay_001'
 branch_labels = None
 depends_on = None
 

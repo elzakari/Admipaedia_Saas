@@ -1,6 +1,6 @@
 """multi_country_payments
 
-Revision ID: 20260509_multi_country_payments_001
+Revision ID: 20260509_multi_pay_001
 Revises: 20260509_saas_entitlements_001
 Create Date: 2026-05-09 00:00:00.000000
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260509_multi_country_payments_001'
+revision = '20260509_multi_pay_001'
 down_revision = '20260509_saas_entitlements_001'
 branch_labels = None
 depends_on = None

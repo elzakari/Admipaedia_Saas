@@ -1,7 +1,7 @@
 """add_notification_user_states
 
-Revision ID: 20260623_1200_add_notification_user_states
-Revises: 20260610_1900_refactor_messaging_notifications_attachments_fk
+Revision ID: 20260623_notif_user_states
+Revises: 20260610_msg_notif_attach_fk
 Create Date: 2026-06-23 12:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = '20260623_1200_add_notification_user_states'
-down_revision = '20260610_1900_refactor_messaging_notifications_attachments_fk'
+revision = '20260623_notif_user_states'
+down_revision = '20260610_msg_notif_attach_fk'
 branch_labels = None
 depends_on = None
 

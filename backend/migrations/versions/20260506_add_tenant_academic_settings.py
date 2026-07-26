@@ -1,6 +1,6 @@
 """add_tenant_academic_settings
 
-Revision ID: 20260506_tenant_academic_settings_001
+Revision ID: 20260506_acad_settings_001
 Revises: 20260506_academic_terms_001
 Create Date: 2026-05-06 00:00:00.000000
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260506_tenant_academic_settings_001'
+revision = '20260506_acad_settings_001'
 down_revision = '20260506_academic_terms_001'
 branch_labels = None
 depends_on = None

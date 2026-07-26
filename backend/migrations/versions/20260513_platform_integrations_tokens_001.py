@@ -1,6 +1,6 @@
 """platform_integrations_tokens
 
-Revision ID: 20260513_platform_integrations_tokens_001
+Revision ID: 20260513_plt_integ_tokens_001
 Revises: 20260509_invitation_links_001
 Create Date: 2026-05-13 00:00:00.000000
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision = '20260513_platform_integrations_tokens_001'
+revision = '20260513_plt_integ_tokens_001'
 down_revision = '20260509_invitation_links_001'
 branch_labels = None
 depends_on = None
