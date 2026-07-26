@@ -165,7 +165,7 @@ def upgrade():
         except Exception:
             pass
 
-    op.execute('ALTER TABLE enhanced_grades DROP CONSTRAINT IF EXISTS enhanced_grades_assessment_type_id_fkey')
+    _exec_safe(connection, op.execute, 'ALTER TABLE IF EXISTS enhanced_grades DROP CONSTRAINT IF EXISTS enhanced_grades_assessment_type_id_fkey')
     
     # Drop constraints for tables that will be dropped or modified
     for tbl, constraint in [
@@ -963,7 +963,7 @@ def downgrade():
     if _table_exists(connection, 'grades'):
         for fk_name in (None, op.f('fk_grades_class_id')):
             if fk_name is None:
-                op.execute('ALTER TABLE grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
+                _exec_safe(connection, op.execute, 'ALTER TABLE IF EXISTS grades DROP CONSTRAINT IF EXISTS fk_grades_class_id')
             elif _fk_exists(connection, 'grades', fk_name):
                 op.drop_constraint(fk_name, 'grades', type_='foreignkey')
         if _column_exists(connection, 'grades', 'class_id'):
