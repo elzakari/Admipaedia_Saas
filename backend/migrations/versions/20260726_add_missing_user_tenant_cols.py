@@ -10,6 +10,7 @@ to the database via a migration, causing UndefinedColumn errors in CI:
   users:
     - invitation_token_hash  VARCHAR(255) nullable
     - invitation_expires_at  TIMESTAMP nullable
+    - email_verified_at      TIMESTAMP nullable
 
   tenants:
     - is_setup_completed     BOOLEAN default false
@@ -53,6 +54,11 @@ def upgrade():
             'invitation_expires_at', sa.DateTime(), nullable=True
         ))
 
+    if not _column_exists(conn, 'users', 'email_verified_at'):
+        op.add_column('users', sa.Column(
+            'email_verified_at', sa.DateTime(), nullable=True
+        ))
+
     # -- tenants: setup / hq flags -------------------------------------------
     if not _column_exists(conn, 'tenants', 'is_setup_completed'):
         op.add_column('tenants', sa.Column(
@@ -81,6 +87,9 @@ def downgrade():
 
     if _column_exists(conn, 'tenants', 'is_setup_completed'):
         op.drop_column('tenants', 'is_setup_completed')
+
+    if _column_exists(conn, 'users', 'email_verified_at'):
+        op.drop_column('users', 'email_verified_at')
 
     if _column_exists(conn, 'users', 'invitation_expires_at'):
         op.drop_column('users', 'invitation_expires_at')
