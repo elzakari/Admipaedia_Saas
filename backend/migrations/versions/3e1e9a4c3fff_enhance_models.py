@@ -17,29 +17,56 @@ depends_on = None
 
 
 def _table_exists(connection, table_name):
-    inspector = sa.inspect(connection)
-    return table_name in inspector.get_table_names()
+    try:
+        inspector = sa.inspect(connection)
+        return table_name in inspector.get_table_names()
+    except Exception:
+        return False
 
 
 def _column_exists(connection, table_name, column_name):
-    if not _table_exists(connection, table_name):
+    try:
+        if not _table_exists(connection, table_name):
+            return False
+        inspector = sa.inspect(connection)
+        return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+    except Exception:
         return False
-    inspector = sa.inspect(connection)
-    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
 
 
 def _index_exists(connection, table_name, index_name):
-    if not _table_exists(connection, table_name):
+    try:
+        if not _table_exists(connection, table_name):
+            return False
+        inspector = sa.inspect(connection)
+        return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
+    except Exception:
         return False
-    inspector = sa.inspect(connection)
-    return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
 
 
 def _fk_exists(connection, table_name, constraint_name):
-    if not _table_exists(connection, table_name):
+    try:
+        if not _table_exists(connection, table_name):
+            return False
+        inspector = sa.inspect(connection)
+        return any(fk["name"] == constraint_name for fk in inspector.get_foreign_keys(table_name))
+    except Exception:
         return False
-    inspector = sa.inspect(connection)
-    return any(fk["name"] == constraint_name for fk in inspector.get_foreign_keys(table_name))
+
+
+def _exec_safe(connection, fn, *args, **kwargs):
+    try:
+        nested = connection.begin_nested()
+        try:
+            fn(*args, **kwargs)
+            nested.commit()
+        except Exception:
+            nested.rollback()
+    except Exception:
+        try:
+            fn(*args, **kwargs)
+        except Exception:
+            pass
 
 
 def _apply_safe_alembic_ops(connection):
@@ -61,49 +88,31 @@ def _apply_safe_alembic_ops(connection):
                 return
             if not _index_exists(connection, table_name, idx_str):
                 return
-            try:
-                real_drop_index(index_name, table_name=table_name, **kwargs)
-            except Exception:
-                pass
+            _exec_safe(connection, real_drop_index, index_name, table_name=table_name, **kwargs)
         else:
-            try:
-                op.execute(sa.text(f'DROP INDEX IF EXISTS "{idx_str}"'))
-            except Exception:
-                pass
+            _exec_safe(connection, lambda: op.execute(sa.text(f'DROP INDEX IF EXISTS "{idx_str}"')))
 
     def safe_drop_constraint(constraint_name, table_name, type_='foreignkey', **kwargs):
         c_str = str(constraint_name) if constraint_name is not None else None
         if not c_str or not table_name or not _table_exists(connection, table_name):
             return
         if _fk_exists(connection, table_name, c_str):
-            try:
-                real_drop_constraint(constraint_name, table_name, type_=type_, **kwargs)
-            except Exception:
-                pass
+            _exec_safe(connection, real_drop_constraint, constraint_name, table_name, type_=type_, **kwargs)
 
     def safe_drop_column(table_name, column_name, **kwargs):
         if _table_exists(connection, table_name) and _column_exists(connection, table_name, column_name):
-            try:
-                real_drop_column(table_name, column_name, **kwargs)
-            except Exception:
-                pass
+            _exec_safe(connection, real_drop_column, table_name, column_name, **kwargs)
 
     def safe_drop_table(table_name, **kwargs):
         if _table_exists(connection, table_name):
-            try:
-                real_drop_table(table_name, **kwargs)
-            except Exception:
-                pass
+            _exec_safe(connection, real_drop_table, table_name, **kwargs)
 
     def safe_alter_column(table_name, column_name, **kwargs):
         if not _table_exists(connection, table_name):
             return
         if not _column_exists(connection, table_name, column_name):
             return
-        try:
-            real_alter_column(table_name, column_name, **kwargs)
-        except Exception:
-            pass
+        _exec_safe(connection, real_alter_column, table_name, column_name, **kwargs)
 
     def safe_add_column(table_name, column, **kwargs):
         if not _table_exists(connection, table_name):
@@ -111,10 +120,7 @@ def _apply_safe_alembic_ops(connection):
         col_name = getattr(column, 'name', None)
         if col_name and _column_exists(connection, table_name, col_name):
             return
-        try:
-            real_add_column(table_name, column, **kwargs)
-        except Exception:
-            pass
+        _exec_safe(connection, real_add_column, table_name, column, **kwargs)
 
     def safe_create_index(index_name, table_name, columns, **kwargs):
         if not _table_exists(connection, table_name):
@@ -122,10 +128,7 @@ def _apply_safe_alembic_ops(connection):
         idx_str = str(index_name) if index_name is not None else None
         if idx_str and _index_exists(connection, table_name, idx_str):
             return
-        try:
-            real_create_index(index_name, table_name, columns, **kwargs)
-        except Exception:
-            pass
+        _exec_safe(connection, real_create_index, index_name, table_name, columns, **kwargs)
 
     def safe_create_foreign_key(constraint_name, source_table, referent_table, local_cols, remote_cols, **kwargs):
         if not _table_exists(connection, source_table) or not _table_exists(connection, referent_table):
@@ -133,10 +136,7 @@ def _apply_safe_alembic_ops(connection):
         c_str = str(constraint_name) if constraint_name is not None else None
         if c_str and _fk_exists(connection, source_table, c_str):
             return
-        try:
-            real_create_foreign_key(constraint_name, source_table, referent_table, local_cols, remote_cols, **kwargs)
-        except Exception:
-            pass
+        _exec_safe(connection, real_create_foreign_key, constraint_name, source_table, referent_table, local_cols, remote_cols, **kwargs)
 
     op.drop_index = safe_drop_index
     op.drop_constraint = safe_drop_constraint
