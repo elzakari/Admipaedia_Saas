@@ -47,6 +47,10 @@ def _apply_safe_alembic_ops(connection):
     real_drop_constraint = op.drop_constraint
     real_drop_column = op.drop_column
     real_drop_table = op.drop_table
+    real_alter_column = op.alter_column
+    real_add_column = op.add_column
+    real_create_index = op.create_index
+    real_create_foreign_key = op.create_foreign_key
 
     def safe_drop_index(index_name, table_name=None, **kwargs):
         idx_str = str(index_name) if index_name is not None else None
@@ -91,10 +95,57 @@ def _apply_safe_alembic_ops(connection):
             except Exception:
                 pass
 
+    def safe_alter_column(table_name, column_name, **kwargs):
+        if not _table_exists(connection, table_name):
+            return
+        if not _column_exists(connection, table_name, column_name):
+            return
+        try:
+            real_alter_column(table_name, column_name, **kwargs)
+        except Exception:
+            pass
+
+    def safe_add_column(table_name, column, **kwargs):
+        if not _table_exists(connection, table_name):
+            return
+        col_name = getattr(column, 'name', None)
+        if col_name and _column_exists(connection, table_name, col_name):
+            return
+        try:
+            real_add_column(table_name, column, **kwargs)
+        except Exception:
+            pass
+
+    def safe_create_index(index_name, table_name, columns, **kwargs):
+        if not _table_exists(connection, table_name):
+            return
+        idx_str = str(index_name) if index_name is not None else None
+        if idx_str and _index_exists(connection, table_name, idx_str):
+            return
+        try:
+            real_create_index(index_name, table_name, columns, **kwargs)
+        except Exception:
+            pass
+
+    def safe_create_foreign_key(constraint_name, source_table, referent_table, local_cols, remote_cols, **kwargs):
+        if not _table_exists(connection, source_table) or not _table_exists(connection, referent_table):
+            return
+        c_str = str(constraint_name) if constraint_name is not None else None
+        if c_str and _fk_exists(connection, source_table, c_str):
+            return
+        try:
+            real_create_foreign_key(constraint_name, source_table, referent_table, local_cols, remote_cols, **kwargs)
+        except Exception:
+            pass
+
     op.drop_index = safe_drop_index
     op.drop_constraint = safe_drop_constraint
     op.drop_column = safe_drop_column
     op.drop_table = safe_drop_table
+    op.alter_column = safe_alter_column
+    op.add_column = safe_add_column
+    op.create_index = safe_create_index
+    op.create_foreign_key = safe_create_foreign_key
 
 
 def upgrade():
