@@ -89,12 +89,11 @@ def auth_client(app, client):
                 status='active'
             )
             _db.session.add(user)
-            _db.session.flush()
         else:
             user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
             user.role = 'admin'
             user.status = 'active'
-            _db.session.flush()
+        _db.session.commit()
         
         token = create_access_token(identity=user.id)
         client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
