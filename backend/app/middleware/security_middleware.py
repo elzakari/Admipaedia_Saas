@@ -298,8 +298,9 @@ def rate_limit(limit: int = 100, window: int = 3600, burst_limit: int = None):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            # In DEBUG/TESTING mode, skip rate limiting UNLESS it's been mocked (i.e. unit tests)
-            is_mocked = hasattr(rate_limiter.is_allowed, '_mock_self') or hasattr(rate_limiter.is_allowed, 'called')
+            # In DEBUG/TESTING mode, skip rate limiting UNLESS it's currently mocked (i.e. unit tests testing rate limiting)
+            from unittest.mock import Mock, MagicMock
+            is_mocked = isinstance(rate_limiter, (Mock, MagicMock)) or isinstance(rate_limiter.is_allowed, (Mock, MagicMock))
             if (current_app.config.get('DEBUG') or current_app.config.get('TESTING')) and not is_mocked:
                 rate_limiter.requests.clear()
                 rate_limiter.blocked_ips.clear()
