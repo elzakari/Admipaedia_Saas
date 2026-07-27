@@ -299,7 +299,7 @@ def login():
         if result.get('success', False):
             status_code = 200
         elif result.get('error') == 'EMAIL_NOT_VERIFIED':
-            status_code = 403
+            status_code = 401
         elif result.get('error') == 'UNCLAIMED_PROFILE':
             status_code = 400
         else:
