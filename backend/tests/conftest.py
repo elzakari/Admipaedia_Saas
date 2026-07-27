@@ -78,26 +78,28 @@ def auth_client(app, client):
     from app.extensions import bcrypt
     from flask_jwt_extended import create_access_token
     
-    with app.app_context():
-        user = _db.session.query(User).filter_by(email='test@example.com').first()
-        if not user:
-            user = User(
-                username='testuser',
-                email='test@example.com',
-                password_hash=bcrypt.generate_password_hash('password').decode('utf-8'),
-                role='admin',
-                status='active'
-            )
-            _db.session.add(user)
-        else:
-            user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
-            user.role = 'admin'
-            user.status = 'active'
-        _db.session.commit()
-        
-        token = create_access_token(identity=user.id)
-        client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
-        
+    # Operate in the current app context (pushed by app_context autouse fixture)
+    # so the user is created within the same savepoint/transaction that
+    # db_isolation manages, making it visible to test body queries.
+    user = _db.session.query(User).filter_by(email='test@example.com').first()
+    if not user:
+        user = User(
+            username='testuser',
+            email='test@example.com',
+            password_hash=bcrypt.generate_password_hash('password').decode('utf-8'),
+            role='admin',
+            status='active'
+        )
+        _db.session.add(user)
+    else:
+        user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
+        user.role = 'admin'
+        user.status = 'active'
+    _db.session.flush()
+    
+    token = create_access_token(identity=user.id)
+    client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
+    
     return client
 
 @pytest.fixture(scope='function')
