@@ -136,7 +136,7 @@ def register():
             email=data['email'],
             role=requested_role
         )
-        if current_app.config.get('TESTING') or current_app.config.get('AUTO_VERIFY_EMAIL'):
+        if current_app.config.get('AUTO_VERIFY_EMAIL'):
             user.status = 'active'
             user.is_email_verified = True
         else:

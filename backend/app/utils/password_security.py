@@ -186,7 +186,7 @@ class PasswordSecurity:
         """
         try:
             from flask import current_app
-            if current_app and (current_app.config.get('DISABLE_HIBP_CHECK') or current_app.config.get('TESTING')):
+            if current_app and current_app.config.get('DISABLE_HIBP_CHECK'):
                 return False
         except Exception:
             pass
