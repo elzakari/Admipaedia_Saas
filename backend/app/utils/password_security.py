@@ -168,9 +168,14 @@ class PasswordSecurity:
         for _ in range(length - len(password_chars)):
             password_chars.append(secrets.choice(all_chars))
         
-        # Shuffle the password
-        secrets.SystemRandom().shuffle(password_chars)
-        
+        # Shuffle and check strength (avoid random sequential/repeated char collisions)
+        for _ in range(100):
+            secrets.SystemRandom().shuffle(password_chars)
+            pwd = ''.join(password_chars)
+            is_valid, _ = cls.validate_password_strength(pwd)
+            if is_valid:
+                return pwd
+
         return ''.join(password_chars)
     
     @classmethod
