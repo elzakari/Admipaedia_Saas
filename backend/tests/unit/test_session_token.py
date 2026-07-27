@@ -14,48 +14,45 @@ class TestSessionToken:
     """Test cases for SessionToken model."""
 
     @pytest.fixture
-    def token_data(self, app):
+    def token_data(self, db):
         """Fixture for session token test data."""
-        with app.app_context():
-            from app.models.user import User
-            from app.extensions import db, bcrypt
-            import uuid
-            
-            user_email = f"token_{uuid.uuid4().hex[:8]}@example.com"
-            user = User(username=f"token_{uuid.uuid4().hex[:8]}", email=user_email, role='user')
-            user.password_hash = bcrypt.generate_password_hash('Password123!').decode('utf-8')
-            db.session.add(user)
-            db.session.commit()
-            
-            return {
-                'jti': f'test-jwt-id-{uuid.uuid4().hex[:8]}',
-                'user_id': user.id,
-                'token_type': 'access',
-                'ip_address': '192.168.1.1',
-                'user_agent': 'Mozilla/5.0',
-                'expires_at': datetime.utcnow() + timedelta(hours=1)
-            }
+        from app.models.user import User
+        from app.extensions import bcrypt
+        import uuid
+        
+        user_email = f"token_{uuid.uuid4().hex[:8]}@example.com"
+        user = User(username=f"token_{uuid.uuid4().hex[:8]}", email=user_email, role='user')
+        user.password_hash = bcrypt.generate_password_hash('Password123!').decode('utf-8')
+        db.session.add(user)
+        db.session.flush()
+        
+        return {
+            'jti': f'test-jwt-id-{uuid.uuid4().hex[:8]}',
+            'user_id': user.id,
+            'token_type': 'access',
+            'ip_address': '192.168.1.1',
+            'user_agent': 'Mozilla/5.0',
+            'expires_at': datetime.utcnow() + timedelta(hours=1)
+        }
 
-    def test_session_token_creation(self, app, token_data):
+    def test_session_token_creation(self, db, token_data):
         """Test session token creation."""
-        with app.app_context():
-            token = SessionToken(**token_data)
-            db.session.add(token)
-            db.session.commit()
-            
-            assert token.id is not None
-            assert token.jti == token_data['jti']
-            assert token.user_id == token_data['user_id']
-            assert token.token_type == token_data['token_type']
-            assert token.is_revoked is False
-            assert token.issued_at is not None
+        token = SessionToken(**token_data)
+        db.session.add(token)
+        db.session.commit()
+        
+        assert token.id is not None
+        assert token.jti == token_data['jti']
+        assert token.user_id == token_data['user_id']
+        assert token.token_type == token_data['token_type']
+        assert token.is_revoked is False
+        assert token.issued_at is not None
 
-    def test_session_token_representation(self, app, token_data):
+    def test_session_token_representation(self, db, token_data):
         """Test session token string representation."""
-        with app.app_context():
-            token = SessionToken(**token_data)
-            expected = f"<SessionToken {token_data['jti']} - User {token_data['user_id']} - {token_data['token_type']}>"
-            assert repr(token) == expected
+        token = SessionToken(**token_data)
+        expected = f"<SessionToken {token_data['jti']} - User {token_data['user_id']} - {token_data['token_type']}>"
+        assert repr(token) == expected
 
     def test_is_expired_true(self, app, token_data):
         """Test is_expired property when token is expired."""
