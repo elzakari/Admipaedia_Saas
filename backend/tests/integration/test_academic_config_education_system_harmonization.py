@@ -317,7 +317,12 @@ def test_legacy_academic_settings_json_backfills_and_supports_snake_case_grade_s
 def test_invalid_legacy_academic_settings_json_does_not_crash(auth_client):
     tenant = _create_tenant_and_membership(auth_client)
 
-    db.session.add(SystemSetting(key='academic.settings', value='{invalid', setting_type='json'))
+    setting = SystemSetting.query.filter_by(key='academic.settings').first()
+    if setting:
+        setting.value = '{invalid'
+        setting.setting_type = 'json'
+    else:
+        db.session.add(SystemSetting(key='academic.settings', value='{invalid', setting_type='json'))
     db.session.commit()
 
     cfg = AcademicConfigurationService.build_harmonized_config(tenant.id)
