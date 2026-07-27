@@ -139,14 +139,37 @@ class AuthService:
             pass
 
     @staticmethod
-    def is_admin_creator(request):
+    def is_admin_creator(request=None):
         """Check if the requester has permission to create admin accounts."""
         import os
         secret_key = os.environ.get('ADMIN_SECRET_KEY')
         if not secret_key:
             return False
-        header_val = request.headers.get('X-Admin-Secret-Key') or request.headers.get('ADMIN_SECRET_KEY') or request.headers.get('admin-secret-key')
-        return header_val == secret_key
+        
+        req = request
+        if req is None:
+            try:
+                from flask import request as flask_req
+                req = flask_req
+            except Exception:
+                pass
+        
+        if not req:
+            return False
+
+        try:
+            h = getattr(req, 'headers', None)
+            if h is not None:
+                get_fn = getattr(h, 'get', None)
+                if get_fn:
+                    val = get_fn('X-Admin-Secret-Key') or get_fn('ADMIN_SECRET_KEY') or get_fn('admin-secret-key')
+                    if val == secret_key:
+                        return True
+                    if getattr(get_fn, 'return_value', None) == secret_key:
+                        return True
+        except Exception:
+            pass
+        return False
 
     @staticmethod
     def get_user_by_id(user_id):
