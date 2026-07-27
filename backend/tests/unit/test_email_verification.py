@@ -75,13 +75,21 @@ class TestEmailVerificationService:
         assert 'https://example.com/auth/verify-email' in kwargs.get('html_body', '')
 
     def test_get_request_base_url_defaults(self, app):
-        with app.test_request_context():
-            app.config['TESTING'] = False
-            app.config['DEBUG'] = False
-            app.config['FRONTEND_URL'] = ''
-            service = EmailVerificationService()
-            url = service.get_request_base_url()
-            assert url == 'https://admipaedia.easymsdigit.com'
+        orig_testing = app.config.get('TESTING')
+        orig_debug = app.config.get('DEBUG')
+        orig_frontend = app.config.get('FRONTEND_URL')
+        try:
+            with app.test_request_context():
+                app.config['TESTING'] = False
+                app.config['DEBUG'] = False
+                app.config['FRONTEND_URL'] = ''
+                service = EmailVerificationService()
+                url = service.get_request_base_url()
+                assert url == 'https://admipaedia.easymsdigit.com'
+        finally:
+            app.config['TESTING'] = orig_testing
+            app.config['DEBUG'] = orig_debug
+            app.config['FRONTEND_URL'] = orig_frontend
 
     def test_get_request_base_url_proxies(self, app):
         # Mock request with custom proxy headers
