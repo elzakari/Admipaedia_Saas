@@ -23,6 +23,14 @@ def _table_exists(conn, table: str) -> bool:
     return result is not None
 
 
+def _column_exists(conn, table: str, column: str) -> bool:
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_schema = 'public' AND table_name = :t AND column_name = :c"
+    ), {"t": table, "c": column}).fetchone()
+    return result is not None
+
+
 def upgrade():
     conn = op.get_bind()
 
@@ -40,6 +48,12 @@ def upgrade():
             sa.Column('is_temporary', sa.Boolean(), nullable=False, server_default=sa.text('false')),
             sa.Column('context_data', sa.JSON(), nullable=True),
         )
+
+    if _table_exists(conn, 'permission_grants'):
+        if not _column_exists(conn, 'permission_grants', 'granted_reason'):
+            op.add_column('permission_grants', sa.Column('granted_reason', sa.String(255), nullable=True))
+        if not _column_exists(conn, 'permission_grants', 'conditions'):
+            op.add_column('permission_grants', sa.Column('conditions', sa.JSON(), nullable=True))
 
 
 def downgrade():
