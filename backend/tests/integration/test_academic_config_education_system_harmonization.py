@@ -588,28 +588,33 @@ def test_get_grading_scheme_apc_togo_seeding_and_calculation(auth_client):
     db.session.add(student)
     db.session.commit()
 
+    from app.models.subject import Subject
+    subject = Subject(tenant_id=tenant.id, name='Mathematics', code='MATH101')
+    db.session.add(subject)
+    db.session.flush()
+
     # Create grade records with specific scores (M=18, EA=12)
     from app.models.exam import Exam
     from app.models.grade import Grade
     
     from datetime import datetime
-    exam1 = Exam(title='Math Competency 1', class_id=cls.id, subject_id=1, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Exams')
-    exam2 = Exam(title='Math Competency 2', class_id=cls.id, subject_id=1, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Assignments')
+    exam1 = Exam(title='Math Competency 1', class_id=cls.id, subject_id=subject.id, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Exams')
+    exam2 = Exam(title='Math Competency 2', class_id=cls.id, subject_id=subject.id, total_marks=20, passing_marks=10, duration=60, exam_date=datetime.utcnow(), created_by=user.id, assessment_type='Assignments')
     db.session.add_all([exam1, exam2])
     db.session.flush()
 
-    g1 = Grade(student_id=student.id, class_id=cls.id, subject_id=1, exam_id=exam1.id, marks_obtained=18.0, percentage=18.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
-    g2 = Grade(student_id=student.id, class_id=cls.id, subject_id=1, exam_id=exam2.id, marks_obtained=12.0, percentage=12.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
+    g1 = Grade(student_id=student.id, class_id=cls.id, subject_id=subject.id, exam_id=exam1.id, marks_obtained=18.0, percentage=18.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
+    g2 = Grade(student_id=student.id, class_id=cls.id, subject_id=subject.id, exam_id=exam2.id, marks_obtained=12.0, percentage=12.0, graded_by=user.id, term='Premier Trimestre', academic_year='2026/2027')
     db.session.add_all([g1, g2])
     db.session.commit()
 
     # Calculate final grades
     from app.services.grading.service import GradingService
-    success, err = GradingService.calculate_final_grades(cls.id, 1, 'Premier Trimestre', '2026/2027')
+    success, err = GradingService.calculate_final_grades(cls.id, subject.id, 'Premier Trimestre', '2026/2027')
     assert success is True
 
     from app.models.grading_system import FinalGrade
-    fg = FinalGrade.query.filter_by(student_id=student.id, class_id=cls.id, subject_id=1).first()
+    fg = FinalGrade.query.filter_by(student_id=student.id, class_id=cls.id, subject_id=subject.id).first()
     assert fg is not None
     print("\n--- DIAGNOSTICS ---")
     print("FG PERCENTAGE:", fg.final_percentage)
