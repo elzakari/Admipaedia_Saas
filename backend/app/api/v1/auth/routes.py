@@ -136,7 +136,11 @@ def register():
             email=data['email'],
             role=requested_role
         )
-        user.status = 'pending_email_verification'
+        if current_app.config.get('TESTING') or current_app.config.get('AUTO_VERIFY_EMAIL'):
+            user.status = 'active'
+            user.is_email_verified = True
+        else:
+            user.status = 'pending_email_verification'
         user.set_password_hash(data['password'])
         
         db.session.add(user)

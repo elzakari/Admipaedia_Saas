@@ -96,14 +96,12 @@ def resolve_tenant_for_request(require_explicit: bool = True, *, load_full_user:
         return None, user, 'Tenant context required'
 
     if user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
-        exists = Tenant.query.get(requested) or Tenant.query.filter((Tenant.id == str(requested)) | (Tenant.id == requested)).first()
+        exists = Tenant.query.get(requested)
         if not exists:
             return None, user, 'Tenant not found'
         return requested, user, None
 
-    membership = TenantMembership.query.filter_by(user_id=user.id, status='active').filter(
-        (TenantMembership.tenant_id == str(requested)) | (TenantMembership.tenant_id == requested)
-    ).first()
+    membership = TenantMembership.query.filter_by(user_id=user.id, tenant_id=requested, status='active').first()
     if not membership:
         return None, user, 'Tenant access denied'
     return requested, user, None

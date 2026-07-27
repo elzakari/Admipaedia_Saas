@@ -450,6 +450,8 @@ def create_class_announcement(class_id):
 
         payload = dict(request.json or {})
         payload['class_id'] = class_id
+        if not payload.get('scope'):
+            payload['scope'] = 'class_bound'
         data = announcement_create_schema.load(payload)
         data['teacher_id'] = teacher_id
         

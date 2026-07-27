@@ -88,7 +88,12 @@ class AnnouncementService:
     @staticmethod
     def prepare_announcement_payload(announcement_data):
         payload = dict(announcement_data or {})
-        scope = AnnouncementService.normalize_scope(payload.get('scope'))
+        scope_raw = payload.get('scope')
+        if not scope_raw and payload.get('class_id'):
+            scope = 'class_bound'
+        else:
+            scope = AnnouncementService.normalize_scope(scope_raw)
+            
         payload['scope'] = scope
         payload['target_roles'] = AnnouncementService.serialize_target_roles(payload.get('target_roles'))
         payload['recipients'] = AnnouncementService.derive_recipients(payload.get('target_roles'))
@@ -403,7 +408,7 @@ class AnnouncementService:
             elif user.role in ('admin', 'school_admin', 'super_admin', 'super_manager'):
                 effective_tenant_ids = []
                 if requested_tenant_id:
-                    effective_tenant_ids = [requested_tenant_id]
+                    effective_tenant_ids = [AnnouncementService.normalize_tenant_id(requested_tenant_id)]
                 else:
                     memberships = TenantMembership.query.filter_by(user_id=user.id, status='active').all()
                     effective_tenant_ids = [AnnouncementService.normalize_tenant_id(membership.tenant_id) for membership in memberships]

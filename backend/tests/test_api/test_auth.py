@@ -23,9 +23,15 @@ def test_login(client, db):
         'username': 'loginuser',
         'email': 'login@example.com',
         'password': 'Password123!',
-        'role': 'teacher'
     })
     
+    # Activate user so login is allowed
+    from app.models.user import User
+    user = User.query.filter_by(email='login@example.com').first()
+    if user:
+        user.status = 'active'
+        db.session.commit()
+
     # Then try to login
     response = client.post('/api/v1/auth/login', json={
         'email': 'login@example.com',
