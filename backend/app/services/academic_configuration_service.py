@@ -356,7 +356,7 @@ class AcademicConfigurationService:
             except Exception:
                 pass
 
-        GradeBoundary.query.filter_by(grading_scheme_id=scheme.id).delete()
+        GradeBoundary.query.filter_by(grading_scheme_id=scheme.id).delete(synchronize_session='fetch')
 
         for idx, g in enumerate(grade_scale):
             if not isinstance(g, dict):
@@ -389,3 +389,4 @@ class AcademicConfigurationService:
             db.session.add(boundary)
 
         db.session.commit()
+        db.session.expire(scheme)
