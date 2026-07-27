@@ -240,18 +240,32 @@ def app_context(app):
 @pytest.fixture(autouse=True)
 def db_isolation(app):
     from app.extensions import db
-    
+
     session = db.session
-    nested = session.begin_nested()
-    
-    # Save original commit and wrap it
+
+    # Roll back any dirty state so we start clean
+    session.rollback()
+    savepoint = session.begin_nested()
+
+    # Replace commit: flush pending work into the savepoint then rotate
+    # to a new savepoint so subsequent queries see the data, but the
+    # outer transaction is never actually committed to disk.
     orig_commit = session.commit
+
     def commit_savepoint():
-        nonlocal nested
-        if nested.is_active:
-            nested.commit()
-        nested = session.begin_nested()
-        
+        nonlocal savepoint
+        try:
+            # Flush all pending ORM state into the current savepoint
+            session.flush()
+            # Release (commit) the current SAVEPOINT so its writes become
+            # visible within the outer transaction, then open a fresh one.
+            if savepoint.is_active:
+                savepoint.commit()
+        except Exception:
+            if savepoint.is_active:
+                savepoint.rollback()
+        savepoint = session.begin_nested()
+
     session.commit = commit_savepoint
 
     try:
