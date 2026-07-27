@@ -28,7 +28,7 @@ class TestSessionToken:
             db.session.commit()
             
             return {
-                'jti': 'test-jwt-id-123',
+                'jti': f'test-jwt-id-{uuid.uuid4().hex[:8]}',
                 'user_id': user.id,
                 'token_type': 'access',
                 'ip_address': '192.168.1.1',

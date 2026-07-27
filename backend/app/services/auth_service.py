@@ -99,7 +99,7 @@ class AuthService:
         portals = {
             'admin': {
                 'defaultRoute': '/admin/dashboard',
-                'allowedPages': ['dashboard', 'users', 'academics', 'finances', 'settings']
+                'allowedPages': ['dashboard', 'users', 'academics', 'finances', 'analytics', 'settings']
             },
             'teacher': {
                 'defaultRoute': '/teacher/dashboard',
@@ -111,11 +111,11 @@ class AuthService:
             },
             'parent': {
                 'defaultRoute': '/parent/dashboard',
-                'allowedPages': ['dashboard', 'children', 'attendance', 'grades', 'finances']
+                'allowedPages': ['dashboard', 'children', 'attendance', 'grades', 'reports', 'finances']
             },
             'user': {
                 'defaultRoute': '/dashboard',
-                'allowedPages': ['dashboard', 'profile', 'settings']
+                'allowedPages': []
             }
         }
         
@@ -141,9 +141,12 @@ class AuthService:
     @staticmethod
     def is_admin_creator(request):
         """Check if the requester has permission to create admin accounts."""
-        # This is a placeholder for the actual implementation
-        # For now, return False for security
-        return False
+        import os
+        secret_key = os.environ.get('ADMIN_SECRET_KEY')
+        if not secret_key:
+            return False
+        header_val = request.headers.get('X-Admin-Secret-Key') or request.headers.get('ADMIN_SECRET_KEY') or request.headers.get('admin-secret-key')
+        return header_val == secret_key
 
     @staticmethod
     def get_user_by_id(user_id):
