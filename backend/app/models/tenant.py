@@ -48,12 +48,14 @@ class Tenant(db.Model):
 
     @property
     def education_system(self):
+        if isinstance(self.settings, dict):
+            setting_val = self.settings.get('education_system') or self.settings.get('educational_system')
+            if setting_val:
+                return setting_val
         from app.models.educational_system import EducationalSystemConfig
         cfg = EducationalSystemConfig.query.filter_by(tenant_id=self.id, is_active=True).first()
         if cfg and cfg.template_key:
             return cfg.template_key
-        if isinstance(self.settings, dict):
-            return self.settings.get('education_system') or self.settings.get('educational_system')
         return None
 
     def __repr__(self):
