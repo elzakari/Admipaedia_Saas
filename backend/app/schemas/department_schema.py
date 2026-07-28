@@ -1,9 +1,10 @@
 """
 Marshmallow schemas for the unified AcademicStructure / Department model.
 """
-from marshmallow import Schema, fields, validate, pre_load, post_load
-from app.models.department import AcademicStructureType
 
+from marshmallow import Schema, fields, post_load, pre_load, validate
+
+from app.models.department import AcademicStructureType
 
 # ── Allowed type values for the API ──────────────────────────────────────────
 STRUCTURE_TYPE_VALUES = [t.value for t in AcademicStructureType]
@@ -13,20 +14,20 @@ class AcademicStructureSchema(Schema):
     """Full schema – used for single-record GET / POST / PUT responses."""
 
     # dump-only
-    id             = fields.Integer(dump_only=True)
+    id = fields.Integer(dump_only=True)
     subjects_count = fields.Method("get_subjects_count", dump_only=True)
-    staff_count    = fields.Method("get_staff_count",    dump_only=True)
-    created_at     = fields.DateTime(dump_only=True)
-    updated_at     = fields.DateTime(dump_only=True)
+    staff_count = fields.Method("get_staff_count", dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
 
     # bidirectional
-    name           = fields.String(required=True, validate=validate.Length(min=1, max=100))
-    code           = fields.String(required=True, validate=validate.Length(min=1, max=20))
-    description    = fields.String(allow_none=True)
-    head_id        = fields.Integer(allow_none=True)
-    parent_id      = fields.Integer(allow_none=True)
-    display_order  = fields.Integer(load_default=0)
-    is_active      = fields.Boolean(load_default=True)
+    name = fields.String(required=True, validate=validate.Length(min=1, max=100))
+    code = fields.String(required=True, validate=validate.Length(min=1, max=20))
+    description = fields.String(allow_none=True)
+    head_id = fields.Integer(allow_none=True)
+    parent_id = fields.Integer(allow_none=True)
+    display_order = fields.Integer(load_default=0)
+    is_active = fields.Boolean(load_default=True)
     allocated_budget = fields.Float(load_default=0.0)
 
     # polymorphic discriminator
@@ -73,13 +74,13 @@ class AcademicStructureSchema(Schema):
 class AcademicStructureListSchema(Schema):
     """Slim schema for list responses and dropdown population."""
 
-    id             = fields.Integer(dump_only=True)
-    name           = fields.String()
-    code           = fields.String()
-    description    = fields.String(allow_none=True)
+    id = fields.Integer(dump_only=True)
+    name = fields.String()
+    code = fields.String()
+    description = fields.String(allow_none=True)
     structure_type = fields.String()
-    is_active      = fields.Boolean()
-    display_order  = fields.Integer()
+    is_active = fields.Boolean()
+    display_order = fields.Integer()
     subjects_count = fields.Method("get_subjects_count", dump_only=True)
 
     def get_subjects_count(self, obj):

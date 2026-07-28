@@ -1,6 +1,7 @@
 from functools import wraps
-from flask import jsonify, g
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+
+from flask import g, jsonify
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from app.models.user import User
 
@@ -19,11 +20,15 @@ def require_platform_super_admin():
         def wrapper(*args, **kwargs):
             user = get_current_user()
             if not user:
-                return jsonify({'success': False, 'message': 'Authentication required'}), 401
-            if getattr(user, 'role', None) not in ('super_admin', 'super_manager'):
-                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+                return (
+                    jsonify({"success": False, "message": "Authentication required"}),
+                    401,
+                )
+            if getattr(user, "role", None) not in ("super_admin", "super_manager"):
+                return jsonify({"success": False, "message": "Unauthorized"}), 403
             g.current_user = user
             return f(*args, **kwargs)
-        return wrapper
-    return decorator
 
+        return wrapper
+
+    return decorator

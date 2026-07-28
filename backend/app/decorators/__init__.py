@@ -1,2 +1,2 @@
-from .auth import role_required, require_permission
+from .auth import require_permission, role_required
 from .permissions import require_subject_permission

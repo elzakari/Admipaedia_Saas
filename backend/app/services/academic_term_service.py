@@ -7,11 +7,17 @@ from app.models.academic_term import AcademicTerm
 class AcademicTermService:
     @staticmethod
     def list_terms(tenant_id):
-        return AcademicTerm.query.filter_by(tenant_id=tenant_id).order_by(AcademicTerm.start_date.asc()).all()
+        return (
+            AcademicTerm.query.filter_by(tenant_id=tenant_id)
+            .order_by(AcademicTerm.start_date.asc())
+            .all()
+        )
 
     @staticmethod
     def create_term(tenant_id, name, start_date, end_date):
-        term = AcademicTerm(tenant_id=tenant_id, name=name, start_date=start_date, end_date=end_date)
+        term = AcademicTerm(
+            tenant_id=tenant_id, name=name, start_date=start_date, end_date=end_date
+        )
         db.session.add(term)
         db.session.commit()
         return term
@@ -40,8 +46,7 @@ class AcademicTermService:
     def compute_status(term: AcademicTerm):
         today = date.today()
         if term.end_date < today:
-            return 'Completed'
+            return "Completed"
         if term.start_date <= today <= term.end_date:
-            return 'Current'
-        return 'Upcoming'
-
+            return "Current"
+        return "Upcoming"

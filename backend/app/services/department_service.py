@@ -8,13 +8,15 @@ do not know about the polymorphic layout).
 A `generate_subject_code` helper centralises the code-generation logic so that
 both the backend API and any future CLI seed commands share the same algorithm.
 """
+
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models.department import AcademicStructure, AcademicStructureType, Department
+from app.models.department import (AcademicStructure, AcademicStructureType,
+                                   Department)
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +99,9 @@ class AcademicStructureService:
             payload = dict(data or {})
 
             # Coerce structure_type string → enum
-            st_raw = payload.get("structure_type", AcademicStructureType.DISCIPLINE.value)
+            st_raw = payload.get(
+                "structure_type", AcademicStructureType.DISCIPLINE.value
+            )
             if isinstance(st_raw, str):
                 try:
                     payload["structure_type"] = AcademicStructureType(st_raw)
@@ -109,7 +113,9 @@ class AcademicStructureService:
                 payload.get("code", ""),
                 tenant_id=tenant_id,
             ):
-                logger.warning("Duplicate code '%s' for tenant %s", payload.get("code"), tenant_id)
+                logger.warning(
+                    "Duplicate code '%s' for tenant %s", payload.get("code"), tenant_id
+                )
                 return None
 
             payload.setdefault("tenant_id", tenant_id)
@@ -130,23 +136,31 @@ class AcademicStructureService:
         tenant_id=None,
     ) -> Optional[AcademicStructure]:
         try:
-            struct = AcademicStructureService.get_by_id(structure_id, tenant_id=tenant_id)
+            struct = AcademicStructureService.get_by_id(
+                structure_id, tenant_id=tenant_id
+            )
             if not struct:
                 return None
 
             payload = dict(data or {})
 
             # Coerce structure_type if present
-            if "structure_type" in payload and isinstance(payload["structure_type"], str):
+            if "structure_type" in payload and isinstance(
+                payload["structure_type"], str
+            ):
                 try:
-                    payload["structure_type"] = AcademicStructureType(payload["structure_type"])
+                    payload["structure_type"] = AcademicStructureType(
+                        payload["structure_type"]
+                    )
                 except ValueError:
                     del payload["structure_type"]  # ignore unknown values
 
             # Code uniqueness (if changing)
             new_code = payload.get("code")
             if new_code and new_code != struct.code:
-                existing = AcademicStructureService.get_by_code(new_code, tenant_id=tenant_id)
+                existing = AcademicStructureService.get_by_code(
+                    new_code, tenant_id=tenant_id
+                )
                 if existing and existing.id != structure_id:
                     logger.warning("Code '%s' already taken", new_code)
                     return None
@@ -164,7 +178,9 @@ class AcademicStructureService:
     @staticmethod
     def delete(structure_id: int, tenant_id=None) -> bool:
         try:
-            struct = AcademicStructureService.get_by_id(structure_id, tenant_id=tenant_id)
+            struct = AcademicStructureService.get_by_id(
+                structure_id, tenant_id=tenant_id
+            )
             if not struct:
                 return False
             db.session.delete(struct)
@@ -188,8 +204,10 @@ class AcademicStructureService:
             from app.models.department import department_staff
             from app.models.user import User
 
-            struct = AcademicStructureService.get_by_id(structure_id, tenant_id=tenant_id)
-            user   = User.query.get(user_id)
+            struct = AcademicStructureService.get_by_id(
+                structure_id, tenant_id=tenant_id
+            )
+            user = User.query.get(user_id)
             if not struct or not user:
                 return False
 
@@ -240,13 +258,14 @@ class AcademicStructureService:
 
         # DEPTBINARY
         dept_name = department.name if department else ""
-        dept_bin  = AcademicStructure.binary_prefix_for_name(dept_name)
+        dept_bin = AcademicStructure.binary_prefix_for_name(dept_name)
 
         # Base without serial
         base = f"{prefix}-{dept_bin}"
 
         # Sequential suffix: count existing codes starting with base in this tenant
         from app.models.subject import Subject
+
         q = Subject.query.filter(Subject.code.like(f"{base}-%"))
         if tenant_id:
             q = q.filter(Subject.tenant_id == tenant_id)
@@ -296,4 +315,6 @@ class DepartmentService(AcademicStructureService):
 
     @staticmethod
     def add_staff_to_department(department_id, user_id, role=None, tenant_id=None):
-        return AcademicStructureService.add_staff(department_id, user_id, role, tenant_id)
+        return AcademicStructureService.add_staff(
+            department_id, user_id, role, tenant_id
+        )

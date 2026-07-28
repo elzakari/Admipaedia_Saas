@@ -5,18 +5,17 @@ from typing import Optional
 
 from flask import current_app
 
-from app.models.tenant import Tenant
 from app.models.payments import PaymentGateway
+from app.models.tenant import Tenant
 
 from .base import PaymentGatewayAdapter
+from .cinetpay import CinetPayAdapter
+from .flutterwave import FlutterwaveAdapter
 from .manual import ManualPaymentAdapter
 from .mock import MockPaymentAdapter
 from .paystack import PaystackAdapter
-from .flutterwave import FlutterwaveAdapter
-from .cinetpay import CinetPayAdapter
 
-
-FRANCOPHONE_XOF_COUNTRIES = {'TG', 'CI', 'BJ', 'BF', 'SN', 'ML', 'NE'}
+FRANCOPHONE_XOF_COUNTRIES = {"TG", "CI", "BJ", "BF", "SN", "ML", "NE"}
 
 
 @dataclass
@@ -28,19 +27,21 @@ class SelectedGateway:
 class PaymentGatewayFactory:
     @staticmethod
     def adapter_for(name: str) -> PaymentGatewayAdapter:
-        key = (name or '').strip().lower()
-        if current_app.config.get('TESTING'):
+        key = (name or "").strip().lower()
+        if current_app.config.get("TESTING"):
             return MockPaymentAdapter()
-        if key == 'paystack':
+        if key == "paystack":
             return PaystackAdapter()
-        if key == 'cinetpay':
+        if key == "cinetpay":
             return CinetPayAdapter()
-        if key == 'flutterwave':
+        if key == "flutterwave":
             return FlutterwaveAdapter()
         return ManualPaymentAdapter()
 
     @staticmethod
-    def _active_gateway(name: str, country_code: Optional[str], currency: Optional[str]) -> Optional[PaymentGateway]:
+    def _active_gateway(
+        name: str, country_code: Optional[str], currency: Optional[str]
+    ) -> Optional[PaymentGateway]:
         q = PaymentGateway.query.filter_by(name=name, is_active=True)
         if country_code is not None:
             q = q.filter(PaymentGateway.country_code == country_code)
@@ -55,35 +56,54 @@ class PaymentGatewayFactory:
         if not tenant:
             return None
 
-        cc = (tenant.country_code or '').upper().strip() or None
-        currency = (tenant.currency or '').upper().strip() or None
+        cc = (tenant.country_code or "").upper().strip() or None
+        currency = (tenant.currency or "").upper().strip() or None
 
-        if cc == 'GH':
-            g = PaymentGatewayFactory._active_gateway('paystack', 'GH', currency or 'GHS') or PaymentGatewayFactory._active_gateway('paystack', 'GH', None)
+        if cc == "GH":
+            g = PaymentGatewayFactory._active_gateway(
+                "paystack", "GH", currency or "GHS"
+            ) or PaymentGatewayFactory._active_gateway("paystack", "GH", None)
             if g:
-                return SelectedGateway(gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name))
+                return SelectedGateway(
+                    gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name)
+                )
 
-        if cc == 'TG':
-            g = PaymentGatewayFactory._active_gateway('cinetpay', 'TG', currency or 'XOF') or PaymentGatewayFactory._active_gateway('cinetpay', 'TG', None)
+        if cc == "TG":
+            g = PaymentGatewayFactory._active_gateway(
+                "cinetpay", "TG", currency or "XOF"
+            ) or PaymentGatewayFactory._active_gateway("cinetpay", "TG", None)
             if g:
-                return SelectedGateway(gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name))
+                return SelectedGateway(
+                    gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name)
+                )
 
-        if cc in FRANCOPHONE_XOF_COUNTRIES or (currency == 'XOF' and cc and cc != 'GH'):
+        if cc in FRANCOPHONE_XOF_COUNTRIES or (currency == "XOF" and cc and cc != "GH"):
             g = (
-                PaymentGatewayFactory._active_gateway('cinetpay', cc, currency or 'XOF')
-                or PaymentGatewayFactory._active_gateway('cinetpay', None, currency or 'XOF')
-                or PaymentGatewayFactory._active_gateway('cinetpay', None, None)
+                PaymentGatewayFactory._active_gateway("cinetpay", cc, currency or "XOF")
+                or PaymentGatewayFactory._active_gateway(
+                    "cinetpay", None, currency or "XOF"
+                )
+                or PaymentGatewayFactory._active_gateway("cinetpay", None, None)
             )
             if g:
-                return SelectedGateway(gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name))
+                return SelectedGateway(
+                    gateway=g, adapter=PaymentGatewayFactory.adapter_for(g.name)
+                )
 
-        fw = PaymentGatewayFactory._active_gateway('flutterwave', cc, currency) or PaymentGatewayFactory._active_gateway('flutterwave', None, None)
+        fw = PaymentGatewayFactory._active_gateway(
+            "flutterwave", cc, currency
+        ) or PaymentGatewayFactory._active_gateway("flutterwave", None, None)
         if fw:
-            return SelectedGateway(gateway=fw, adapter=PaymentGatewayFactory.adapter_for(fw.name))
+            return SelectedGateway(
+                gateway=fw, adapter=PaymentGatewayFactory.adapter_for(fw.name)
+            )
 
-        manual = PaymentGatewayFactory._active_gateway('manual', cc, currency) or PaymentGatewayFactory._active_gateway('manual', None, None)
+        manual = PaymentGatewayFactory._active_gateway(
+            "manual", cc, currency
+        ) or PaymentGatewayFactory._active_gateway("manual", None, None)
         if manual:
-            return SelectedGateway(gateway=manual, adapter=PaymentGatewayFactory.adapter_for(manual.name))
+            return SelectedGateway(
+                gateway=manual, adapter=PaymentGatewayFactory.adapter_for(manual.name)
+            )
 
         return None
-

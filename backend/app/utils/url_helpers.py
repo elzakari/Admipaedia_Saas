@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 
 from flask import current_app, request
 
-
 CANONICAL_FRONTEND_URL = "https://admipaedia.easymsdigit.com"
 LOCAL_HOST_MARKERS = ("localhost", "127.0.0.1", "0.0.0.0", "::1")
 
@@ -15,7 +14,9 @@ def _is_local_host(hostname: str) -> bool:
     return any(marker in host for marker in LOCAL_HOST_MARKERS)
 
 
-def _normalize_base_url(raw_url: Optional[str], *, allow_local: bool = False) -> Optional[str]:
+def _normalize_base_url(
+    raw_url: Optional[str], *, allow_local: bool = False
+) -> Optional[str]:
     value = (raw_url or "").strip().rstrip("/")
     if not value:
         return None
@@ -37,12 +38,18 @@ def _normalize_base_url(raw_url: Optional[str], *, allow_local: bool = False) ->
 
 
 def get_frontend_base_url(preferred_url: Optional[str] = None) -> str:
-    allow_local = bool(current_app.config.get("DEBUG") or current_app.config.get("TESTING"))
+    allow_local = bool(
+        current_app.config.get("DEBUG") or current_app.config.get("TESTING")
+    )
 
     candidates: list[Optional[str]] = [preferred_url, request.headers.get("Origin")]
 
     host = (request.headers.get("X-Forwarded-Host") or request.host or "").strip()
-    proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "https").strip().lower()
+    proto = (
+        (request.headers.get("X-Forwarded-Proto") or request.scheme or "https")
+        .strip()
+        .lower()
+    )
     if host:
         candidates.append(f"{proto}://{host}")
 

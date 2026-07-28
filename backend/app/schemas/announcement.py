@@ -1,44 +1,61 @@
-from marshmallow import Schema, fields, validate, pre_load
+from marshmallow import Schema, fields, pre_load, validate
+
 
 class AnnouncementSchema(Schema):
     """Schema for announcement model."""
+
     id = fields.Integer(dump_only=True)
     title = fields.String(required=True, validate=validate.Length(min=1, max=255))
     content = fields.String(required=True)
-    scope = fields.String(validate=validate.OneOf(['global', 'class_bound']), load_default='global')
-    recipients = fields.String(validate=validate.OneOf(['all', 'selected', 'students', 'parents', 'teachers', 'admins']), load_default='all')
+    scope = fields.String(
+        validate=validate.OneOf(["global", "class_bound"]), load_default="global"
+    )
+    recipients = fields.String(
+        validate=validate.OneOf(
+            ["all", "selected", "students", "parents", "teachers", "admins"]
+        ),
+        load_default="all",
+    )
     send_email = fields.Boolean(load_default=False)
-    target_roles = fields.String(load_default='all')
+    target_roles = fields.String(load_default="all")
     scheduled_date = fields.DateTime(allow_none=True)
     is_published = fields.Boolean(load_default=True)
     tenant_id = fields.UUID(allow_none=True)
     class_id = fields.Integer(allow_none=True)
     teacher_id = fields.Integer(allow_none=True)
-    created_at = fields.DateTime(format='iso', dump_only=True)
-    updated_at = fields.DateTime(format='iso', dump_only=True)
+    created_at = fields.DateTime(format="iso", dump_only=True)
+    updated_at = fields.DateTime(format="iso", dump_only=True)
 
     @pre_load
     def process_target_roles(self, data, **kwargs):
-        if data and 'target_roles' in data:
-            tr = data['target_roles']
+        if data and "target_roles" in data:
+            tr = data["target_roles"]
             if isinstance(tr, list):
-                data['target_roles'] = ','.join([str(x).strip().lower() for x in tr if str(x).strip()])
+                data["target_roles"] = ",".join(
+                    [str(x).strip().lower() for x in tr if str(x).strip()]
+                )
             elif isinstance(tr, str):
-                data['target_roles'] = tr.strip().lower()
+                data["target_roles"] = tr.strip().lower()
         return data
+
 
 class AnnouncementCreateSchema(AnnouncementSchema):
     """Schema for creating an announcement."""
+
     class_id = fields.Integer(allow_none=True)
+
 
 class AnnouncementUpdateSchema(AnnouncementSchema):
     """Schema for updating an announcement."""
+
     title = fields.String(validate=validate.Length(min=1, max=255))
     content = fields.String()
     class_id = fields.Integer(dump_only=True)
 
+
 class AnnouncementListSchema(Schema):
     """Schema for listing announcements."""
+
     id = fields.Integer()
     title = fields.String()
     content = fields.String()
@@ -52,11 +69,11 @@ class AnnouncementListSchema(Schema):
     class_id = fields.Integer(allow_none=True)
     class_name = fields.Method("get_class_name")
     teacher_id = fields.Integer(allow_none=True)
-    created_at = fields.DateTime(format='iso')
+    created_at = fields.DateTime(format="iso")
 
     def get_class_name(self, obj):
         try:
-            class_obj = getattr(obj, 'class_', None)
-            return getattr(class_obj, 'name', None)
+            class_obj = getattr(obj, "class_", None)
+            return getattr(class_obj, "name", None)
         except Exception:
             return None

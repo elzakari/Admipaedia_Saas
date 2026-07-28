@@ -16,29 +16,30 @@ def assign_plan_to_tenant(
     *,
     actor_user_id: Optional[int] = None,
 ) -> Tuple[Optional[SchoolPlanSubscription], Optional[str]]:
-    slug = (plan_slug or '').strip().lower()
+    slug = (plan_slug or "").strip().lower()
     if not slug:
-        return None, 'plan is required'
+        return None, "plan is required"
 
     plan = Plan.query.filter_by(slug=slug).first()
     if not plan:
-        return None, 'Plan not found'
+        return None, "Plan not found"
 
     today = date.today()
     active = (
-        SchoolPlanSubscription.query
-        .filter_by(school_id=tenant.id, status='active')
+        SchoolPlanSubscription.query.filter_by(school_id=tenant.id, status="active")
         .order_by(SchoolPlanSubscription.starts_at.desc())
         .first()
     )
 
     if active and int(active.plan_id) == int(plan.id):
         tenant.plan = slug
-        ServiceTokenService.provision_for_tenant(str(tenant.id), actor_user_id=actor_user_id)
+        ServiceTokenService.provision_for_tenant(
+            str(tenant.id), actor_user_id=actor_user_id
+        )
         return active, None
 
     if active:
-        active.status = 'inactive'
+        active.status = "inactive"
         active.ends_at = today
 
     sub = SchoolPlanSubscription(
@@ -46,7 +47,7 @@ def assign_plan_to_tenant(
         plan_id=plan.id,
         starts_at=today,
         ends_at=None,
-        status='active'
+        status="active",
     )
     db.session.add(sub)
     db.session.flush()
@@ -60,5 +61,7 @@ def assign_plan_to_tenant(
         sub.limits_snapshot = limits
 
     tenant.plan = slug
-    ServiceTokenService.provision_for_tenant(str(tenant.id), actor_user_id=actor_user_id)
+    ServiceTokenService.provision_for_tenant(
+        str(tenant.id), actor_user_id=actor_user_id
+    )
     return sub, None

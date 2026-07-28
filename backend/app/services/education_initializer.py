@@ -1,11 +1,12 @@
-from app.extensions import db
-from app.models.academic_cycle import AcademicCycle
-from app.models.grade_track import GradeTrack
-from app.models.educational_system import GradeLevel
-from app.models.polymorphic_grading_scale import PolymorphicGradingScale
+import structlog
 from flask import current_app
 from sqlalchemy import event
-import structlog
+
+from app.extensions import db
+from app.models.academic_cycle import AcademicCycle
+from app.models.educational_system import GradeLevel
+from app.models.grade_track import GradeTrack
+from app.models.polymorphic_grading_scale import PolymorphicGradingScale
 
 logger = structlog.get_logger()
 
@@ -18,24 +19,59 @@ MASTER_CURRICULUM_REGISTRY = {
             {
                 "name": "Parcours APC",
                 "rank": 1,
-                "levels": ["CP1", "CP2", "CE1", "CE2", "CM1", "CM2", "6e", "5e", "4e", "3e", "Seconde", "Première", "Terminale"],
+                "levels": [
+                    "CP1",
+                    "CP2",
+                    "CE1",
+                    "CE2",
+                    "CM1",
+                    "CM2",
+                    "6e",
+                    "5e",
+                    "4e",
+                    "3e",
+                    "Seconde",
+                    "Première",
+                    "Terminale",
+                ],
                 "grading": {
                     "type": "RUBRIC",
                     "max_score": 20.00,
                     "passing_boundary": 10.00,
                     "schemes": [
-                        {"min": 16.00, "max": 20.00, "name": "M", "description": "Maîtrisé", "point": 16.00},
-                        {"min": 14.00, "max": 15.99, "name": "A", "description": "Acquis", "point": 14.00},
-                        {"min": 10.00, "max": 13.99, "name": "EA", "description": "En cours d’Acquisition", "point": 10.00},
-                        {"min": 0.00, "max": 9.99, "name": "NA", "description": "Non Acquis", "point": 0.00}
-                    ]
+                        {
+                            "min": 16.00,
+                            "max": 20.00,
+                            "name": "M",
+                            "description": "Maîtrisé",
+                            "point": 16.00,
+                        },
+                        {
+                            "min": 14.00,
+                            "max": 15.99,
+                            "name": "A",
+                            "description": "Acquis",
+                            "point": 14.00,
+                        },
+                        {
+                            "min": 10.00,
+                            "max": 13.99,
+                            "name": "EA",
+                            "description": "En cours d’Acquisition",
+                            "point": 10.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 9.99,
+                            "name": "NA",
+                            "description": "Non Acquis",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             }
-        ]
+        ],
     },
     "tg_standard": {
         "cycle_type": "TRIMESTRE",
@@ -50,17 +86,34 @@ MASTER_CURRICULUM_REGISTRY = {
                     "max_score": 20.00,
                     "passing_boundary": 10.00,
                     "schemes": [
-                        {"min": 16.00, "max": 20.00, "name": "Très Bien", "point": 16.00},
+                        {
+                            "min": 16.00,
+                            "max": 20.00,
+                            "name": "Très Bien",
+                            "point": 16.00,
+                        },
                         {"min": 14.00, "max": 15.99, "name": "Bien", "point": 14.00},
-                        {"min": 12.00, "max": 13.99, "name": "Assez Bien", "point": 12.00},
-                        {"min": 10.00, "max": 11.99, "name": "Passable", "point": 10.00},
-                        {"min": 0.00, "max": 9.99, "name": "Insuffisant", "point": 0.00}
-                    ]
+                        {
+                            "min": 12.00,
+                            "max": 13.99,
+                            "name": "Assez Bien",
+                            "point": 12.00,
+                        },
+                        {
+                            "min": 10.00,
+                            "max": 11.99,
+                            "name": "Passable",
+                            "point": 10.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 9.99,
+                            "name": "Insuffisant",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             },
             {
                 "name": "Primaire",
@@ -71,17 +124,34 @@ MASTER_CURRICULUM_REGISTRY = {
                     "max_score": 20.00,
                     "passing_boundary": 10.00,
                     "schemes": [
-                        {"min": 16.00, "max": 20.00, "name": "Très Bien", "point": 16.00},
+                        {
+                            "min": 16.00,
+                            "max": 20.00,
+                            "name": "Très Bien",
+                            "point": 16.00,
+                        },
                         {"min": 14.00, "max": 15.99, "name": "Bien", "point": 14.00},
-                        {"min": 12.00, "max": 13.99, "name": "Assez Bien", "point": 12.00},
-                        {"min": 10.00, "max": 11.99, "name": "Passable", "point": 10.00},
-                        {"min": 0.00, "max": 9.99, "name": "Insuffisant", "point": 0.00}
-                    ]
+                        {
+                            "min": 12.00,
+                            "max": 13.99,
+                            "name": "Assez Bien",
+                            "point": 12.00,
+                        },
+                        {
+                            "min": 10.00,
+                            "max": 11.99,
+                            "name": "Passable",
+                            "point": 10.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 9.99,
+                            "name": "Insuffisant",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             },
             {
                 "name": "Collège",
@@ -92,17 +162,34 @@ MASTER_CURRICULUM_REGISTRY = {
                     "max_score": 20.00,
                     "passing_boundary": 10.00,
                     "schemes": [
-                        {"min": 16.00, "max": 20.00, "name": "Très Bien", "point": 16.00},
+                        {
+                            "min": 16.00,
+                            "max": 20.00,
+                            "name": "Très Bien",
+                            "point": 16.00,
+                        },
                         {"min": 14.00, "max": 15.99, "name": "Bien", "point": 14.00},
-                        {"min": 12.00, "max": 13.99, "name": "Assez Bien", "point": 12.00},
-                        {"min": 10.00, "max": 11.99, "name": "Passable", "point": 10.00},
-                        {"min": 0.00, "max": 9.99, "name": "Insuffisant", "point": 0.00}
-                    ]
+                        {
+                            "min": 12.00,
+                            "max": 13.99,
+                            "name": "Assez Bien",
+                            "point": 12.00,
+                        },
+                        {
+                            "min": 10.00,
+                            "max": 11.99,
+                            "name": "Passable",
+                            "point": 10.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 9.99,
+                            "name": "Insuffisant",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             },
             {
                 "name": "Lycée",
@@ -113,19 +200,36 @@ MASTER_CURRICULUM_REGISTRY = {
                     "max_score": 20.00,
                     "passing_boundary": 10.00,
                     "schemes": [
-                        {"min": 16.00, "max": 20.00, "name": "Très Bien", "point": 16.00},
+                        {
+                            "min": 16.00,
+                            "max": 20.00,
+                            "name": "Très Bien",
+                            "point": 16.00,
+                        },
                         {"min": 14.00, "max": 15.99, "name": "Bien", "point": 14.00},
-                        {"min": 12.00, "max": 13.99, "name": "Assez Bien", "point": 12.00},
-                        {"min": 10.00, "max": 11.99, "name": "Passable", "point": 10.00},
-                        {"min": 0.00, "max": 9.99, "name": "Insuffisant", "point": 0.00}
-                    ]
+                        {
+                            "min": 12.00,
+                            "max": 13.99,
+                            "name": "Assez Bien",
+                            "point": 12.00,
+                        },
+                        {
+                            "min": 10.00,
+                            "max": 11.99,
+                            "name": "Passable",
+                            "point": 10.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 9.99,
+                            "name": "Insuffisant",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
-            }
-        ]
+                "assessment": {"exam_weight": 60, "class_weight": 40},
+            },
+        ],
     },
     "gh_ges_standard": {
         "cycle_type": "SEMESTER",
@@ -134,28 +238,58 @@ MASTER_CURRICULUM_REGISTRY = {
             {
                 "name": "Pre-School",
                 "rank": 1,
-                "levels": ["Crèche", "Nursery 1", "Nursery 2", "Kindergarten 1", "Kindergarten 2"],
+                "levels": [
+                    "Crèche",
+                    "Nursery 1",
+                    "Nursery 2",
+                    "Kindergarten 1",
+                    "Kindergarten 2",
+                ],
                 "grading": {
                     "type": "PERCENTAGE",
                     "max_score": 100.00,
                     "passing_boundary": 50.00,
                     "schemes": [
-                        {"min": 80.00, "max": 100.00, "name": "Excellent", "point": 80.00},
-                        {"min": 70.00, "max": 79.99, "name": "Very Good", "point": 70.00},
+                        {
+                            "min": 80.00,
+                            "max": 100.00,
+                            "name": "Excellent",
+                            "point": 80.00,
+                        },
+                        {
+                            "min": 70.00,
+                            "max": 79.99,
+                            "name": "Very Good",
+                            "point": 70.00,
+                        },
                         {"min": 60.00, "max": 69.99, "name": "Good", "point": 60.00},
-                        {"min": 50.00, "max": 59.99, "name": "Satisfactory", "point": 50.00},
-                        {"min": 0.00, "max": 49.99, "name": "Needs Improvement", "point": 0.00}
-                    ]
+                        {
+                            "min": 50.00,
+                            "max": 59.99,
+                            "name": "Satisfactory",
+                            "point": 50.00,
+                        },
+                        {
+                            "min": 0.00,
+                            "max": 49.99,
+                            "name": "Needs Improvement",
+                            "point": 0.00,
+                        },
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 40,
-                    "class_weight": 60
-                }
+                "assessment": {"exam_weight": 40, "class_weight": 60},
             },
             {
                 "name": "Primary",
                 "rank": 2,
-                "levels": ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"],
+                "levels": [
+                    "Basic 1",
+                    "Basic 2",
+                    "Basic 3",
+                    "Basic 4",
+                    "Basic 5",
+                    "Basic 6",
+                ],
                 "grading": {
                     "type": "PERCENTAGE",
                     "max_score": 100.00,
@@ -169,13 +303,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 55.00, "max": 59.99, "name": "C6", "point": 55.00},
                         {"min": 50.00, "max": 54.99, "name": "D7", "point": 50.00},
                         {"min": 45.00, "max": 49.99, "name": "E8", "point": 45.00},
-                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             },
             {
                 "name": "JHS",
@@ -194,13 +325,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 55.00, "max": 59.99, "name": "C6", "point": 55.00},
                         {"min": 50.00, "max": 54.99, "name": "D7", "point": 50.00},
                         {"min": 45.00, "max": 49.99, "name": "E8", "point": 45.00},
-                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
             },
             {
                 "name": "SHS",
@@ -219,15 +347,12 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 55.00, "max": 59.99, "name": "C6", "point": 55.00},
                         {"min": 50.00, "max": 54.99, "name": "D7", "point": 50.00},
                         {"min": 45.00, "max": 49.99, "name": "E8", "point": 45.00},
-                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 44.99, "name": "F9", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 70,
-                    "class_weight": 30
-                }
-            }
-        ]
+                "assessment": {"exam_weight": 70, "class_weight": 30},
+            },
+        ],
     },
     "uk_cambridge": {
         "cycle_type": "TERM",
@@ -246,13 +371,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 70.00, "max": 79.99, "name": "B", "point": 3.00},
                         {"min": 60.00, "max": 69.99, "name": "C", "point": 2.00},
                         {"min": 50.00, "max": 59.99, "name": "D", "point": 1.00},
-                        {"min": 0.00, "max": 49.99, "name": "U", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 49.99, "name": "U", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 50,
-                    "class_weight": 50
-                }
+                "assessment": {"exam_weight": 50, "class_weight": 50},
             },
             {
                 "name": "IGCSE (Y10-11)",
@@ -269,13 +391,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 60.00, "max": 69.99, "name": "C", "point": 2.00},
                         {"min": 50.00, "max": 59.99, "name": "D", "point": 1.00},
                         {"min": 40.00, "max": 49.99, "name": "E", "point": 0.50},
-                        {"min": 0.00, "max": 39.99, "name": "U", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 39.99, "name": "U", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 70,
-                    "class_weight": 30
-                }
+                "assessment": {"exam_weight": 70, "class_weight": 30},
             },
             {
                 "name": "A-Levels (Y12-13)",
@@ -292,15 +411,12 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 60.00, "max": 69.99, "name": "C", "point": 2.00},
                         {"min": 50.00, "max": 59.99, "name": "D", "point": 1.00},
                         {"min": 40.00, "max": 49.99, "name": "E", "point": 0.50},
-                        {"min": 0.00, "max": 39.99, "name": "U", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 39.99, "name": "U", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 80,
-                    "class_weight": 20
-                }
-            }
-        ]
+                "assessment": {"exam_weight": 80, "class_weight": 20},
+            },
+        ],
     },
     "us_common_core": {
         "cycle_type": "SEMESTER",
@@ -309,7 +425,14 @@ MASTER_CURRICULUM_REGISTRY = {
             {
                 "name": "Elementary (K-G5)",
                 "rank": 1,
-                "levels": ["Kindergarten", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"],
+                "levels": [
+                    "Kindergarten",
+                    "Grade 1",
+                    "Grade 2",
+                    "Grade 3",
+                    "Grade 4",
+                    "Grade 5",
+                ],
                 "grading": {
                     "type": "GPA",
                     "max_score": 4.00,
@@ -319,13 +442,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 2.50, "max": 3.49, "name": "B", "point": 3.00},
                         {"min": 1.50, "max": 2.49, "name": "C", "point": 2.00},
                         {"min": 0.70, "max": 1.49, "name": "D", "point": 1.00},
-                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 40,
-                    "class_weight": 60
-                }
+                "assessment": {"exam_weight": 40, "class_weight": 60},
             },
             {
                 "name": "Middle School (G6-G8)",
@@ -340,13 +460,10 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 2.50, "max": 3.49, "name": "B", "point": 3.00},
                         {"min": 1.50, "max": 2.49, "name": "C", "point": 2.00},
                         {"min": 0.70, "max": 1.49, "name": "D", "point": 1.00},
-                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 50,
-                    "class_weight": 50
-                }
+                "assessment": {"exam_weight": 50, "class_weight": 50},
             },
             {
                 "name": "High School (G9-G12)",
@@ -361,16 +478,13 @@ MASTER_CURRICULUM_REGISTRY = {
                         {"min": 2.50, "max": 3.49, "name": "B", "point": 3.00},
                         {"min": 1.50, "max": 2.49, "name": "C", "point": 2.00},
                         {"min": 0.70, "max": 1.49, "name": "D", "point": 1.00},
-                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00}
-                    ]
+                        {"min": 0.00, "max": 0.69, "name": "F", "point": 0.00},
+                    ],
                 },
-                "assessment": {
-                    "exam_weight": 60,
-                    "class_weight": 40
-                }
-            }
-        ]
-    }
+                "assessment": {"exam_weight": 60, "class_weight": 40},
+            },
+        ],
+    },
 }
 
 # Fallback matrices to ensure no key ever fails configuration
@@ -381,7 +495,14 @@ FALLBACK_BLUEPRINT = {
         {
             "name": "Standard Track",
             "rank": 1,
-            "levels": ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6"],
+            "levels": [
+                "Class 1",
+                "Class 2",
+                "Class 3",
+                "Class 4",
+                "Class 5",
+                "Class 6",
+            ],
             "grading": {
                 "type": "PERCENTAGE",
                 "max_score": 100.00,
@@ -389,15 +510,12 @@ FALLBACK_BLUEPRINT = {
                 "schemes": [
                     {"min": 80.00, "max": 100.00, "name": "Excellent", "point": 4.0},
                     {"min": 50.00, "max": 79.99, "name": "Pass", "point": 2.0},
-                    {"min": 0.00, "max": 49.99, "name": "Fail", "point": 0.0}
-                ]
+                    {"min": 0.00, "max": 49.99, "name": "Fail", "point": 0.0},
+                ],
             },
-            "assessment": {
-                "exam_weight": 60,
-                "class_weight": 40
-            }
+            "assessment": {"exam_weight": 60, "class_weight": 40},
         }
-    ]
+    ],
 }
 
 
@@ -426,32 +544,34 @@ class TenantEducationInitializer:
         try:
             with db.session.begin_nested():
                 # Seed Temporal Track
-                for term_name in blueprint['terms']:
-                    db.session.add(AcademicCycle(
-                        tenant_id=tenant_id,
-                        cycle_type=blueprint['cycle_type'],
-                        name=term_name
-                    ))
-                
+                for term_name in blueprint["terms"]:
+                    db.session.add(
+                        AcademicCycle(
+                            tenant_id=tenant_id,
+                            cycle_type=blueprint["cycle_type"],
+                            name=term_name,
+                        )
+                    )
+
                 # Seed Structural Tracks and Levels
-                for track_data in blueprint['tracks']:
+                for track_data in blueprint["tracks"]:
                     track = GradeTrack(
                         tenant_id=tenant_id,
-                        name=track_data['name'],
-                        numeric_level_rank=track_data['rank']
+                        name=track_data["name"],
+                        numeric_level_rank=track_data["rank"],
                     )
                     db.session.add(track)
                     db.session.flush()  # Extract Track ID dynamically
 
                     order_index = 1
                     previous_level = None
-                    for level_name in track_data['levels']:
+                    for level_name in track_data["levels"]:
                         lvl = GradeLevel(
                             track_id=track.id,
                             name=level_name,
-                            is_terminal=(level_name == track_data['levels'][-1]),
+                            is_terminal=(level_name == track_data["levels"][-1]),
                             order_index=order_index,
-                            tenant_id=tenant_id
+                            tenant_id=tenant_id,
                         )
                         db.session.add(lvl)
                         db.session.flush()
@@ -464,36 +584,48 @@ class TenantEducationInitializer:
                     scale = PolymorphicGradingScale(
                         tenant_id=tenant_id,
                         track_id=track.id,
-                        evaluation_type=track_data['grading']['type'],
-                        max_score=track_data['grading']['max_score'],
-                        passing_boundary=track_data['grading']['passing_boundary'],
-                        exam_weight=track_data['assessment']['exam_weight'],
-                        class_weight=track_data['assessment']['class_weight'],
-                        schemes=track_data['grading']['schemes']
+                        evaluation_type=track_data["grading"]["type"],
+                        max_score=track_data["grading"]["max_score"],
+                        passing_boundary=track_data["grading"]["passing_boundary"],
+                        exam_weight=track_data["assessment"]["exam_weight"],
+                        class_weight=track_data["assessment"]["class_weight"],
+                        schemes=track_data["grading"]["schemes"],
                     )
                     db.session.add(scale)
             db.session.commit()
-            logger.info("polymorphic_education_seeding_success", tenant_id=str(tenant_id), framework=system_key)
+            logger.info(
+                "polymorphic_education_seeding_success",
+                tenant_id=str(tenant_id),
+                framework=system_key,
+            )
         except Exception as e:
             db.session.rollback()
             try:
-                current_app.logger.error(f"Atomic rollback executed for tenant {tenant_id}: {str(e)}")
+                current_app.logger.error(
+                    f"Atomic rollback executed for tenant {tenant_id}: {str(e)}"
+                )
             except Exception:
-                logger.error("atomic_rollback_error", tenant_id=str(tenant_id), error=str(e))
-            raise RuntimeError("Setup tracking validation failed. Database state safely reverted.")
+                logger.error(
+                    "atomic_rollback_error", tenant_id=str(tenant_id), error=str(e)
+                )
+            raise RuntimeError(
+                "Setup tracking validation failed. Database state safely reverted."
+            )
 
 
 # Redis Automatic Cache Eviction Listener
 def flush_tenant_cache_matrix(mapper, connection, target):
-    tenant_id = getattr(target, 'tenant_id', None)
+    tenant_id = getattr(target, "tenant_id", None)
     if tenant_id:
         try:
             from app.services.cache_service import get_cache_service
+
             cache = get_cache_service()
             if cache:
                 cache.delete(f"tenant:{tenant_id}:education_meta")
         except Exception:
             pass
 
-event.listen(PolymorphicGradingScale, 'after_update', flush_tenant_cache_matrix)
-event.listen(PolymorphicGradingScale, 'after_delete', flush_tenant_cache_matrix)
+
+event.listen(PolymorphicGradingScale, "after_update", flush_tenant_cache_matrix)
+event.listen(PolymorphicGradingScale, "after_delete", flush_tenant_cache_matrix)

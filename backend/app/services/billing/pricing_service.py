@@ -5,16 +5,15 @@ from typing import Optional
 
 from app.models.billing import Plan, PlanPricingTier
 
-
 # When a school is on the 'trial' plan and no dedicated trial pricing tiers
 # exist, fall back to this plan's tiers for price calculation.  This means
 # the Super Admin only needs to configure one set of pricing rules (under
 # 'basic') and trial schools automatically inherit those rates.
-TRIAL_FALLBACK_SLUG = 'basic'
+TRIAL_FALLBACK_SLUG = "basic"
 
 # Plans whose own tiers should be resolved via TRIAL_FALLBACK_SLUG when no
 # direct tiers are found.  Extend this list if other alias slugs are needed.
-PRICING_ALIAS_SLUGS: frozenset[str] = frozenset({'trial'})
+PRICING_ALIAS_SLUGS: frozenset[str] = frozenset({"trial"})
 
 
 @dataclass
@@ -35,6 +34,7 @@ class ResolvedPrice:
     ``via_alias`` is True when the price was resolved through the trial-alias
     fallback plan rather than the school's own plan tiers.
     """
+
     price: float
     resolved_currency: str
     via_alias: bool = False
@@ -44,11 +44,13 @@ class PricingService:
     @staticmethod
     def _query_tiers(plan_id: int, *, country_code: Optional[str], currency: str):
         q = PlanPricingTier.query.filter_by(plan_id=int(plan_id), is_active=True)
-        q = q.filter(PlanPricingTier.currency == (currency or '').strip().upper())
+        q = q.filter(PlanPricingTier.currency == (currency or "").strip().upper())
         if country_code is None:
             q = q.filter(PlanPricingTier.country_code.is_(None))
         else:
-            q = q.filter(PlanPricingTier.country_code == (country_code or '').strip().upper())
+            q = q.filter(
+                PlanPricingTier.country_code == (country_code or "").strip().upper()
+            )
         return q
 
     @staticmethod
@@ -60,10 +62,13 @@ class PricingService:
         currency: str,
     ) -> Optional[PlanPricingTier]:
         """Return the best active tier for *count* students within (country_code, currency)."""
-        q = PricingService._query_tiers(int(plan_id), country_code=country_code, currency=currency)
+        q = PricingService._query_tiers(
+            int(plan_id), country_code=country_code, currency=currency
+        )
         q = q.filter(PlanPricingTier.min_students <= count)
         q = q.filter(
-            (PlanPricingTier.max_students.is_(None)) | (PlanPricingTier.max_students >= count)
+            (PlanPricingTier.max_students.is_(None))
+            | (PlanPricingTier.max_students >= count)
         )
         q = q.order_by(
             PlanPricingTier.min_students.desc(),
@@ -80,7 +85,9 @@ class PricingService:
         currency: str,
     ) -> Optional[PlanPricingTier]:
         """Return the highest active tier for the plan within (country_code, currency) when count exceeds defined bounds."""
-        q = PricingService._query_tiers(int(plan_id), country_code=country_code, currency=currency)
+        q = PricingService._query_tiers(
+            int(plan_id), country_code=country_code, currency=currency
+        )
         q = q.order_by(
             PlanPricingTier.min_students.desc(),
             PlanPricingTier.max_students.desc().nullsfirst(),
@@ -105,11 +112,12 @@ class PricingService:
             q = q.filter(PlanPricingTier.country_code.is_(None))
         else:
             q = q.filter(
-                PlanPricingTier.country_code == (country_code or '').strip().upper()
+                PlanPricingTier.country_code == (country_code or "").strip().upper()
             )
         q = q.filter(PlanPricingTier.min_students <= count)
         q = q.filter(
-            (PlanPricingTier.max_students.is_(None)) | (PlanPricingTier.max_students >= count)
+            (PlanPricingTier.max_students.is_(None))
+            | (PlanPricingTier.max_students >= count)
         )
         q = q.order_by(
             PlanPricingTier.min_students.desc(),
@@ -129,7 +137,7 @@ class PricingService:
             q = q.filter(PlanPricingTier.country_code.is_(None))
         else:
             q = q.filter(
-                PlanPricingTier.country_code == (country_code or '').strip().upper()
+                PlanPricingTier.country_code == (country_code or "").strip().upper()
             )
         q = q.order_by(
             PlanPricingTier.min_students.desc(),
@@ -147,10 +155,12 @@ class PricingService:
         pricing from the TRIAL_FALLBACK_SLUG ('basic') plan instead.
         Returns None if the alias plan doesn't exist or isn't needed.
         """
-        slug = (plan.slug or '').strip().lower()
+        slug = (plan.slug or "").strip().lower()
         if slug not in PRICING_ALIAS_SLUGS:
             return None
-        fallback = Plan.query.filter_by(slug=TRIAL_FALLBACK_SLUG, is_active=True).first()
+        fallback = Plan.query.filter_by(
+            slug=TRIAL_FALLBACK_SLUG, is_active=True
+        ).first()
         return fallback  # may be None if basic plan not seeded yet
 
     # ------------------------------------------------------------------
@@ -171,17 +181,19 @@ class PricingService:
         fallback, then the trial-alias plan tiers, then plan.price_per_student.
         """
         count = max(0, int(student_count or 0))
-        cc = (country_code or '').strip().upper() or None
-        cur = (currency or plan.currency or 'USD').strip().upper()
+        cc = (country_code or "").strip().upper() or None
+        cur = (currency or plan.currency or "USD").strip().upper()
 
-        tier = (
-            PricingService._pick_tier_in_range(int(plan.id), count, country_code=cc, currency=cur)
-            or PricingService._pick_tier_in_range(int(plan.id), count, country_code=None, currency=cur)
+        tier = PricingService._pick_tier_in_range(
+            int(plan.id), count, country_code=cc, currency=cur
+        ) or PricingService._pick_tier_in_range(
+            int(plan.id), count, country_code=None, currency=cur
         )
         if not tier:
-            tier = (
-                PricingService._get_highest_tier(int(plan.id), country_code=cc, currency=cur)
-                or PricingService._get_highest_tier(int(plan.id), country_code=None, currency=cur)
+            tier = PricingService._get_highest_tier(
+                int(plan.id), country_code=cc, currency=cur
+            ) or PricingService._get_highest_tier(
+                int(plan.id), country_code=None, currency=cur
             )
         if tier:
             return float(tier.price_per_student_month or 0)
@@ -189,14 +201,16 @@ class PricingService:
         # Trial alias fallback — try the 'basic' plan's tiers
         alias = PricingService._alias_plan(plan)
         if alias:
-            alias_tier = (
-                PricingService._pick_tier_in_range(int(alias.id), count, country_code=cc, currency=cur)
-                or PricingService._pick_tier_in_range(int(alias.id), count, country_code=None, currency=cur)
+            alias_tier = PricingService._pick_tier_in_range(
+                int(alias.id), count, country_code=cc, currency=cur
+            ) or PricingService._pick_tier_in_range(
+                int(alias.id), count, country_code=None, currency=cur
             )
             if not alias_tier:
-                alias_tier = (
-                    PricingService._get_highest_tier(int(alias.id), country_code=cc, currency=cur)
-                    or PricingService._get_highest_tier(int(alias.id), country_code=None, currency=cur)
+                alias_tier = PricingService._get_highest_tier(
+                    int(alias.id), country_code=cc, currency=cur
+                ) or PricingService._get_highest_tier(
+                    int(alias.id), country_code=None, currency=cur
                 )
             if alias_tier:
                 return float(alias_tier.price_per_student_month or 0)
@@ -227,21 +241,23 @@ class PricingService:
           exist on the 'basic' plan configured by Super Admin).
         """
         count = max(0, int(student_count or 0))
-        cc = (country_code or '').strip().upper() or None
-        pref_cur = (preferred_currency or plan.currency or 'USD').strip().upper()
+        cc = (country_code or "").strip().upper() or None
+        pref_cur = (preferred_currency or plan.currency or "USD").strip().upper()
 
         def _resolve_for_plan_id(pid: int, via_alias: bool) -> Optional[ResolvedPrice]:
             """Attempt all tier resolution steps for a given plan_id."""
             # Step A: exact (country + preferred currency) match
             if pref_cur:
-                tier = (
-                    PricingService._pick_tier_in_range(pid, count, country_code=cc, currency=pref_cur)
-                    or PricingService._pick_tier_in_range(pid, count, country_code=None, currency=pref_cur)
+                tier = PricingService._pick_tier_in_range(
+                    pid, count, country_code=cc, currency=pref_cur
+                ) or PricingService._pick_tier_in_range(
+                    pid, count, country_code=None, currency=pref_cur
                 )
                 if not tier:
-                    tier = (
-                        PricingService._get_highest_tier(pid, country_code=cc, currency=pref_cur)
-                        or PricingService._get_highest_tier(pid, country_code=None, currency=pref_cur)
+                    tier = PricingService._get_highest_tier(
+                        pid, country_code=cc, currency=pref_cur
+                    ) or PricingService._get_highest_tier(
+                        pid, country_code=None, currency=pref_cur
                     )
                 if tier:
                     return ResolvedPrice(
@@ -254,7 +270,9 @@ class PricingService:
             if cc:
                 tier = PricingService._any_tier_for_country(pid, count, country_code=cc)
                 if not tier:
-                    tier = PricingService._any_highest_tier_for_country(pid, country_code=cc)
+                    tier = PricingService._any_highest_tier_for_country(
+                        pid, country_code=cc
+                    )
                 if tier:
                     return ResolvedPrice(
                         price=float(tier.price_per_student_month or 0),
@@ -265,7 +283,9 @@ class PricingService:
             # Step C: global fallback — tiers with no country restriction
             tier = PricingService._any_tier_for_country(pid, count, country_code=None)
             if not tier:
-                tier = PricingService._any_highest_tier_for_country(pid, country_code=None)
+                tier = PricingService._any_highest_tier_for_country(
+                    pid, country_code=None
+                )
             if tier:
                 return ResolvedPrice(
                     price=float(tier.price_per_student_month or 0),

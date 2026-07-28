@@ -1,6 +1,8 @@
 from typing import List
-from app.services.subject_service import SubjectService
+
 from app.extensions import db
+from app.services.subject_service import SubjectService
+
 
 class BulkSubjectService:
     @staticmethod
@@ -9,9 +11,13 @@ class BulkSubjectService:
         try:
             results = []
             for subject_id in subject_ids:
-                success, result = SubjectService.delete_subject(subject_id, tenant_id=tenant_id)
-                results.append({'subject_id': subject_id, 'success': success, 'result': result})
-            
+                success, result = SubjectService.delete_subject(
+                    subject_id, tenant_id=tenant_id
+                )
+                results.append(
+                    {"subject_id": subject_id, "success": success, "result": result}
+                )
+
             db.session.commit()
             return True, results
         except Exception as e:

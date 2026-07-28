@@ -2,5 +2,7 @@
 class SubjectSchema(Schema):
     # ... existing fields ...
     department_id = fields.Integer(allow_none=True)
-    department = fields.Nested('DepartmentSchema', only=('id', 'name', 'code'), dump_only=True)
+    department = fields.Nested(
+        "DepartmentSchema", only=("id", "name", "code"), dump_only=True
+    )
     # ... existing code ...

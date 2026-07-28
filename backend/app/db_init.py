@@ -1,83 +1,103 @@
-import structlog
 import os
-from app.extensions import db, bcrypt
-from app.models.user import User, Role
-from app.models.parent import Parent
+
+import structlog
 from sqlalchemy import text
 
+from app.extensions import bcrypt, db
+from app.models.parent import Parent
+from app.models.user import Role, User
+
 logger = structlog.get_logger()
+
 
 def init_db():
     """Initialize database with default roles and admin user."""
     # Create default roles if they don't exist
-    roles = ['super_admin', 'super_manager', 'admin', 'teacher', 'student', 'parent', 'user']
+    roles = [
+        "super_admin",
+        "super_manager",
+        "admin",
+        "teacher",
+        "student",
+        "parent",
+        "user",
+    ]
     for role_name in roles:
         if not Role.query.filter_by(name=role_name).first():
             role = Role(name=role_name, description=f"{role_name} role")
             db.session.add(role)
             logger.info(f"Created role: {role_name}")
-    
-    admin_email = 'admin@admipaedia.com'
-    admin_password = 'Admin@123'
+
+    admin_email = "admin@admipaedia.com"
+    admin_password = "Admin@123"
     admin_user = User.query.filter_by(email=admin_email).first()
     if not admin_user:
         admin_user = User(
-            username='admin',
+            username="admin",
             email=admin_email,
-            password_hash=bcrypt.generate_password_hash(admin_password).decode('utf-8'),
-            role='admin',
-            status='active',
-            email_verified=True
+            password_hash=bcrypt.generate_password_hash(admin_password).decode("utf-8"),
+            role="admin",
+            status="active",
+            email_verified=True,
         )
         db.session.add(admin_user)
         logger.info("Created admin user")
     else:
         changed = False
-        if getattr(admin_user, 'role', None) != 'admin':
-            admin_user.role = 'admin'
+        if getattr(admin_user, "role", None) != "admin":
+            admin_user.role = "admin"
             changed = True
-        if getattr(admin_user, 'status', None) != 'active':
-            admin_user.status = 'active'
+        if getattr(admin_user, "status", None) != "active":
+            admin_user.status = "active"
             changed = True
         if not admin_user.check_password_hash(admin_password):
             admin_user.set_password_hash(admin_password)
             changed = True
         if changed:
             logger.info("Updated admin user")
-    
+
     # Commit changes
     db.session.commit()
 
-    super_admin_email = 'elzakari@easymsdigit.com'
-    super_admin_seed_password = os.environ.get('SUPERADMIN_SEED_PASSWORD')
+    super_admin_email = "elzakari@easymsdigit.com"
+    super_admin_seed_password = os.environ.get("SUPERADMIN_SEED_PASSWORD")
     super_admin_user = User.query.filter_by(email=super_admin_email).first()
     if not super_admin_user:
-        legacy_super_admin = User.query.filter_by(email='superadmin@admipaedia.com').first()
-        if legacy_super_admin and not User.query.filter_by(email=super_admin_email).first():
+        legacy_super_admin = User.query.filter_by(
+            email="superadmin@admipaedia.com"
+        ).first()
+        if (
+            legacy_super_admin
+            and not User.query.filter_by(email=super_admin_email).first()
+        ):
             legacy_super_admin.email = super_admin_email
             super_admin_user = legacy_super_admin
             logger.info("Updated legacy super admin email")
     if not super_admin_user:
-        super_admin_password = super_admin_seed_password or 'SuperAdmin@123'
+        super_admin_password = super_admin_seed_password or "SuperAdmin@123"
         super_admin_user = User(
-            username='superadmin',
+            username="superadmin",
             email=super_admin_email,
-            password_hash=bcrypt.generate_password_hash(super_admin_password).decode('utf-8'),
-            role='super_admin',
-            status='active',
-            email_verified=True
+            password_hash=bcrypt.generate_password_hash(super_admin_password).decode(
+                "utf-8"
+            ),
+            role="super_admin",
+            status="active",
+            email_verified=True,
         )
         db.session.add(super_admin_user)
         logger.info("Created super admin user")
     else:
         changed = False
-        if getattr(super_admin_user, 'role', None) != 'super_admin':
-            super_admin_user.role = 'super_admin'
+        if getattr(super_admin_user, "role", None) != "super_admin":
+            super_admin_user.role = "super_admin"
             changed = True
-        if getattr(super_admin_user, 'status', None) != 'active':
-            super_admin_user.status = 'active'
+        if getattr(super_admin_user, "status", None) != "active":
+            super_admin_user.status = "active"
             changed = True
-        if super_admin_seed_password and not super_admin_user.check_password_hash(super_admin_seed_password):
+        if super_admin_seed_password and not super_admin_user.check_password_hash(
+            super_admin_seed_password
+        ):
             super_admin_user.set_password_hash(super_admin_seed_password)
             changed = True
         if changed:
@@ -87,15 +107,17 @@ def init_db():
 
     # Ensure backward compatibility: Auto-verify existing active users
     try:
-        active_users = User.query.filter_by(status='active').all()
+        active_users = User.query.filter_by(status="active").all()
         for u in active_users:
-            if not getattr(u, 'email_verified', False):
+            if not getattr(u, "email_verified", False):
                 u.email_verified = True
         db.session.commit()
     except Exception as e:
-        logger.warning("Failed to auto-verify existing active users during DB init", error=str(e))
+        logger.warning(
+            "Failed to auto-verify existing active users during DB init", error=str(e)
+        )
 
-    parent_users = User.query.filter_by(role='parent').all()
+    parent_users = User.query.filter_by(role="parent").all()
     for u in parent_users:
         if not Parent.query.filter_by(user_id=u.id).first():
             db.session.add(Parent(user_id=u.id))
@@ -110,20 +132,32 @@ def _ensure_announcements_schema():
     try:
         engine = db.engine
         dialect = engine.dialect.name
-        if dialect == 'sqlite':
-            cols = db.session.execute(text("PRAGMA table_info(announcements)")).fetchall()
+        if dialect == "sqlite":
+            cols = db.session.execute(
+                text("PRAGMA table_info(announcements)")
+            ).fetchall()
             existing = {c[1] for c in cols}
             statements = []
-            if 'target_roles' not in existing:
-                statements.append("ALTER TABLE announcements ADD COLUMN target_roles VARCHAR(255)")
-            if 'scheduled_date' not in existing:
-                statements.append("ALTER TABLE announcements ADD COLUMN scheduled_date DATETIME")
-            if 'is_published' not in existing:
-                statements.append("ALTER TABLE announcements ADD COLUMN is_published BOOLEAN DEFAULT 1")
-            if 'scope' not in existing:
-                statements.append("ALTER TABLE announcements ADD COLUMN scope VARCHAR(20) DEFAULT 'class_bound'")
-            if 'tenant_id' not in existing:
-                statements.append("ALTER TABLE announcements ADD COLUMN tenant_id VARCHAR(36)")
+            if "target_roles" not in existing:
+                statements.append(
+                    "ALTER TABLE announcements ADD COLUMN target_roles VARCHAR(255)"
+                )
+            if "scheduled_date" not in existing:
+                statements.append(
+                    "ALTER TABLE announcements ADD COLUMN scheduled_date DATETIME"
+                )
+            if "is_published" not in existing:
+                statements.append(
+                    "ALTER TABLE announcements ADD COLUMN is_published BOOLEAN DEFAULT 1"
+                )
+            if "scope" not in existing:
+                statements.append(
+                    "ALTER TABLE announcements ADD COLUMN scope VARCHAR(20) DEFAULT 'class_bound'"
+                )
+            if "tenant_id" not in existing:
+                statements.append(
+                    "ALTER TABLE announcements ADD COLUMN tenant_id VARCHAR(36)"
+                )
             for stmt in statements:
                 try:
                     db.session.execute(text(stmt))
@@ -131,39 +165,67 @@ def _ensure_announcements_schema():
                     pass
             if statements:
                 try:
-                    db.session.execute(text(
-                        "UPDATE announcements "
-                        "SET scope = COALESCE(scope, 'class_bound') "
-                        "WHERE scope IS NULL OR scope = ''"
-                    ))
+                    db.session.execute(
+                        text(
+                            "UPDATE announcements "
+                            "SET scope = COALESCE(scope, 'class_bound') "
+                            "WHERE scope IS NULL OR scope = ''"
+                        )
+                    )
                 except Exception:
                     pass
                 try:
-                    db.session.execute(text(
-                        "UPDATE announcements "
-                        "SET tenant_id = (SELECT classes.tenant_id FROM classes WHERE classes.id = announcements.class_id) "
-                        "WHERE tenant_id IS NULL AND class_id IS NOT NULL"
-                    ))
+                    db.session.execute(
+                        text(
+                            "UPDATE announcements "
+                            "SET tenant_id = (SELECT classes.tenant_id FROM classes WHERE classes.id = announcements.class_id) "
+                            "WHERE tenant_id IS NULL AND class_id IS NOT NULL"
+                        )
+                    )
                 except Exception:
                     pass
                 db.session.commit()
         else:
-            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_roles VARCHAR(255)"))
-            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scheduled_date TIMESTAMP"))
-            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE"))
-            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scope VARCHAR(20) DEFAULT 'class_bound'"))
-            db.session.execute(text("ALTER TABLE announcements ADD COLUMN IF NOT EXISTS tenant_id UUID"))
-            db.session.execute(text(
-                "UPDATE announcements "
-                "SET scope = COALESCE(scope, 'class_bound') "
-                "WHERE scope IS NULL OR scope = ''"
-            ))
-            db.session.execute(text(
-                "UPDATE announcements a "
-                "SET tenant_id = c.tenant_id "
-                "FROM classes c "
-                "WHERE a.tenant_id IS NULL AND a.class_id = c.id"
-            ))
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_roles VARCHAR(255)"
+                )
+            )
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scheduled_date TIMESTAMP"
+                )
+            )
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE"
+                )
+            )
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scope VARCHAR(20) DEFAULT 'class_bound'"
+                )
+            )
+            db.session.execute(
+                text(
+                    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS tenant_id UUID"
+                )
+            )
+            db.session.execute(
+                text(
+                    "UPDATE announcements "
+                    "SET scope = COALESCE(scope, 'class_bound') "
+                    "WHERE scope IS NULL OR scope = ''"
+                )
+            )
+            db.session.execute(
+                text(
+                    "UPDATE announcements a "
+                    "SET tenant_id = c.tenant_id "
+                    "FROM classes c "
+                    "WHERE a.tenant_id IS NULL AND a.class_id = c.id"
+                )
+            )
             db.session.commit()
     except Exception:
         try:

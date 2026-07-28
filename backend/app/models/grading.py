@@ -1,17 +1,11 @@
-from .grading_system import (
-    GradingScheme,
-    GradeBoundary,
-    EnhancedGrade,
-    FinalGrade,
-    AssessmentType,
-    GradingStandard,
-)
+from .grading_system import (AssessmentType, EnhancedGrade, FinalGrade,
+                             GradeBoundary, GradingScheme, GradingStandard)
 
 __all__ = [
-    'GradingScheme',
-    'GradeBoundary',
-    'EnhancedGrade',
-    'FinalGrade',
-    'AssessmentType',
-    'GradingStandard',
+    "GradingScheme",
+    "GradeBoundary",
+    "EnhancedGrade",
+    "FinalGrade",
+    "AssessmentType",
+    "GradingStandard",
 ]

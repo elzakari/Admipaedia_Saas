@@ -1,8 +1,10 @@
-from app.celery_app import celery_app
-from app.services.announcement_service import AnnouncementService
 import structlog
 
+from app.celery_app import celery_app
+from app.services.announcement_service import AnnouncementService
+
 logger = structlog.get_logger()
+
 
 @celery_app.task
 def publish_scheduled_announcements():

@@ -1,9 +1,12 @@
 import uuid
-from flask import request, g, session, has_app_context
-from app.extensions import db
-from app.models.tenant import Branch, TenantMembership
+
+from flask import g, has_app_context, request, session
 from sqlalchemy import event
 from sqlalchemy.orm import Session
+
+from app.extensions import db
+from app.models.tenant import Branch, TenantMembership
+
 
 def campus_isolation_middleware():
     """
@@ -16,11 +19,11 @@ def campus_isolation_middleware():
 
     # 1. Resolve branch_id from X-Active-Branch-ID, X-Branch-ID, args, or session
     branch_id_str = (
-        request.headers.get('X-Active-Branch-ID') or
-        request.headers.get('X-Branch-ID') or
-        request.args.get('active_branch_id') or
-        request.args.get('branch_id') or
-        session.get('active_branch_id')
+        request.headers.get("X-Active-Branch-ID")
+        or request.headers.get("X-Branch-ID")
+        or request.args.get("active_branch_id")
+        or request.args.get("branch_id")
+        or session.get("active_branch_id")
     )
 
     g.branch_id = None
@@ -31,32 +34,42 @@ def campus_isolation_middleware():
             pass
 
     # 2. Get active tenant context if available
-    tenant_id = getattr(g, 'tenant_id', None)
-    current_user = getattr(g, 'current_user', None)
+    tenant_id = getattr(g, "tenant_id", None)
+    current_user = getattr(g, "current_user", None)
 
     # 3. Default smoothly to 'Main Campus' if no branch is selected by an administrator
     if tenant_id and g.branch_id is None:
         is_admin = False
         if current_user:
-            if current_user.role in ('admin', 'school_admin', 'school_finance', 'super_admin', 'super_manager'):
+            if current_user.role in (
+                "admin",
+                "school_admin",
+                "school_finance",
+                "super_admin",
+                "super_manager",
+            ):
                 is_admin = True
             else:
                 membership = TenantMembership.query.filter_by(
-                    user_id=current_user.id,
-                    tenant_id=tenant_id,
-                    status='active'
+                    user_id=current_user.id, tenant_id=tenant_id, status="active"
                 ).first()
-                if membership and membership.role in ('school_admin', 'school_finance'):
+                if membership and membership.role in ("school_admin", "school_finance"):
                     is_admin = True
-                    
+
         # Apply the default branch rules
         if is_admin or not current_user:
-            main_branch = Branch.query.filter_by(tenant_id=tenant_id, name='Main Campus').first()
+            main_branch = Branch.query.filter_by(
+                tenant_id=tenant_id, name="Main Campus"
+            ).first()
             if not main_branch:
-                main_branch = Branch.query.filter_by(tenant_id=tenant_id, is_active=True).first()
+                main_branch = Branch.query.filter_by(
+                    tenant_id=tenant_id, is_active=True
+                ).first()
             if not main_branch:
                 try:
-                    main_branch = Branch(tenant_id=tenant_id, name='Main Campus', is_active=True)
+                    main_branch = Branch(
+                        tenant_id=tenant_id, name="Main Campus", is_active=True
+                    )
                     db.session.add(main_branch)
                     db.session.commit()
                 except Exception:
@@ -65,16 +78,16 @@ def campus_isolation_middleware():
                 g.branch_id = main_branch.id
 
 
-@event.listens_for(Session, 'before_flush')
+@event.listens_for(Session, "before_flush")
 def auto_populate_branch_id(session, flush_context, instances):
     """
     SQLAlchemy session event listener.
     Automatically populates the branch_id field for any new model instance
     created within a branch-scoped context before writing to storage.
     """
-    if not has_app_context() or not getattr(g, 'branch_id', None):
+    if not has_app_context() or not getattr(g, "branch_id", None):
         return
-        
+
     for obj in session.new:
-        if hasattr(obj, 'branch_id') and getattr(obj, 'branch_id') is None:
+        if hasattr(obj, "branch_id") and getattr(obj, "branch_id") is None:
             obj.branch_id = g.branch_id

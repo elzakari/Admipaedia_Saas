@@ -1,11 +1,15 @@
-from app.models.academic_calendar import AcademicYear, Term
-from app.extensions import db
 from datetime import datetime
+
+from app.extensions import db
+from app.models.academic_calendar import AcademicYear, Term
+
 
 class AcademicCalendarService:
     @staticmethod
     def get_all_years(page=1, per_page=20):
-        return AcademicYear.query.order_by(AcademicYear.start_date.desc()).paginate(page=page, per_page=per_page)
+        return AcademicYear.query.order_by(AcademicYear.start_date.desc()).paginate(
+            page=page, per_page=per_page
+        )
 
     @staticmethod
     def get_current_year():
@@ -27,10 +31,10 @@ class AcademicCalendarService:
         year = AcademicYear.query.get(year_id)
         if not year:
             return None, "Academic year not found"
-        
+
         for key, value in data.items():
             setattr(year, key, value)
-        
+
         db.session.commit()
         return year, None
 
@@ -39,7 +43,7 @@ class AcademicCalendarService:
         year = AcademicYear.query.get(year_id)
         if not year:
             return False, "Academic year not found"
-        
+
         db.session.delete(year)
         db.session.commit()
         return True, None
@@ -68,10 +72,10 @@ class AcademicCalendarService:
         term = Term.query.get(term_id)
         if not term:
             return None, "Term not found"
-        
+
         for key, value in data.items():
             setattr(term, key, value)
-        
+
         db.session.commit()
         return term, None
 
@@ -80,7 +84,7 @@ class AcademicCalendarService:
         term = Term.query.get(term_id)
         if not term:
             return False, "Term not found"
-        
+
         db.session.delete(term)
         db.session.commit()
         return True, None

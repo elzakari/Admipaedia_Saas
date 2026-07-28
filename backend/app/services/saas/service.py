@@ -1,5 +1,6 @@
-from . import tenant_ops, billing_ops
-from .serialization import serialize_tenant, serialize_invoice, serialize_payment
+from . import billing_ops, tenant_ops
+from .serialization import (serialize_invoice, serialize_payment,
+                            serialize_tenant)
 
 
 class SaaSService:
@@ -21,7 +22,9 @@ class SaaSService:
     record_payment = staticmethod(billing_ops.record_payment)
     list_payments = staticmethod(billing_ops.list_payments)
     platform_list_tenants = staticmethod(billing_ops.platform_list_tenants)
-    platform_list_tenants_filtered = staticmethod(billing_ops.platform_list_tenants_filtered)
+    platform_list_tenants_filtered = staticmethod(
+        billing_ops.platform_list_tenants_filtered
+    )
     platform_get_tenant_detail = staticmethod(billing_ops.platform_get_tenant_detail)
     platform_kpis = staticmethod(billing_ops.platform_kpis)
     platform_update_tenant = staticmethod(billing_ops.platform_update_tenant)

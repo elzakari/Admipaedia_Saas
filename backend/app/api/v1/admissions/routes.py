@@ -1,19 +1,24 @@
-from flask import request, jsonify, g
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.extensions import db
-from app.models.admission import AdmissionApplication
-from app.models.parent import Parent
-from app.models.user import User
-from app.models.system_setting import SystemSetting
-from app.models.class_ import Class
-from app.schemas.admission import AdmissionApplicationSchema, BuyFormSchema, SubmitFormSchema, SaveDraftSchema, ReviewApplicationSchema
-from app.utils.auth_utils import admin_required, parent_required, ADMIN_COMPATIBLE_ROLES
 from datetime import datetime
+
+from flask import g, jsonify, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy.orm import joinedload
 
-EDITABLE_PARENT_STATUSES = ('draft', 'returned')
-DISCARDABLE_PARENT_STATUSES = ('draft', 'returned', 'rejected')
-HIDDEN_ADMISSION_STATUSES = ('discarded',)
+from app.extensions import db
+from app.models.admission import AdmissionApplication
+from app.models.class_ import Class
+from app.models.parent import Parent
+from app.models.system_setting import SystemSetting
+from app.models.user import User
+from app.schemas.admission import (AdmissionApplicationSchema, BuyFormSchema,
+                                   ReviewApplicationSchema, SaveDraftSchema,
+                                   SubmitFormSchema)
+from app.utils.auth_utils import (ADMIN_COMPATIBLE_ROLES, admin_required,
+                                  parent_required)
+
+EDITABLE_PARENT_STATUSES = ("draft", "returned")
+DISCARDABLE_PARENT_STATUSES = ("draft", "returned", "rejected")
+HIDDEN_ADMISSION_STATUSES = ("discarded",)
 
 admission_application_schema = AdmissionApplicationSchema()
 admission_applications_schema = AdmissionApplicationSchema(many=True)
@@ -32,7 +37,7 @@ def _normalize_form_data(form_data):
 def _has_meaningful_form_data(form_data):
     payload = _normalize_form_data(form_data)
     for key, value in payload.items():
-        if key == '_review':
+        if key == "_review":
             continue
         if isinstance(value, str) and value.strip():
             return True
@@ -40,7 +45,7 @@ def _has_meaningful_form_data(form_data):
             return True
         if isinstance(value, dict) and _has_meaningful_form_data(value):
             return True
-        if value not in (None, '', [], {}, ()):
+        if value not in (None, "", [], {}, ()):
             return True
     return False
 
@@ -50,14 +55,17 @@ def _base_admission_query():
         joinedload(AdmissionApplication.target_class),
         joinedload(AdmissionApplication.parent).joinedload(Parent.user),
     )
-    tenant_id = getattr(g, 'tenant_id', None)
+    tenant_id = getattr(g, "tenant_id", None)
     if tenant_id:
-        query = query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(Parent.tenant_id == tenant_id)
+        query = query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(
+            Parent.tenant_id == tenant_id
+        )
     return query
 
 
 def _normalize_name(value):
-    return ' '.join(str(value or '').strip().lower().split())
+    return " ".join(str(value or "").strip().lower().split())
+
 
 @jwt_required()
 @admin_required
@@ -66,13 +74,19 @@ def get_all_applications():
     applications = (
         _base_admission_query()
         .filter(~AdmissionApplication.status.in_(HIDDEN_ADMISSION_STATUSES))
-        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .order_by(
+            AdmissionApplication.updated_at.desc(),
+            AdmissionApplication.created_at.desc(),
+        )
         .all()
     )
-    return jsonify({
-        'success': True,
-        'data': admission_applications_schema.dump(applications)
-    }), 200
+    return (
+        jsonify(
+            {"success": True, "data": admission_applications_schema.dump(applications)}
+        ),
+        200,
+    )
+
 
 @jwt_required()
 @parent_required
@@ -82,7 +96,7 @@ def get_my_applications():
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent:
         user = User.query.get(user_id)
-        if user and user.role == 'parent':
+        if user and user.role == "parent":
             try:
                 parent = Parent(user_id=user_id)
                 db.session.add(parent)
@@ -91,19 +105,25 @@ def get_my_applications():
                 db.session.rollback()
                 parent = Parent.query.filter_by(user_id=user_id).first()
         if not parent:
-            return jsonify({'success': True, 'data': []}), 200
-        
+            return jsonify({"success": True, "data": []}), 200
+
     applications = (
         _base_admission_query()
         .filter(AdmissionApplication.parent_id == parent.id)
         .filter(~AdmissionApplication.status.in_(HIDDEN_ADMISSION_STATUSES))
-        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .order_by(
+            AdmissionApplication.updated_at.desc(),
+            AdmissionApplication.created_at.desc(),
+        )
         .all()
     )
-    return jsonify({
-        'success': True,
-        'data': admission_applications_schema.dump(applications)
-    }), 200
+    return (
+        jsonify(
+            {"success": True, "data": admission_applications_schema.dump(applications)}
+        ),
+        200,
+    )
+
 
 @jwt_required()
 def buy_admission_form():
@@ -112,169 +132,221 @@ def buy_admission_form():
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent:
         user = User.query.get(user_id)
-        if not user or user.role != 'parent':
-            return jsonify({'success': False, 'message': 'Parent profile not found'}), 404
+        if not user or user.role != "parent":
+            return (
+                jsonify({"success": False, "message": "Parent profile not found"}),
+                404,
+            )
         parent = Parent(user_id=user_id)
         db.session.add(parent)
         db.session.commit()
-        
+
     try:
         data = buy_form_schema.load(request.json)
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        return jsonify({"success": False, "message": str(e)}), 400
 
-    target_class = Class.query.get(data['target_class_id'])
+    target_class = Class.query.get(data["target_class_id"])
     if not target_class:
-      return jsonify({'success': False, 'message': 'Target class not found'}), 400
-        
+        return jsonify({"success": False, "message": "Target class not found"}), 400
+
     # Fetch dynamic price and currency from tenant settings / tenant
-    tenant_id = getattr(g, 'tenant_id', None) or (target_class.tenant_id if target_class else None)
-    currency = 'GHS'
+    tenant_id = getattr(g, "tenant_id", None) or (
+        target_class.tenant_id if target_class else None
+    )
+    currency = "GHS"
     admission_price = None
 
     if tenant_id:
         from app.models.tenant import Tenant
+
         tenant = Tenant.query.get(tenant_id)
         if tenant:
-            currency = getattr(tenant, 'currency', None) or 'GHS'
-            store = getattr(tenant, 'settings', None) or {}
+            currency = getattr(tenant, "currency", None) or "GHS"
+            store = getattr(tenant, "settings", None) or {}
             if isinstance(store, dict):
-                v = store.get('admission_form_price')
+                v = store.get("admission_form_price")
                 try:
-                    if v is not None and str(v).strip() != '':
+                    if v is not None and str(v).strip() != "":
                         admission_price = float(v)
                 except Exception:
                     pass
 
     if admission_price is None:
-        admission_price = float(SystemSetting.get_value('admission_form_price', '100.00'))
-    
+        admission_price = float(
+            SystemSetting.get_value("admission_form_price", "100.00")
+        )
+
     editable_applications = (
         AdmissionApplication.query.filter(
             AdmissionApplication.parent_id == parent.id,
-            AdmissionApplication.payment_status == 'paid',
+            AdmissionApplication.payment_status == "paid",
             AdmissionApplication.status.in_(EDITABLE_PARENT_STATUSES),
         )
-        .order_by(AdmissionApplication.updated_at.desc(), AdmissionApplication.created_at.desc())
+        .order_by(
+            AdmissionApplication.updated_at.desc(),
+            AdmissionApplication.created_at.desc(),
+        )
         .all()
     )
 
-    target_first_name = _normalize_name(data['student_first_name'])
-    target_last_name = _normalize_name(data['student_last_name'])
+    target_first_name = _normalize_name(data["student_first_name"])
+    target_last_name = _normalize_name(data["student_last_name"])
 
     exact_match = next(
         (
-            application for application in editable_applications
+            application
+            for application in editable_applications
             if _normalize_name(application.student_first_name) == target_first_name
             and _normalize_name(application.student_last_name) == target_last_name
-            and application.target_class_id == data['target_class_id']
+            and application.target_class_id == data["target_class_id"]
         ),
         None,
     )
     if exact_match:
         exact_match.updated_at = datetime.utcnow()
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': 'Existing editable admission form resumed',
-            'application_id': exact_match.id,
-            'reused_existing': True,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "Existing editable admission form resumed",
+                    "application_id": exact_match.id,
+                    "reused_existing": True,
+                }
+            ),
+            200,
+        )
 
     blank_shell = next(
-        (application for application in editable_applications if not _has_meaningful_form_data(application.form_data)),
+        (
+            application
+            for application in editable_applications
+            if not _has_meaningful_form_data(application.form_data)
+        ),
         None,
     )
     if blank_shell:
-        blank_shell.student_first_name = data['student_first_name']
-        blank_shell.student_last_name = data['student_last_name']
-        blank_shell.target_class_id = data['target_class_id']
+        blank_shell.student_first_name = data["student_first_name"]
+        blank_shell.student_last_name = data["student_last_name"]
+        blank_shell.target_class_id = data["target_class_id"]
         blank_shell.updated_at = datetime.utcnow()
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': 'Existing draft form updated and resumed',
-            'application_id': blank_shell.id,
-            'reused_existing': True,
-        }), 200
-    
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "Existing draft form updated and resumed",
+                    "application_id": blank_shell.id,
+                    "reused_existing": True,
+                }
+            ),
+            200,
+        )
+
     application = AdmissionApplication(
         parent_id=parent.id,
-        student_first_name=data['student_first_name'],
-        student_last_name=data['student_last_name'],
-        target_class_id=data['target_class_id'],
-        payment_status='paid', # Auto-paid in simulation
+        student_first_name=data["student_first_name"],
+        student_last_name=data["student_last_name"],
+        target_class_id=data["target_class_id"],
+        payment_status="paid",  # Auto-paid in simulation
         form_purchase_date=datetime.utcnow(),
-        status='draft'
+        status="draft",
     )
-    
+
     db.session.add(application)
     db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Admission form purchased successfully',
-        'application_id': application.id
-    }), 201
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Admission form purchased successfully",
+                "application_id": application.id,
+            }
+        ),
+        201,
+    )
+
 
 @jwt_required()
 def get_application_details(id):
     """Get details of a specific application."""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
-    
-    application = _base_admission_query().filter(AdmissionApplication.id == id).first_or_404()
-    
+
+    application = (
+        _base_admission_query().filter(AdmissionApplication.id == id).first_or_404()
+    )
+
     # Allow if user is admin or if they are the parent who created the application
     if user.role not in ADMIN_COMPATIBLE_ROLES:
         parent = Parent.query.filter_by(user_id=user_id).first()
         if not parent or application.parent_id != parent.id:
-            return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    elif getattr(g, 'tenant_id', None) and application.parent and application.parent.tenant_id != getattr(g, 'tenant_id', None):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
-    return jsonify({
-        'success': True,
-        'data': admission_application_schema.dump(application)
-    }), 200
+            return jsonify({"success": False, "message": "Unauthorized"}), 403
+    elif (
+        getattr(g, "tenant_id", None)
+        and application.parent
+        and application.parent.tenant_id != getattr(g, "tenant_id", None)
+    ):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+
+    return (
+        jsonify(
+            {"success": True, "data": admission_application_schema.dump(application)}
+        ),
+        200,
+    )
+
 
 @jwt_required()
 def submit_admission_form(id):
     """Submit the filled admission form data."""
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
-    
+
     application = AdmissionApplication.query.get_or_404(id)
-    
+
     # Only parents can submit their own forms
-    if user.role != 'parent':
-        return jsonify({'success': False, 'message': 'Only parents can submit forms'}), 403
-        
+    if user.role != "parent":
+        return (
+            jsonify({"success": False, "message": "Only parents can submit forms"}),
+            403,
+        )
+
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent or application.parent_id != parent.id:
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-        
-    if application.payment_status != 'paid':
-        return jsonify({'success': False, 'message': 'Form not paid for'}), 400
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
 
-    if application.status not in ('draft', 'returned'):
-        return jsonify({'success': False, 'message': 'Application is already submitted or processed'}), 400
-        
+    if application.payment_status != "paid":
+        return jsonify({"success": False, "message": "Form not paid for"}), 400
+
+    if application.status not in ("draft", "returned"):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Application is already submitted or processed",
+                }
+            ),
+            400,
+        )
+
     try:
         data = submit_form_schema.load(request.json)
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
-        
-    application.form_data = data['form_data']
-    application.status = 'submitted'
+        return jsonify({"success": False, "message": str(e)}), 400
+
+    application.form_data = data["form_data"]
+    application.status = "submitted"
     application.submission_date = datetime.utcnow()
-    
+
     db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Admission form submitted successfully'
-    }), 200
+
+    return (
+        jsonify({"success": True, "message": "Admission form submitted successfully"}),
+        200,
+    )
 
 
 @jwt_required()
@@ -285,49 +357,62 @@ def save_admission_draft(id):
 
     application = AdmissionApplication.query.get_or_404(id)
 
-    if not user or user.role != 'parent':
-        return jsonify({'success': False, 'message': 'Only parents can save drafts'}), 403
+    if not user or user.role != "parent":
+        return (
+            jsonify({"success": False, "message": "Only parents can save drafts"}),
+            403,
+        )
 
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent or application.parent_id != parent.id:
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
 
-    if application.payment_status != 'paid':
-        return jsonify({'success': False, 'message': 'Form not paid for'}), 400
+    if application.payment_status != "paid":
+        return jsonify({"success": False, "message": "Form not paid for"}), 400
 
     if application.status not in EDITABLE_PARENT_STATUSES:
-        return jsonify({'success': False, 'message': 'Cannot edit a submitted application'}), 400
+        return (
+            jsonify(
+                {"success": False, "message": "Cannot edit a submitted application"}
+            ),
+            400,
+        )
 
     try:
         data = save_draft_schema.load(request.json)
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        return jsonify({"success": False, "message": str(e)}), 400
 
     if not data:
-        return jsonify({'success': False, 'message': 'No updates were provided'}), 400
+        return jsonify({"success": False, "message": "No updates were provided"}), 400
 
-    if data.get('student_first_name'):
-        application.student_first_name = data['student_first_name']
+    if data.get("student_first_name"):
+        application.student_first_name = data["student_first_name"]
 
-    if data.get('student_last_name'):
-        application.student_last_name = data['student_last_name']
+    if data.get("student_last_name"):
+        application.student_last_name = data["student_last_name"]
 
-    if data.get('target_class_id') is not None:
-        target_class = Class.query.get(data['target_class_id'])
+    if data.get("target_class_id") is not None:
+        target_class = Class.query.get(data["target_class_id"])
         if not target_class:
-            return jsonify({'success': False, 'message': 'Target class not found'}), 400
+            return jsonify({"success": False, "message": "Target class not found"}), 400
         application.target_class_id = target_class.id
 
-    if 'form_data' in data:
-        application.form_data = data['form_data']
+    if "form_data" in data:
+        application.form_data = data["form_data"]
 
     db.session.commit()
 
-    return jsonify({
-        'success': True,
-        'message': 'Draft saved',
-        'data': admission_application_schema.dump(application)
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Draft saved",
+                "data": admission_application_schema.dump(application),
+            }
+        ),
+        200,
+    )
 
 
 @jwt_required()
@@ -338,32 +423,56 @@ def discard_application(id):
 
     application = AdmissionApplication.query.get_or_404(id)
 
-    if not user or user.role != 'parent':
-        return jsonify({'success': False, 'message': 'Only parents can discard applications'}), 403
+    if not user or user.role != "parent":
+        return (
+            jsonify(
+                {"success": False, "message": "Only parents can discard applications"}
+            ),
+            403,
+        )
 
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent or application.parent_id != parent.id:
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
 
     if application.status not in DISCARDABLE_PARENT_STATUSES:
-        return jsonify({'success': False, 'message': 'Only draft, returned, or rejected applications can be discarded'}), 400
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Only draft, returned, or rejected applications can be discarded",
+                }
+            ),
+            400,
+        )
 
     form_data = _normalize_form_data(application.form_data)
-    review_block = form_data.get('_review', {}) if isinstance(form_data.get('_review'), dict) else {}
-    review_block.update({
-        'discarded_at': datetime.utcnow().isoformat(),
-        'discarded_by_parent': True,
-    })
-    form_data['_review'] = review_block
+    review_block = (
+        form_data.get("_review", {})
+        if isinstance(form_data.get("_review"), dict)
+        else {}
+    )
+    review_block.update(
+        {
+            "discarded_at": datetime.utcnow().isoformat(),
+            "discarded_by_parent": True,
+        }
+    )
+    form_data["_review"] = review_block
     application.form_data = form_data
-    application.status = 'discarded'
+    application.status = "discarded"
 
     db.session.commit()
 
-    return jsonify({
-        'success': True,
-        'message': 'Application discarded successfully',
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Application discarded successfully",
+            }
+        ),
+        200,
+    )
 
 
 @jwt_required()
@@ -371,204 +480,269 @@ def discard_application(id):
 def review_application(id):
     """Admin review actions: mark under_review/approved/rejected."""
     from app.api.v1.saas.routes import patch_admission_status
+
     return patch_admission_status(id)
 
     try:
         data = review_application_schema.load(request.json)
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        return jsonify({"success": False, "message": str(e)}), 400
 
-    next_status = data['status']
-    notes = data.get('notes')
+    next_status = data["status"]
+    notes = data.get("notes")
 
     form_data = application.form_data or {}
     if isinstance(form_data, str):
         try:
             import json
+
             form_data = json.loads(form_data)
         except Exception:
             form_data = {}
     if not isinstance(form_data, dict):
         form_data = {}
 
-    review_block = form_data.get('_review', {})
-    review_block.update({
-        'status': next_status,
-        'notes': notes,
-        'reviewed_at': datetime.utcnow().isoformat()
-    })
-    form_data['_review'] = review_block
+    review_block = form_data.get("_review", {})
+    review_block.update(
+        {
+            "status": next_status,
+            "notes": notes,
+            "reviewed_at": datetime.utcnow().isoformat(),
+        }
+    )
+    form_data["_review"] = review_block
     application.form_data = form_data
-    
-    if next_status == 'approved':
+
+    if next_status == "approved":
         try:
             application.status = next_status
             from flask import g
+
             tenant_id = (
-                getattr(g, 'tenant_id', None) or 
-                (application.target_class.tenant_id if application.target_class else None) or 
-                (application.parent.tenant_id if application.parent else None)
+                getattr(g, "tenant_id", None)
+                or (
+                    application.target_class.tenant_id
+                    if application.target_class
+                    else None
+                )
+                or (application.parent.tenant_id if application.parent else None)
             )
             if not tenant_id:
-                raise ValueError("Could not resolve a valid tenant context for student creation.")
-                
+                raise ValueError(
+                    "Could not resolve a valid tenant context for student creation."
+                )
+
             from app.models.student import Student
             from app.models.user import User
-            
+
             # Determine student email
-            student_email = form_data.get('student_email') or form_data.get('email') or None
-                
+            student_email = (
+                form_data.get("student_email") or form_data.get("email") or None
+            )
+
             # Create user account for student if not exists
             student_user = None
             raw_token = None
             if student_email:
                 student_user = User.query.filter_by(email=student_email).first()
-                
+
             if not student_user:
                 if student_email:
-                    username = student_email.split('@')[0]
+                    username = student_email.split("@")[0]
                 else:
-                    clean_first = "".join(c for c in (application.student_first_name or "") if c.isalnum()).lower()
-                    clean_last = "".join(c for c in (application.student_last_name or "") if c.isalnum()).lower()
+                    clean_first = "".join(
+                        c for c in (application.student_first_name or "") if c.isalnum()
+                    ).lower()
+                    clean_last = "".join(
+                        c for c in (application.student_last_name or "") if c.isalnum()
+                    ).lower()
                     if not clean_first and not clean_last:
                         clean_first = "student"
                     username = f"{clean_first}_{clean_last}"
-                
+
                 base_username = username
                 counter = 1
                 while User.query.filter_by(username=username).first():
                     username = f"{base_username}_{counter}"
                     counter += 1
-                
-                import secrets
-                from app.extensions import bcrypt
+
                 import hashlib
+                import secrets
                 from datetime import timedelta
-                
+
+                from app.extensions import bcrypt
+
                 raw_token = secrets.token_urlsafe(32)
-                token_hash = hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
-                stub_hash = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode('utf-8')
-                
+                token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+                stub_hash = bcrypt.generate_password_hash(
+                    secrets.token_urlsafe(32)
+                ).decode("utf-8")
+
                 student_user = User(
                     username=username,
                     email=student_email,
                     password_hash=stub_hash,
-                    role='student',
-                    status='pending_activation',
+                    role="student",
+                    status="pending_activation",
                     password_reset_token=token_hash,
-                    password_reset_expires=datetime.utcnow() + timedelta(days=7)
+                    password_reset_expires=datetime.utcnow() + timedelta(days=7),
                 )
                 db.session.add(student_user)
-                db.session.flush() # Flush to get student_user.id
-                
+                db.session.flush()  # Flush to get student_user.id
+
             # Resolve gender
-            gender = form_data.get('gender')
+            gender = form_data.get("gender")
             if gender:
                 gender = str(gender).lower()
-                if gender in ('m', 'male'):
-                    gender = 'male'
-                elif gender in ('f', 'female'):
-                    gender = 'female'
+                if gender in ("m", "male"):
+                    gender = "male"
+                elif gender in ("f", "female"):
+                    gender = "female"
                 else:
-                    gender = 'other'
+                    gender = "other"
             else:
-                gender = 'female'
-                
+                gender = "female"
+
             # Resolve date of birth (mapping dob / date_of_birth)
-            dob_raw = form_data.get('dob') or form_data.get('date_of_birth') or form_data.get('dateOfBirth')
+            dob_raw = (
+                form_data.get("dob")
+                or form_data.get("date_of_birth")
+                or form_data.get("dateOfBirth")
+            )
             if not dob_raw:
                 raise ValueError("Missing required field: date_of_birth")
-                
+
             if isinstance(dob_raw, str):
                 try:
-                    date_of_birth = datetime.strptime(dob_raw.split('T')[0], '%Y-%m-%d').date()
+                    date_of_birth = datetime.strptime(
+                        dob_raw.split("T")[0], "%Y-%m-%d"
+                    ).date()
                 except Exception:
-                    raise ValueError(f"Invalid date_of_birth format: {dob_raw}. Expected YYYY-MM-DD.")
+                    raise ValueError(
+                        f"Invalid date_of_birth format: {dob_raw}. Expected YYYY-MM-DD."
+                    )
             else:
                 date_of_birth = dob_raw
-                
+
             # Resolve mapping attributes
-            address_val = form_data.get('home_address') or form_data.get('address') or form_data.get('residential_address')
-            blood_group_val = form_data.get('blood_group') or form_data.get('bloodGroup')
-            phone_val = form_data.get('emergency_contact') or form_data.get('phone_number') or form_data.get('phone') or form_data.get('telephone') or form_data.get('student_phone')
-                
+            address_val = (
+                form_data.get("home_address")
+                or form_data.get("address")
+                or form_data.get("residential_address")
+            )
+            blood_group_val = form_data.get("blood_group") or form_data.get(
+                "bloodGroup"
+            )
+            phone_val = (
+                form_data.get("emergency_contact")
+                or form_data.get("phone_number")
+                or form_data.get("phone")
+                or form_data.get("telephone")
+                or form_data.get("student_phone")
+            )
+
             # Build student payload
             student_payload = {
-                'tenant_id': tenant_id,
-                'user_id': student_user.id,
-                'first_name': application.student_first_name or "",
-                'last_name': application.student_last_name or "",
-                'parent_id': application.parent_id,
-                'class_id': application.target_class_id,
-                'gender': gender,
-                'date_of_birth': date_of_birth,
-                'status': 'pending_activation',
-                
+                "tenant_id": tenant_id,
+                "user_id": student_user.id,
+                "first_name": application.student_first_name or "",
+                "last_name": application.student_last_name or "",
+                "parent_id": application.parent_id,
+                "class_id": application.target_class_id,
+                "gender": gender,
+                "date_of_birth": date_of_birth,
+                "status": "pending_activation",
                 # Unpack form_data mapping
-                'address': address_val,
-                'residential_address': address_val,
-                'blood_group': blood_group_val,
-                'phone': phone_val,
-                
+                "address": address_val,
+                "residential_address": address_val,
+                "blood_group": blood_group_val,
+                "phone": phone_val,
                 # Optional fields from form_data
-                'middle_name': form_data.get('middle_name') or form_data.get('middleName'),
-                'place_of_birth': form_data.get('place_of_birth') or form_data.get('placeOfBirth'),
-                'nationality': form_data.get('nationality'),
-                'religious_denomination': form_data.get('religious_denomination') or form_data.get('religiousDenomination') or form_data.get('religion'),
-                'email': student_email,
-                'telephone': form_data.get('telephone') or form_data.get('student_phone') or phone_val,
-                'whatsapp': form_data.get('whatsapp'),
-                'postal_address': form_data.get('postal_address') or address_val,
-                'digital_address': form_data.get('digital_address'),
-                'city': form_data.get('city'),
-                'country': form_data.get('country') or form_data.get('state'),
-                'local_landmark': form_data.get('local_landmark'),
-                
+                "middle_name": form_data.get("middle_name")
+                or form_data.get("middleName"),
+                "place_of_birth": form_data.get("place_of_birth")
+                or form_data.get("placeOfBirth"),
+                "nationality": form_data.get("nationality"),
+                "religious_denomination": form_data.get("religious_denomination")
+                or form_data.get("religiousDenomination")
+                or form_data.get("religion"),
+                "email": student_email,
+                "telephone": form_data.get("telephone")
+                or form_data.get("student_phone")
+                or phone_val,
+                "whatsapp": form_data.get("whatsapp"),
+                "postal_address": form_data.get("postal_address") or address_val,
+                "digital_address": form_data.get("digital_address"),
+                "city": form_data.get("city"),
+                "country": form_data.get("country") or form_data.get("state"),
+                "local_landmark": form_data.get("local_landmark"),
                 # Health fields
-                'medical_conditions': form_data.get('medical_conditions') or form_data.get('special_circumstance'),
-                'special_circumstance': form_data.get('special_circumstance') or form_data.get('medical_conditions'),
-                'allergies': form_data.get('allergies'),
-                'medication': form_data.get('medication'),
-                'physician_name': form_data.get('physician_name'),
-                'physician_phone': form_data.get('physician_phone'),
-                
+                "medical_conditions": form_data.get("medical_conditions")
+                or form_data.get("special_circumstance"),
+                "special_circumstance": form_data.get("special_circumstance")
+                or form_data.get("medical_conditions"),
+                "allergies": form_data.get("allergies"),
+                "medication": form_data.get("medication"),
+                "physician_name": form_data.get("physician_name"),
+                "physician_phone": form_data.get("physician_phone"),
                 # Academic fields
-                'previous_school': form_data.get('previous_school') or form_data.get('prev_school_name'),
-                'previous_class': form_data.get('previous_class') or form_data.get('prev_school_class'),
-                'previous_team': form_data.get('previous_team'),
-                'previous_year': form_data.get('previous_year'),
-                
+                "previous_school": form_data.get("previous_school")
+                or form_data.get("prev_school_name"),
+                "previous_class": form_data.get("previous_class")
+                or form_data.get("prev_school_class"),
+                "previous_team": form_data.get("previous_team"),
+                "previous_year": form_data.get("previous_year"),
                 # Parent/Guardian details
-                'father_name': form_data.get('father_name') or form_data.get('fatherName'),
-                'father_contact': form_data.get('father_contact') or form_data.get('fatherContact') or form_data.get('father_phone'),
-                'father_address': form_data.get('father_address') or form_data.get('fatherAddress'),
-                'father_email': form_data.get('father_email') or form_data.get('fatherEmail'),
-                'father_profession': form_data.get('father_profession') or form_data.get('fatherProfession'),
-                'father_workplace': form_data.get('father_workplace') or form_data.get('fatherWorkplace'),
-                
-                'mother_name': form_data.get('mother_name') or form_data.get('motherName'),
-                'mother_contact': form_data.get('mother_contact') or form_data.get('motherContact') or form_data.get('mother_phone'),
-                'mother_address': form_data.get('mother_address') or form_data.get('motherAddress'),
-                'mother_email': form_data.get('mother_email') or form_data.get('motherEmail'),
-                'mother_profession': form_data.get('mother_profession') or form_data.get('motherProfession'),
-                'mother_workplace': form_data.get('mother_workplace') or form_data.get('motherWorkplace'),
-                
-                'guardian_name': form_data.get('guardian_name') or form_data.get('guardianName'),
-                'guardian_contact': form_data.get('guardian_contact') or form_data.get('guardianContact') or form_data.get('guardian_phone') or form_data.get('emergency_contact'),
+                "father_name": form_data.get("father_name")
+                or form_data.get("fatherName"),
+                "father_contact": form_data.get("father_contact")
+                or form_data.get("fatherContact")
+                or form_data.get("father_phone"),
+                "father_address": form_data.get("father_address")
+                or form_data.get("fatherAddress"),
+                "father_email": form_data.get("father_email")
+                or form_data.get("fatherEmail"),
+                "father_profession": form_data.get("father_profession")
+                or form_data.get("fatherProfession"),
+                "father_workplace": form_data.get("father_workplace")
+                or form_data.get("fatherWorkplace"),
+                "mother_name": form_data.get("mother_name")
+                or form_data.get("motherName"),
+                "mother_contact": form_data.get("mother_contact")
+                or form_data.get("motherContact")
+                or form_data.get("mother_phone"),
+                "mother_address": form_data.get("mother_address")
+                or form_data.get("motherAddress"),
+                "mother_email": form_data.get("mother_email")
+                or form_data.get("motherEmail"),
+                "mother_profession": form_data.get("mother_profession")
+                or form_data.get("motherProfession"),
+                "mother_workplace": form_data.get("mother_workplace")
+                or form_data.get("motherWorkplace"),
+                "guardian_name": form_data.get("guardian_name")
+                or form_data.get("guardianName"),
+                "guardian_contact": form_data.get("guardian_contact")
+                or form_data.get("guardianContact")
+                or form_data.get("guardian_phone")
+                or form_data.get("emergency_contact"),
             }
-            
+
             from app.services.student_service import StudentService
+
             student_service = StudentService(db.session)
-            
+
             from app.models.parent import Parent
+
             parent_obj = None
             if application.parent_id:
                 parent_obj = Parent.query.get(application.parent_id)
-                
-            student, error = student_service.create_student(student_payload, tenant_id=tenant_id)
+
+            student, error = student_service.create_student(
+                student_payload, tenant_id=tenant_id
+            )
             if error:
                 raise ValueError(error)
-                
+
             if parent_obj and student:
                 # Link bidirectional parent-student relationships to avoid orphaned records
                 student.parent = parent_obj
@@ -578,33 +752,49 @@ def review_application(id):
                 db.session.add(parent_obj)
                 db.session.add(student)
                 db.session.flush()
-                
+
             # Send activation email using isolated try/except block
             if student_email and raw_token:
                 try:
-                    from app.services.email_service import send_password_reset_email
+                    from app.services.email_service import \
+                        send_password_reset_email
+
                     mail_sent = send_password_reset_email(student_email, raw_token)
                     if not mail_sent:
                         raise Exception("Mail dispatch returned False status")
                 except Exception as mail_err:
                     import sys
-                    print(f"[MAIL FALLBACK] Resend API failed: {str(mail_err)}. Fallback generated raw token for email {student_email}: {raw_token}", file=sys.stdout)
+
+                    print(
+                        f"[MAIL FALLBACK] Resend API failed: {str(mail_err)}. Fallback generated raw token for email {student_email}: {raw_token}",
+                        file=sys.stdout,
+                    )
                     sys.stdout.flush()
-                
+
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            return jsonify({
-                'success': False,
-                'message': f"Student record generation failed: {str(e)}"
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": f"Student record generation failed: {str(e)}",
+                    }
+                ),
+                500,
+            )
     else:
         application.status = next_status
 
     db.session.commit()
 
-    return jsonify({
-        'success': True,
-        'message': 'Application updated',
-        'data': admission_application_schema.dump(application)
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "message": "Application updated",
+                "data": admission_application_schema.dump(application),
+            }
+        ),
+        200,
+    )

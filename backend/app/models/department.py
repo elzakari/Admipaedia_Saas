@@ -19,19 +19,22 @@ destructive table rename migration.
 
 import enum
 from datetime import datetime
-from app.extensions import db
+
 from sqlalchemy.dialects.postgresql import UUID
 
+from app.extensions import db
 
 # ── Polymorphic type enum ────────────────────────────────────────────────────
 
+
 class AcademicStructureType(enum.Enum):
-    DISCIPLINE   = "discipline"    # e.g. Mathematics, Natural Sciences, Humanities
-    CYCLE        = "cycle"         # e.g. Maternelle, Primary, Junior High, Lycée
-    OPERATIONAL  = "operational"   # e.g. Finance, Admissions, Maintenance, IT
+    DISCIPLINE = "discipline"  # e.g. Mathematics, Natural Sciences, Humanities
+    CYCLE = "cycle"  # e.g. Maternelle, Primary, Junior High, Lycée
+    OPERATIONAL = "operational"  # e.g. Finance, Admissions, Maintenance, IT
 
 
 # ── Unified model ─────────────────────────────────────────────────────────────
+
 
 class AcademicStructure(db.Model):
     """
@@ -49,15 +52,18 @@ class AcademicStructure(db.Model):
 
     __tablename__ = "departments"
     __table_args__ = (
-        db.UniqueConstraint("tenant_id", "name", "structure_type",
-                            name="uq_departments_tenant_name_type"),
-        db.UniqueConstraint("tenant_id", "code",
-                            name="uq_departments_tenant_code"),
+        db.UniqueConstraint(
+            "tenant_id",
+            "name",
+            "structure_type",
+            name="uq_departments_tenant_name_type",
+        ),
+        db.UniqueConstraint("tenant_id", "code", name="uq_departments_tenant_code"),
     )
 
     # ── Primary key & tenancy ─────────────────────────────────────────────────
-    id          = db.Column(db.Integer, primary_key=True)
-    tenant_id   = db.Column(
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(
         UUID(as_uuid=True),
         db.ForeignKey("tenants.id"),
         nullable=False,
@@ -74,9 +80,9 @@ class AcademicStructure(db.Model):
     )
 
     # ── Core identity fields ──────────────────────────────────────────────────
-    name        = db.Column(db.String(100), nullable=False)
-    code        = db.Column(db.String(20),  nullable=False)
-    description = db.Column(db.Text,        nullable=True)
+    name = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.Text, nullable=True)
 
     # ── Leadership / management ───────────────────────────────────────────────
     head_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
@@ -94,10 +100,11 @@ class AcademicStructure(db.Model):
     allocated_budget = db.Column(db.Float, default=0.0, server_default="0.0")
 
     # ── Status ────────────────────────────────────────────────────────────────
-    is_active   = db.Column(db.Boolean, default=True)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at  = db.Column(db.DateTime, default=datetime.utcnow,
-                            onupdate=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # ── Relationships ─────────────────────────────────────────────────────────
     head = db.relationship(
@@ -174,6 +181,6 @@ department_staff = db.Table(
         db.ForeignKey("users.id"),
         primary_key=True,
     ),
-    db.Column("role",       db.String(50),  nullable=True),
-    db.Column("created_at", db.DateTime,    default=datetime.utcnow),
+    db.Column("role", db.String(50), nullable=True),
+    db.Column("created_at", db.DateTime, default=datetime.utcnow),
 )

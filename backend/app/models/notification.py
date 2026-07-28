@@ -1,3 +1,3 @@
 from app.models.dashboard import Notification
 
-__all__ = ['Notification']
+__all__ = ["Notification"]

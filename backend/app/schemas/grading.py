@@ -1,8 +1,11 @@
-from marshmallow import Schema, fields, validate, post_dump
+from marshmallow import Schema, fields, post_dump, validate
+
 from app.models.grading_system import GradingStandard
+
 
 class GradeBoundarySchema(Schema):
     """Schema for GradeBoundary model"""
+
     id = fields.Integer(dump_only=True)
     grade_symbol = fields.String(required=True)
     grade_name = fields.String(allow_none=True)
@@ -13,8 +16,10 @@ class GradeBoundarySchema(Schema):
     sequence_order = fields.Integer(required=True)
     color_code = fields.String(allow_none=True)
 
+
 class GradingSchemeSchema(Schema):
     """Schema for GradingScheme model"""
+
     id = fields.Integer(dump_only=True)
     name = fields.String(required=True)
     standard = fields.Method("get_standard_name")
@@ -24,14 +29,16 @@ class GradingSchemeSchema(Schema):
     class_score_weight = fields.Float()
     external_exam_weight = fields.Float()
     grade_boundaries = fields.Nested(GradeBoundarySchema, many=True)
-    
+
     def get_standard_name(self, obj):
-        if hasattr(obj.standard, 'value'):
+        if hasattr(obj.standard, "value"):
             return obj.standard.value
         return str(obj.standard)
 
+
 class EnhancedGradeSchema(Schema):
     """Schema for EnhancedGrade model"""
+
     id = fields.Integer(dump_only=True)
     student_id = fields.Integer(required=True)
     subject_id = fields.Integer(required=True)

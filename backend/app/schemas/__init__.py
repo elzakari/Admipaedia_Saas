@@ -1,10 +1,18 @@
-from app.schemas.user import UserSchema, RoleSchema
-from .student import StudentSchema, StudentCreateSchema, StudentUpdateSchema
-from .class_ import ClassSchema, ClassCreateSchema, ClassUpdateSchema, ClassListSchema
-from .subject import SubjectSchema, SubjectCreateSchema, SubjectUpdateSchema, SubjectListSchema
-from .attendance import AttendanceSchema, AttendanceCreateSchema, AttendanceUpdateSchema, AttendanceBulkCreateSchema
-from .curriculum import CurriculumSchema, CurriculumCreateSchema, CurriculumUpdateSchema, CurriculumListSchema
-from .curriculum_unit import CurriculumUnitSchema, CurriculumUnitCreateSchema, CurriculumUnitUpdateSchema
-from .grade import GradeSchema, GradeCreateSchema, GradeUpdateSchema
-from .notification import NotificationSchema, NotificationCreateSchema, NotificationUpdateSchema, NotificationListSchema
-from .admission import AdmissionApplicationSchema, BuyFormSchema, SubmitFormSchema
+from app.schemas.user import RoleSchema, UserSchema
+
+from .admission import (AdmissionApplicationSchema, BuyFormSchema,
+                        SubmitFormSchema)
+from .attendance import (AttendanceBulkCreateSchema, AttendanceCreateSchema,
+                         AttendanceSchema, AttendanceUpdateSchema)
+from .class_ import (ClassCreateSchema, ClassListSchema, ClassSchema,
+                     ClassUpdateSchema)
+from .curriculum import (CurriculumCreateSchema, CurriculumListSchema,
+                         CurriculumSchema, CurriculumUpdateSchema)
+from .curriculum_unit import (CurriculumUnitCreateSchema, CurriculumUnitSchema,
+                              CurriculumUnitUpdateSchema)
+from .grade import GradeCreateSchema, GradeSchema, GradeUpdateSchema
+from .notification import (NotificationCreateSchema, NotificationListSchema,
+                           NotificationSchema, NotificationUpdateSchema)
+from .student import StudentCreateSchema, StudentSchema, StudentUpdateSchema
+from .subject import (SubjectCreateSchema, SubjectListSchema, SubjectSchema,
+                      SubjectUpdateSchema)

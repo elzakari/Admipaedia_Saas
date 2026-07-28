@@ -1,8 +1,10 @@
 import structlog
 from sqlalchemy import inspect, text
+
 from app.extensions import db
 
 logger = structlog.get_logger()
+
 
 class SchemaGuard:
     """
@@ -18,13 +20,19 @@ class SchemaGuard:
         """
         try:
             inspector = inspect(db.engine)
-            columns = inspector.get_columns('notifications')
+            columns = inspector.get_columns("notifications")
             for col in columns:
-                if col['name'] == 'id':
-                    col_type = str(col['type']).upper()
+                if col["name"] == "id":
+                    col_type = str(col["type"]).upper()
                     # If type contains VARCHAR, CHAR, TEXT, or similar non-integer types
-                    if any(t in col_type for t in ('VARCHAR', 'CHAR', 'TEXT', 'UUID', 'STRING')):
-                        logger.warning("schema_guard_notifications_id_drift_detected", actual_type=col_type)
+                    if any(
+                        t in col_type
+                        for t in ("VARCHAR", "CHAR", "TEXT", "UUID", "STRING")
+                    ):
+                        logger.warning(
+                            "schema_guard_notifications_id_drift_detected",
+                            actual_type=col_type,
+                        )
                         return True
                     return False
         except Exception as e:
@@ -39,14 +47,19 @@ class SchemaGuard:
             list: List of orphaned message dicts, or empty list if none.
         """
         try:
-            result = db.session.execute(text(
-                "SELECT m.id, m.recipient_id FROM messages m "
-                "LEFT JOIN users u ON m.recipient_id = u.id "
-                "WHERE u.id IS NULL"
-            )).fetchall()
+            result = db.session.execute(
+                text(
+                    "SELECT m.id, m.recipient_id FROM messages m "
+                    "LEFT JOIN users u ON m.recipient_id = u.id "
+                    "WHERE u.id IS NULL"
+                )
+            ).fetchall()
             if result:
                 orphans = [{"id": r[0], "recipient_id": r[1]} for r in result]
-                logger.warning("schema_guard_message_recipient_orphans_detected", orphans_count=len(orphans))
+                logger.warning(
+                    "schema_guard_message_recipient_orphans_detected",
+                    orphans_count=len(orphans),
+                )
                 return orphans
         except Exception as e:
             logger.error("schema_guard_orphan_rows_check_failed", error=str(e))

@@ -4,8 +4,8 @@ import abc
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from app.models.payments import PaymentGateway, Payment
 from app.models.billing import BillingInvoice
+from app.models.payments import Payment, PaymentGateway
 
 
 @dataclass
@@ -45,9 +45,13 @@ class PaymentGatewayAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def verify(self, *, gateway: PaymentGateway, payment: Payment) -> PaymentVerifyResult:
+    def verify(
+        self, *, gateway: PaymentGateway, payment: Payment
+    ) -> PaymentVerifyResult:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def verify_webhook(self, *, gateway: PaymentGateway, body: bytes, headers: dict[str, str]) -> bool:
+    def verify_webhook(
+        self, *, gateway: PaymentGateway, body: bytes, headers: dict[str, str]
+    ) -> bool:
         raise NotImplementedError

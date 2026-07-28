@@ -1,12 +1,15 @@
-import secrets
 import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
-from flask import request, current_app
+
+from flask import current_app, request
+
 from app.extensions import db, logger
-from app.models.user import User
 from app.models.email_verification import EmailVerificationToken
+from app.models.user import User
 from app.utils.url_helpers import get_frontend_base_url
+
 
 class EmailVerificationRepository:
     """
@@ -14,24 +17,37 @@ class EmailVerificationRepository:
     This strictly isolates all database writes without disrupting existing migrations
     by dynamically creating the verification table at runtime if missing.
     """
+
     def __init__(self):
         try:
             # Skip DDL table creation during unit testing to prevent SQLite savepoint invalidation.
             # conftest.py already creates all tables automatically.
             import sys
-            is_testing = 'pytest' in sys.modules
+
+            is_testing = "pytest" in sys.modules
             try:
-                if current_app and current_app.config.get('TESTING'):
+                if current_app and current_app.config.get("TESTING"):
                     is_testing = True
             except RuntimeError:
                 pass
 
             if not is_testing:
-                db.Model.metadata.create_all(bind=db.engine, tables=[EmailVerificationToken.__table__])
+                db.Model.metadata.create_all(
+                    bind=db.engine, tables=[EmailVerificationToken.__table__]
+                )
         except Exception as e:
-            logger.warning("Runtime metadata creation bypassed or not yet bound to an engine", error=str(e))
+            logger.warning(
+                "Runtime metadata creation bypassed or not yet bound to an engine",
+                error=str(e),
+            )
 
-    def create_token(self, user_id: int, email: str, expires_in_minutes: int = 60, expires_in_hours: Optional[int] = None) -> Tuple[str, EmailVerificationToken]:
+    def create_token(
+        self,
+        user_id: int,
+        email: str,
+        expires_in_minutes: int = 60,
+        expires_in_hours: Optional[int] = None,
+    ) -> Tuple[str, EmailVerificationToken]:
         """
         Generate a secure url-safe cryptographic token via secrets.token_urlsafe(48),
         SHA-256 hash it, invalidate prior tokens, and persist to database.
@@ -41,17 +57,19 @@ class EmailVerificationRepository:
             expires_in_minutes = expires_in_hours * 60
         # 1. Single-active tracking state sweeps: Sweep any existing active verification tokens for this user
         try:
-            EmailVerificationToken.query.filter_by(user_id=int(user_id), is_used=False).update({
-                'is_used': True,
-                'used_at': datetime.utcnow()
-            })
+            EmailVerificationToken.query.filter_by(
+                user_id=int(user_id), is_used=False
+            ).update({"is_used": True, "used_at": datetime.utcnow()})
             db.session.flush()
         except Exception as e:
-            logger.warning("Single-active tracking sweep encountered a dynamic context override", error=str(e))
+            logger.warning(
+                "Single-active tracking sweep encountered a dynamic context override",
+                error=str(e),
+            )
 
         # 2. Highly unpredictable token generation
         plain_token = secrets.token_urlsafe(48)
-        token_hash = hashlib.sha256(plain_token.encode('utf-8')).hexdigest()
+        token_hash = hashlib.sha256(plain_token.encode("utf-8")).hexdigest()
         expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
         record = EmailVerificationToken(
@@ -59,7 +77,7 @@ class EmailVerificationRepository:
             email=email.strip().lower(),
             token_hash=token_hash,
             expires_at=expires_at,
-            is_used=False
+            is_used=False,
         )
 
         db.session.add(record)
@@ -72,7 +90,7 @@ class EmailVerificationRepository:
         """
         if not plain_token:
             return None
-        token_hash = hashlib.sha256(plain_token.encode('utf-8')).hexdigest()
+        token_hash = hashlib.sha256(plain_token.encode("utf-8")).hexdigest()
         return EmailVerificationToken.query.filter_by(token_hash=token_hash).first()
 
     def save(self, record: EmailVerificationToken) -> None:
@@ -86,11 +104,15 @@ class EmailVerificationRepository:
         """
         Get the latest active, non-expired verification token for a user.
         """
-        return EmailVerificationToken.query.filter(
-            EmailVerificationToken.user_id == user_id,
-            EmailVerificationToken.is_used == False,
-            EmailVerificationToken.expires_at > datetime.utcnow()
-        ).order_by(EmailVerificationToken.created_at.desc()).first()
+        return (
+            EmailVerificationToken.query.filter(
+                EmailVerificationToken.user_id == user_id,
+                EmailVerificationToken.is_used == False,
+                EmailVerificationToken.expires_at > datetime.utcnow(),
+            )
+            .order_by(EmailVerificationToken.created_at.desc())
+            .first()
+        )
 
 
 class EmailVerificationService:
@@ -98,17 +120,22 @@ class EmailVerificationService:
     Service class implementing the email verification lifecycle loop.
     Supports secure background email formatting and dynamic window context inheritance.
     """
+
     def __init__(self, repo: Optional[EmailVerificationRepository] = None):
         self.repo = repo or EmailVerificationRepository()
 
-    def send_verification_email(self, user: User, base_url: Optional[str] = None) -> bool:
+    def send_verification_email(
+        self, user: User, base_url: Optional[str] = None
+    ) -> bool:
         """
         Generates a token, dynamically formats the secure activation link,
         and dispatches the verification email.
         """
         try:
             # Generate cryptographic token
-            plain_token, record = self.repo.create_token(user_id=user.id, email=user.email)
+            plain_token, record = self.repo.create_token(
+                user_id=user.id, email=user.email
+            )
 
             # Dynamically inherit server context to avoid hardcoded localhost overrides
             if not base_url:
@@ -143,16 +170,25 @@ class EmailVerificationService:
 
             # Dispatch using standard background mailing
             from app.services.email_service import _send_email_background
+
             _send_email_background(
                 subject=subject,
                 recipients=[user.email],
                 text_body=text_body,
-                html_body=html_body
+                html_body=html_body,
             )
-            logger.info("Email verification dispatch initiated", user_id=user.id, email=user.email)
+            logger.info(
+                "Email verification dispatch initiated",
+                user_id=user.id,
+                email=user.email,
+            )
             return True
         except Exception as e:
-            logger.error("Failed to execute verification email loop", error=str(e), user_id=user.id)
+            logger.error(
+                "Failed to execute verification email loop",
+                error=str(e),
+                user_id=user.id,
+            )
             return False
 
     def verify_token(self, plain_token: str) -> Tuple[bool, str]:
@@ -180,18 +216,28 @@ class EmailVerificationService:
             return False, "User not found"
 
         user.email_verified = True
-        user.status = 'active'
+        user.status = "active"
         db.session.add(user)
         db.session.commit()
 
-        if user.role == 'teacher':
+        if user.role == "teacher":
             try:
-                from app.services.teacher_provisioning_service import TeacherProvisioningService
+                from app.services.teacher_provisioning_service import \
+                    TeacherProvisioningService
+
                 TeacherProvisioningService.provision_teacher(user.id)
             except Exception as e:
-                logger.error("Failed to run TeacherProvisioningService during email verification activation", error=str(e), user_id=user.id)
+                logger.error(
+                    "Failed to run TeacherProvisioningService during email verification activation",
+                    error=str(e),
+                    user_id=user.id,
+                )
 
-        logger.info("Email verification complete. User activated.", user_id=user.id, email=user.email)
+        logger.info(
+            "Email verification complete. User activated.",
+            user_id=user.id,
+            email=user.email,
+        )
         return True, "Email verified successfully"
 
     def get_request_base_url(self) -> str:
