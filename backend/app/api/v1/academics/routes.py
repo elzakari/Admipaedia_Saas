@@ -255,10 +255,12 @@ def get_grading_scheme():
 
         if school_id:
             # Backend defensive fallback pattern
+            from app.models.educational_system import EducationalSystemConfig
             school_profile = School.query.get(school_id)
             if school_profile:
                 system_template = school_profile.education_system
-                if not tenant_has_grading_scales(school_id):
+                cfg = EducationalSystemConfig.query.filter_by(tenant_id=school_id, is_active=True).first()
+                if system_template and (not tenant_has_grading_scales(school_id) or not cfg or cfg.template_key != system_template):
                     seed_default_scale_for_system(school_id, system_template)
 
         scheme = GradingScheme.query.filter_by(tenant_id=g.tenant_id, is_active=True, is_default=True).first()
