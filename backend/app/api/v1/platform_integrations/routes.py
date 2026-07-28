@@ -247,24 +247,29 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
     server = None
     try:
         timeout = 12
+        # fmt: off
         if port in (587, 2587):
+            # Explicitly use standard SMTP with STARTTLS for port 587 or 2587
             server = smtplib.SMTP(host=host, port=port, timeout=timeout)
             server.ehlo()
             server.starttls(context=context)
             server.ehlo()
         elif port == 465:
-            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
+            # Explicitly use strict SMTP_SSL for port 465
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
             server.ehlo()
         else:
-            if enc == "ssl":
-                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
+            # Fallback for other ports (e.g. 25) using encryption settings
+            if enc == 'ssl':
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
                 server.ehlo()
             else:
                 server = smtplib.SMTP(host=host, port=port, timeout=timeout)
                 server.ehlo()
-                if enc == "tls":
+                if enc == 'tls':
                     server.starttls(context=context)
                     server.ehlo()
+        # fmt: on
 
         server.login(username, str(password))
 

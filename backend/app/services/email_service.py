@@ -546,24 +546,26 @@ def _send_via_smtp_isolated(
 
     try:
         timeout = 15
+        # fmt: off
         if port in (587, 2587):
             server = smtplib.SMTP(host=host, port=port, timeout=timeout)
             server.ehlo()
             server.starttls(context=context)
             server.ehlo()
         elif port == 465:
-            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
             server.ehlo()
         else:
-            if str(encryption).lower() in ("ssl", "true"):
-                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
+            if str(encryption).lower() in ('ssl', 'true'):
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)
                 server.ehlo()
             else:
                 server = smtplib.SMTP(host=host, port=port, timeout=timeout)
                 server.ehlo()
-                if str(encryption).lower() in ("tls", "starttls"):
+                if str(encryption).lower() in ('tls', 'starttls'):
                     server.starttls(context=context)
                     server.ehlo()
+        # fmt: on
 
         if username and password and password != "********":
             server.login(username, password)
