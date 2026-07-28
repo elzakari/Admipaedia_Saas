@@ -43,8 +43,10 @@ def _load_active_email_provider_config(
 ) -> tuple[str, dict]:
     from flask import g
 
-    from app.models.service_tokens import (PlatformServiceProviderConfig,
-                                           TenantServiceProviderOverride)
+    from app.models.service_tokens import (
+        PlatformServiceProviderConfig,
+        TenantServiceProviderOverride,
+    )
 
     selected_provider = (
         provider_override or os.environ.get("EMAIL_PROVIDER", "smtp")
@@ -550,15 +552,11 @@ def _send_via_smtp_isolated(
             server.starttls(context=context)
             server.ehlo()
         elif port == 465:
-            server = smtplib.SMTP_SSL(
-                host=host, port=port, timeout=timeout, context=context
-            )
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
             server.ehlo()
         else:
             if str(encryption).lower() in ("ssl", "true"):
-                server = smtplib.SMTP_SSL(
-                    host=host, port=port, timeout=timeout, context=context
-                )
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
                 server.ehlo()
             else:
                 server = smtplib.SMTP(host=host, port=port, timeout=timeout)
