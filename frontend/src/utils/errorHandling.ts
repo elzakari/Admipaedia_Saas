@@ -69,15 +69,27 @@ export class ErrorHandler {
     if (error.response) {
       const status = error.response.status;
       const data = error.response.data;
+      const requestUrl = String(error.config?.url || '');
+      const backendMessage = data?.message || data?.error;
       
       if (status === 401) {
-        return this.createError(ErrorType.AUTHENTICATION, 'Authentication required');
+        if (requestUrl.includes('/auth/login') || requestUrl.includes('/auth/login-enhanced')) {
+          return this.createError(
+            ErrorType.VALIDATION,
+            backendMessage || 'Invalid email or password. Please check your credentials.',
+            data?.errors
+          );
+        }
+        return this.createError(
+          ErrorType.AUTHENTICATION,
+          backendMessage || 'Authentication required'
+        );
       }
       if (status === 403) {
-        return this.createError(ErrorType.AUTHORIZATION, 'Access denied');
+        return this.createError(ErrorType.AUTHORIZATION, backendMessage || 'Access denied');
       }
       if (status >= 400 && status < 500) {
-        return this.createError(ErrorType.VALIDATION, data.message || 'Invalid request', data.errors);
+        return this.createError(ErrorType.VALIDATION, backendMessage || 'Invalid request', data?.errors);
       }
       if (status >= 500) {
         return this.createError(ErrorType.SERVER, 'Server error occurred');

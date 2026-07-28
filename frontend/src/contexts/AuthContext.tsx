@@ -165,7 +165,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return response;
     } catch (error) {
-      console.error('Login error:', error);
+      if (error?.response?.status === 401) {
+        console.warn('Login failed:', error?.response?.data?.message || 'Invalid credentials');
+      } else {
+        console.error('Login error:', error);
+      }
       throw error;
     } finally {
       setIsLoading(false);
