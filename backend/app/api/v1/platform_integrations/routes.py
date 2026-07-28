@@ -12,10 +12,11 @@ from flask_jwt_extended import jwt_required
 from app.extensions import db
 from app.models.billing import Plan, PlanFeature, PlanLimit
 from app.models.security import SecurityEvent
-from app.models.service_tokens import (PlatformServiceProviderConfig,
-                                       TenantServiceProviderOverride)
-from app.utils.platform_access import (get_current_user,
-                                       require_platform_super_admin)
+from app.models.service_tokens import (
+    PlatformServiceProviderConfig,
+    TenantServiceProviderOverride,
+)
+from app.utils.platform_access import get_current_user, require_platform_super_admin
 
 SECRET_LIKE_KEYS = (
     "password",
@@ -252,15 +253,11 @@ def _test_smtp_email(cfg: dict, params: dict) -> tuple[bool, str]:
             server.starttls(context=context)
             server.ehlo()
         elif port == 465:
-            server = smtplib.SMTP_SSL(
-                host=host, port=port, timeout=timeout, context=context
-            )
+            server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
             server.ehlo()
         else:
             if enc == "ssl":
-                server = smtplib.SMTP_SSL(
-                    host=host, port=port, timeout=timeout, context=context
-                )
+                server = smtplib.SMTP_SSL(host=host, port=port, timeout=timeout, context=context)  # fmt: skip
                 server.ehlo()
             else:
                 server = smtplib.SMTP(host=host, port=port, timeout=timeout)
@@ -786,8 +783,10 @@ def test_provider_config():
 
     from cryptography.fernet import InvalidToken
 
-    from app.models.service_tokens import (PlatformServiceProviderConfig,
-                                           TenantServiceProviderOverride)
+    from app.models.service_tokens import (
+        PlatformServiceProviderConfig,
+        TenantServiceProviderOverride,
+    )
 
     provider_record = None
     decryption_failed = False
