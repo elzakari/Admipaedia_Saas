@@ -166,6 +166,9 @@ class ProductionConfig(BaseConfig):
 
     # SSL/TLS
     PREFERRED_URL_SCHEME = "https"
+    # HTTPS is terminated by Cloudflare Tunnel/Nginx Proxy Manager.
+    # Flask runs internally over Docker network HTTP.
+    FORCE_HTTPS = False
 
     @classmethod
     def init_app(cls, app):

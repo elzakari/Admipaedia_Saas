@@ -121,7 +121,10 @@ def init_extensions(app):
 
         Talisman(
             app,
-            force_https=app.config.get("PREFERRED_URL_SCHEME") == "https",
+            force_https=app.config.get(
+                "FORCE_HTTPS",
+                False,
+            ),
             strict_transport_security=True,
             content_security_policy=csp,
             referrer_policy="strict-origin-when-cross-origin",
