@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Eye, Pencil, Trash2, MessageSquare, MoreHorizontal, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 import { Card, CardContent, CardFooter } from "../../components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
@@ -33,6 +34,8 @@ const StudentGrid: React.FC<StudentGridProps> = ({
   handleEditStudent,
   handleDeleteStudent 
 }) => {
+  const { t } = useTranslation();
+
   const getStudentInitials = (student: TransformedStudent) => {
     const firstInitial = student.first_name?.charAt(0) || '';
     const lastInitial = student.last_name?.charAt(0) || '';
@@ -78,21 +81,21 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                   {student.status === "active" && <CheckCircle className="h-3 w-3 mr-1" />}
                   {student.status === "warning" && <AlertCircle className="h-3 w-3 mr-1" />}
                   {student.status === "danger" && <XCircle className="h-3 w-3 mr-1" />}
-                  {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                  {student.status === "active" ? t('common.active', 'Actif') : student.status === "inactive" ? t('common.inactive', 'Inactif') : student.status.charAt(0).toUpperCase() + student.status.slice(1)}
                 </Badge>
               </div>
             </div>
             <div className="mt-4 space-y-3">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span>Attendance</span>
+                  <span>{t('navigation.attendance', 'Assiduité')}</span>
                   <span className="font-medium">{student.attendance}%</span>
                 </div>
                 <Progress value={student.attendance} />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span>Performance</span>
+                  <span>{t('common.performance', 'Performance')}</span>
                   <span className="font-medium">{student.performance}%</span>
                 </div>
                 <Progress value={student.performance} />
@@ -100,15 +103,15 @@ const StudentGrid: React.FC<StudentGridProps> = ({
             </div>
             <div className="mt-4 pt-4 border-t flex justify-between">
               <div className="text-center">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Subjects</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('common.total_subjects', 'Matières')}</p>
                 <p className="font-medium">{student.subjects.length}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Assignments</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('navigation.assignments', 'Devoirs')}</p>
                 <p className="font-medium">{student.pendingAssignments + student.completedAssignments}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Achievements</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t('students_page.profile.achievements', 'Réalisations')}</p>
                 <p className="font-medium">{student.achievements.length}</p>
               </div>
             </div>
@@ -123,7 +126,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
               }}
             >
               <Eye className="h-4 w-4 mr-1" />
-              View
+              {t('common.view', 'Voir')}
             </Button>
             
             {handleEditStudent && (
@@ -136,7 +139,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                 }}
               >
                 <Pencil className="h-4 w-4 mr-1" />
-                Edit
+                {t('common.edit', 'Modifier')}
               </Button>
             )}
             
@@ -151,7 +154,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuLabel>{t('common.actions', 'Actions')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {
@@ -160,7 +163,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                   }}
                 >
                   <Eye className="h-4 w-4 mr-2" />
-                  View Full Profile
+                  {t('students_page.profile.view_full_profile', 'Voir le profil complet')}
                 </DropdownMenuItem>
                 {handleEditStudent && (
                   <DropdownMenuItem
@@ -170,7 +173,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                     }}
                   >
                     <Pencil className="h-4 w-4 mr-2" />
-                    Edit Student
+                    {t('students_page.edit_student', 'Modifier l\'élève')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -182,7 +185,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                   }}
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
-                  Send Message
+                  {t('common.send_message', 'Envoyer un message')}
                 </DropdownMenuItem>
                 {handleDeleteStudent && (
                   <DropdownMenuItem
@@ -193,7 +196,7 @@ const StudentGrid: React.FC<StudentGridProps> = ({
                     }}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Student
+                    {t('students_page.delete_student', 'Supprimer l\'élève')}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

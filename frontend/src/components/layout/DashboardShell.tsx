@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Home, Users, Calendar, BarChart3, Settings, Menu, LayoutGrid, User, Activity, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MobileBottomNavigation } from '../navigation/MobileBottomNavigation';
 import { useSaasTenant } from '../../hooks/useSaasTenant';
 import { useUnreadNotifications } from '../../hooks/useUnreadNotifications';
@@ -18,6 +19,7 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout, activeUser }: DashboardShellProps) {
+  const { t } = useTranslation();
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const { current } = useSaasTenant();
@@ -114,21 +116,21 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
         <nav className="adm-sidebar-nav">
           <a href="/app/dashboard" className="adm-nav-item active">
             <i className="adm-icon-dashboard" />
-            <span className="adm-nav-label">Tableau de bord</span>
+            <span className="adm-nav-label">{t('navigation.dashboard', 'Tableau de bord')}</span>
           </a>
           <a href="/app/students" className="adm-nav-item">
             <i className="adm-icon-students" />
-            <span className="adm-nav-label">Élèves</span>
+            <span className="adm-nav-label">{t('navigation.students', 'Élèves')}</span>
           </a>
           <a href="/app/billing/plan" className="adm-nav-item">
             <i className="adm-icon-fees" />
-            <span className="adm-nav-label">Frais</span>
+            <span className="adm-nav-label">{t('navigation.fees', 'Frais')}</span>
           </a>
         </nav>
 
         <div className="adm-sidebar-footer">
           <button onClick={handleLogout} className="adm-btn-terminate" aria-label="Terminate Session">
-            <span>Terminer la session</span>
+            <span>{t('common.logout_button', 'TERMINER LA SESSION')}</span>
           </button>
         </div>
       </aside>
@@ -179,13 +181,13 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
           
           <div className="adm-topbar-left">
             <div className="adm-search-wrapper">
-              <input type="text" placeholder="Rechercher... (Ctrl+K)" className="adm-search-input" />
+              <input type="text" placeholder={t('common.search_placeholder', 'Rechercher... (Ctrl+K)')} className="adm-search-input" />
               <kbd className="adm-search-hint">Ctrl + K</kbd>
             </div>
           </div>
 
           <div className="adm-topbar-right">
-            <button className="adm-btn-commands">Commandes</button>
+            <button className="adm-btn-commands">{t('common.commands', 'Commandes')}</button>
             <div className="adm-notification-bell-wrapper">
               <Link to={notificationPath} className="adm-icon-button relative" aria-label="View Notifications">
                 {unreadCount > 0 && (
@@ -209,42 +211,42 @@ export function DashboardShell({ children, isMenuOpen, toggleMenu, handleLogout,
             <div className="grid grid-cols-4 gap-3">
               <button className="flex flex-col items-center justify-center p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/30 transition-all transform hover:scale-102">
                 <LayoutGrid className="h-5 w-5 mb-1.5 text-white animate-pulse" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Tableau de bord</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.dashboard', 'Tableau de bord')}</span>
               </button>
               
               <a href="/students" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <Users className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Élèves</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.students', 'Élèves')}</span>
               </a>
 
               <a href="/teachers" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <Users className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Enseignants</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.teachers', 'Enseignants')}</span>
               </a>
 
               <a href="/profile" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <User className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Profils</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('common.profile', 'Profil')}</span>
               </a>
 
               <button className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <Activity className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Rapides</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('common.quick_actions', 'Rapides')}</span>
               </button>
 
               <a href="/calendar" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <Calendar className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Calendrier</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.calendar', 'Calendrier')}</span>
               </a>
 
               <a href="/reports" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <BarChart3 className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Overrlevs</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.reports', 'Rapports')}</span>
               </a>
 
               <a href="/settings" className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all text-slate-700 dark:text-slate-200">
                 <Settings className="h-5 w-5 mb-1.5 text-indigo-500" />
-                <span className="text-[10px] font-bold text-center tracking-tight">Contalmer</span>
+                <span className="text-[10px] font-bold text-center tracking-tight">{t('navigation.settings', 'Paramètres')}</span>
               </a>
             </div>
           </div>

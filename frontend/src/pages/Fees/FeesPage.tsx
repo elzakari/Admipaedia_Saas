@@ -178,58 +178,58 @@ export function FeesPage() {
     { 
       value: 'dashboard', 
       icon: BarChart4, 
-      label: t('admin_fees.dashboard', 'Dashboard'),
-      shortLabel: t('admin_fees.dashboard_short', 'Dash'),
-      mobileLabel: t('admin_fees.dashboard', 'Dashboard')
+      label: t('admin_fees.dashboard', 'Tableau de bord'),
+      shortLabel: t('admin_fees.dashboard_short', 'TdB'),
+      mobileLabel: t('admin_fees.dashboard', 'Tableau de bord')
     },
     { 
       value: 'templates', 
       icon: Settings, 
-      label: t('admin_fees.fee_templates', 'Fee Templates'),
-      shortLabel: t('admin_fees.fee_templates_short', 'Templates'),
-      mobileLabel: t('admin_fees.fee_templates', 'Templates')
+      label: t('admin_fees.fee_templates', 'Modèles de frais'),
+      shortLabel: t('admin_fees.fee_templates_short', 'Modèles'),
+      mobileLabel: t('admin_fees.fee_templates', 'Modèles de frais')
     },
     { 
       value: 'invoices', 
       icon: FileText, 
-      label: t('admin_fees.invoices', 'Invoices'),
-      shortLabel: t('admin_fees.invoices', 'Invoices'),
-      mobileLabel: t('admin_fees.invoices', 'Invoices')
+      label: t('admin_fees.invoices', 'Factures'),
+      shortLabel: t('admin_fees.invoices', 'Factures'),
+      mobileLabel: t('admin_fees.invoices', 'Factures')
     },
     { 
       value: 'payments', 
       icon: DollarSign, 
-      label: t('admin_fees.payments', 'Payments'),
-      shortLabel: t('admin_fees.payments', 'Payments'),
-      mobileLabel: t('admin_fees.payments', 'Payments')
+      label: t('admin_fees.payments', 'Paiements'),
+      shortLabel: t('admin_fees.payments', 'Paiements'),
+      mobileLabel: t('admin_fees.payments', 'Paiements')
     },
     { 
       value: 'reminders', 
       icon: Clock, 
-      label: t('admin_fees.reminders', 'Reminders'),
-      shortLabel: t('admin_fees.reminders', 'Reminders'),
-      mobileLabel: t('admin_fees.reminders', 'Reminders')
+      label: t('admin_fees.reminders', 'Rappels'),
+      shortLabel: t('admin_fees.reminders', 'Rappels'),
+      mobileLabel: t('admin_fees.reminders', 'Rappels')
     },
     { 
       value: 'defaulters', 
       icon: AlertTriangle, 
-      label: t('admin_fees.defaulters', 'Defaulters'),
-      shortLabel: t('admin_fees.defaulters', 'Defaulters'),
-      mobileLabel: t('admin_fees.defaulters', 'Defaulters')
+      label: t('admin_fees.defaulters', 'Retardataires'),
+      shortLabel: t('admin_fees.defaulters', 'Retardataires'),
+      mobileLabel: t('admin_fees.defaulters', 'Retardataires')
     },
     { 
       value: 'reports', 
       icon: BarChart4, 
-      label: t('admin_fees.reports', 'Reports'),
-      shortLabel: t('admin_fees.reports', 'Reports'),
-      mobileLabel: t('admin_fees.reports', 'Reports')
+      label: t('admin_fees.reports', 'Rapports'),
+      shortLabel: t('admin_fees.reports', 'Rapports'),
+      mobileLabel: t('admin_fees.reports', 'Rapports')
     },
     { 
       value: 'settings', 
       icon: Settings, 
-      label: t('admin_fees.settings', 'Settings'),
-      shortLabel: t('admin_fees.settings', 'Settings'),
-      mobileLabel: t('admin_fees.settings', 'Settings')
+      label: t('admin_fees.settings', 'Paramètres'),
+      shortLabel: t('admin_fees.settings', 'Paramètres'),
+      mobileLabel: t('admin_fees.settings', 'Paramètres')
     }
   ];
 

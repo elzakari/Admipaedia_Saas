@@ -29,37 +29,37 @@ const FeesDashboard = () => {
       {/* Revenue Overview */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('admin_fees.revenue_overview', 'Revenue Overview')}</CardTitle>
-          <CardDescription>{t('admin_fees.revenue_overview_desc', 'Fee collection trends for the current term')}</CardDescription>
+          <CardTitle>{t('admin_fees.revenue_overview', 'Aperçu des revenus')}</CardTitle>
+          <CardDescription>{t('admin_fees.revenue_overview_desc', 'Tendances de collecte des frais pour le trimestre en cours')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <div className="text-xs font-medium text-emerald-700">{t('admin_fees.collected', 'Collected')}</div>
+              <div className="text-xs font-medium text-emerald-700">{t('admin_fees.collected', 'Collecté')}</div>
               <div className="mt-2 text-2xl font-bold text-emerald-900">{Number(totalCollected || 0).toLocaleString()}</div>
             </div>
             <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
-              <div className="text-xs font-medium text-amber-700">{t('admin_fees.outstanding', 'Outstanding')}</div>
+              <div className="text-xs font-medium text-amber-700">{t('admin_fees.outstanding', 'Impayé')}</div>
               <div className="mt-2 text-2xl font-bold text-amber-900">{Number(outstandingFees || 0).toLocaleString()}</div>
             </div>
             <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-              <div className="text-xs font-medium text-blue-700">{t('admin_fees.expected', 'Expected')}</div>
+              <div className="text-xs font-medium text-blue-700">{t('admin_fees.expected', 'Attendu')}</div>
               <div className="mt-2 text-2xl font-bold text-blue-900">{Number(totalExpected || 0).toLocaleString()}</div>
             </div>
             <div className="rounded-lg border border-purple-100 bg-purple-50 p-4">
-              <div className="text-xs font-medium text-purple-700">{t('admin_fees.collection_rate_title', 'Collection Rate')}</div>
+              <div className="text-xs font-medium text-purple-700">{t('admin_fees.collection_rate_title', 'Taux de collecte')}</div>
               <div className="mt-2 text-2xl font-bold text-purple-900">{collectionRate}%</div>
             </div>
           </div>
           <div className="mt-6 rounded-lg border bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-900">{t('admin_fees.recent_payment_flow', 'Recent payment flow')}</div>
+            <div className="text-sm font-semibold text-slate-900">{t('admin_fees.recent_payment_flow', 'Flux de paiements récents')}</div>
             {recentPayments.length === 0 ? (
-              <div className="mt-2 text-sm text-slate-500">{t('admin_fees.recent_payment_flow_empty', 'Payments will appear here as collections are recorded.')}</div>
+              <div className="mt-2 text-sm text-slate-500">{t('admin_fees.recent_payment_flow_empty', 'Les paiements apparaîtront ici au fur et à mesure de l\'enregistrement des collectes.')}</div>
             ) : (
               <div className="mt-3 space-y-3">
                 {recentPayments.map((payment) => (
                   <div key={payment.id} className="flex items-center justify-between text-sm">
-                    <div className="font-medium text-slate-700">{payment.student_name || t('admin_fees.student', 'Student')}</div>
+                    <div className="font-medium text-slate-700">{payment.student_name || t('admin_fees.student', 'Élève')}</div>
                     <div className="text-slate-500">{payment.payment_method}</div>
                     <div className="font-semibold text-slate-900">{Number(payment.amount || 0).toLocaleString()}</div>
                   </div>
@@ -75,13 +75,13 @@ const FeesDashboard = () => {
         {/* Collection by Class */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('admin_fees.collection_by_class', 'Outstanding Balances')}</CardTitle>
-            <CardDescription>{t('admin_fees.collection_by_class_desc', 'Students and records that still need follow-up')}</CardDescription>
+            <CardTitle>{t('admin_fees.collection_by_class', 'Solde impayé')}</CardTitle>
+            <CardDescription>{t('admin_fees.collection_by_class_desc', 'Élèves et dossiers nécessitant un suivi')}</CardDescription>
           </CardHeader>
           <CardContent>
             {overdueFees.length === 0 ? (
               <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-slate-700 dark:text-gray-400">
-                {t('admin_fees.no_overdue_balances', 'No overdue balances yet.')}
+                {t('admin_fees.no_overdue_balances', 'Aucun solde en retard pour le moment.')}
               </div>
             ) : (
               <div className="space-y-3">
@@ -89,8 +89,8 @@ const FeesDashboard = () => {
                   <div key={item.id} className="rounded-lg border border-gray-200 p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{item.student_name || t('admin_fees.student', 'Student')}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{item.class_name || t('admin_fees.class', 'Class')} • {t('admin_fees.days_overdue_count', '{{count}} day(s) overdue', { count: item.days_overdue })}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">{item.student_name || t('admin_fees.student', 'Élève')}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{item.class_name || t('admin_fees.class', 'Classe')} • {t('admin_fees.days_overdue_count', '{{count}} jour(s) de retard', { count: item.days_overdue })}</div>
                       </div>
                       <div className="text-sm font-semibold text-red-600">{Number(item.balance || 0).toLocaleString()}</div>
                     </div>
@@ -104,13 +104,13 @@ const FeesDashboard = () => {
         {/* Payment Methods */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('admin_fees.payment_methods', 'Payment Methods')}</CardTitle>
-            <CardDescription>{t('admin_fees.payment_methods_desc', 'Distribution by payment method')}</CardDescription>
+            <CardTitle>{t('admin_fees.payment_methods', 'Modes de paiement')}</CardTitle>
+            <CardDescription>{t('admin_fees.payment_methods_desc', 'Répartition par mode de paiement')}</CardDescription>
           </CardHeader>
           <CardContent>
             {Object.keys(paymentMethodCounts).length === 0 ? (
               <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-slate-700 dark:text-gray-400">
-                {t('admin_fees.payment_method_trends_empty', 'Payment method trends will appear after collections start coming in.')}
+                {t('admin_fees.payment_method_trends_empty', 'Les tendances par mode de paiement apparaîtront une fois les collectes commencées.')}
               </div>
             ) : (
               <div className="space-y-3">

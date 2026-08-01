@@ -472,7 +472,7 @@ export function StudentsPage() {
   // Define table columns for responsive table with correct priority types
   const columns = [
     { 
-      header: 'Name', 
+      header: t('common.name', 'Nom'), 
       accessor: (student: any) => (
         <div className="flex items-center space-x-2">
           <Avatar className="w-8 h-8">
@@ -492,12 +492,12 @@ export function StudentsPage() {
           </div>
         </div>
       ),
-      mobileLabel: 'Student',
+      mobileLabel: t('navigation.students', 'Élève'),
       priority: 'high' as const,
       width: 200
     },
     { 
-      header: 'Class', 
+      header: t('common.class', 'Classe'), 
       accessor: (student: any) => {
         const gradeStr = student.grade || "Unassigned";
         let badgeColor = "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700";
@@ -521,17 +521,17 @@ export function StudentsPage() {
           </Badge>
         );
       },
-      mobileLabel: 'Class',
+      mobileLabel: t('common.class', 'Classe'),
       priority: 'medium' as const
     },
     { 
-      header: 'Email', 
+      header: t('auth.email', 'Email'), 
       accessor: (student: any) => student.email,
-      mobileLabel: 'Email',
+      mobileLabel: t('auth.email', 'Email'),
       priority: 'low' as const
     },
     { 
-      header: 'Attendance', 
+      header: t('navigation.attendance', 'Assiduité'), 
       accessor: (student: any) => (
         <div className="w-full">
           <div className="flex justify-between mb-1">
@@ -540,11 +540,11 @@ export function StudentsPage() {
           <Progress value={student.attendance} className="h-2" />
         </div>
       ),
-      mobileLabel: 'Attendance',
+      mobileLabel: t('navigation.attendance', 'Assiduité'),
       priority: 'medium' as const
     },
     { 
-      header: 'Performance', 
+      header: t('common.performance', 'Performance'), 
       accessor: (student: any) => (
         <div className="w-full">
           <div className="flex justify-between mb-1">
@@ -553,21 +553,21 @@ export function StudentsPage() {
           <Progress value={student.performance} className="h-2" />
         </div>
       ),
-      mobileLabel: 'Performance',
+      mobileLabel: t('common.performance', 'Performance'),
       priority: 'medium' as const
     },
     { 
-      header: 'Status', 
+      header: t('common.status_label', 'Statut'), 
       accessor: (student: any) => (
         <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
-          {student.status}
+          {student.status === 'active' ? t('common.active', 'Actif') : student.status === 'inactive' ? t('common.inactive', 'Inactif') : t('common.graduated', 'Diplômé')}
         </Badge>
       ),
-      mobileLabel: 'Status',
+      mobileLabel: t('common.status_label', 'Statut'),
       priority: 'high' as const
     },
     { 
-      header: 'Actions', 
+      header: t('common.actions', 'Actions'), 
       accessor: (student: any) => (
         <div className="flex space-x-2">
           <TouchFriendlyButton
@@ -588,7 +588,7 @@ export function StudentsPage() {
           </TouchFriendlyButton>
         </div>
       ),
-      mobileLabel: 'Actions',
+      mobileLabel: t('common.actions', 'Actions'),
       priority: 'high' as const
     }
   ];
@@ -958,9 +958,9 @@ export function StudentsPage() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <CardTitle>{t('students_page.directory_title', 'Student Directory')}</CardTitle>
+                <CardTitle>{t('students_page.directory_title', 'Annuaire des élèves')}</CardTitle>
                 <CardDescription>
-                  {sortedStudents.length} {t('students_page.students_found', 'students found')}
+                  {sortedStudents.length} {t('students_page.students_found', 'élèves trouvés')}
                 </CardDescription>
               </div>
               {renderViewModeToggle()}
@@ -969,10 +969,10 @@ export function StudentsPage() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="all">{t('students_page.all_students', 'All Students')}</TabsTrigger>
-                <TabsTrigger value="active">{t('common.active', 'Active')}</TabsTrigger>
-                <TabsTrigger value="inactive">{t('common.inactive', 'Inactive')}</TabsTrigger>
-                <TabsTrigger value="graduated">{t('common.graduated', 'Graduated')}</TabsTrigger>
+                <TabsTrigger value="all">{t('students_page.all_students', 'Tous les élèves')}</TabsTrigger>
+                <TabsTrigger value="active">{t('common.active', 'Actif')}</TabsTrigger>
+                <TabsTrigger value="inactive">{t('common.inactive', 'Inactif')}</TabsTrigger>
+                <TabsTrigger value="graduated">{t('common.graduated', 'Diplômé')}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="all" className="space-y-4">

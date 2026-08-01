@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEnhancedCalendarEvents } from '../../hooks/useEnhancedDashboardData';
 import { DashboardFiltersState } from '../../hooks/useDashboardFilters';
 import dashboardService, { CalendarEvent } from '../../services/dashboardService';
@@ -15,6 +16,7 @@ interface CalendarWidgetProps {
 }
 
 const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) => {
+  const { t, i18n } = useTranslation();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const {
@@ -136,7 +138,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
           <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
             <CalendarIcon className="h-4 w-4 text-indigo-600" />
           </div>
-          <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Calendar</h2>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{t('navigation.calendar', 'Calendar')}</h2>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-100 dark:border-slate-700">
@@ -160,15 +162,23 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
 
       <div className="mb-4 text-center">
         <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight uppercase">
-          {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+          {currentMonth.toLocaleString(i18n.language || 'fr', { month: 'long', year: 'numeric' })}
         </span>
       </div>
 
       {isLoading ? (
         <div className="animate-pulse space-y-4">
           <div className="grid grid-cols-7 gap-2">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-              <div key={day} className="h-8 bg-slate-50 dark:bg-slate-800 rounded-xl"></div>
+            {[
+              t('common.days.sunday_short', 'S'),
+              t('common.days.monday_short', 'M'),
+              t('common.days.tuesday_short', 'T'),
+              t('common.days.wednesday_short', 'W'),
+              t('common.days.thursday_short', 'T'),
+              t('common.days.friday_short', 'F'),
+              t('common.days.saturday_short', 'S')
+            ].map((day, idx) => (
+              <div key={idx} className="h-8 bg-slate-50 dark:bg-slate-800 rounded-xl"></div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-2">
@@ -180,16 +190,24 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
       ) : isError ? (
         <div className="py-12 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">Failed to load events</p>
+          <p className="text-slate-600 dark:text-slate-400">{t('common.error', 'Failed to load events')}</p>
           <button onClick={() => window.location.reload()} className="mt-4 text-indigo-600 font-bold hover:underline">
-            Retry
+            {t('common.refresh', 'Retry')}
           </button>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-7 gap-2 mb-4">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {[
+              t('common.days.sunday_short', 'Sun'),
+              t('common.days.monday_short', 'Mon'),
+              t('common.days.tuesday_short', 'Tue'),
+              t('common.days.wednesday_short', 'Wed'),
+              t('common.days.thursday_short', 'Thu'),
+              t('common.days.friday_short', 'Fri'),
+              t('common.days.saturday_short', 'Sat')
+            ].map((day, idx) => (
+              <div key={idx} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 {day}
               </div>
             ))}
@@ -201,9 +219,9 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
 
           <div className="mt-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Upcoming Events</h3>
+              <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('schedule.upcoming_events', 'Upcoming Events')}</h3>
               <Badge variant="outline" className="text-[9px] bg-indigo-50/50 border-indigo-100 text-indigo-600 font-bold px-1.5 py-0">
-                {events.length} Total
+                {events.length} {t('common.all', 'Total')}
               </Badge>
             </div>
             <div className="space-y-2">
@@ -225,7 +243,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
                         getEventTypeStyles(event.type)
                       )}>
                         <span className="text-[8px] font-black uppercase tracking-tighter opacity-70">
-                          {new Date(event.date).toLocaleString('default', { month: 'short' })}
+                          {new Date(event.date).toLocaleString(i18n.language || 'fr', { month: 'short' })}
                         </span>
                         <span className="text-xs font-black leading-none">
                           {new Date(event.date).getDate()}
@@ -236,7 +254,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
                         <div className="flex items-center gap-2 mt-0.5">
                           <div className="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
                             <Clock className="h-2.5 w-2.5" />
-                            {(event as any).time || (event as any).start_time || 'All day'}
+                            {(event as any).time || (event as any).start_time || t('common.all_day', 'Toute la journée')}
                           </div>
                         </div>
                       </div>
@@ -246,7 +264,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ filters, className }) =
               </AnimatePresence>
               {events.filter((event: CalendarEvent) => new Date(event.date) >= new Date()).length === 0 && (
                 <div className="py-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-xs text-slate-400 font-medium italic">No upcoming events scheduled</p>
+                  <p className="text-xs text-slate-400 font-medium italic">{t('schedule.no_upcoming_events', 'Aucun événement à venir')}</p>
                 </div>
               )}
             </div>

@@ -809,22 +809,22 @@ const ClassRecords: React.FC = () => {
         <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
           <SelectTrigger className="w-full sm:w-48">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder={t('common.filter_by_status', 'Filter by status')} />
+            <SelectValue placeholder={t('common.filter_by_status', 'Filtrer par statut')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t('common.all_status', 'All Status')}</SelectItem>
-            <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
-            <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
+            <SelectItem value="all">{t('common.all_statuses', 'Tous les statuts')}</SelectItem>
+            <SelectItem value="active">{t('common.active', 'Actif')}</SelectItem>
+            <SelectItem value="inactive">{t('common.inactive', 'Inactif')}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder={t('common.sort_by', 'Sort by')} />
+            <SelectValue placeholder={t('common.sort_by', 'Trier par')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="name">{t('common.sort_name', 'Name')}</SelectItem>
-            <SelectItem value="created_at">{t('common.sort_created', 'Created Date')}</SelectItem>
-            <SelectItem value="updated_at">{t('common.sort_updated', 'Updated Date')}</SelectItem>
+            <SelectItem value="name">{t('common.sort_name', 'Nom')}</SelectItem>
+            <SelectItem value="created_at">{t('common.sort_created', 'Date de création')}</SelectItem>
+            <SelectItem value="updated_at">{t('common.sort_updated', 'Date de mise à jour')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
