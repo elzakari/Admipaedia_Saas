@@ -328,7 +328,7 @@ const GeneralSettings = () => {
           onClick={handleResetToDefaults}
           disabled={updateSettingsMutation.isPending}
         >
-          {t('admin_settings.reset_defaults', 'Reset to Defaults')}
+          {t('admin_settings.reset_defaults', 'Réinitialiser les valeurs par défaut')}
         </Button>
         <Button 
           onClick={handleSave} 
@@ -340,7 +340,7 @@ const GeneralSettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Enregistrement…') : t('school_settings.save_changes', 'Enregistrer')}
         </Button>
       </div>
     </div>

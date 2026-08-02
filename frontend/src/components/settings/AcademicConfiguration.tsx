@@ -459,16 +459,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {t('admin_settings.academic_year_config', 'Academic Year Configuration')}
+                {t('admin_settings.academic_year_config', 'Configuration de l\'année académique')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.academic_year_config_desc', 'Configure academic year and term settings')}
+                {t('admin_settings.academic_year_config_desc', 'Configurer l\'année académique et les trimestres')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Academic Year')}</Label>
+                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Année académique')}</Label>
                   <Input
                     id="academic-year"
                     value={settings.academicYear}
@@ -477,20 +477,20 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="current-term">{t('admin_settings.current_term', 'Current Term')}</Label>
+                  <Label htmlFor="current-term">{t('admin_settings.current_term', 'Trimestre actuel')}</Label>
                   <Select value={settings.currentTerm} onValueChange={(value) => handleInputChange('currentTerm', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="First Term">{t('admin_settings.first_term', 'First Term')}</SelectItem>
-                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Second Term')}</SelectItem>
-                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Third Term')}</SelectItem>
+                      <SelectItem value="First Term">{t('admin_settings.first_term', 'Premier trimestre')}</SelectItem>
+                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Deuxième trimestre')}</SelectItem>
+                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Troisième trimestre')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-start">{t('admin_settings.term_start_date', 'Term Start Date')}</Label>
+                  <Label htmlFor="term-start">{t('admin_settings.term_start_date', 'Date de début du trimestre')}</Label>
                   <Input
                     id="term-start"
                     type="date"
@@ -499,7 +499,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-end">{t('admin_settings.term_end_date', 'Term End Date')}</Label>
+                  <Label htmlFor="term-end">{t('admin_settings.term_end_date', 'Date de fin du trimestre')}</Label>
                   <Input
                     id="term-end"
                     type="date"
@@ -517,16 +517,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5" />
-                {t('admin_settings.grading_system', 'Grading System')}
+                {t('admin_settings.grading_system', 'Système de notation')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.grading_system_desc', 'Configure grading scales and passing requirements')}
+                {t('admin_settings.grading_system_desc', 'Configurer les échelles de notation et les exigences de réussite')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="grading-system">{t('admin_settings.grading_system', 'Grading System')}</Label>
+                  <Label htmlFor="grading-system">{t('admin_settings.grading_system', 'Système de notation')}</Label>
                   <Select value={settings.gradingSystem || selectedSystem} onValueChange={handleSystemChange}>
                     <SelectTrigger>
                       <SelectValue />
@@ -537,12 +537,12 @@ const AcademicConfiguration = () => {
                       <SelectItem value="IB">International Baccalaureate (IB)</SelectItem>
                       <SelectItem value="Cambridge">Cambridge International</SelectItem>
                       <SelectItem value="APC">Approche Par Compétence (APC - Togo)</SelectItem>
-                      <SelectItem value="Custom">Custom Grading System</SelectItem>
+                      <SelectItem value="Custom">Système de notation personnalisé</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade', 'Passing Grade (%)')}</Label>
+                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade', 'Note de passage (%)')}</Label>
                   <Input
                     id="passing-grade"
                     type="number"
@@ -553,7 +553,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="max-grade">{t('admin_settings.maximum_grade', 'Maximum Grade (%)')}</Label>
+                  <Label htmlFor="max-grade">{t('admin_settings.maximum_grade', 'Note maximale (%)')}</Label>
                   <Input
                     id="max-grade"
                     type="number"
@@ -566,16 +566,16 @@ const AcademicConfiguration = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.grade_scale', 'Grade Scale')}</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.grade_scale', 'Échelle de notation')}</h4>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('admin_settings.grade', 'Grade')}</TableHead>
-                        <TableHead>{t('admin_settings.min_score', 'Min Score')}</TableHead>
-                        <TableHead>{t('admin_settings.max_score', 'Max Score')}</TableHead>
+                        <TableHead>{t('admin_settings.grade', 'Note / Échelon')}</TableHead>
+                        <TableHead>{t('admin_settings.min_score', 'Score min')}</TableHead>
+                        <TableHead>{t('admin_settings.max_score', 'Score max')}</TableHead>
                         <TableHead>{t('common.description', 'Description')}</TableHead>
-                        <TableHead>{t('admin_settings.grade_point', 'Grade Point')}</TableHead>
+                        <TableHead>{t('admin_settings.grade_point', 'Points')}</TableHead>
                         <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -598,7 +598,7 @@ const AcademicConfiguration = () => {
                               <Input
                                 type="number"
                                 value={newGrade.minScore || ''}
-                                onChange={(e) => setNewGrade(prev => ({ ...prev, minScore: parseInt(e.target.value) }))}
+                                onChange={(e) => setNewGrade(prev => ({ ...prev, minScore: parseFloat(e.target.value) }))}
                                 className="w-20"
                               />
                             ) : (
@@ -610,7 +610,7 @@ const AcademicConfiguration = () => {
                               <Input
                                 type="number"
                                 value={newGrade.maxScore || ''}
-                                onChange={(e) => setNewGrade(prev => ({ ...prev, maxScore: parseInt(e.target.value) }))}
+                                onChange={(e) => setNewGrade(prev => ({ ...prev, maxScore: parseFloat(e.target.value) }))}
                                 className="w-20"
                               />
                             ) : (
@@ -622,7 +622,6 @@ const AcademicConfiguration = () => {
                               <Input
                                 value={newGrade.description || ''}
                                 onChange={(e) => setNewGrade(prev => ({ ...prev, description: e.target.value }))}
-                                className="w-32"
                               />
                             ) : (
                               <span>{grade.description}</span>
@@ -682,15 +681,15 @@ const AcademicConfiguration = () => {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Calculator className="h-5 w-5" />
-                  {t('admin_settings.assessment_config', 'Assessment Configuration')}
+                  {t('admin_settings.assessment_config', 'Configuration des évaluations')}
                 </CardTitle>
                 <CardDescription>
-                  {t('admin_settings.assessment_config_desc', 'Configure assessment types and their weights')}
+                  {t('admin_settings.assessment_config_desc', 'Configurer les types d\'évaluation et leurs pondérations')}
                 </CardDescription>
               </div>
               <Button onClick={handleAddCategory} size="sm" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                {t('admin_settings.add_category', 'Add Category')}
+                {t('admin_settings.add_category', 'Ajouter une catégorie')}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -699,10 +698,10 @@ const AcademicConfiguration = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('admin_settings.category_name', 'Category Name')}</TableHead>
+                        <TableHead>{t('admin_settings.category_name', 'Nom de la catégorie')}</TableHead>
                         <TableHead>{t('admin_settings.description', 'Description')}</TableHead>
-                        <TableHead>{t('admin_settings.weight', 'Weight (%)')}</TableHead>
-                        <TableHead>{t('admin_settings.active', 'Active')}</TableHead>
+                        <TableHead>{t('admin_settings.weight', 'Pondération (%)')}</TableHead>
+                        <TableHead>{t('admin_settings.active', 'Actif')}</TableHead>
                         <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -765,9 +764,9 @@ const AcademicConfiguration = () => {
                   <div className="flex items-start">
                     <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Total Active Weight')}</h4>
+                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Pondération active totale')}</h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                        {t('admin_settings.current_total', 'Current total:')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
+                        {t('admin_settings.current_total', 'Total actuel :')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
                         {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0) !== 100 && (
                           <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Should equal 100%)')}</span>
                         )}

@@ -409,7 +409,7 @@ const UserRoleManagement = () => {
         <Card>
           <CardContent className="p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('admin_settings.roles', 'Roles')}
+              {t('admin_settings.roles', 'Rôles')}
             </div>
             <div className="mt-2 text-2xl font-bold">{roleStats.totalRoles}</div>
           </CardContent>
@@ -417,7 +417,7 @@ const UserRoleManagement = () => {
         <Card>
           <CardContent className="p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('admin_settings.system_roles', 'System Roles')}
+              {t('admin_settings.system_roles', 'Rôles système')}
             </div>
             <div className="mt-2 text-2xl font-bold">{roleStats.systemRoles}</div>
           </CardContent>
@@ -425,7 +425,7 @@ const UserRoleManagement = () => {
         <Card>
           <CardContent className="p-5">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t('admin_settings.custom_roles', 'Custom Roles')}
+              {t('admin_settings.custom_roles', 'Rôles personnalisés')}
             </div>
             <div className="mt-2 text-2xl font-bold">{roleStats.customRoles}</div>
           </CardContent>
@@ -443,10 +443,10 @@ const UserRoleManagement = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
-            {t('admin_settings.user_role_mgmt', 'User & Role Management')}
+            {t('admin_settings.user_role_mgmt', 'Gestion des utilisateurs et des rôles')}
           </h2>
           <p className="text-gray-500 dark:text-gray-400">
-            {t('admin_settings.user_role_mgmt_desc', 'Manage user roles and permissions')}
+            {t('admin_settings.user_role_mgmt_desc', 'Gérer les rôles des utilisateurs et les autorisations')}
           </p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
@@ -456,32 +456,32 @@ const UserRoleManagement = () => {
               value={roleSearchTerm}
               onChange={(event) => setRoleSearchTerm(event.target.value)}
               className="pl-9"
-              placeholder={t('admin_settings.search_roles', 'Search roles, descriptions, or permissions')}
+              placeholder={t('admin_settings.search_roles', 'Rechercher des rôles, descriptions ou permissions')}
             />
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={(open) => (open ? setIsCreateDialogOpen(true) : resetCreateDialog())}>
             <DialogTrigger asChild>
               <Button data-testid="create-role-trigger" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                {t('admin_settings.create_role', 'Create Role')}
+                {t('admin_settings.create_role', 'Créer un rôle')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{t('admin_settings.create_new_role', 'Create New Role')}</DialogTitle>
+                <DialogTitle>{t('admin_settings.create_new_role', 'Créer un nouveau rôle')}</DialogTitle>
                 <DialogDescription>
-                  {t('admin_settings.create_role_desc', 'Define a new role with specific permissions for your organization.')}
+                  {t('admin_settings.create_role_desc', 'Définissez un nouveau rôle avec des autorisations spécifiques pour votre établissement.')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="role-name">{t('admin_settings.role_name', 'Role Name')}</Label>
+                    <Label htmlFor="role-name">{t('admin_settings.role_name', 'Nom du rôle')}</Label>
                     <Input
                       id="role-name"
                       value={newRoleData.name}
                       onChange={(event) => setNewRoleData((previous) => ({ ...previous, name: event.target.value }))}
-                      placeholder={t('admin_settings.enter_role_name', 'Enter role name')}
+                      placeholder={t('admin_settings.enter_role_name', 'Saisir le nom du rôle')}
                     />
                   </div>
                   <div className="space-y-2">
@@ -490,7 +490,7 @@ const UserRoleManagement = () => {
                       id="role-description"
                       value={newRoleData.description}
                       onChange={(event) => setNewRoleData((previous) => ({ ...previous, description: event.target.value }))}
-                      placeholder={t('admin_settings.enter_role_description', 'Enter role description')}
+                      placeholder={t('admin_settings.enter_role_description', 'Saisir la description du rôle')}
                     />
                   </div>
                 </div>
@@ -500,7 +500,7 @@ const UserRoleManagement = () => {
                     <div>
                       <h3 className="text-lg font-semibold">{t('admin_settings.permissions', 'Permissions')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {newRoleData.permissions.length} {t('admin_settings.permissions_selected', 'permissions selected')}
+                        {newRoleData.permissions.length} {t('admin_settings.permissions_selected', 'autorisations sélectionnées')}
                       </p>
                     </div>
                     <div className="relative w-full md:w-80">
@@ -509,7 +509,7 @@ const UserRoleManagement = () => {
                         value={permissionSearchTerm}
                         onChange={(event) => setPermissionSearchTerm(event.target.value)}
                         className="pl-9"
-                        placeholder={t('admin_settings.search_permissions', 'Search permissions')}
+                        placeholder={t('admin_settings.search_permissions', 'Rechercher des autorisations')}
                       />
                     </div>
                   </div>
@@ -520,13 +520,13 @@ const UserRoleManagement = () => {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={resetCreateDialog}>
-                  {t('common.cancel', 'Cancel')}
+                  {t('common.cancel', 'Annuler')}
                 </Button>
                 <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending} data-testid="save-role-btn">
                   {createRoleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {createRoleMutation.isPending
-                    ? t('admin_settings.creating_role', 'Creating...')
-                    : t('admin_settings.create_role', 'Create Role')}
+                    ? t('admin_settings.creating_role', 'Création…')
+                    : t('admin_settings.create_role', 'Créer un rôle')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -536,7 +536,7 @@ const UserRoleManagement = () => {
 
       <Tabs defaultValue="roles" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="roles">{t('admin_settings.roles', 'Roles')}</TabsTrigger>
+          <TabsTrigger value="roles">{t('admin_settings.roles', 'Rôles')}</TabsTrigger>
           <TabsTrigger value="permissions">{t('admin_settings.permissions', 'Permissions')}</TabsTrigger>
         </TabsList>
 
@@ -545,10 +545,10 @@ const UserRoleManagement = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                {t('admin_settings.system_roles', 'System Roles')}
+                {t('admin_settings.system_roles', 'Rôles système')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.manage_roles_desc', 'Manage roles and their associated permissions')}
+                {t('admin_settings.manage_roles_desc', 'Gérer les rôles et leurs autorisations associées')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -560,11 +560,11 @@ const UserRoleManagement = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('admin_settings.role', 'Role')}</TableHead>
+                      <TableHead>{t('admin_settings.role', 'Rôle')}</TableHead>
                       <TableHead>{t('common.description', 'Description')}</TableHead>
-                      <TableHead>{t('admin_settings.users', 'Users')}</TableHead>
+                      <TableHead>{t('admin_settings.users', 'Utilisateurs')}</TableHead>
                       <TableHead>{t('admin_settings.permissions', 'Permissions')}</TableHead>
-                      <TableHead>{t('admin_settings.status', 'Status')}</TableHead>
+                      <TableHead>{t('admin_settings.status', 'Statut')}</TableHead>
                       <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -625,7 +625,7 @@ const UserRoleManagement = () => {
                     {filteredRoles.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                          {t('admin_settings.no_roles_found', 'No roles matched your search.')}
+                          {t('admin_settings.no_roles_found', 'Aucun rôle ne correspond à votre recherche.')}
                         </TableCell>
                       </TableRow>
                     )}
