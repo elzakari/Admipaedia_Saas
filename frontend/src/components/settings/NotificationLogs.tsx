@@ -134,9 +134,9 @@ const NotificationLogs = () => {
       {/* Premium Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-gray-800 pb-5">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t('admin_settings.notification_logs_title', 'Notification Delivery Logs')}</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t('admin_settings.notification_logs_title', 'Journaux de livraison des notifications')}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {t('admin_settings.notification_logs_subtitle', 'Monitor branch-level SMS and email delivery activity without leaving settings.')}
+            {t('admin_settings.notification_logs_subtitle', 'Consultez l\'activité d\'envoi des SMS et e-mails directement depuis les paramètres.')}
           </p>
         </div>
         <Button 
@@ -146,7 +146,7 @@ const NotificationLogs = () => {
           className={`flex items-center gap-2 self-stretch sm:self-auto shadow-sm ${ADMIN_SECONDARY_BUTTON_CLASS}`}
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          {t('common.refresh', 'Refresh')}
+          {t('common.refresh', 'Actualiser')}
         </Button>
       </div>
 
@@ -155,7 +155,7 @@ const NotificationLogs = () => {
         <Card className="border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.total_outbound', 'Total Outbound')}</p>
+              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.total_outbound', 'Total envois')}</p>
               <p className="text-3xl font-extrabold text-gray-900 dark:text-white">{summary.total_count}</p>
             </div>
             <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl">
@@ -167,7 +167,7 @@ const NotificationLogs = () => {
         <Card className="border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.success_rate', 'Delivery Rate')}</p>
+              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.success_rate', 'Taux de livraison')}</p>
               <p className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">{calculateSuccessRate()}%</p>
             </div>
             <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl">
@@ -179,7 +179,7 @@ const NotificationLogs = () => {
         <Card className="border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.sms_sent', 'SMS Delivery')}</p>
+              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.sms_sent', 'Livraison SMS')}</p>
               <p className="text-3xl font-extrabold text-purple-600 dark:text-purple-400">{summary.total_sms}</p>
             </div>
             <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-xl">
@@ -191,7 +191,7 @@ const NotificationLogs = () => {
         <Card className="border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.email_sent', 'Email Delivery')}</p>
+              <p className="text-xs font-semibold text-gray-400 tracking-wider uppercase">{t('admin_settings.email_sent', 'Livraison e-mail')}</p>
               <p className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">{summary.total_email}</p>
             </div>
             <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl">
@@ -205,7 +205,7 @@ const NotificationLogs = () => {
         <Alert variant="destructive" className="my-4">
           <AlertCircle className="h-5 w-5" />
           <AlertDescription>
-            {t('admin_settings.failed_load_logs', 'Notification logs are temporarily unavailable. Check branch context or refresh to retry.')}
+            {t('admin_settings.failed_load_logs', 'Les journaux de notifications sont temporairement indisponibles. Vérifiez l\'établissement ou actualisez pour réessayer.')}
           </AlertDescription>
         </Alert>
       )}
@@ -215,19 +215,19 @@ const NotificationLogs = () => {
         <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-2 text-gray-500 self-start md:self-auto">
             <Filter className="h-4.5 w-4.5 text-indigo-500" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.filter_by', 'Filter logs:')}</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('common.filter_by', 'Filtrer les journaux :')}</span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <div className="w-full sm:w-48">
               <Select value={channelFilter} onValueChange={(val) => { setChannelFilter(val); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                  <SelectValue placeholder={t('common.all_channels', 'All Channels')} />
+                  <SelectValue placeholder={t('common.all_channels', 'Tous les canaux')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('common.all_channels', 'All Channels')}</SelectItem>
-                  <SelectItem value="sms">{t('common.sms', 'SMS Gateway')}</SelectItem>
-                  <SelectItem value="email">{t('common.email', 'Email SMTP')}</SelectItem>
+                  <SelectItem value="all">{t('common.all_channels', 'Tous les canaux')}</SelectItem>
+                  <SelectItem value="sms">{t('common.sms', 'Passerelle SMS')}</SelectItem>
+                  <SelectItem value="email">{t('common.email', 'E-mail SMTP')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -235,12 +235,12 @@ const NotificationLogs = () => {
             <div className="w-full sm:w-48">
               <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                  <SelectValue placeholder={t('common.page_size', 'Page size')} />
+                  <SelectValue placeholder={t('common.page_size', 'Taille')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="10">10 / page</SelectItem>
-                  <SelectItem value="20">20 / page</SelectItem>
-                  <SelectItem value="50">50 / page</SelectItem>
+                  <SelectItem value="10">10 / {t('common.page', 'page')}</SelectItem>
+                  <SelectItem value="20">20 / {t('common.page', 'page')}</SelectItem>
+                  <SelectItem value="50">50 / {t('common.page', 'page')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -248,12 +248,12 @@ const NotificationLogs = () => {
             <div className="w-full sm:w-48">
               <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                  <SelectValue placeholder={t('common.all_statuses', 'All Statuses')} />
+                  <SelectValue placeholder={t('common.all_statuses', 'Tous les statuts')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('common.all_statuses', 'All Statuses')}</SelectItem>
-                  <SelectItem value="sent">{t('common.sent', 'Delivered')}</SelectItem>
-                  <SelectItem value="failed">{t('common.failed', 'Failed')}</SelectItem>
+                  <SelectItem value="all">{t('common.all_statuses', 'Tous les statuts')}</SelectItem>
+                  <SelectItem value="sent">{t('common.sent', 'Livrable')}</SelectItem>
+                  <SelectItem value="failed">{t('common.failed', 'Échec')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -270,10 +270,10 @@ const NotificationLogs = () => {
                 <Info className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold text-center">
-                {t('admin_settings.no_notif_logs_found', 'No notification logs found.')}
+                {t('admin_settings.no_notif_logs_found', 'Aucun journal de notification trouvé.')}
               </p>
               <p className="text-gray-400 text-xs text-center max-w-sm">
-                {t('admin_settings.no_notif_logs_desc', 'Sent and failed branch notifications appear here after SMS or email delivery attempts.' )}
+                {t('admin_settings.no_notif_logs_desc', 'Les notifications envoyées et échouées apparaîtront ici après les tentatives d\'envoi SMS ou e-mail.')}
               </p>
             </div>
           ) : (
@@ -281,11 +281,11 @@ const NotificationLogs = () => {
               <Table>
                 <TableHeader className="bg-gray-50 dark:bg-gray-900/50">
                   <TableRow>
-                    <TableHead className="w-[180px] font-semibold">{t('common.timestamp', 'Timestamp')}</TableHead>
-                    <TableHead className="w-[120px] font-semibold">{t('common.channel', 'Channel')}</TableHead>
-                    <TableHead className="w-[200px] font-semibold">{t('common.recipient', 'Recipient')}</TableHead>
-                    <TableHead className="font-semibold">{t('common.message_content', 'Message / Delivery Details')}</TableHead>
-                    <TableHead className="w-[140px] font-semibold">{t('common.status', 'Status')}</TableHead>
+                    <TableHead className="w-[180px] font-semibold">{t('common.timestamp', 'Horodatage')}</TableHead>
+                    <TableHead className="w-[120px] font-semibold">{t('common.channel', 'Canal')}</TableHead>
+                    <TableHead className="w-[200px] font-semibold">{t('common.recipient', 'Destinataire')}</TableHead>
+                    <TableHead className="font-semibold">{t('common.message_content', 'Message / Détails de livraison')}</TableHead>
+                    <TableHead className="w-[140px] font-semibold">{t('common.status', 'Statut')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

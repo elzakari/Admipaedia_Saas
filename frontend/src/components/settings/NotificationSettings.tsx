@@ -155,26 +155,53 @@ const NotificationSettings = () => {
   };
 
   const renderGatewayStatus = (type: 'email' | 'sms') => {
+    if (isLoadingStatus) {
+      return (
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 animate-pulse">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/6"></div>
+        </div>
+      );
+    }
+
     const data = statusData?.[type];
     if (!data) return null;
-    
+
+    if (!data.available) {
+      return (
+        <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/50">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                {type === 'email' ? t('admin_settings.platform_mail_gateway', 'Passerelle e-mail de la plateforme') : t('admin_settings.platform_sms_gateway', 'Passerelle SMS de la plateforme')}: {t('common.disabled', 'Désactivée')}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {t('admin_settings.managed_by_superadmin', 'Géré de manière centralisée par le Super Admin')}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-4 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40">
+        <div className="flex items-center gap-2.5">
           <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
           <div>
-            <h4 className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
-              Platform {type === 'email' ? 'Mail' : 'SMS'} Gateway: {data.status}
-            </h4>
+            <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
+              {type === 'email' ? t('admin_settings.platform_mail_gateway', 'Passerelle e-mail de la plateforme') : t('admin_settings.platform_sms_gateway', 'Passerelle SMS de la plateforme')}: {data.status}
+            </p>
             <p className="text-xs text-emerald-700 dark:text-emerald-400">
-              Centrally managed by Super Admin
+              {t('admin_settings.managed_by_superadmin', 'Géré de manière centralisée par le Super Admin')}
             </p>
           </div>
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-900 px-3 py-1.5 rounded-md shadow-sm text-center">
-          <span className="text-xs text-zinc-500 block">Remaining Credits</span>
+          <span className="text-xs text-zinc-500 block">{t('admin_settings.remaining_credits', 'Crédits restants')}</span>
           <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-            {data.remaining}
+            {data.remaining === 'Unlimited' ? t('common.unlimited', 'Illimité') : data.remaining}
           </span>
         </div>
       </div>
@@ -195,8 +222,8 @@ const NotificationSettings = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.notifications_alerts', 'Notifications & Alerts')}</h2>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.notifications_alerts_desc', 'Configure how and when notifications are sent')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.notifications_alerts', 'Notifications & Alertes')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.notifications_alerts_desc', 'Configurer comment et quand les notifications sont envoyées')}</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -208,7 +235,7 @@ const NotificationSettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Enregistrement…') : t('school_settings.save_changes', 'Enregistrer')}
         </Button>
       </div>
 
@@ -216,7 +243,7 @@ const NotificationSettings = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="email" className="flex items-center gap-2 min-w-[120px]">
             <Mail className="h-4 w-4" />
-            {t('admin_settings.email', 'Email')}
+            {t('admin_settings.email', 'E-mail')}
           </TabsTrigger>
           <TabsTrigger value="sms" className="flex items-center gap-2 min-w-[120px]">
             <MessageSquare className="h-4 w-4" />
@@ -224,11 +251,11 @@ const NotificationSettings = () => {
           </TabsTrigger>
           <TabsTrigger value="types" className="flex items-center gap-2 min-w-[180px]">
             <Bell className="h-4 w-4" />
-            {t('admin_settings.notification_types', 'Notification Types')}
+            {t('admin_settings.notification_types', 'Types de notifications')}
           </TabsTrigger>
           <TabsTrigger value="timing" className="flex items-center gap-2 min-w-[180px]">
             <Clock className="h-4 w-4" />
-            {t('admin_settings.timing_delivery', 'Timing & Delivery')}
+            {t('admin_settings.timing_delivery', 'Planification & Livraison')}
           </TabsTrigger>
         </TabsList>
 
@@ -237,19 +264,19 @@ const NotificationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
-                {t('admin_settings.email_config', 'Email Configuration')}
+                {t('admin_settings.email_config', 'Configuration des e-mails')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.email_config_desc', 'Configure your email server settings for sending notifications')}
+                {t('admin_settings.email_config_desc', 'Configurer vos paramètres de serveur d\'e-mail pour l\'envoi de notifications')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {renderGatewayStatus('email')}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="email-enabled">{t('admin_settings.enable_email_notifications', 'Enable Email Notifications')}</Label>
+                  <Label htmlFor="email-enabled">{t('admin_settings.enable_email_notifications', 'Activer les notifications par e-mail')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.send_notifications_via_email', 'Send notifications via email')}
+                    {t('admin_settings.send_notifications_via_email', 'Envoyer des notifications par e-mail')}
                   </p>
                 </div>
                 <Switch
@@ -263,27 +290,27 @@ const NotificationSettings = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="from-email">{t('admin_settings.from_email', 'From Email')}</Label>
+                      <Label htmlFor="from-email">{t('admin_settings.from_email', 'E-mail de l\'expéditeur')}</Label>
                       <Input
                         id="from-email"
                         type="email"
                         value={settings.fromEmail}
                         onChange={(e) => handleInputChange('fromEmail', e.target.value)}
-                        placeholder="noreply@your-school.edu"
+                        placeholder="noreply@votre-ecole.edu"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="from-name">{t('admin_settings.from_name', 'From Name')}</Label>
+                      <Label htmlFor="from-name">{t('admin_settings.from_name', 'Nom de l\'expéditeur')}</Label>
                       <Input
                         id="from-name"
                         value={settings.fromName}
                         onChange={(e) => handleInputChange('fromName', e.target.value)}
-                        placeholder="Your School Name"
+                        placeholder="Nom de votre établissement"
                       />
                     </div>
                   </div>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium bg-blue-50 dark:bg-blue-900/20 p-2.5 border border-blue-200 dark:border-blue-800/50 rounded">
-                    Ensure your custom domain has verified SPF/DKIM records pointing to the platform's central mail relay.
+                    {t('admin_settings.custom_domain_spf_hint', 'Assurez-vous que votre domaine personnalisé possède des enregistrements SPF/DKIM vérifiés pointant vers le relais de messagerie central de la plateforme.')}
                   </p>
                 </>
               )}
@@ -296,19 +323,19 @@ const NotificationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="h-5 w-5" />
-                {t('admin_settings.sms_config', 'SMS Configuration')}
+                {t('admin_settings.sms_config', 'Configuration des SMS')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.sms_config_desc', 'Configure your SMS provider settings for text message notifications')}
+                {t('admin_settings.sms_config_desc', 'Configurer les paramètres de votre fournisseur de SMS pour les notifications textuelles')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {renderGatewayStatus('sms')}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms_notifications', 'Enable SMS Notifications')}</Label>
+                  <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms_notifications', 'Activer les notifications SMS')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.send_notifications_via_sms', 'Send notifications via SMS')}
+                    {t('admin_settings.send_notifications_via_sms', 'Envoyer des notifications par SMS')}
                   </p>
                 </div>
                 <Switch
@@ -321,7 +348,7 @@ const NotificationSettings = () => {
               {settings.smsEnabled && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="sms-sender-id">{t('admin_settings.sender_id', 'Sender ID')}</Label>
+                    <Label htmlFor="sms-sender-id">{t('admin_settings.sender_id', 'Identifiant de l\'expéditeur (Sender ID)')}</Label>
                     <Input
                       id="sms-sender-id"
                       value={settings.smsSenderId}
@@ -329,7 +356,7 @@ const NotificationSettings = () => {
                       placeholder="ADMIPAEDIA"
                       maxLength={11}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.sender_id_hint', 'Maximum 11 characters')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.sender_id_hint', '11 caractères maximum')}</p>
                   </div>
                 </div>
               )}
@@ -342,21 +369,21 @@ const NotificationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
-                {t('admin_settings.notification_types', 'Notification Types')}
+                {t('admin_settings.notification_types', 'Types de notifications')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.notification_types_desc', 'Configure which events trigger notifications')}
+                {t('admin_settings.notification_types_desc', 'Configurer les événements qui déclenchent des notifications')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.student_notifications', 'Student Notifications')}</h4>
+                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.student_notifications', 'Notifications destinées aux élèves')}</h4>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="student-registration" className="text-base">{t('admin_settings.student_registration', 'Student Registration')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.student_registration_desc', 'Notify when new students register')}</p>
+                        <Label htmlFor="student-registration" className="text-base">{t('admin_settings.student_registration', 'Inscription d\'élèves')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.student_registration_desc', 'Notifier lors de l\'inscription de nouveaux élèves')}</p>
                       </div>
                       <Switch
                         id="student-registration"
@@ -366,8 +393,8 @@ const NotificationSettings = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="exam-results" className="text-base">{t('admin_settings.exam_results', 'Exam Results')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.exam_results_desc', 'Notify when exam results are published')}</p>
+                        <Label htmlFor="exam-results" className="text-base">{t('admin_settings.exam_results', 'Résultats d\'examens')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.exam_results_desc', 'Notifier lors de la publication des résultats d\'examens')}</p>
                       </div>
                       <Switch
                         id="exam-results"
@@ -377,8 +404,8 @@ const NotificationSettings = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="attendance-alerts" className="text-base">{t('admin_settings.attendance_alerts', 'Attendance Alerts')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.attendance_alerts_desc', 'Notify about attendance issues')}</p>
+                        <Label htmlFor="attendance-alerts" className="text-base">{t('admin_settings.attendance_alerts', 'Alertes de présence')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.attendance_alerts_desc', 'Notifier en cas de problèmes de présence')}</p>
                       </div>
                       <Switch
                         id="attendance-alerts"
@@ -390,12 +417,12 @@ const NotificationSettings = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.admin_notifications', 'Administrative Notifications')}</h4>
+                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.admin_notifications', 'Notifications administratives')}</h4>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="fee-payment" className="text-base">{t('admin_settings.fee_payment', 'Fee Payment')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.fee_payment_desc', 'Notify when fees are paid')}</p>
+                        <Label htmlFor="fee-payment" className="text-base">{t('admin_settings.fee_payment', 'Paiement des frais')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.fee_payment_desc', 'Notifier lors du paiement des frais de scolarité')}</p>
                       </div>
                       <Switch
                         id="fee-payment"
@@ -405,8 +432,8 @@ const NotificationSettings = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="disciplinary-actions" className="text-base">{t('admin_settings.disciplinary_actions', 'Disciplinary Actions')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.disciplinary_actions_desc', 'Notify about disciplinary issues')}</p>
+                        <Label htmlFor="disciplinary-actions" className="text-base">{t('admin_settings.disciplinary_actions', 'Actions disciplinaires')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.disciplinary_actions_desc', 'Notifier en cas d\'incidents disciplinaires')}</p>
                       </div>
                       <Switch
                         id="disciplinary-actions"
@@ -416,8 +443,8 @@ const NotificationSettings = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="general-announcements" className="text-base">{t('admin_settings.general_announcements', 'General Announcements')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.general_announcements_desc', 'Notify about school announcements')}</p>
+                        <Label htmlFor="general-announcements" className="text-base">{t('admin_settings.general_announcements', 'Annonces générales')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.general_announcements_desc', 'Notifier lors d\'annonces scolaires importantes')}</p>
                       </div>
                       <Switch
                         id="general-announcements"
@@ -430,13 +457,13 @@ const NotificationSettings = () => {
               </div>
 
               <div className="border-t pt-6">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.recipients', 'Recipients')}</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.recipients', 'Destinataires')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="notify-students" className="text-base">{t('admin_settings.students', 'Students')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.students_desc', 'Send notifications to students')}</p>
+                        <Label htmlFor="notify-students" className="text-base">{t('admin_settings.students', 'Élèves')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.students_desc', 'Envoyer des notifications aux élèves')}</p>
                       </div>
                       <Switch
                         id="notify-students"
@@ -447,7 +474,7 @@ const NotificationSettings = () => {
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <Label htmlFor="notify-parents" className="text-base">{t('admin_settings.parents', 'Parents')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.parents_desc', 'Send notifications to parents')}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.parents_desc', 'Envoyer des notifications aux parents')}</p>
                       </div>
                       <Switch
                         id="notify-parents"
@@ -459,8 +486,8 @@ const NotificationSettings = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="notify-teachers" className="text-base">{t('admin_settings.teachers', 'Teachers')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.teachers_desc', 'Send notifications to teachers')}</p>
+                        <Label htmlFor="notify-teachers" className="text-base">{t('admin_settings.teachers', 'Enseignants')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.teachers_desc', 'Envoyer des notifications aux enseignants')}</p>
                       </div>
                       <Switch
                         id="notify-teachers"
@@ -470,8 +497,8 @@ const NotificationSettings = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="notify-admin" className="text-base">{t('admin_settings.administrators', 'Administrators')}</Label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.administrators_desc', 'Send notifications to administrators')}</p>
+                        <Label htmlFor="notify-admin" className="text-base">{t('admin_settings.administrators', 'Administrateurs')}</Label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.administrators_desc', 'Envoyer des notifications aux administrateurs')}</p>
                       </div>
                       <Switch
                         id="notify-admin"
@@ -491,18 +518,18 @@ const NotificationSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                {t('admin_settings.timing_delivery', 'Timing & Delivery')}
+                {t('admin_settings.timing_delivery', 'Planification & Livraison')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.timing_delivery_desc', 'Configure when notifications are sent and delivery preferences')}
+                {t('admin_settings.timing_delivery_desc', 'Configurer quand les notifications sont envoyées et vos préférences de livraison')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="send-immediately" className="text-base">{t('admin_settings.send_immediately', 'Send Immediately')}</Label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.send_immediately_desc', 'Send notifications as soon as events occur')}</p>
+                    <Label htmlFor="send-immediately" className="text-base">{t('admin_settings.send_immediately', 'Envoyer immédiatement')}</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.send_immediately_desc', 'Envoyer les notifications dès la survenance d\'un événement')}</p>
                   </div>
                   <Switch
                     id="send-immediately"
@@ -513,8 +540,8 @@ const NotificationSettings = () => {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="daily-digest" className="text-base">{t('admin_settings.daily_digest', 'Daily Digest')}</Label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.daily_digest_desc', 'Send a daily summary of notifications')}</p>
+                    <Label htmlFor="daily-digest" className="text-base">{t('admin_settings.daily_digest', 'Récapitulatif quotidien')}</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.daily_digest_desc', 'Envoyer un résumé quotidien des notifications')}</p>
                   </div>
                   <Switch
                     id="daily-digest"
@@ -525,14 +552,14 @@ const NotificationSettings = () => {
 
                 {settings.dailyDigest && (
                   <div className="space-y-2">
-                    <Label htmlFor="digest-time">{t('admin_settings.digest_time', 'Digest Time')}</Label>
+                    <Label htmlFor="digest-time">{t('admin_settings.digest_time', 'Heure d\'envoi du récapitulatif')}</Label>
                     <Input
                       id="digest-time"
                       type="time"
                       value={settings.digestTime}
                       onChange={(e) => handleInputChange('digestTime', e.target.value)}
                     />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.digest_time_desc', 'Time when daily digest will be sent')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.digest_time_desc', 'Heure à laquelle le récapitulatif quotidien sera envoyé')}</p>
                   </div>
                 )}
               </div>
@@ -540,8 +567,8 @@ const NotificationSettings = () => {
               <div className="border-t pt-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="quiet-hours" className="text-base">{t('admin_settings.quiet_hours', 'Quiet Hours')}</Label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.quiet_hours_desc', 'Pause notifications during specified hours')}</p>
+                    <Label htmlFor="quiet-hours" className="text-base">{t('admin_settings.quiet_hours', 'Heures de silence (Quiet Hours)')}</Label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.quiet_hours_desc', 'Mettre en pause les notifications pendant les heures spécifiées')}</p>
                   </div>
                   <Switch
                     id="quiet-hours"
@@ -553,7 +580,7 @@ const NotificationSettings = () => {
                 {settings.quietHours && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div className="space-y-2">
-                      <Label htmlFor="quiet-hours-start">{t('admin_settings.start_time', 'Start Time')}</Label>
+                      <Label htmlFor="quiet-hours-start">{t('admin_settings.start_time', 'Heure de début')}</Label>
                       <Input
                         id="quiet-hours-start"
                         type="time"
@@ -562,7 +589,7 @@ const NotificationSettings = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="quiet-hours-end">{t('admin_settings.end_time', 'End Time')}</Label>
+                      <Label htmlFor="quiet-hours-end">{t('admin_settings.end_time', 'Heure de fin')}</Label>
                       <Input
                         id="quiet-hours-end"
                         type="time"
@@ -578,9 +605,9 @@ const NotificationSettings = () => {
                 <div className="flex items-start">
                   <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                   <div>
-                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.delivery_notes', 'Delivery Notes')}</h4>
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.delivery_notes', 'Remarques de livraison')}</h4>
                     <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                      {t('admin_settings.delivery_notes_desc', 'Notifications will be queued and sent according to your timing preferences. During quiet hours, notifications will be held and delivered when quiet hours end.')}
+                      {t('admin_settings.delivery_notes_desc', 'Les notifications seront mises en file d\'attente et envoyées selon vos préférences. Pendant les heures de silence, les notifications seront suspendues et délivrées à la fin de la période.')}
                     </p>
                   </div>
                 </div>
