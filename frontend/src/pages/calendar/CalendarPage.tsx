@@ -409,10 +409,10 @@ const CalendarPage: React.FC = () => {
         <TabsContent value="events" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle>All Events</CardTitle>
+              <CardTitle>{t('calendar.all_events', 'Tous les événements')}</CardTitle>
               <div className="flex items-center space-x-2">
                 <Input 
-                  placeholder="Search events..." 
+                  placeholder={t('calendar.search_events', 'Rechercher des événements…')} 
                   className="w-[250px]" 
                 />
                 <Button variant="outline" size="icon">
@@ -435,7 +435,7 @@ const CalendarPage: React.FC = () => {
                           <div>
                             <h3 className="font-medium">{event.title}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][event.day]}, {event.startTime} - {event.endTime}
+                              {['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][event.day]}, {event.startTime} - {event.endTime}
                             </p>
                           </div>
                           <div className="flex items-center mt-2 md:mt-0">
@@ -443,7 +443,7 @@ const CalendarPage: React.FC = () => {
                               {event.location || event.type}
                             </Badge>
                             <Button variant="ghost" size="sm">
-                              View Details
+                              {t('common.view_details', 'Voir les détails')}
                             </Button>
                           </div>
                         </div>
@@ -459,14 +459,14 @@ const CalendarPage: React.FC = () => {
         <TabsContent value="schedule" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Academic Schedule</CardTitle>
-              <CardDescription>View and manage academic schedules and timetables</CardDescription>
+              <CardTitle>{t('calendar.academic_schedule', 'Emploi du Temps Académique')}</CardTitle>
+              <CardDescription>{t('calendar.academic_schedule_desc', 'Consulter et gérer les emplois du temps académiques')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
                   <BookOpen className="h-12 w-12 mx-auto text-gray-400" />
-                  <p className="mt-2 text-gray-500 dark:text-gray-400">Academic schedule view would be implemented here</p>
+                  <p className="mt-2 text-gray-500 dark:text-gray-400">{t('calendar.academic_schedule_placeholder', 'La vue de l\'emploi du temps académique sera disponible ici')}</p>
                 </div>
               </div>
             </CardContent>

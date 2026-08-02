@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,7 @@ export function Calendar({
   initialView = "week",
   initialDate = new Date()
 }: CalendarProps) {
+  const { t } = useTranslation();
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentView, setCurrentView] = useState(initialView);
   const [currentDate, setCurrentDate] = useState(initialDate);
@@ -49,7 +51,15 @@ export function Calendar({
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   
   // Week days and dates
-  const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const weekDays = [
+    t('calendar.sun_short', 'DIM'),
+    t('calendar.mon_short', 'LUN'),
+    t('calendar.tue_short', 'MAR'),
+    t('calendar.wed_short', 'MER'),
+    t('calendar.thu_short', 'JEU'),
+    t('calendar.fri_short', 'VEN'),
+    t('calendar.sat_short', 'SAM')
+  ];
   const [weekDates, setWeekDates] = useState<number[]>([]);
   
   // Time slots (8 AM to 4 PM)
@@ -67,8 +77,20 @@ export function Calendar({
 
   const updateCalendarData = (date: Date) => {
     // Format current month and date
-    const monthNames = ["January", "February", "March", "April", "May", "June", 
-                        "July", "August", "September", "October", "November", "December"];
+    const monthNames = [
+      t('months.january', 'Janvier'),
+      t('months.february', 'Février'),
+      t('months.march', 'Mars'),
+      t('months.april', 'Avril'),
+      t('months.may', 'Mai'),
+      t('months.june', 'Juin'),
+      t('months.july', 'Juillet'),
+      t('months.august', 'Août'),
+      t('months.september', 'Septembre'),
+      t('months.october', 'Octobre'),
+      t('months.november', 'Novembre'),
+      t('months.december', 'Décembre')
+    ];
     const month = monthNames[date.getMonth()];
     const year = date.getFullYear();
     setCurrentMonth(`${month} ${year}`);
@@ -151,7 +173,7 @@ export function Calendar({
             className="px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600"
             onClick={handleToday}
           >
-            Today
+            {t('calendar.today', 'Aujourd\'hui')}
           </button>
           <div className="flex">
             <button 
@@ -177,7 +199,7 @@ export function Calendar({
               currentView === "day" ? "bg-white dark:bg-gray-700 shadow" : ""
             } text-gray-700 dark:text-gray-300 text-sm`}
           >
-            Day
+            {t('calendar.day', 'Jour')}
           </button>
           <button
             onClick={() => setCurrentView("week")}
@@ -185,7 +207,7 @@ export function Calendar({
               currentView === "week" ? "bg-white dark:bg-gray-700 shadow" : ""
             } text-gray-700 dark:text-gray-300 text-sm`}
           >
-            Week
+            {t('calendar.week', 'Semaine')}
           </button>
           <button
             onClick={() => setCurrentView("month")}
@@ -193,7 +215,7 @@ export function Calendar({
               currentView === "month" ? "bg-white dark:bg-gray-700 shadow" : ""
             } text-gray-700 dark:text-gray-300 text-sm`}
           >
-            Month
+            {t('calendar.month', 'Mois')}
           </button>
         </div>
       </div>
