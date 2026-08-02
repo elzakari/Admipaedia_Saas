@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, BookOpen, CalendarDays, CheckCircle2, Clock3, Search, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -12,7 +13,10 @@ import classService from '../../services/classService';
 const TODAY = new Date().toISOString().slice(0, 10);
 
 function humanizeStatus(status?: string) {
-  if (!status) return 'Unknown';
+  if (!status) return 'Inconnu';
+  if (status === 'completed') return 'Terminé';
+  if (status === 'in-progress') return 'En cours';
+  if (status === 'planned') return 'Planifié';
   return status
     .split('-')
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
@@ -27,10 +31,11 @@ function getStatusVariant(status?: string): 'default' | 'secondary' | 'outline' 
 }
 
 function formatClassLabel(classItem: any) {
-  return classItem?.display_name || [classItem?.name, classItem?.section].filter(Boolean).join(' ') || classItem?.name || `Class ${classItem?.id}`;
+  return classItem?.display_name || [classItem?.name, classItem?.section].filter(Boolean).join(' ') || classItem?.name || `Classe ${classItem?.id}`;
 }
 
 const DailyLessonMonitoring: React.FC = () => {
+  const { t } = useTranslation();
   const [selectedClassId, setSelectedClassId] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [dateFrom, setDateFrom] = useState(TODAY);
@@ -107,9 +112,9 @@ const DailyLessonMonitoring: React.FC = () => {
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-2">
-        <h3 className="text-xl font-semibold text-slate-900">Daily Lesson Monitoring</h3>
+        <h3 className="text-xl font-semibold text-slate-900">{t('admin_lessons.title', 'Suivi des leçons quotidiennes')}</h3>
         <p className="text-sm text-slate-500">
-          Monitor what teachers taught each day, which classes are covered, and where lesson reporting is still missing.
+          {t('admin_lessons.subtitle', 'Suivez le déroulement des cours quotidiens, la couverture des classes et les rapports d\'enseignants.')}
         </p>
       </div>
 
@@ -117,9 +122,9 @@ const DailyLessonMonitoring: React.FC = () => {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <div className="text-sm text-slate-500">Lesson Logs</div>
+              <div className="text-sm text-slate-500">{t('admin_lessons.journal_logs', 'Cahiers de texte')}</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.total_logs}</div>
-              <div className="text-xs text-slate-500">Within current filters</div>
+              <div className="text-xs text-slate-500">{t('admin_lessons.within_filters', 'Selon les filtres actuels')}</div>
             </div>
             <BookOpen className="h-5 w-5 text-indigo-600" />
           </CardContent>
@@ -127,9 +132,9 @@ const DailyLessonMonitoring: React.FC = () => {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <div className="text-sm text-slate-500">Completed Today</div>
+              <div className="text-sm text-slate-500">{t('admin_lessons.completed_today', 'Terminés aujourd\'hui')}</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.today_logs}</div>
-              <div className="text-xs text-slate-500">{summary.completed_logs} marked completed</div>
+              <div className="text-xs text-slate-500">{summary.completed_logs} {t('admin_lessons.marked_completed', 'marqués comme terminés')}</div>
             </div>
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           </CardContent>
@@ -137,9 +142,9 @@ const DailyLessonMonitoring: React.FC = () => {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <div className="text-sm text-slate-500">Classes Covered</div>
+              <div className="text-sm text-slate-500">{t('admin_lessons.classes_covered', 'Classes couvertes')}</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.classes_covered}</div>
-              <div className="text-xs text-slate-500">{summary.teachers_reporting} teachers reporting</div>
+              <div className="text-xs text-slate-500">{summary.teachers_reporting} {t('admin_lessons.teachers_reporting', 'enseignants rapporteurs')}</div>
             </div>
             <Users className="h-5 w-5 text-sky-600" />
           </CardContent>
@@ -147,9 +152,9 @@ const DailyLessonMonitoring: React.FC = () => {
         <Card>
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <div className="text-sm text-slate-500">Missing Today</div>
+              <div className="text-sm text-slate-500">{t('admin_lessons.missing_today', 'Manquants aujourd\'hui')}</div>
               <div className="mt-2 text-2xl font-semibold text-slate-900">{summary.classes_without_logs_today}</div>
-              <div className="text-xs text-slate-500">{summary.planned_logs} still planned</div>
+              <div className="text-xs text-slate-500">{summary.planned_logs} {t('admin_lessons.still_planned', 'encore planifiés')}</div>
             </div>
             <Clock3 className="h-5 w-5 text-amber-600" />
           </CardContent>
@@ -161,9 +166,9 @@ const DailyLessonMonitoring: React.FC = () => {
           <CardContent className="flex items-start gap-3 p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
             <div>
-              <div className="font-medium text-amber-900">Lesson coverage needs attention</div>
+              <div className="font-medium text-amber-900">{t('admin_lessons.coverage_attention', 'La couverture des cours requiert de l\'attention')}</div>
               <div className="text-sm text-amber-800">
-                {summary.classes_without_logs_today} class spaces do not yet have a lesson log for today in the current monitoring scope.
+                {summary.classes_without_logs_today} {t('admin_lessons.missing_alert_desc', 'espaces de classe n\'ont pas encore de cahier de texte pour aujourd\'hui dans le périmètre de suivi actuel.')}
               </div>
             </div>
           </CardContent>
@@ -172,8 +177,8 @@ const DailyLessonMonitoring: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Monitoring Filters</CardTitle>
-          <CardDescription>Refine the daily teaching feed by class, status, date range, and teacher or topic keyword.</CardDescription>
+          <CardTitle>{t('admin_lessons.monitoring_filters', 'Filtres de suivi')}</CardTitle>
+          <CardDescription>{t('admin_lessons.monitoring_filters_desc', 'Affinez le flux d\'enseignement quotidien par classe, statut, plage de dates et mot-clé d\'enseignant ou de sujet.')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">

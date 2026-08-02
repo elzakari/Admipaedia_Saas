@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Card, 
   CardContent, 
@@ -133,6 +134,7 @@ interface EnhancedTeacher extends Omit<Teacher, 'qualifications' | 'schedule'> {
 }
 
 const StaffManagement: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedStaff, setSelectedStaff] = useState<number | null>(null);
   const [selectedStaffType, setSelectedStaffType] = useState<DirectoryEntityType | null>(null);
@@ -550,22 +552,22 @@ const StaffManagement: React.FC = () => {
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="directory">Staff Directory</TabsTrigger>
-          <TabsTrigger value="departments">Departments</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="directory">{t('admin_staff.directory_tab', 'Annuaire du personnel')}</TabsTrigger>
+          <TabsTrigger value="departments">{t('admin_staff.departments_tab', 'Départements')}</TabsTrigger>
+          <TabsTrigger value="attendance">{t('admin_staff.attendance_tab', 'Présences')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="directory" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Staff Directory</h3>
+            <h3 className="text-lg font-medium">{t('admin_staff.directory_title', 'Annuaire du personnel')}</h3>
             <div className="flex gap-2">
               <div className="relative w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder="Search staff..."
+                  placeholder={t('admin_staff.search_placeholder', 'Rechercher un membre du personnel…')}
                   className="pl-8"
                   value={searchTerm}
-                  onChange={handleSearchChange}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <Button
@@ -581,19 +583,19 @@ const StaffManagement: React.FC = () => {
                     position: row.position,
                     status: row.status
                   })));
-                  toast.success('Exported staff directory');
+                  toast.success(t('admin_staff.export_success', 'Annuaire du personnel exporté'));
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                {t('common.export', 'Exporter')}
               </Button>
               <Button onClick={() => setIsAddModalOpen(true)}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Add Teaching Staff
+                {t('admin_staff.add_teaching', 'Ajouter du personnel enseignant')}
               </Button>
               <Button variant="outline" onClick={openCreateStaffDialog}>
                 <Briefcase className="mr-2 h-4 w-4" />
-                Add Non-Teaching Staff
+                {t('admin_staff.add_non_teaching', 'Ajouter du personnel non-enseignant')}
               </Button>
             </div>
           </div>

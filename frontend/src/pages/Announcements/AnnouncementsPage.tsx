@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, List, Tag, Input, Button, Tabs, Empty, Skeleton, Dropdown, Modal, Form, Select, Switch, DatePicker, message } from 'antd';
 import { FilterOutlined, BellOutlined, CalendarOutlined, MailOutlined } from '@ant-design/icons';
@@ -42,6 +43,7 @@ const parseTargetRoles = (value: Announcement['target_roles']): string[] => {
 };
 
 const AnnouncementsPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useMediaQuery({ maxWidth: 768 });
@@ -58,7 +60,7 @@ const AnnouncementsPage: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [selected, setSelected] = useState<Announcement | null>(null);
   const [editForm] = Form.useForm();
-  
+
   // Get announcements from API
   const { data: apiAnnouncements, isLoading } = useQuery({
     queryKey: ['announcements', currentPage, pageSize],
@@ -194,10 +196,10 @@ const AnnouncementsPage: React.FC = () => {
           ,
           ...(canManage ? [
             <Button key="edit" type="link" onClick={(e) => { e.stopPropagation(); openEdit(); }}>
-              Edit
+              {t('common.edit', 'Éditer')}
             </Button>,
             <Button key="delete" type="link" danger onClick={(e) => { e.stopPropagation(); doDelete(); }}>
-              Delete
+              {t('common.delete', 'Supprimer')}
             </Button>
           ] : [])
         ]}
@@ -260,14 +262,14 @@ const AnnouncementsPage: React.FC = () => {
             onClick={() => navigate('/dashboard')}
             className="mr-2"
           >
-            Back to Dashboard
+            {t('common.back_to_dashboard', 'Retour au tableau de bord')}
           </Button>
-          <h1 className="text-2xl font-bold m-0">Announcements</h1>
+          <h1 className="text-2xl font-bold m-0">{t('announcements.title', 'Annonces')}</h1>
         </div>
         
         <div className="flex w-full md:w-auto">
           <Search
-            placeholder="Search announcements"
+            placeholder={t('announcements.search_placeholder', 'Rechercher des annonces…')}
             onSearch={handleSearch}
             onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setSearchQuery(e.target.value)}
             className="mr-2 w-full md:w-64"
@@ -286,7 +288,7 @@ const AnnouncementsPage: React.FC = () => {
               onClick={() => setCreateOpen(true)}
               className="ml-2"
             >
-              Create
+              {t('announcements.create_button', 'Créer')}
             </Button>
           )}
         </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -61,18 +62,19 @@ const computeStatus = (a: ApiAnnouncement): AnnouncementStatus => {
 
 const formatAudience = (a: ApiAnnouncement): string => {
   const raw = (a.target_audience || a.recipients || 'all').toString().toLowerCase();
-  if (raw === 'all') return 'All';
+  if (raw === 'all') return 'Tous';
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 };
 
-const formatPriority = (a: ApiAnnouncement): 'High' | 'Medium' | 'Low' => {
+const formatPriority = (a: ApiAnnouncement): 'Haute' | 'Moyenne' | 'Basse' => {
   const raw = (a.priority || 'medium').toString().toLowerCase();
-  if (raw === 'high' || raw === 'urgent') return 'High';
-  if (raw === 'low') return 'Low';
-  return 'Medium';
+  if (raw === 'high' || raw === 'urgent') return 'Haute';
+  if (raw === 'low') return 'Basse';
+  return 'Moyenne';
 };
 
 const Announcements = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
@@ -111,32 +113,32 @@ const Announcements = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">School Announcements</h3>
+        <h3 className="text-lg font-medium">{t('admin_announcements.title', 'Annonces scolaires')}</h3>
         <Button
           className="glass-button"
           onClick={() => {
-            toast({ title: 'Open announcements', description: 'Use Announcements page for full management.' });
+            toast({ title: t('admin_announcements.open_title', 'Ouvrir les annonces'), description: t('admin_announcements.open_desc', 'Utilisez la page des annonces pour une gestion complète.') });
             navigate('/announcements');
           }}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          Create Announcement
+          {t('admin_announcements.create_announcement', 'Créer une annonce')}
         </Button>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="all">All Announcements</TabsTrigger>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="archived">Archived</TabsTrigger>
+          <TabsTrigger value="all">{t('admin_announcements.all_tab', 'Toutes les annonces')}</TabsTrigger>
+          <TabsTrigger value="active">{t('admin_announcements.active_tab', 'Actives')}</TabsTrigger>
+          <TabsTrigger value="scheduled">{t('admin_announcements.scheduled_tab', 'Planifiées')}</TabsTrigger>
+          <TabsTrigger value="archived">{t('admin_announcements.archived_tab', 'Archivées')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value={activeTab} className="space-y-4">
           {isLoading && (
             <Card>
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Loading announcements...
+                {t('admin_announcements.loading', 'Chargement des annonces…')}
               </CardContent>
             </Card>
           )}

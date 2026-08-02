@@ -352,7 +352,7 @@ const LibraryManagement = () => {
                     <BookMarked className="h-6 w-6 text-green-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : availableBooksCount}</h3>
-                  <p className="text-sm text-gray-500">{t('admin_library.available_books', 'Available Books')}</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.available_books', 'Livres disponibles')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -364,7 +364,7 @@ const LibraryManagement = () => {
                     <User className="h-6 w-6 text-amber-600" />
                   </div>
                   <h3 className="text-2xl font-bold">{statsLoading ? '—' : (stats?.totalMembers ?? 0)}</h3>
-                  <p className="text-sm text-gray-500">{t('admin_library.registered_members', 'Registered Members')}</p>
+                  <p className="text-sm text-gray-500">{t('admin_library.registered_members', 'Membres inscrits')}</p>
                 </div>
               </CardContent>
             </Card>
