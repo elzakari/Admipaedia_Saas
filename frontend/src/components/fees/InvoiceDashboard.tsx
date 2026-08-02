@@ -149,7 +149,7 @@ const InvoiceDashboard: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.invoices', 'Invoices')}</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.invoices', 'Factures')}</CardTitle>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -167,11 +167,11 @@ const InvoiceDashboard: React.FC = () => {
                   balance: r.balance,
                   due_date: r.due_date || ''
                 })))
-                toast.success(t('admin_fees.exported_invoices', 'Exported invoices'))
+                toast.success(t('admin_fees.exported_invoices', 'Factures exportées'))
               }}
             >
               <Download className="h-4 w-4 mr-2" />
-              {t('common.export', 'Export')}
+              {t('common.export', 'Exporter')}
             </Button>
             <Button
               size="sm"
@@ -182,37 +182,37 @@ const InvoiceDashboard: React.FC = () => {
               }}
             >
               <PlusCircle className="h-4 w-4 mr-2" />
-              {t('common.generate', 'Generate')}
+              {t('common.generate', 'Générer')}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2 mb-4">
-          <Input placeholder={t('admin_fees.search_invoices', 'Search by student, admission #, category or invoice id')} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder={t('admin_fees.search_invoices', 'Rechercher par étudiant, numéro d\'admission, catégorie ou ID de facture')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Student')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.category', 'Category')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Amount')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.paid', 'Paid')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Balance')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Due')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Étudiant')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.category', 'Catégorie')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Montant')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.paid', 'Payé')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Solde')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Échéance')}</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">{t('common.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Loading…')}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Chargement…')}</td></tr>
               ) : records.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_invoices_found', 'No invoices found.')}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_invoices_found', 'Aucune facture trouvée.')}</td></tr>
               ) : (
                 records.map((r) => {
-                  const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `${t('admin_fees.student', 'Student')} ${r.student_id}`
+                  const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `${t('admin_fees.student', 'Étudiant')} ${r.student_id}`
                   const category = r.structure?.fee_category || '—'
                   const status = r.balance <= 0 ? 'paid' : r.paid_amount > 0 ? 'partial' : 'unpaid'
                   return (
@@ -232,7 +232,7 @@ const InvoiceDashboard: React.FC = () => {
                       <td className="px-4 py-3">{r.due_date || '—'}</td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" onClick={() => openPayments(r)}>
-                          <Eye className="h-4 w-4 mr-2" /> {t('admin_fees.payments', 'Payments')}
+                          <Eye className="h-4 w-4 mr-2" /> {t('admin_fees.payments', 'Paiements')}
                         </Button>
                       </td>
                     </tr>

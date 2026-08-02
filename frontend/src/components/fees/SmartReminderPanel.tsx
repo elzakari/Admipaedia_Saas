@@ -87,52 +87,52 @@ const SmartReminderPanel = () => {
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
           <div>
-            <CardTitle>{t('admin_fees.smart_reminders', 'Smart Reminders')}</CardTitle>
-            <CardDescription>{t('admin_fees.smart_reminders_desc', 'Prepare and review manual reminder batches for outstanding fee balances')}</CardDescription>
+            <CardTitle>{t('admin_fees.smart_reminders', 'Rappels intelligents')}</CardTitle>
+            <CardDescription>{t('admin_fees.smart_reminders_desc', 'Préparer et réviser les lots de rappels manuels pour les soldes de frais impayés')}</CardDescription>
           </div>
           <div className="flex items-center space-x-3">
             <Button variant="outline" className="bg-white dark:bg-slate-800" onClick={() => setSendOpen(true)}>
               <Send className="h-4 w-4 mr-2" />
-              {t('admin_fees.run_reminder_batch', 'Run Reminder Batch')}
+              {t('admin_fees.run_reminder_batch', 'Lancer un lot de rappels')}
             </Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => {
               window.dispatchEvent(new CustomEvent('fees:navigate', { detail: { tab: 'settings' } }))
             }}>
               <Plus className="h-4 w-4 mr-2" />
-              {t('admin_fees.reminder_settings', 'Reminder Settings')}
+              {t('admin_fees.reminder_settings', 'Paramètres de rappel')}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.overdue_fees', 'Overdue fees')}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.overdue_fees', 'Frais en retard')}</div>
               <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{overdueCount}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.records_need_attention', '{{count}} records need attention', { count: overdueCount })}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.records_need_attention', '{{count}} dossiers nécessitent de l\'attention', { count: overdueCount })}</div>
             </div>
             <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.outstanding_balance', 'Outstanding balance')}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.outstanding_balance', 'Solde impayé')}</div>
               <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(totalOverdueBalance, 'USD')}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.reminder_channels', 'Channels')}: {reminderChannels.join(', ') || '—'}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.reminder_channels', 'Canaux')}: {reminderChannels.join(', ') || '—'}</div>
             </div>
             <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.longest_overdue', 'Longest overdue')}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.longest_overdue', 'Plus grand retard')}</div>
               <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{longestOverdueDays}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.days_label', 'days')}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.days_label', 'jours')}</div>
             </div>
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border p-4">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.high_priority_accounts', 'High-priority accounts')}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.high_priority_accounts', 'Comptes prioritaires')}</div>
               <div className="mt-3 space-y-3">
                 {topOverdueAccounts.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">{t('admin_fees.no_overdue_accounts', 'No overdue accounts at the moment.')}</div>
+                  <div className="text-sm text-muted-foreground">{t('admin_fees.no_overdue_accounts', 'Aucun compte en retard pour le moment.')}</div>
                 ) : topOverdueAccounts.map((item: any) => (
                   <div key={item.id} className="flex items-center justify-between rounded-md bg-slate-50 dark:bg-slate-800 px-3 py-2">
                     <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.student_name || `Student ${item.student_id}`}</div>
-                      <div className="text-xs text-slate-500">{item.class_name || '—'} • {item.days_overdue || 0} {t('admin_fees.days_label', 'days')}</div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.student_name || `Étudiant ${item.student_id}`}</div>
+                      <div className="text-xs text-slate-500">{item.class_name || '—'} • {item.days_overdue || 0} {t('admin_fees.days_label', 'jours')}</div>
                     </div>
                     <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(Number(item.balance || 0), item.currency || 'USD')}</div>
                   </div>
@@ -141,10 +141,10 @@ const SmartReminderPanel = () => {
             </div>
 
             <div className="rounded-lg border p-4">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.last_batch_preview', 'Last batch preview')}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.last_batch_preview', 'Aperçu du dernier lot')}</div>
               <div className="mt-3 space-y-3">
                 {!batchPreview ? (
-                  <div className="text-sm text-muted-foreground">{t('admin_fees.batch_preview_empty', 'Run a reminder batch to preview recipients, balances, and configured channels.')}</div>
+                  <div className="text-sm text-muted-foreground">{t('admin_fees.batch_preview_empty', 'Lancer un lot de rappels pour prévisualiser les destinataires, les soldes et les canaux configurés.')}</div>
                 ) : (
                   <>
                     <div className="rounded-md bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">

@@ -68,7 +68,7 @@ const DefaulterListView: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.defaulters', 'Defaulters')}</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.defaulters', 'Retardataires')}</CardTitle>
           <Button
             size="sm"
             variant="outline"
@@ -82,10 +82,10 @@ const DefaulterListView: React.FC = () => {
                 due_date: x.due_date,
                 days_overdue: x.days_overdue
               })))
-              toast.success(t('admin_fees.exported_defaulters', 'Exported defaulters'))
+              toast.success(t('admin_fees.exported_defaulters', 'Retardataires exportés'))
             }}
           >
-            <Download className="h-4 w-4 mr-2" /> {t('common.export', 'Export')}
+            <Download className="h-4 w-4 mr-2" /> {t('common.export', 'Exporter')}
           </Button>
         </div>
       </CardHeader>
@@ -96,22 +96,22 @@ const DefaulterListView: React.FC = () => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Student')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.class', 'Class')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Due')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Balance')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.days', 'Days')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Étudiant')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.class', 'Classe')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.due', 'Échéance')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.balance', 'Solde')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.days', 'Jours')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Loading…')}</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Chargement…')}</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_defaulters_found', 'No defaulters found.')}</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_defaulters_found', 'Aucun retardataire trouvé.')}</td></tr>
               ) : (
                 items.map((x: any) => (
                   <tr key={x.id}>
-                    <td className="px-4 py-3 font-medium">{x.student_name || `Student ${x.student_id}`}</td>
+                    <td className="px-4 py-3 font-medium">{x.student_name || `Étudiant ${x.student_id}`}</td>
                     <td className="px-4 py-3">{x.class_name || '—'}</td>
                     <td className="px-4 py-3">{x.due_date}</td>
                     <td className="px-4 py-3 text-right"><Badge className="bg-amber-100 text-amber-800">{x.balance}</Badge></td>
@@ -133,7 +133,7 @@ const InputLike = ({ value, onChange }: { value: string; onChange: (v: string) =
     <div className="mb-4">
       <input
         className="w-full h-10 rounded-md border border-input bg-background text-foreground px-3 text-sm"
-        placeholder={t('admin_fees.search_defaulters', 'Search defaulters by name or class')}
+        placeholder={t('admin_fees.search_defaulters', 'Rechercher des retardataires par nom ou classe')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

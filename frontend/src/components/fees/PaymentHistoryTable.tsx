@@ -148,7 +148,7 @@ const PaymentHistoryTable: React.FC = () => {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.payments', 'Payments')}</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.payments', 'Paiements')}</CardTitle>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -163,42 +163,42 @@ const PaymentHistoryTable: React.FC = () => {
                   reference: p.reference_number || '',
                   date: p.payment_date || ''
                 })))
-                toast.success(t('admin_fees.exported_payments', 'Exported payments'))
+                toast.success(t('admin_fees.exported_payments', 'Paiements exportés'))
               }}
             >
-              <Download className="h-4 w-4 mr-2" /> {t('common.export', 'Export')}
+              <Download className="h-4 w-4 mr-2" /> {t('common.export', 'Exporter')}
             </Button>
             <Button size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-700" onClick={() => { setRecordOpen(true) }}>
-              <PlusCircle className="h-4 w-4 mr-2" /> {t('common.record', 'Record')}
+              <PlusCircle className="h-4 w-4 mr-2" /> {t('common.record', 'Enregistrer')}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4">
-          <Input placeholder={t('admin_fees.search_payments', 'Search by student or reference')} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder={t('admin_fees.search_payments', 'Rechercher par étudiant ou référence')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Student')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.method', 'Method')}</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.reference', 'Reference')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.student', 'Étudiant')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.method', 'Mode')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.reference', 'Référence')}</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">{t('admin_fees.date', 'Date')}</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Amount')}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t('admin_fees.amount', 'Montant')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Loading…')}</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('common.loading', 'Chargement…')}</td></tr>
               ) : payments.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_payments_found', 'No payments found.')}</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500">{t('admin_fees.no_payments_found', 'Aucun paiement trouvé.')}</td></tr>
               ) : (
                 payments.map((p) => (
                   <tr key={p.id}>
-                    <td className="px-4 py-3 font-medium">{p.student_name || `${t('admin_fees.student', 'Student')} ${p.student_id || ''}`}</td>
+                    <td className="px-4 py-3 font-medium">{p.student_name || `${t('admin_fees.student', 'Étudiant')} ${p.student_id || ''}`}</td>
                     <td className="px-4 py-3">{p.payment_method}</td>
                     <td className="px-4 py-3">{p.reference_number || '—'}</td>
                     <td className="px-4 py-3">{p.payment_date || '—'}</td>
