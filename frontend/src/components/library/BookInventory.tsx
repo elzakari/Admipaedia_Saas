@@ -364,16 +364,16 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
         <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selected ? t('admin_library.edit_book', 'Edit book') : t('admin_library.add_book', 'Add book')}</DialogTitle>
-              <DialogDescription>{t('admin_library.book_form_desc', 'Provide book details and save.')}</DialogDescription>
+              <DialogTitle>{selected ? t('admin_library.edit_book', 'Modifier le livre') : t('admin_library.add_book', 'Ajouter un livre')}</DialogTitle>
+              <DialogDescription>{t('admin_library.book_form_desc', 'Fournissez les détails du livre et enregistrez.')}</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
-                <Label>{t('admin_library.title_label', 'Title')}</Label>
+                <Label>{t('admin_library.title_label', 'Titre')}</Label>
                 <Input value={String(form.title || '')} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>{t('admin_library.author_label', 'Author')}</Label>
+                <Label>{t('admin_library.author_label', 'Auteur')}</Label>
                 <Input value={String(form.author || '')} onChange={(e) => setForm((p) => ({ ...p, author: e.target.value }))} />
               </div>
               <div className="space-y-2">
@@ -381,7 +381,7 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                 <Input value={String(form.isbn || '')} onChange={(e) => setForm((p) => ({ ...p, isbn: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.category_label', 'Category')}</Label>
+                <Label>{t('admin_library.category_label', 'Catégorie')}</Label>
                 <Select value={String(form.category || 'fiction')} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -392,11 +392,11 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.publisher_label', 'Publisher')}</Label>
+                <Label>{t('admin_library.publisher_label', 'Éditeur')}</Label>
                 <Input value={String(form.publisher || '')} onChange={(e) => setForm((p) => ({ ...p, publisher: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.publication_year_label', 'Publication year')}</Label>
+                <Label>{t('admin_library.publication_year_label', 'Année de publication')}</Label>
                 <Input
                   type="number"
                   value={form.publication_year === undefined ? '' : String(form.publication_year)}
@@ -404,15 +404,15 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.edition_label', 'Edition')}</Label>
+                <Label>{t('admin_library.edition_label', 'Édition')}</Label>
                 <Input value={String(form.edition || '')} onChange={(e) => setForm((p) => ({ ...p, edition: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.shelf_location_label', 'Shelf location')}</Label>
+                <Label>{t('admin_library.shelf_location_label', 'Emplacement de l\'étagère')}</Label>
                 <Input value={String(form.shelf_location || '')} onChange={(e) => setForm((p) => ({ ...p, shelf_location: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.total_copies_label', 'Total copies')}</Label>
+                <Label>{t('admin_library.total_copies_label', 'Nombre total d\'exemplaires')}</Label>
                 <Input
                   type="number"
                   value={form.total_copies === undefined ? '' : String(form.total_copies)}
@@ -425,7 +425,7 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setEditorOpen(false)}>{t('admin_library.cancel', 'Cancel')}</Button>
+              <Button variant="outline" onClick={() => setEditorOpen(false)}>{t('admin_library.cancel', 'Annuler')}</Button>
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 disabled={createMutation.isPending || updateMutation.isPending}
@@ -434,7 +434,7 @@ const BookInventory: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                   else createMutation.mutate();
                 }}
               >
-                {selected ? (updateMutation.isPending ? t('admin_library.saving', 'Saving…') : t('admin_library.save_changes', 'Save changes')) : (createMutation.isPending ? t('admin_library.saving', 'Saving…') : t('admin_library.add_book', 'Add book'))}
+                {selected ? (updateMutation.isPending ? t('admin_library.saving', 'Enregistrement…') : t('admin_library.save_changes', 'Enregistrer les modifications')) : (createMutation.isPending ? t('admin_library.saving', 'Enregistrement…') : t('admin_library.add_book', 'Ajouter le livre'))}
               </Button>
             </DialogFooter>
           </DialogContent>

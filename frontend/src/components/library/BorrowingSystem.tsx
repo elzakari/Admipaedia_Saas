@@ -167,12 +167,12 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <CardTitle className="flex items-center gap-2"><BookCopy className="h-5 w-5" /> {t('admin_library.borrowing', 'Borrowing')}</CardTitle>
-            <CardDescription>{t('admin_library.borrowing_desc', 'Issue, return, and track borrowed books')}</CardDescription>
+            <CardTitle className="flex items-center gap-2"><BookCopy className="h-5 w-5" /> {t('admin_library.borrowing', 'Système d\'Emprunt')}</CardTitle>
+            <CardDescription>{t('admin_library.borrowing_desc', 'Émettre, retourner et suivre les livres empruntés')}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={exportCurrent}><Download className="h-4 w-4 mr-2" /> {t('admin_library.export', 'Export')}</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openIssue}><Plus className="h-4 w-4 mr-2" /> {t('admin_library.issue_book', 'Issue Book')}</Button>
+            <Button variant="outline" onClick={exportCurrent}><Download className="h-4 w-4 mr-2" /> {t('admin_library.export', 'Exporter')}</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openIssue}><Plus className="h-4 w-4 mr-2" /> {t('admin_library.issue_book', 'Émettre un Livre')}</Button>
           </div>
         </div>
       </CardHeader>
@@ -181,16 +181,16 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
           <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
             <TabsList>
-              <TabsTrigger value="current">{t('admin_library.current', 'Current')}</TabsTrigger>
-              <TabsTrigger value="overdue">{t('admin_library.overdue', 'Overdue')}</TabsTrigger>
-              <TabsTrigger value="history">{t('admin_library.history', 'History')}</TabsTrigger>
+              <TabsTrigger value="current">{t('admin_library.current', 'En cours')}</TabsTrigger>
+              <TabsTrigger value="overdue">{t('admin_library.overdue', 'En retard')}</TabsTrigger>
+              <TabsTrigger value="history">{t('admin_library.history', 'Historique')}</TabsTrigger>
             </TabsList>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder={t('admin_library.search_borrowing_placeholder', 'Search book, member, ISBN')} value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-9" placeholder={t('admin_library.search_borrowing_placeholder', 'Rechercher un livre, membre, ISBN')} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button variant="outline" onClick={() => { setSearch(''); queryClient.invalidateQueries({ queryKey: ['library', 'borrow'] }) }}>
-              <RotateCcw className="h-4 w-4 mr-2" /> {t('admin_library.reset', 'Reset')}
+              <RotateCcw className="h-4 w-4 mr-2" /> {t('admin_library.reset', 'Réinitialiser')}
             </Button>
           </div>
 
@@ -228,14 +228,14 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
         <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{t('admin_library.issue_book_title', 'Issue book')}</DialogTitle>
-              <DialogDescription>{t('admin_library.issue_book_desc', 'Select a book and member to issue.')}</DialogDescription>
+              <DialogTitle>{t('admin_library.issue_book_title', 'Émettre un livre')}</DialogTitle>
+              <DialogDescription>{t('admin_library.issue_book_desc', 'Sélectionnez un livre et un membre à qui l\'émettre.')}</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t('admin_library.book_label', 'Book')}</Label>
+                <Label>{t('admin_library.book_label', 'Livre')}</Label>
                 <Select value={issueForm.book_id} onValueChange={(v) => setIssueForm((p) => ({ ...p, book_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_book', 'Select book')} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_book', 'Sélectionner un livre')} /></SelectTrigger>
                   <SelectContent>
                     {bookOptions.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)}>{b.label}</SelectItem>
@@ -244,22 +244,22 @@ const BorrowingSystem: React.FC<{ searchTerm?: string }> = ({ searchTerm }) => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t('admin_library.member_label', 'Member')}</Label>
+                <Label>{t('admin_library.member_label', 'Membre')}</Label>
                 <Select value={issueForm.member_id} onValueChange={(v) => setIssueForm((p) => ({ ...p, member_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_member', 'Select member')} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_library.select_member', 'Sélectionner un membre')} /></SelectTrigger>
                   <SelectContent>
                     {memberOptions.map((m) => (
                       <SelectItem key={m.id} value={String(m.id)}>{m.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="text-xs text-muted-foreground">{t('admin_library.members_desc', 'Members are library members (not student IDs).')}</div>
+                <div className="text-xs text-muted-foreground">{t('admin_library.members_desc', 'Les membres sont des membres de la bibliothèque (pas des identifiants d\'élèves).')}</div>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setIssueOpen(false)}>{t('admin_library.cancel', 'Cancel')}</Button>
+              <Button variant="outline" onClick={() => setIssueOpen(false)}>{t('admin_library.cancel', 'Annuler')}</Button>
               <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={issueMutation.isPending} onClick={() => issueMutation.mutate()}>
-                {issueMutation.isPending ? t('admin_library.issuing', 'Issuing…') : t('admin_library.issue', 'Issue')}
+                {issueMutation.isPending ? t('admin_library.issuing', 'Émission…') : t('admin_library.issue', 'Émettre')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -288,10 +288,10 @@ const BorrowTable = ({
       <table className="w-full text-sm">
         <thead className="bg-gray-50 dark:bg-slate-700">
           <tr>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.book', 'Book')}</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.member', 'Member')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.book', 'Livre')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.member', 'Membre')}</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.dates', 'Dates')}</th>
-            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.status', 'Status')}</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-slate-200">{t('admin_library.status', 'Statut')}</th>
             <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-slate-200">{t('admin_library.actions', 'Actions')}</th>
           </tr>
         </thead>
