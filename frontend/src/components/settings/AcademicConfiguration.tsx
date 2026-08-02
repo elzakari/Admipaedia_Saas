@@ -434,23 +434,23 @@ const AcademicConfiguration = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="academic-year" className="flex items-center gap-2 min-w-[170px]">
             <Calendar className="h-4 w-4" />
-            {t('admin_settings.academic_year', 'Academic Year')}
+            {t('admin_settings.academic_year', 'Année académique')}
           </TabsTrigger>
           <TabsTrigger value="grading" className="flex items-center gap-2 min-w-[160px]">
             <Award className="h-4 w-4" />
-            {t('admin_settings.grading_system', 'Grading System')}
+            {t('admin_settings.grading_system', 'Système de notation')}
           </TabsTrigger>
           <TabsTrigger value="assessment" className="flex items-center gap-2 min-w-[140px]">
             <Calculator className="h-4 w-4" />
-            {t('admin_settings.assessment', 'Assessment')}
+            {t('admin_settings.assessment', 'Évaluation')}
           </TabsTrigger>
           <TabsTrigger value="subjects" className="flex items-center gap-2 min-w-[130px]">
             <BookOpen className="h-4 w-4" />
-            {t('admin_settings.subjects', 'Subjects')}
+            {t('admin_settings.subjects', 'Matières')}
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2 min-w-[130px]">
             <Clock className="h-4 w-4" />
-            {t('admin_settings.settings', 'Settings')}
+            {t('admin_settings.settings', 'Paramètres')}
           </TabsTrigger>
         </TabsList>
 
@@ -707,18 +707,19 @@ const AcademicConfiguration = () => {
                     </TableHeader>
                     <TableBody>
                       {(settings.assessmentTypes || []).map((category, index) => (
-                        <TableRow key={category.id || index}>
+                        <TableRow key={index}>
                           <TableCell>
                             <Input
                               value={category.name}
                               onChange={(e) => handleCategoryChange(index, 'name', e.target.value)}
-                              className="max-w-[200px]"
+                              placeholder={t('admin_settings.category_name_placeholder', 'Ex: Examens')}
                             />
                           </TableCell>
                           <TableCell>
                             <Input
                               value={category.description}
                               onChange={(e) => handleCategoryChange(index, 'description', e.target.value)}
+                              placeholder={t('admin_settings.description_placeholder', 'Description')}
                             />
                           </TableCell>
                           <TableCell>
@@ -752,7 +753,7 @@ const AcademicConfiguration = () => {
                       {(settings.assessmentTypes || []).length === 0 && (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-4 text-gray-500">
-                            {t('admin_settings.no_categories', 'No assessment categories defined. Click Add Category.')}
+                            {t('admin_settings.no_categories', 'Aucune catégorie d\'évaluation définie. Cliquez sur Ajouter une catégorie.')}
                           </TableCell>
                         </TableRow>
                       )}
@@ -768,7 +769,7 @@ const AcademicConfiguration = () => {
                       <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
                         {t('admin_settings.current_total', 'Total actuel :')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
                         {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0) !== 100 && (
-                          <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Should equal 100%)')}</span>
+                          <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Doit être égal à 100%)')}</span>
                         )}
                       </p>
                     </div>
@@ -788,16 +789,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                {t('admin_settings.class_attendance_settings', 'Class & Attendance Settings')}
+                {t('admin_settings.class_attendance_settings', 'Paramètres des classes & de présence')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.class_attendance_settings_desc', 'Configure class management and attendance requirements')}
+                {t('admin_settings.class_attendance_settings_desc', 'Configurer la gestion des classes et les exigences de présence')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="max-students">{t('admin_settings.max_students_per_class', 'Maximum Students per Class')}</Label>
+                  <Label htmlFor="max-students">{t('admin_settings.max_students_per_class', 'Nombre maximum d\'élèves par classe')}</Label>
                   <Input
                     id="max-students"
                     type="number"
@@ -808,7 +809,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="min-students">{t('admin_settings.min_students_per_class', 'Minimum Students per Class')}</Label>
+                  <Label htmlFor="min-students">{t('admin_settings.min_students_per_class', 'Nombre minimum d\'élèves par classe')}</Label>
                   <Input
                     id="min-students"
                     type="number"
@@ -819,7 +820,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="class-duration">{t('admin_settings.class_duration', 'Class Duration (minutes)')}</Label>
+                  <Label htmlFor="class-duration">{t('admin_settings.class_duration', 'Durée d\'un cours (minutes)')}</Label>
                   <Input
                     id="class-duration"
                     type="number"
@@ -830,7 +831,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="break-duration">{t('admin_settings.break_duration', 'Break Duration (minutes)')}</Label>
+                  <Label htmlFor="break-duration">{t('admin_settings.break_duration', 'Durée de la pause (minutes)')}</Label>
                   <Input
                     id="break-duration"
                     type="number"
@@ -845,9 +846,9 @@ const AcademicConfiguration = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="attendance-required">{t('admin_settings.attendance_required', 'Attendance Required')}</Label>
+                    <Label htmlFor="attendance-required">{t('admin_settings.attendance_required', 'Présence obligatoire')}</Label>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t('admin_settings.attendance_required_desc', 'Track and require minimum attendance')}
+                      {t('admin_settings.attendance_required_desc', 'Suivre et exiger un taux de présence minimum')}
                     </p>
                   </div>
                   <Switch
@@ -859,7 +860,7 @@ const AcademicConfiguration = () => {
 
                 {settings.attendanceRequired && (
                   <div className="space-y-2">
-                    <Label htmlFor="minimum-attendance">{t('admin_settings.minimum_attendance', 'Minimum Attendance (%)')}</Label>
+                    <Label htmlFor="minimum-attendance">{t('admin_settings.minimum_attendance', 'Présence minimum (%)')}</Label>
                     <Input
                       id="minimum-attendance"
                       type="number"
@@ -868,19 +869,19 @@ const AcademicConfiguration = () => {
                       value={settings.minimumAttendance}
                       onChange={(e) => handleInputChange('minimumAttendance', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.minimum_attendance_hint', 'Minimum attendance required to pass')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.minimum_attendance_hint', 'Présence minimale requise pour valider l\'année')}</p>
                   </div>
                 )}
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.academic_features', 'Academic Features')}</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.academic_features', 'Fonctionnalités académiques')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="online-exams">{t('admin_settings.online_exams', 'Online Exams')}</Label>
+                      <Label htmlFor="online-exams">{t('admin_settings.online_exams', 'Examens en ligne')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.online_exams_desc', 'Enable online examination system')}
+                        {t('admin_settings.online_exams_desc', 'Activer le système d\'examens en ligne')}
                       </p>
                     </div>
                     <Switch
@@ -891,9 +892,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="grade-moderation">{t('admin_settings.grade_moderation', 'Grade Moderation')}</Label>
+                      <Label htmlFor="grade-moderation">{t('admin_settings.grade_moderation', 'Modération des notes')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.grade_moderation_desc', 'Enable grade moderation process')}
+                        {t('admin_settings.grade_moderation_desc', 'Activer le processus de modération des notes')}
                       </p>
                     </div>
                     <Switch
@@ -904,9 +905,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="parent-portal">{t('admin_settings.parent_portal_grades', 'Parent Portal Grades')}</Label>
+                      <Label htmlFor="parent-portal">{t('admin_settings.parent_portal_grades', 'Notes sur le portail parent')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.parent_portal_grades_desc', 'Show grades in parent portal')}
+                        {t('admin_settings.parent_portal_grades_desc', 'Afficher les notes sur le portail des parents')}
                       </p>
                     </div>
                     <Switch
@@ -917,9 +918,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="transcript-generation">{t('admin_settings.transcript_generation', 'Transcript Generation')}</Label>
+                      <Label htmlFor="transcript-generation">{t('admin_settings.transcript_generation', 'Génération de relevés de notes')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.transcript_generation_desc', 'Enable automatic transcript generation')}
+                        {t('admin_settings.transcript_generation_desc', 'Activer la génération automatique des relevés de notes')}
                       </p>
                     </div>
                     <Switch

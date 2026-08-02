@@ -178,18 +178,18 @@ export default function SubjectsManagement() {
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">{t('admin_settings.subjects', 'Subjects')}</CardTitle>
-            <CardDescription>{t('admin_settings.subjects_desc', 'Manage subjects with search, filters, and bulk operations')}</CardDescription>
+            <CardTitle className="flex items-center gap-2">{t('admin_settings.subjects', 'Matières')}</CardTitle>
+            <CardDescription>{t('admin_settings.subjects_desc', 'Gérer les matières avec la recherche, les filtres et les actions par lots')}</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Input 
-              placeholder={t('admin_settings.search_subjects_placeholder', 'Search by name, code...')} 
+              placeholder={t('admin_settings.search_subjects_placeholder', 'Rechercher par nom, code...')} 
               value={search} 
               onChange={(e) => setSearch(e.target.value)} 
               className="w-64" 
             />
             <Select value={String(filters.per_page)} onValueChange={(v) => setFilters((f) => ({ ...f, per_page: parseInt(v), page: 1 }))}>
-              <SelectTrigger className="w-28"><SelectValue placeholder={t('common.page_size', 'Page size')} /></SelectTrigger>
+              <SelectTrigger className="w-28"><SelectValue placeholder={t('common.page_size', 'Taille')} /></SelectTrigger>
               <SelectContent>
                 {PAGE_SIZES.map((s) => (<SelectItem key={s} value={String(s)}>{s}/{t('common.page', 'page')}</SelectItem>))}
               </SelectContent>
@@ -197,12 +197,12 @@ export default function SubjectsManagement() {
             <Select value={filters.is_active ? 'active' : 'inactive'} onValueChange={(v) => setFilters((f) => ({ ...f, is_active: v === 'active' }))}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">{t('common.active', 'Active')}</SelectItem>
-                <SelectItem value="inactive">{t('common.inactive', 'Inactive')}</SelectItem>
+                <SelectItem value="active">{t('common.active', 'Actif')}</SelectItem>
+                <SelectItem value="inactive">{t('common.inactive', 'Inactif')}</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={() => { setEditing(null); setIsFormOpen(true) }} className={`flex items-center gap-2 ${ADMIN_PRIMARY_BUTTON_CLASS}`}>
-              <Plus className="h-4 w-4" />{t('admin_settings.add_subject', 'Add Subject')}
+              <Plus className="h-4 w-4" />{t('admin_settings.add_subject', 'Ajouter une matière')}
             </Button>
           </div>
         </div>
@@ -211,10 +211,10 @@ export default function SubjectsManagement() {
         <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
           <div className="flex items-center gap-2 font-medium">
             <Link2 className="h-4 w-4" />
-            Subject setup powers timetable setup
+            {t('admin_settings.subject_setup_powers_timetable', 'La configuration des matières alimente la création des emplois du temps')}
           </div>
           <div className="mt-1 text-blue-800">
-            Assign each subject to its classes and teachers here so timetable creation only offers valid combinations.
+            {t('admin_settings.subject_setup_desc', 'Attribuez chaque matière à ses classes et enseignants ici afin que la création d\'emploi du temps ne propose que des combinaisons valides.')}
           </div>
         </div>
 
@@ -222,11 +222,11 @@ export default function SubjectsManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('common.name', 'Name')}</TableHead>
+                <TableHead>{t('common.name', 'Nom')}</TableHead>
                 <TableHead>{t('common.code', 'Code')}</TableHead>
-                <TableHead>{t('common.department', 'Department')}</TableHead>
-                <TableHead>{t('admin_settings.credits', 'Credits')}</TableHead>
-                <TableHead>{t('admin_settings.subject_status_col', 'Status')}</TableHead>
+                <TableHead>{t('common.department', 'Département')}</TableHead>
+                <TableHead>{t('admin_settings.credits', 'Crédits')}</TableHead>
+                <TableHead>{t('admin_settings.subject_status_col', 'Statut')}</TableHead>
                 <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -271,8 +271,8 @@ export default function SubjectsManagement() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{editing ? t('admin_settings.edit_subject', 'Edit Subject') : t('admin_settings.add_subject', 'Add Subject')}</DialogTitle>
-            <DialogDescription>{t('admin_settings.subject_details_desc', 'Provide subject details')}</DialogDescription>
+            <DialogTitle>{editing ? t('admin_settings.edit_subject', 'Modifier la matière') : t('admin_settings.add_subject', 'Ajouter une matière')}</DialogTitle>
+            <DialogDescription>{t('admin_settings.subject_details_desc', 'Fournir les détails de la matière')}</DialogDescription>
           </DialogHeader>
           <SubjectForm editing={editing} onCancel={() => setIsFormOpen(false)} onSubmit={(data) => (editing ? handleUpdate(editing.id, data) : handleCreate(data))} submitting={createMutation.isPending || updateMutation.isPending} />
         </DialogContent>
@@ -281,33 +281,33 @@ export default function SubjectsManagement() {
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('admin_settings.subject_details', 'Subject Details')}</DialogTitle>
+            <DialogTitle>{t('admin_settings.subject_details', 'Détails de la matière')}</DialogTitle>
           </DialogHeader>
           {detailQuery.isLoading ? (
             <div className="flex items-center justify-center h-24"><RefreshCw className="h-5 w-5 animate-spin" /></div>
           ) : detailQuery.data ? (
             <div className="space-y-2 text-sm">
-              <div><span className="font-medium">{t('common.name', 'Name')}:</span> {detailQuery.data.name}</div>
+              <div><span className="font-medium">{t('common.name', 'Nom')}:</span> {detailQuery.data.name}</div>
               <div><span className="font-medium">{t('common.code', 'Code')}:</span> {detailQuery.data.code}</div>
-              <div><span className="font-medium">{t('common.department', 'Department')}:</span> {detailQuery.data.department_name || detailQuery.data.department || '-'}</div>
-              <div><span className="font-medium">{t('admin_settings.credits', 'Credits')}:</span> {(detailQuery.data as any).credits ?? detailQuery.data.credit_hours ?? '-'}</div>
-              <div><span className="font-medium">{t('super_admin.users.table.status', 'Status')}:</span> {detailQuery.data.is_active ? t('common.active', 'Active') : t('common.inactive', 'Inactive')}</div>
+              <div><span className="font-medium">{t('common.department', 'Département')}:</span> {detailQuery.data.department_name || detailQuery.data.department || '-'}</div>
+              <div><span className="font-medium">{t('admin_settings.credits', 'Crédits')}:</span> {(detailQuery.data as any).credits ?? detailQuery.data.credit_hours ?? '-'}</div>
+              <div><span className="font-medium">{t('super_admin.users.table.status', 'Statut')}:</span> {detailQuery.data.is_active ? t('common.active', 'Actif') : t('common.inactive', 'Inactif')}</div>
               <div><span className="font-medium">{t('common.description', 'Description')}:</span> {detailQuery.data.description || '-'}</div>
               <div>
-                <span className="font-medium">Assigned classes:</span>{' '}
+                <span className="font-medium">{t('admin_settings.assigned_classes', 'Classes attribuées')}:</span>{' '}
                 {(detailQuery.data.classes || []).length > 0
                   ? detailQuery.data.classes?.map((item) => item.display_name || item.name).join(', ')
-                  : 'None'}
+                  : t('common.none', 'Aucune')}
               </div>
               <div>
-                <span className="font-medium">Assigned teachers:</span>{' '}
+                <span className="font-medium">{t('admin_settings.assigned_teachers', 'Enseignants attribués')}:</span>{' '}
                 {(detailQuery.data.teachers || []).length > 0
                   ? detailQuery.data.teachers?.map((item) => item.name).join(', ')
-                  : 'None'}
+                  : t('common.none', 'Aucun')}
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">{t('common.no_data', 'No data')}</div>
+            <div className="text-sm text-muted-foreground">{t('common.no_data', 'Aucune donnée')}</div>
           )}
         </DialogContent>
       </Dialog>
@@ -315,12 +315,12 @@ export default function SubjectsManagement() {
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('admin_settings.delete_subject', 'Delete Subject')}</DialogTitle>
-            <DialogDescription>{t('admin_settings.choose_delete_type', 'Choose delete type')}</DialogDescription>
+            <DialogTitle>{t('admin_settings.delete_subject', 'Supprimer la matière')}</DialogTitle>
+            <DialogDescription>{t('admin_settings.choose_delete_type', 'Choisir le type de suppression')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 flex flex-col">
-            <Button variant="destructive" onClick={() => selectedId && handleDelete(selectedId)}>{t('admin_settings.hard_delete', 'Hard Delete')}</Button>
-            <Button variant="outline" onClick={() => selectedId && handleUpdate(selectedId, { is_active: false })}>{t('admin_settings.soft_delete', 'Soft Delete (Deactivate)')}</Button>
+            <Button variant="destructive" onClick={() => selectedId && handleDelete(selectedId)}>{t('admin_settings.hard_delete', 'Suppression définitive')}</Button>
+            <Button variant="outline" onClick={() => selectedId && handleUpdate(selectedId, { is_active: false })}>{t('admin_settings.soft_delete', 'Désactiver (Suppression douce)')}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -389,7 +389,7 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
         teacher.full_name ||
         teacher.name ||
         `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() ||
-        `Teacher ${teacher.id}`
+        `Enseignant ${teacher.id}`
       return !normalizedTeacherSearch || label.toLowerCase().includes(normalizedTeacherSearch)
     })
   }, [teacherOptions, normalizedTeacherSearch])
@@ -412,7 +412,7 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
           teacher.full_name ||
           teacher.name ||
           `${teacher.first_name || teacher.user?.first_name || ''} ${teacher.last_name || teacher.user?.last_name || ''}`.trim() ||
-          `Teacher ${teacher.id}`,
+          `Enseignant ${teacher.id}`,
       }))
   }, [teacherOptions, data.assigned_teacher_ids])
 
@@ -432,7 +432,7 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>{t('common.name', 'Name')}</Label>
+          <Label>{t('common.name', 'Nom')}</Label>
           <Input value={data.name || ''} onChange={(e) => setData((d) => ({ ...d, name: e.target.value }))} />
         </div>
         <div className="space-y-2">
@@ -446,14 +446,14 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
             onChange={(e) => setData((d) => ({ ...d, department_id: e.target.value ? Number(e.target.value) : undefined }))}
             className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
           >
-            <option value="">{t('admin_settings.select_discipline', 'Select discipline…')}</option>
+            <option value="">{t('admin_settings.select_discipline', 'Sélectionner la discipline…')}</option>
             {disciplines.map(dep => (
               <option key={dep.id} value={String(dep.id)}>{dep.name}</option>
             ))}
           </select>
         </div>
         <div className="space-y-2">
-          <Label>{t('admin_settings.credit_hours', 'Credit Hours')}</Label>
+          <Label>{t('admin_settings.credit_hours', 'Heures de cours / Crédits')}</Label>
           <Input type="number" value={Number(data.credit_hours || 0)} onChange={(e) => setData((d) => ({ ...d, credit_hours: Number(e.target.value) }))} />
         </div>
         <div className="md:col-span-2 space-y-2">
@@ -461,11 +461,11 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
           <Input value={data.description || ''} onChange={(e) => setData((d) => ({ ...d, description: e.target.value }))} />
         </div>
         <div className="md:col-span-2 space-y-2">
-          <Label>Assigned Classes</Label>
+          <Label>{t('admin_settings.assigned_classes', 'Classes attribuées')}</Label>
           <Input
             value={classSearch}
             onChange={(e) => setClassSearch(e.target.value)}
-            placeholder="Search classes or streams..."
+            placeholder={t('admin_settings.search_classes_placeholder', 'Rechercher des classes ou des séries...')}
           />
           {selectedClassLabels.length > 0 && (
             <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">
@@ -490,18 +490,18 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                {classOptions.length > 0 ? 'No classes match this search' : 'No classes available'}
+                {classOptions.length > 0 ? t('admin_settings.no_classes_match', 'Aucune classe ne correspond à cette recherche') : t('admin_settings.no_classes_avail', 'Aucune classe disponible')}
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">Only assigned classes or streams can use this subject in timetable setup.</p>
+          <p className="text-xs text-muted-foreground">{t('admin_settings.only_assigned_classes_hint', 'Seules les classes ou séries attribuées peuvent utiliser cette matière dans la création d\'emploi du temps.')}</p>
         </div>
         <div className="md:col-span-2 space-y-2">
-          <Label>Assigned Teachers</Label>
+          <Label>{t('admin_settings.assigned_teachers', 'Enseignants attribués')}</Label>
           <Input
             value={teacherSearch}
             onChange={(e) => setTeacherSearch(e.target.value)}
-            placeholder="Search teachers..."
+            placeholder={t('admin_settings.search_teachers_placeholder', 'Rechercher des enseignants...')}
           />
           {selectedTeacherLabels.length > 0 && (
             <div className="flex flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">

@@ -123,17 +123,17 @@ export default function AdmissionSettings() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.admissions', 'Admissions')}</h2>
-        <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.admissions_desc', 'Configure admission form purchase and submission defaults for this school')}</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.admissions_desc', 'Configurer les prix d\'achat des dossiers et les règles de soumission par défaut pour cet établissement')}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">{t('admin_settings.admission_config', 'Admission Configuration')}</CardTitle>
-          <CardDescription>{t('admin_settings.admission_config_desc', 'Set the cost and basic rules for student applications')}</CardDescription>
+          <CardTitle className="text-xl">{t('admin_settings.admission_config', 'Configuration des admissions')}</CardTitle>
+          <CardDescription>{t('admin_settings.admission_config_desc', 'Définir le coût et les règles de base des candidatures d\'élèves')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="max-w-md space-y-2">
-            <Label htmlFor="admissionPrice">{t('admin_settings.admission_form_price_label', 'Admission Form Price')}</Label>
+            <Label htmlFor="admissionPrice">{t('admin_settings.admission_form_price_label', 'Prix du dossier d\'admission')}</Label>
             <div className="flex gap-3">
               <Input
                 id="admissionPrice"
@@ -153,26 +153,26 @@ export default function AdmissionSettings() {
                 ) : (
                   <Save size={18} className="mr-2" />
                 )}
-                {t('admin_settings.save_price', 'Save Price')}
+                {t('admin_settings.save_price', 'Enregistrer le prix')}
               </Button>
             </div>
-            {isSaved('admission_form_price') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</div> : null}
+            {isSaved('admission_form_price') ? <div className="text-xs text-emerald-600">{t('common.saved', 'Enregistré')}</div> : null}
             <p className="text-[11px] text-gray-400 italic">
-              {t('admin_settings.admission_price_hint', 'This price is shown to parents when purchasing a new admission form.')}
+              {t('admin_settings.admission_price_hint', 'Ce prix est affiché aux parents lors de l\'achat d\'un nouveau dossier d\'admission.')}
             </p>
           </div>
 
           <div className="border-t pt-6">
-            <h4 className="text-sm font-semibold mb-4">{t('admin_settings.other_admission_settings', 'Other Admission Settings')}</h4>
+            <h4 className="text-sm font-semibold mb-4">{t('admin_settings.other_admission_settings', 'Autres paramètres d\'admission')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div>
-                  <p className="font-medium text-sm">{t('admin_settings.online_submissions', 'Online Submissions')}</p>
-                  <p className="text-xs text-gray-500">{t('admin_settings.online_submissions_desc', 'Allow parents to submit forms online')}</p>
+                  <p className="font-medium text-sm">{t('admin_settings.online_submissions', 'Soumissions en ligne')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.online_submissions_desc', 'Autoriser les parents à soumettre des dossiers en ligne')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {isSaving('admissions_online_submissions') ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : null}
-                  {isSaved('admissions_online_submissions') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</span> : null}
+                  {isSaved('admissions_online_submissions') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Enregistré')}</span> : null}
                   <Switch
                     checked={onlineSubmissions}
                     onCheckedChange={(checked) => {
@@ -185,12 +185,12 @@ export default function AdmissionSettings() {
 
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div>
-                  <p className="font-medium text-sm">{t('admin_settings.auto_generate_ids', 'Auto-generate IDs')}</p>
-                  <p className="text-xs text-gray-500">{t('admin_settings.auto_generate_ids_desc', 'Assign application IDs automatically')}</p>
+                  <p className="font-medium text-sm">{t('admin_settings.auto_generate_ids', 'Générer automatiquement les identifiants')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.auto_generate_ids_desc', 'Attribuer automatiquement les identifiants de candidature')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {isSaving('admissions_auto_generate_ids') ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : null}
-                  {isSaved('admissions_auto_generate_ids') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Saved')}</span> : null}
+                  {isSaved('admissions_auto_generate_ids') ? <span className="text-xs text-emerald-600">{t('common.saved', 'Enregistré')}</span> : null}
                   <Switch
                     checked={autoGenerateIds}
                     onCheckedChange={(checked) => {
@@ -213,7 +213,7 @@ export default function AdmissionSettings() {
                 }}
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
-                {t('admin_settings.reset_admissions_defaults', 'Reset admissions defaults')}
+                {t('admin_settings.reset_admissions_defaults', 'Réinitialiser les paramètres d\'admission')}
               </Button>
             </div>
           </div>
