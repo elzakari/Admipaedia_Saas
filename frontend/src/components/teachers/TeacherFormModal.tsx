@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
@@ -82,6 +83,7 @@ const statusOptions = [
 ];
 
 export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalProps) {
+  const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { height: keyboardHeight, isVisible: isKeyboardVisible } = useMobileKeyboard();
   
@@ -250,15 +252,15 @@ export function TeacherFormModal({ isOpen, onClose, teacher }: TeacherFormModalP
         >
           <DialogHeader>
             <DialogTitle className={`${isMobile ? 'text-lg' : 'text-xl'} font-semibold`}>
-              {teacher ? 'Edit Teacher' : 'Add New Teacher'}
+              {teacher ? t('teachers.edit_teacher', 'Éditer l\'enseignant') : t('teachers.add_new_teacher', 'Ajouter un nouvel enseignant')}
             </DialogTitle>
             <DialogDescription>
-              {teacher ? 'Update teacher information and contact details.' : 'Fill in the required information to add a new teacher to the system.'}
+              {teacher ? t('teachers.edit_desc', 'Mettre à jour les informations et les coordonnées de l\'enseignant.') : t('teachers.add_desc', 'Remplissez les informations requises pour ajouter un nouvel enseignant au système.')}
             </DialogDescription>
           </DialogHeader>
           
           <ResponsiveForm onSubmit={handleSubmit(onSubmit)}>
-            <FormSection title="Personal Information">
+            <FormSection title={t('teachers.personal_info', 'Informations personnelles')}>
               <FormRow>
                 <FormField label="First Name" htmlFor="firstName" error={errors.firstName?.message} required>
                   <MobileOptimizedInput

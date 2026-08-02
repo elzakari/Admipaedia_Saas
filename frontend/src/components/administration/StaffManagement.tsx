@@ -970,7 +970,7 @@ const StaffManagement: React.FC = () => {
         
         <TabsContent value="departments" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Operational Departments</h3>
+            <h3 className="text-lg font-medium">{t('admin_staff.operational_departments', 'Départements opérationnels')}</h3>
             <Button
               onClick={() => {
                 setEditingDepartment(null);
@@ -979,7 +979,7 @@ const StaffManagement: React.FC = () => {
               }}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Department
+              {t('admin_staff.add_department', 'Ajouter un département')}
             </Button>
           </div>
           
@@ -989,7 +989,7 @@ const StaffManagement: React.FC = () => {
             </div>
           ) : departmentsError ? (
             <div className="p-8 text-center text-red-500">
-              Error loading departments: {(departmentsError as Error).message}
+              {t('admin_staff.error_departments', 'Erreur lors du chargement des départements :')} {(departmentsError as Error).message}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -999,7 +999,7 @@ const StaffManagement: React.FC = () => {
                     <CardHeader className="pb-2">
                       <CardTitle>{department.name}</CardTitle>
                       <CardDescription>
-                        {department.code && `Code: ${department.code}`}
+                        {department.code && `Code : ${department.code}`}
                         {department.description && ` • ${department.description}`}
                       </CardDescription>
                     </CardHeader>
@@ -1008,7 +1008,7 @@ const StaffManagement: React.FC = () => {
                         <div className="flex items-center">
                           <Users className="h-4 w-4 mr-2 text-gray-500" />
                           <span className="text-sm text-gray-500">
-                            {department.staff_count || 0} staff members
+                            {department.staff_count || 0} {t('admin_staff.members_count', 'membres du personnel')}
                           </span>
                         </div>
                         <div className="flex gap-2">
@@ -1033,7 +1033,7 @@ const StaffManagement: React.FC = () => {
                       </div>
                       <div className="mt-2">
                         <Badge variant={department.is_active ? 'default' : 'secondary'}>
-                          {department.is_active ? 'Active' : 'Inactive'}
+                          {department.is_active ? t('common.active', 'Actif') : t('common.inactive', 'Inactif')}
                         </Badge>
                       </div>
                     </CardContent>
@@ -1041,7 +1041,7 @@ const StaffManagement: React.FC = () => {
                 ))
               ) : (
                 <div className="col-span-3 text-center py-8 text-gray-500">
-                  No departments found
+                  {t('admin_staff.no_departments', 'Aucun département trouvé')}
                 </div>
               )}
             </div>
@@ -1049,14 +1049,14 @@ const StaffManagement: React.FC = () => {
           
           <Card>
             <CardHeader>
-              <CardTitle>Department Distribution</CardTitle>
-                <CardDescription>Live staff allocation across operational departments</CardDescription>
+              <CardTitle>{t('admin_staff.department_distribution', 'Répartition par département')}</CardTitle>
+              <CardDescription>{t('admin_staff.department_distribution_desc', 'Affectation en direct du personnel dans les départements opérationnels')}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="space-y-3">
                   {departmentDistribution.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
-                      Assign staff to operational departments to see distribution.
+                      {t('admin_staff.assign_staff_prompt', 'Affectez du personnel aux départements opérationnels pour voir la répartition.')}
                     </div>
                   ) : departmentDistribution.map((department) => {
                     const ratio = summaryStats.totalStaff > 0 ? Math.round(((department.staff_count || 0) / summaryStats.totalStaff) * 100) : 0;
@@ -1064,7 +1064,7 @@ const StaffManagement: React.FC = () => {
                       <div key={department.id} className="rounded-lg border p-4">
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-slate-900">{department.name}</span>
-                          <span className="text-slate-500">{department.staff_count || 0} staff</span>
+                          <span className="text-slate-500">{department.staff_count || 0} {t('admin_staff.staff_label', 'membres')}</span>
                         </div>
                         <div className="mt-3 h-2 rounded-full bg-slate-100">
                           <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${Math.max(ratio, department.staff_count ? 8 : 0)}%` }} />
@@ -1079,11 +1079,11 @@ const StaffManagement: React.FC = () => {
         
         <TabsContent value="attendance" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Staff Attendance</h3>
+            <h3 className="text-lg font-medium">{t('admin_staff.attendance_title', 'Présence du personnel')}</h3>
             <div className="flex gap-2">
               <Select value={attendanceMonth} onValueChange={setAttendanceMonth}>
                 <SelectTrigger className="w-[180px] bg-white">
-                  <SelectValue placeholder="Select month" />
+                  <SelectValue placeholder={t('admin_staff.select_month', 'Sélectionner le mois')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(() => {
@@ -1096,7 +1096,7 @@ const StaffManagement: React.FC = () => {
                     return months
                   })().map((m) => (
                     <SelectItem key={m} value={m}>
-                      {new Date(`${m}-01`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                      {new Date(`${m}-01`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1105,11 +1105,11 @@ const StaffManagement: React.FC = () => {
                 variant="outline"
                 onClick={() => {
                   exportCsv('staff_attendance.csv', attendanceStats);
-                  toast.success('Exported attendance report');
+                  toast.success(t('admin_staff.export_attendance_success', 'Rapport de présence exporté'));
                 }}
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Report
+                {t('admin_staff.export_report', 'Exporter le rapport')}
               </Button>
               <Button
                 onClick={() => {
@@ -1126,7 +1126,7 @@ const StaffManagement: React.FC = () => {
                 }}
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Mark Attendance
+                {t('admin_staff.mark_attendance', 'Marquer la présence')}
               </Button>
             </div>
           </div>
@@ -1141,13 +1141,13 @@ const StaffManagement: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Position</TableHead>
-                      <TableHead>Present Days</TableHead>
-                      <TableHead>Absent Days</TableHead>
-                      <TableHead>Late Arrivals</TableHead>
-                      <TableHead>Attendance Rate</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('table.name', 'Nom')}</TableHead>
+                      <TableHead>{t('table.position', 'Poste')}</TableHead>
+                      <TableHead>{t('admin_staff.present_days', 'Jours présents')}</TableHead>
+                      <TableHead>{t('admin_staff.absent_days', 'Jours absents')}</TableHead>
+                      <TableHead>{t('admin_staff.late_arrivals', 'Retards')}</TableHead>
+                      <TableHead>{t('admin_staff.attendance_rate', 'Taux de présence')}</TableHead>
+                      <TableHead className="text-right">{t('table.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1184,7 +1184,7 @@ const StaffManagement: React.FC = () => {
                                 setAttendanceDetailDialogOpen(true);
                               }}
                             >
-                              View Details
+                              {t('common.view_details', 'Voir les détails')}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1192,7 +1192,7 @@ const StaffManagement: React.FC = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                          No attendance data available
+                          {t('admin_staff.no_attendance_data', 'Aucune donnée de présence disponible')}
                         </TableCell>
                       </TableRow>
                     )}
@@ -1205,7 +1205,7 @@ const StaffManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>Monthly Attendance Overview</CardTitle>
+                <CardTitle>{t('admin_staff.monthly_overview', 'Aperçu mensuel des présences')}</CardTitle>
                 <CardDescription>{attendanceMonthLabel}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1216,8 +1216,8 @@ const StaffManagement: React.FC = () => {
                         <Users className="h-5 w-5 text-green-600" />
                       </div>
                       <div>
-                        <h4 className="font-medium">Overall Attendance Rate</h4>
-                        <p className="text-sm text-gray-500">All staff members</p>
+                        <h4 className="font-medium">{t('admin_staff.overall_rate', 'Taux de présence global')}</h4>
+                        <p className="text-sm text-gray-500">{t('admin_staff.all_staff_members', 'Tous les membres du personnel')}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -1235,25 +1235,25 @@ const StaffManagement: React.FC = () => {
             
             <Card>
               <CardHeader>
-                <CardTitle>Attendance Trends</CardTitle>
-                <CardDescription>Current month breakdown by status</CardDescription>
+                <CardTitle>{t('admin_staff.attendance_trends', 'Tendances de présence')}</CardTitle>
+                <CardDescription>{t('admin_staff.attendance_trends_desc', 'Répartition mensuelle actuelle par statut')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-lg border bg-green-50 p-4">
-                    <div className="text-xs uppercase tracking-wide text-green-700">Present</div>
+                    <div className="text-xs uppercase tracking-wide text-green-700">{t('status.present', 'Présent')}</div>
                     <div className="mt-2 text-2xl font-bold text-green-800">
                       {attendanceStats.reduce((sum, staff) => sum + staff.present, 0)}
                     </div>
                   </div>
                   <div className="rounded-lg border bg-amber-50 p-4">
-                    <div className="text-xs uppercase tracking-wide text-amber-700">Late</div>
+                    <div className="text-xs uppercase tracking-wide text-amber-700">{t('status.late', 'En retard')}</div>
                     <div className="mt-2 text-2xl font-bold text-amber-800">
                       {attendanceStats.reduce((sum, staff) => sum + staff.late, 0)}
                     </div>
                   </div>
                   <div className="rounded-lg border bg-red-50 p-4">
-                    <div className="text-xs uppercase tracking-wide text-red-700">Absent</div>
+                    <div className="text-xs uppercase tracking-wide text-red-700">{t('status.absent', 'Absent')}</div>
                     <div className="mt-2 text-2xl font-bold text-red-800">
                       {attendanceStats.reduce((sum, staff) => sum + staff.absent, 0)}
                     </div>
