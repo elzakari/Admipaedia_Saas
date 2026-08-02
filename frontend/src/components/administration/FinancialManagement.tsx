@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { cn } from "../../lib/utils";
 import {
@@ -49,6 +50,7 @@ import { DialogDescription } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 
 const FinancialManagement: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('budget');
   const [loading, setLoading] = useState(false);
@@ -243,8 +245,8 @@ const FinancialManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="px-6 py-4 bg-emerald-50/50 dark:bg-emerald-900/10 border-b border-emerald-100 dark:border-emerald-900/20">
-        <h2 className="text-xl font-bold text-emerald-900 dark:text-emerald-300">Financial Management</h2>
-        <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80">Monitor budgets, transactions, and fee collections</p>
+        <h2 className="text-xl font-bold text-emerald-900 dark:text-emerald-300">{t('admin_finance.title', 'Gestion financière')}</h2>
+        <p className="text-sm text-emerald-600/80 dark:text-emerald-400/80">{t('admin_finance.subtitle', 'Suivre les budgets, les transactions et le recouvrement des frais')}</p>
       </div>
 
       <div className="px-6 pb-6">
@@ -252,34 +254,34 @@ const FinancialManagement: React.FC = () => {
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 bg-gray-100/50 dark:bg-slate-900/50 rounded-xl mb-6">
             <TabsTrigger value="budget" className="py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-emerald-600 shadow-none transition-all">
               <PieChart className="h-4 w-4 mr-2" />
-              Budget
+              {t('admin_finance.budget_tab', 'Budget')}
             </TabsTrigger>
             <TabsTrigger value="transactions" className="py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-emerald-600 shadow-none transition-all">
               <Receipt className="h-4 w-4 mr-2" />
-              Transactions
+              {t('admin_finance.transactions_tab', 'Transactions')}
             </TabsTrigger>
             <TabsTrigger value="fees" className="py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-emerald-600 shadow-none transition-all">
               <CreditCard className="h-4 w-4 mr-2" />
-              Fees
+              {t('admin_finance.fees_tab', 'Frais')}
             </TabsTrigger>
             <TabsTrigger value="reports" className="py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-emerald-600 shadow-none transition-all">
               <BarChart className="h-4 w-4 mr-2" />
-              Reports
+              {t('admin_finance.reports_tab', 'Rapports')}
             </TabsTrigger>
           </TabsList>
 
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <TabsContent value="budget" className="space-y-4 focus-visible:outline-none">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">School Budget Overview</h3>
+                <h3 className="text-lg font-medium">{t('admin_finance.budget_overview', 'Aperçu du budget de l\'école')}</h3>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => handleExportData('budget')}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export
+                    {t('common.export', 'Exporter')}
                   </Button>
                   <Button variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAddBudget}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Item
+                    {t('admin_finance.add_item', 'Ajouter un article')}
                   </Button>
                 </div>
               </div>
@@ -707,31 +709,31 @@ const FinancialManagement: React.FC = () => {
       <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Add budget item</DialogTitle>
-            <DialogDescription>Create a budget allocation for the selected academic year.</DialogDescription>
+            <DialogTitle>{t('admin_finance.add_budget_title', 'Ajouter un article au budget')}</DialogTitle>
+            <DialogDescription>{t('admin_finance.add_budget_desc', 'Créer une allocation budgétaire pour l\'année académique sélectionnée.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Category</Label>
-                <Input className="bg-white" value={budgetForm.category} onChange={(e) => setBudgetForm((p) => ({ ...p, category: e.target.value }))} placeholder="Operations" />
+                <Label>{t('common.category', 'Catégorie')}</Label>
+                <Input className="bg-white" value={budgetForm.category} onChange={(e) => setBudgetForm((p) => ({ ...p, category: e.target.value }))} placeholder={t('admin_finance.operations_placeholder', 'Opérations')} />
               </div>
               <div className="space-y-2">
-                <Label>Academic year</Label>
+                <Label>{t('common.academic_year', 'Année académique')}</Label>
                 <Input className="bg-white" value={budgetForm.academic_year} onChange={(e) => setBudgetForm((p) => ({ ...p, academic_year: e.target.value }))} placeholder="2024" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Allocated amount</Label>
+              <Label>{t('admin_finance.allocated_amount', 'Montant alloué')}</Label>
               <Input type="number" className="bg-white" value={budgetForm.allocated_amount} onChange={(e) => setBudgetForm((p) => ({ ...p, allocated_amount: e.target.value }))} placeholder="0" />
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>{t('common.description', 'Description')}</Label>
               <Textarea value={budgetForm.description} onChange={(e) => setBudgetForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setBudgetDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setBudgetDialogOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={async () => {
@@ -748,14 +750,14 @@ const FinancialManagement: React.FC = () => {
                   });
                   await loadBudgets();
                   await loadFinancialSummary();
-                  toast({ title: 'Budget saved', variant: 'default' });
+                  toast({ title: t('admin_finance.budget_saved', 'Budget enregistré'), variant: 'default' });
                   setBudgetDialogOpen(false);
                 } catch (e: any) {
-                  toast({ title: 'Failed to save budget', description: e?.message || 'Try again', variant: 'destructive' });
+                  toast({ title: t('admin_finance.save_error', 'Échec de l\'enregistrement du budget'), description: e?.message || 'Réessayez', variant: 'destructive' });
                 }
               }}
             >
-              Save
+              {t('common.save', 'Enregistrer')}
             </Button>
           </DialogFooter>
         </DialogContent>

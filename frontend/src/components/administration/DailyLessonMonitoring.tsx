@@ -198,13 +198,13 @@ const DailyLessonMonitoring: React.FC = () => {
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
               <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
+                <SelectValue placeholder={t('admin_lessons.all_statuses', 'Tous les statuts')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="planned">Planned</SelectItem>
+                <SelectItem value="all">{t('admin_lessons.all_statuses', 'Tous les statuts')}</SelectItem>
+                <SelectItem value="completed">{t('status.completed', 'Terminé')}</SelectItem>
+                <SelectItem value="in-progress">{t('status.in_progress', 'En cours')}</SelectItem>
+                <SelectItem value="planned">{t('status.planned', 'Planifié')}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -216,7 +216,7 @@ const DailyLessonMonitoring: React.FC = () => {
               <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search teacher, subject, topic..."
+                placeholder={t('admin_lessons.search_placeholder', 'Rechercher un enseignant, une matière, un sujet…')}
                 className="pl-9"
               />
             </div>
@@ -225,10 +225,10 @@ const DailyLessonMonitoring: React.FC = () => {
           <div className="flex items-center justify-between text-xs text-slate-500">
             <div className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
-              {monitoringRefreshing ? 'Refreshing lesson intelligence...' : `${filteredLessons.length} lesson logs visible`}
+              {monitoringRefreshing ? t('admin_lessons.refreshing', 'Actualisation de l\'intelligence des cours…') : `${filteredLessons.length} ${t('admin_lessons.logs_visible', 'cahiers de texte visibles')}`}
             </div>
             <Button variant="outline" size="sm" onClick={handleReset}>
-              Reset Filters
+              {t('common.reset_filters', 'Réinitialiser les filtres')}
             </Button>
           </div>
         </CardContent>
