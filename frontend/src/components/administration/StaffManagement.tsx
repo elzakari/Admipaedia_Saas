@@ -1520,35 +1520,35 @@ const StaffManagement: React.FC = () => {
       <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingStaffRecord ? 'Edit Non-Teaching Staff' : 'Add Non-Teaching Staff'}</DialogTitle>
-            <DialogDescription>Manage administrative and support staff profiles from the Administration workspace.</DialogDescription>
+            <DialogTitle>{editingStaffRecord ? t('admin_staff.edit_non_teaching', 'Éditer le personnel non-enseignant') : t('admin_staff.add_non_teaching', 'Ajouter du personnel non-enseignant')}</DialogTitle>
+            <DialogDescription>{t('admin_staff.non_teaching_desc', 'Gérez les profils du personnel administratif et de soutien depuis l\'espace d\'administration.')}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>First Name</Label>
+              <Label>{t('common.first_name', 'Prénom')}</Label>
               <Input className="bg-white" value={String(staffForm.first_name || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, first_name: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Last Name</Label>
+              <Label>{t('common.last_name', 'Nom')}</Label>
               <Input className="bg-white" value={String(staffForm.last_name || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, last_name: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
+              <Label>{t('common.email', 'E-mail')}</Label>
               <Input className="bg-white" type="email" value={String(staffForm.email || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, email: e.target.value }))} disabled={!!editingStaffRecord} />
             </div>
             <div className="space-y-2">
-              <Label>Job Title</Label>
+              <Label>{t('common.job_title', 'Intitulé du poste')}</Label>
               <Input className="bg-white" value={String(staffForm.job_title || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, job_title: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Department</Label>
+              <Label>{t('admin_staff.department', 'Département')}</Label>
               <Select
                 value={staffForm.department_id ? String(staffForm.department_id) : 'none'}
                 onValueChange={(value) => setStaffForm((prev) => ({ ...prev, department_id: value === 'none' ? undefined : Number(value) }))}
               >
-                <SelectTrigger className="bg-white"><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectTrigger className="bg-white"><SelectValue placeholder={t('admin_staff.select_department', 'Sélectionner le département')} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No department</SelectItem>
+                  <SelectItem value="none">{t('admin_staff.no_department', 'Aucun département')}</SelectItem>
                   {departments.map((department) => (
                     <SelectItem key={department.id} value={String(department.id)}>
                       {department.name}
@@ -1558,50 +1558,50 @@ const StaffManagement: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
+              <Label>{t('common.phone', 'Téléphone')}</Label>
               <Input className="bg-white" value={String(staffForm.phone_number || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, phone_number: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Joining Date</Label>
+              <Label>{t('admin_staff.joining_date', 'Date d\'embauche')}</Label>
               <Input className="bg-white" type="date" value={String(staffForm.joining_date || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, joining_date: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Date of Birth</Label>
+              <Label>{t('common.date_of_birth', 'Date de naissance')}</Label>
               <Input className="bg-white" type="date" value={String(staffForm.date_of_birth || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, date_of_birth: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Gender</Label>
+              <Label>{t('common.gender', 'Genre')}</Label>
               <Select value={String(staffForm.gender || 'other')} onValueChange={(value) => setStaffForm((prev) => ({ ...prev, gender: value }))}>
                 <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="male">{t('gender.male', 'Masculin')}</SelectItem>
+                  <SelectItem value="female">{t('gender.female', 'Féminin')}</SelectItem>
+                  <SelectItem value="other">{t('gender.other', 'Autre')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {editingStaffRecord && (
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label>{t('common.status', 'Statut')}</Label>
                 <Select value={String(staffForm.status || 'active')} onValueChange={(value) => setStaffForm((prev) => ({ ...prev, status: value as any }))}>
                   <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="on_leave">On Leave</SelectItem>
+                    <SelectItem value="active">{t('common.active', 'Actif')}</SelectItem>
+                    <SelectItem value="inactive">{t('common.inactive', 'Inactif')}</SelectItem>
+                    <SelectItem value="on_leave">{t('common.on_leave', 'En congé')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             )}
             <div className="space-y-2 md:col-span-2">
-              <Label>Address</Label>
+              <Label>{t('common.address', 'Adresse')}</Label>
               <Textarea className="bg-white" value={String(staffForm.address || '')} onChange={(e) => setStaffForm((prev) => ({ ...prev, address: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStaffDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setStaffDialogOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
             <Button onClick={submitStaffForm} disabled={createStaffMutation.isPending || updateStaffMutation.isPending}>
-              {(createStaffMutation.isPending || updateStaffMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+              {(createStaffMutation.isPending || updateStaffMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common.save', 'Enregistrer')}
             </Button>
           </DialogFooter>
         </DialogContent>

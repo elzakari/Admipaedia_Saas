@@ -135,63 +135,63 @@ const CoreCompetencies: React.FC = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{competency ? 'Edit' : 'Add'} Core Competency</CardTitle>
+          <CardTitle>{competency ? t('common.edit', 'Éditer') : t('common.add', 'Ajouter')} {t('admin_competencies.core_competency', 'une compétence clé')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Competency Name</Label>
+              <Label htmlFor="name">{t('admin_competencies.competency_name', 'Nom de la compétence')}</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter competency name"
+                placeholder={t('admin_competencies.name_placeholder', 'Saisir le nom de la compétence')}
               />
             </div>
             <div>
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t('common.category', 'Catégorie')}</Label>
               <Select
                 value={(formData.category ?? '21st_century') as string}
                 onValueChange={(value) => setFormData({ ...formData, category: value as CoreCompetency['category'] })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t('common.select_category', 'Sélectionner la catégorie')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {competencyCategories.map((category) => (
-                    <SelectItem key={category.value} value={category.value}>
-                      {category.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="21st_century">{t('admin_competencies.cat_21st_century', 'Compétences du 21e siècle')}</SelectItem>
+                  <SelectItem value="critical_thinking">{t('admin_competencies.cat_critical_thinking', 'Pensée critique')}</SelectItem>
+                  <SelectItem value="creativity">{t('admin_competencies.cat_creativity', 'Créativité')}</SelectItem>
+                  <SelectItem value="communication">{t('admin_competencies.cat_communication', 'Communication')}</SelectItem>
+                  <SelectItem value="collaboration">{t('admin_competencies.cat_collaboration', 'Collaboration')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t('common.description', 'Description')}</Label>
             <Textarea
               id="description"
               value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe this competency"
+              placeholder={t('admin_competencies.description_placeholder', 'Décrire cette compétence')}
               rows={3}
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>{t('common.status', 'Statut')}</Label>
               <Select
                 value={formData.is_active ? 'active' : 'inactive'}
                 onValueChange={(value) => setFormData({ ...formData, is_active: value === 'active' })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder={t('common.select_status', 'Sélectionner le statut')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">{t('common.active', 'Actif')}</SelectItem>
+                  <SelectItem value="inactive">{t('common.inactive', 'Inactif')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -199,11 +199,11 @@ const CoreCompetencies: React.FC = () => {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onCancel}>
-              Cancel
+              {t('common.cancel', 'Annuler')}
             </Button>
             <Button onClick={() => onSave(formData)}>
               <Save className="h-4 w-4 mr-2" />
-              Save Competency
+              {t('admin_competencies.save_competency', 'Enregistrer la compétence')}
             </Button>
           </div>
         </CardContent>
