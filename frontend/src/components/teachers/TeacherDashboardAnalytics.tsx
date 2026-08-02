@@ -212,9 +212,9 @@ export function TeacherDashboardAnalytics({
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="present" stackId="a" fill="#4CAF50" />
-                    <Bar dataKey="late" stackId="a" fill="#FFC107" />
-                    <Bar dataKey="absent" stackId="a" fill="#F44336" />
+                    <Bar dataKey="present" name={t('common.status_present', 'Présent')} stackId="a" fill="#4CAF50" />
+                    <Bar dataKey="late" name={t('common.status_late', 'En retard')} stackId="a" fill="#FFC107" />
+                    <Bar dataKey="absent" name={t('common.status_absent', 'Absent')} stackId="a" fill="#F44336" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

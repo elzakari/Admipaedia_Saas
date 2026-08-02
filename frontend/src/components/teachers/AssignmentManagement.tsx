@@ -1,5 +1,6 @@
 // Create a new component for assignment management
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
@@ -48,6 +49,7 @@ interface Student {
 }
 
 export function AssignmentManagement() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('create');
@@ -307,23 +309,23 @@ export function AssignmentManagement() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Assignment Management</CardTitle>
+          <CardTitle>{t('teachers_page.assignments.title', 'Assignment Management')}</CardTitle>
           <CardDescription>
-            Create, edit, and grade assignments for your classes.
+            {t('teachers_page.assignments.description', 'Create, edit, and grade assignments for your classes.')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="create">Create Assignment</TabsTrigger>
-              <TabsTrigger value="grade">Grade Submissions</TabsTrigger>
+              <TabsTrigger value="create">{t('teachers_page.assignments.create_tab', 'Create Assignment')}</TabsTrigger>
+              <TabsTrigger value="grade">{t('teachers_page.assignments.grade_tab', 'Grade Submissions')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="create" className="space-y-4">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="title" className="text-right">
-                    Title
+                    {t('common.title', 'Title')}
                   </Label>
                   <Input
                     id="title"
@@ -337,7 +339,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="description" className="text-right">
-                    Description
+                    {t('common.description', 'Description')}
                   </Label>
                   <Textarea
                     id="description"
@@ -351,7 +353,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="class" className="text-right">
-                    Class
+                    {t('common.class', 'Class')}
                   </Label>
                   <Select 
                     onValueChange={(value) => handleSelectChange('class_id', value)}
@@ -372,7 +374,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="subject" className="text-right">
-                    Subject
+                    {t('common.subject', 'Subject')}
                   </Label>
                   <Select 
                     onValueChange={(value) => handleSelectChange('subject_id', value)}
@@ -393,7 +395,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="due-date" className="text-right">
-                    Due Date
+                    {t('admin_fees.due_date_form', 'Due Date')}
                   </Label>
                   <div className="col-span-3">
                     <DatePicker
@@ -406,7 +408,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="total-points" className="text-right">
-                    Total Points
+                    {t('teachers_page.assignments.total_points', 'Total Points')}
                   </Label>
                   <Input
                     id="total-points"
@@ -421,7 +423,7 @@ export function AssignmentManagement() {
                 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="assignment-type" className="text-right">
-                    Assessment Type *
+                    {t('teachers_page.assignments.assessment_type', 'Assessment Type *')}
                   </Label>
                   <Select 
                     onValueChange={(value) => handleSelectChange('assignment_type', value)}

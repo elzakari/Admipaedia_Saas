@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dashboardService from '../../../services/dashboardService';
 import teacherService from '../../../services/teacherService';
@@ -51,6 +52,7 @@ interface TeacherDashboardStats {
 }
 
 export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = false }: EnhancedTeacherDashboardProps) {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   // Fetch teacher dashboard statistics
@@ -114,7 +116,7 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
       <div className="flex justify-center items-center h-64">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-sm text-gray-600">Loading dashboard data...</p>
+          <p className="text-sm text-gray-600">{t('common.loading', 'Chargement des données...')}</p>
         </div>
       </div>
     );
@@ -126,13 +128,13 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
       <div className="flex justify-center items-center h-64">
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Dashboard</h3>
-          <p className="text-sm text-gray-600 mb-4">There was an error loading your dashboard data.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('common.error', 'Erreur de chargement')}</h3>
+          <p className="text-sm text-gray-600 mb-4">{t('teachers_page.dashboard.load_error', 'Une erreur s\'est produite lors du chargement des données.')}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-            Retry
+            {t('common.refresh', 'Réessayer')}
           </button>
         </div>
       </div>
@@ -146,8 +148,8 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
     <div className={`space-y-6 ${isMobile ? 'px-4' : ''}`}>
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg p-6">
-        <h2 className="text-2xl font-bold mb-2">Welcome back, {teacher.firstName}!</h2>
-        <p className="opacity-90">Here's what's happening in your classes today.</p>
+        <h2 className="text-2xl font-bold mb-2">{t('teachers_page.dashboard.welcome_back', 'Bon retour, {{name}} !', { name: teacher.firstName })}</h2>
+        <p className="opacity-90">{t('teachers_page.dashboard.welcome_desc', 'Voici ce qui se passe dans vos classes aujourd\'hui.')}</p>
       </div>
 
       {/* Stats Grid */}
@@ -157,10 +159,10 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Élèves</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('students_page.total_students', 'Total Élèves')}</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.studentsCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Sur {classesCount} classes
+                  {t('teachers_page.dashboard.across_classes', 'Sur {{count}} classes', { count: classesCount })}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-blue-500 text-white shadow-sm">
@@ -175,7 +177,7 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div className="flex-1 mr-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Présence Moyenne</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('students_page.avg_attendance', 'Présence Moyenne')}</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.attendanceRate.toFixed(1)}%</p>
                 <Progress value={stats.attendanceRate} className="mt-2 h-1.5" />
               </div>
@@ -191,10 +193,10 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Notes en Attente</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('teachers_page.stats.pending_grades', 'Notes en Attente')}</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.pendingGrades}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {stats.pendingGrades > 0 ? 'Attention requise' : 'Tout est à jour !'}
+                  {stats.pendingGrades > 0 ? t('teachers_page.dashboard.attention_required', 'Attention requise') : t('teachers_page.dashboard.all_up_to_date', 'Tout est à jour !')}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-amber-500 text-white shadow-sm">
@@ -209,10 +211,10 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Messages Non Lus</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('teachers_page.dashboard.unread_messages', 'Messages Non Lus')}</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stats.messageCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {stats.messageCount > 0 ? 'Nouveaux messages' : 'Aucun nouveau message'}
+                  {stats.messageCount > 0 ? t('teachers_page.dashboard.new_messages', 'Nouveaux messages') : t('teachers_page.dashboard.no_new_messages', 'Aucun nouveau message')}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-purple-500 text-white shadow-sm">
@@ -230,18 +232,18 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardHeader>
             <CardTitle className="flex items-center">
               <BookOpen className="mr-2 h-5 w-5" />
-              Lesson Progress
+              {t('teachers_page.dashboard.lesson_progress', 'Progression des cours')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span>Completed: {stats.completedLessons}</span>
-                <span>Total: {stats.totalLessons}</span>
+                <span>{t('teachers_page.dashboard.completed_count', 'Terminés : {{count}}', { count: stats.completedLessons })}</span>
+                <span>{t('common.total', 'Total : {{count}}', { count: stats.totalLessons })}</span>
               </div>
               <Progress value={progressPercentage} className="h-2" />
               <p className="text-sm text-muted-foreground">
-                {progressPercentage.toFixed(1)}% of curriculum completed
+                {t('teachers_page.dashboard.curriculum_completed', '{{percent}}% du programme terminé', { percent: progressPercentage.toFixed(1) })}
               </p>
             </div>
           </CardContent>
@@ -252,7 +254,7 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="mr-2 h-5 w-5" />
-              Upcoming Events
+              {t('schedule.upcoming_events', 'Événements à venir')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -263,14 +265,14 @@ export function EnhancedTeacherDashboard({ teacher, classesCount, isMobile = fal
                     <div>
                       <p className="font-medium text-sm">{event.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()}
+                        {new Date(event.date).toLocaleDateString(i18n.language || 'fr')}
                       </p>
                     </div>
                     <Badge variant="outline">{event.type}</Badge>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">No upcoming events</p>
+                <p className="text-sm text-muted-foreground">{t('schedule.no_upcoming_events', 'Aucun événement à venir')}</p>
               )}
             </div>
           </CardContent>
