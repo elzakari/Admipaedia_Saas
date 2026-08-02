@@ -97,8 +97,8 @@ const FeeSettingsPanel: React.FC = () => {
     return (
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.fee_settings', 'Fee Settings')}</CardTitle>
-          <CardDescription>{t('common.loading', 'Loading…')}</CardDescription>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.fee_settings', 'Paramètres des frais')}</CardTitle>
+          <CardDescription>{t('common.loading', 'Chargement…')}</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -108,21 +108,21 @@ const FeeSettingsPanel: React.FC = () => {
     <div className="space-y-6">
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.general', 'General')}</CardTitle>
-          <CardDescription>{t('admin_fees.general_settings_desc', 'Defaults used across fees, invoices and payments. Currency follows the school profile automatically.')}</CardDescription>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.general', 'Général')}</CardTitle>
+          <CardDescription>{t('admin_fees.general_settings_desc', 'Valeurs par défaut utilisées pour les frais, factures et paiements. La devise suit automatiquement le profil de l\'école.')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{t('admin_fees.school_currency', 'School currency')}</Label>
+              <Label>{t('admin_fees.school_currency', 'Devise de l\'école')}</Label>
               <Input value={schoolCurrency} disabled readOnly />
-              <div className="text-xs text-muted-foreground">{t('admin_fees.school_currency_desc', 'Update the school profile currency to change fees, templates, invoices, and parent balances platform-wide.')}</div>
+              <div className="text-xs text-muted-foreground">{t('admin_fees.school_currency_desc', 'Mettez à jour la devise du profil de l\'école pour modifier les frais, modèles, factures et soldes des parents sur toute la plateforme.')}</div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div>
-                <div className="text-sm font-medium">{t('admin_fees.allow_partial_payments', 'Allow partial payments')}</div>
-                <div className="text-xs text-muted-foreground">{t('admin_fees.allow_partial_payments_desc', 'Let payments reduce balance without paying full amount')}</div>
+                <div className="text-sm font-medium">{t('admin_fees.allow_partial_payments', 'Autoriser les paiements partiels')}</div>
+                <div className="text-xs text-muted-foreground">{t('admin_fees.allow_partial_payments_desc', 'Permettre aux paiements de réduire le solde sans payer le montant total')}</div>
               </div>
               <div className="flex items-center gap-2">
                 {savingKey === 'fees.allow_partial_payments' ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
@@ -142,7 +142,7 @@ const FeeSettingsPanel: React.FC = () => {
               }}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
-              {t('admin_fees.reset_general_defaults', 'Reset general defaults')}
+              {t('admin_fees.reset_general_defaults', 'Réinitialiser les paramètres généraux')}
             </Button>
           </div>
         </CardContent>
@@ -150,13 +150,13 @@ const FeeSettingsPanel: React.FC = () => {
 
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.reminders', 'Reminders')}</CardTitle>
-          <CardDescription>{t('admin_fees.reminders_desc', 'Controls for manual reminders in the Reminders tab')}</CardDescription>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.reminders', 'Rappels')}</CardTitle>
+          <CardDescription>{t('admin_fees.reminders_desc', 'Contrôles pour les rappels manuels dans l\'onglet Rappels')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{t('admin_fees.days_before_due', 'Days before due date')}</Label>
+              <Label>{t('admin_fees.days_before_due', 'Jours avant la date d\'échéance')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -171,20 +171,20 @@ const FeeSettingsPanel: React.FC = () => {
                   disabled={savingKey === 'fees.reminder_days_before_due'}
                   onClick={() => setSetting('fees.reminder_days_before_due', String(settings.reminderDaysBeforeDue), 'int')}
                 >
-                  <Save className="h-4 w-4 mr-2" /> {t('common.save', 'Save')}
+                  <Save className="h-4 w-4 mr-2" /> {t('common.save', 'Enregistrer')}
                 </Button>
               </div>
-              {savingKey === 'fees.reminder_days_before_due' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Saving…')}</div> : null}
+              {savingKey === 'fees.reminder_days_before_due' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Enregistrement…')}</div> : null}
             </div>
 
             <div className="space-y-2">
-              <Label>{t('admin_fees.channels_label', 'Channels (comma-separated)')}</Label>
+              <Label>{t('admin_fees.channels_label', 'Canaux (séparés par des virgules)')}</Label>
               <Input
                 value={settings.reminderChannels}
                 onChange={(e) => setSetting('fees.reminder_channels', e.target.value, 'string')}
                 placeholder="sms,email"
               />
-              {savingKey === 'fees.reminder_channels' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Saving…')}</div> : null}
+              {savingKey === 'fees.reminder_channels' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Enregistrement…')}</div> : null}
             </div>
           </div>
 
@@ -197,7 +197,7 @@ const FeeSettingsPanel: React.FC = () => {
               }}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
-              {t('admin_fees.reset_reminder_defaults', 'Reset reminder defaults')}
+              {t('admin_fees.reset_reminder_defaults', 'Réinitialiser les paramètres de rappel')}
             </Button>
           </div>
         </CardContent>
@@ -205,14 +205,14 @@ const FeeSettingsPanel: React.FC = () => {
 
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">{t('admin_fees.late_fees', 'Late Fees')}</CardTitle>
-          <CardDescription>{t('admin_fees.late_fees_desc', 'Optional late-fee policy (display + manual enforcement)')}</CardDescription>
+          <CardTitle className="text-lg font-semibold">{t('admin_fees.late_fees', 'Frais de retard')}</CardTitle>
+          <CardDescription>{t('admin_fees.late_fees_desc', 'Politique optionnelle de frais de retard (affichage + application manuelle)')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <div className="text-sm font-medium">{t('admin_fees.enable_late_fee', 'Enable late fee')}</div>
-              <div className="text-xs text-muted-foreground">{t('admin_fees.enable_late_fee_desc', 'Adds late fee percentage for overdue balances')}</div>
+              <div className="text-sm font-medium">{t('admin_fees.enable_late_fee', 'Activer les frais de retard')}</div>
+              <div className="text-xs text-muted-foreground">{t('admin_fees.enable_late_fee_desc', 'Ajoute un pourcentage de frais de retard aux soldes impayés')}</div>
             </div>
             <div className="flex items-center gap-2">
               {savingKey === 'fees.late_fee_enabled' ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
@@ -225,14 +225,14 @@ const FeeSettingsPanel: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{t('admin_fees.late_fee_percent', 'Late fee percent')}</Label>
+              <Label>{t('admin_fees.late_fee_percent', 'Pourcentage des frais de retard')}</Label>
               <Input
                 type="number"
                 value={String(settings.lateFeePercent)}
                 onChange={(e) => setSetting('fees.late_fee_percent', e.target.value, 'float')}
                 disabled={!settings.lateFeeEnabled}
               />
-              {savingKey === 'fees.late_fee_percent' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Saving…')}</div> : null}
+              {savingKey === 'fees.late_fee_percent' ? <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />{t('common.saving', 'Enregistrement…')}</div> : null}
             </div>
           </div>
 
@@ -245,7 +245,7 @@ const FeeSettingsPanel: React.FC = () => {
               }}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
-              {t('admin_fees.reset_late_fee_defaults', 'Reset late-fee defaults')}
+              {t('admin_fees.reset_late_fee_defaults', 'Réinitialiser les frais de retard')}
             </Button>
           </div>
         </CardContent>
