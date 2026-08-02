@@ -643,10 +643,10 @@ const UserRoleManagement = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UserCheck className="h-5 w-5" />
-                    {t('admin_settings.system_permissions', 'System Permissions')}
+                    {t('admin_settings.system_permissions', 'Permissions système')}
                   </CardTitle>
                   <CardDescription>
-                    {t('admin_settings.system_permissions_desc', 'Overview of all available permissions in the system')}
+                    {t('admin_settings.system_permissions_desc', 'Aperçu de toutes les autorisations disponibles dans le système')}
                   </CardDescription>
                 </div>
                 <div className="relative w-full lg:w-80">
@@ -655,7 +655,7 @@ const UserRoleManagement = () => {
                     value={permissionSearchTerm}
                     onChange={(event) => setPermissionSearchTerm(event.target.value)}
                     className="pl-9"
-                    placeholder={t('admin_settings.search_permissions', 'Search permissions')}
+                    placeholder={t('admin_settings.search_permissions', 'Rechercher des autorisations')}
                   />
                 </div>
               </div>
@@ -681,7 +681,7 @@ const UserRoleManagement = () => {
                             <div className="space-y-2">
                               <div className="flex items-start justify-between gap-3">
                                 <h4 className="font-medium text-sm">{permission.displayName}</h4>
-                                {permission.isSystem && <Badge variant="secondary">System</Badge>}
+                                {permission.isSystem && <Badge variant="secondary">{t('admin_settings.system', 'Système')}</Badge>}
                               </div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {permission.description || permission.name}
