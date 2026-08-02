@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
@@ -71,6 +72,7 @@ const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
 
 const SchedulePage: React.FC = () => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'timetable' | 'exams' | 'events'>('timetable')
   const [filtersOpen, setFiltersOpen] = useState(false)
