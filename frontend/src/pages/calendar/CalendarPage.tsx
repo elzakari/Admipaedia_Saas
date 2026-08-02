@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Calendar, MiniCalendar, CalendarEvent as UICalendarEvent } from '../../components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
@@ -50,6 +51,7 @@ interface ExtendedCalendarEvent {
 }
 
 const CalendarPage: React.FC = () => {
+  const { t } = useTranslation();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState('calendar');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -274,33 +276,33 @@ const CalendarPage: React.FC = () => {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">School Calendar</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage and view all school events and schedules</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('calendar.title', 'Calendrier scolaire')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('calendar.desc', 'Gérer et consulter tous les événements et emplois du temps de l\'école')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex items-center">
             <Download className="mr-2 h-4 w-4" />
-            Export
+            {t('common.export', 'Exporter')}
           </Button>
           <Button className="flex items-center" onClick={handleAddEvent}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Event
+            {t('calendar.add_event', 'Ajouter un événement')}
           </Button>
         </div>
       </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
+          <strong className="font-bold">{t('common.error', 'Erreur !')}</strong>
           <span className="block sm:inline"> {error}</span>
         </div>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-          <TabsTrigger value="events">Event List</TabsTrigger>
-          <TabsTrigger value="schedule">Academic Schedule</TabsTrigger>
+          <TabsTrigger value="calendar">{t('calendar.calendar_view', 'Vue Calendrier')}</TabsTrigger>
+          <TabsTrigger value="events">{t('calendar.event_list', 'Liste des Événements')}</TabsTrigger>
+          <TabsTrigger value="schedule">{t('calendar.academic_schedule', 'Emploi du Temps Académique')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="calendar" className="space-y-4">
@@ -309,7 +311,7 @@ const CalendarPage: React.FC = () => {
             <div className="lg:col-span-1 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Mini Calendar</CardTitle>
+                  <CardTitle>{t('calendar.mini_calendar', 'Mini Calendrier')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <MiniCalendar 
@@ -321,7 +323,7 @@ const CalendarPage: React.FC = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Event Categories</CardTitle>
+                  <CardTitle>{t('calendar.event_categories', 'Catégories d\'événements')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {eventCategories.map(category => (
@@ -333,7 +335,7 @@ const CalendarPage: React.FC = () => {
                       onClick={() => setSelectedCategory(category.id)}
                     >
                       <div className={`w-3 h-3 rounded-full ${category.color} mr-2`}></div>
-                      <span>{category.name}</span>
+                      <span>{t(`calendar.category_${category.id}`, category.name)}</span>
                     </div>
                   ))}
                 </CardContent>
@@ -341,7 +343,7 @@ const CalendarPage: React.FC = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Upcoming Events</CardTitle>
+                  <CardTitle>{t('calendar.upcoming_events', 'Événements à venir')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {isLoading ? (

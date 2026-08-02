@@ -340,12 +340,12 @@ const SchedulePage: React.FC = () => {
         <div className="w-full lg:w-80 space-y-6">
           <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-indigo-100 dark:border-slate-700">
             <CardHeader>
-              <CardTitle className="text-indigo-900 dark:text-white">Upcoming Events</CardTitle>
-              <CardDescription className="text-indigo-600 dark:text-indigo-400">School events and activities</CardDescription>
+              <CardTitle className="text-indigo-900 dark:text-white">{t('schedule.upcoming_events', 'Événements à venir')}</CardTitle>
+              <CardDescription className="text-indigo-600 dark:text-indigo-400">{t('schedule.school_events_activities', 'Événements et activités de l\'école')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {upcomingEvents.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No upcoming events this month.</div>
+                <div className="text-sm text-muted-foreground">{t('schedule.no_upcoming_events_month', 'Aucun événement à venir ce mois-ci.')}</div>
               ) : (
                 upcomingEvents.map((e: any) => (
                   <div key={e.id} className="flex items-start">
@@ -373,7 +373,7 @@ const SchedulePage: React.FC = () => {
                   setActiveTab('events')
                 }}
               >
-                View Calendar
+                {t('schedule.view_calendar', 'Voir le calendrier')}
               </Button>
             </CardContent>
           </Card>
@@ -384,8 +384,8 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                  <CardTitle className="text-indigo-900 dark:text-white">Schedule</CardTitle>
-                  <CardDescription className="text-indigo-600 dark:text-indigo-400">Class timetables, exams, and events</CardDescription>
+                  <CardTitle className="text-indigo-900 dark:text-white">{t('schedule.title', 'Emploi du temps')}</CardTitle>
+                  <CardDescription className="text-indigo-600 dark:text-indigo-400">{t('schedule.subtitle', 'Emplois du temps des classes, examens et événements')}</CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Select
@@ -393,7 +393,7 @@ const SchedulePage: React.FC = () => {
                     onValueChange={(v) => setSelectedClassId(Number(v))}
                   >
                     <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder={t('schedule.select_class', 'Sélectionner la classe')} />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((c) => (
@@ -406,7 +406,7 @@ const SchedulePage: React.FC = () => {
 
                   <Button variant="outline" onClick={() => setFiltersOpen(true)}>
                     <Filter className="h-4 w-4 mr-2" />
-                    Filters
+                    {t('common.filters', 'Filtres')}
                   </Button>
                 </div>
               </div>
@@ -416,13 +416,13 @@ const SchedulePage: React.FC = () => {
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
                 <TabsList className="mb-4 bg-indigo-100 dark:bg-slate-700">
                   <TabsTrigger value="timetable" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
-                    Timetable
+                    {t('schedule.timetable_tab', 'Emploi du temps')}
                   </TabsTrigger>
                   <TabsTrigger value="exams" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
-                    Exams
+                    {t('schedule.exams_tab', 'Examens')}
                   </TabsTrigger>
                   <TabsTrigger value="events" className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">
-                    Events
+                    {t('schedule.events_tab', 'Événements')}
                   </TabsTrigger>
                 </TabsList>
 
