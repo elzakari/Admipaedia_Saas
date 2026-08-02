@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AxiosError } from 'axios'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import i18n from '@/i18n'
@@ -23,6 +24,7 @@ const COUNTRIES: CountryOption[] = [
 ]
 
 export default function EducationSystemConfiguration() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const { current, currentTenantId } = useSaasTenant()
@@ -102,25 +104,25 @@ export default function EducationSystemConfiguration() {
   return (
     <div className="space-y-6">
       <div className="px-6 py-4 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-900/20">
-        <h2 className="text-xl font-bold text-indigo-900 dark:text-indigo-300">Education System</h2>
+        <h2 className="text-xl font-bold text-indigo-900 dark:text-indigo-300">{t('admin_edu.title', 'Système éducatif')}</h2>
         <p className="text-sm text-indigo-600/80 dark:text-indigo-400/80">
-          Select and apply a country education framework per school tenant.
+          {t('admin_edu.desc', 'Sélectionnez et appliquez un cadre éducatif national par établissement.')}
         </p>
       </div>
 
       <div className="px-6 pb-6 space-y-6">
         <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle className="text-base">Framework selection</CardTitle>
-            <CardDescription>Choose a country template and apply it to this tenant.</CardDescription>
+            <CardTitle className="text-base">{t('admin_edu.framework_selection', 'Sélection du cadre')}</CardTitle>
+            <CardDescription>{t('admin_edu.framework_selection_desc', 'Choisissez un modèle national et appliquez-le à cet établissement.')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Country</Label>
+                <Label>{t('admin_edu.country', 'Pays')}</Label>
                 <Select value={countryCode} onValueChange={(v) => setCountryCode(v as CountryOption['code'])}>
                   <SelectTrigger className="bg-white dark:bg-slate-900">
-                    <SelectValue placeholder="Select country" />
+                    <SelectValue placeholder={t('admin_edu.select_country', 'Sélectionner un pays')} />
                   </SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map((c) => (
@@ -133,10 +135,10 @@ export default function EducationSystemConfiguration() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label>Template</Label>
+                <Label>{t('admin_edu.template', 'Modèle')}</Label>
                 <Select value={templateKey} onValueChange={setTemplateKey} disabled={templatesLoading || templates.length === 0}>
                   <SelectTrigger className="bg-white dark:bg-slate-900">
-                    <SelectValue placeholder={templatesLoading ? 'Loading templates…' : 'Select template'} />
+                    <SelectValue placeholder={templatesLoading ? t('common.loading', 'Chargement des modèles…') : t('admin_edu.select_template', 'Sélectionner un modèle')} />
                   </SelectTrigger>
                   <SelectContent>
                     {templates.map((t) => (
@@ -150,7 +152,7 @@ export default function EducationSystemConfiguration() {
                   <div className="text-xs text-slate-600 dark:text-slate-300">{selectedTemplate.description}</div>
                 )}
                 {templatesError && (
-                  <div className="text-xs text-red-600">Failed to load templates.</div>
+                  <div className="text-xs text-red-600">{t('admin_edu.failed_templates', 'Échec du chargement des modèles.')}</div>
                 )}
               </div>
             </div>
@@ -161,7 +163,7 @@ export default function EducationSystemConfiguration() {
                 disabled={!templateKey || applyMutation.isPending}
               >
                 {applyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                Apply to tenant
+                {t('admin_edu.apply_to_tenant', 'Appliquer à l\'établissement')}
               </Button>
             </div>
           </CardContent>
@@ -169,8 +171,8 @@ export default function EducationSystemConfiguration() {
 
         <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle className="text-base">Active configuration</CardTitle>
-            <CardDescription>Current education system applied to this tenant.</CardDescription>
+            <CardTitle className="text-base">{t('admin_edu.active_config', 'Configuration active')}</CardTitle>
+            <CardDescription>{t('admin_edu.active_config_desc', 'Système éducatif actuellement appliqué à cet établissement.')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {configLoading ? (
@@ -186,9 +188,9 @@ export default function EducationSystemConfiguration() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Structure</div>
+                    <div className="text-sm font-medium">{t('admin_edu.structure', 'Structure')}</div>
                     {phases.length === 0 ? (
-                      <div className="text-sm text-slate-600">No grade structure defined in this template.</div>
+                      <div className="text-sm text-slate-600">{t('admin_edu.no_structure', 'Aucune structure de niveau définie dans ce modèle.')}</div>
                     ) : (
                       <div className="space-y-2">
                         {phases.map((p: any, idx: number) => (
@@ -204,22 +206,22 @@ export default function EducationSystemConfiguration() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Grading</div>
+                    <div className="text-sm font-medium">{t('admin_edu.grading', 'Notation')}</div>
                     {!grading ? (
-                      <div className="text-sm text-slate-600">No grading scheme defined in this template.</div>
+                      <div className="text-sm text-slate-600">{t('admin_edu.no_grading', 'Aucun système de notation défini dans ce modèle.')}</div>
                     ) : (
                       <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-900 space-y-2">
                         <div className="text-sm">
-                          <span className="font-semibold">Type:</span> {String((grading as any).type || 'n/a')}
+                          <span className="font-semibold">{t('admin_edu.type', 'Type :')}</span> {String((grading as any).type || 'n/a')}
                         </div>
                         {(grading as any).scale ? (
                           <div className="text-sm">
-                            <span className="font-semibold">Scale:</span> {String((grading as any).scale)}
+                            <span className="font-semibold">{t('admin_edu.scale', 'Échelle :')}</span> {String((grading as any).scale)}
                           </div>
                         ) : null}
                         {typeof (grading as any).pass_mark === 'number' ? (
                           <div className="text-sm">
-                            <span className="font-semibold">Pass mark:</span> {(grading as any).pass_mark}
+                            <span className="font-semibold">{t('admin_edu.pass_mark', 'Note de passage :')}</span> {(grading as any).pass_mark}
                           </div>
                         ) : null}
                       </div>
@@ -229,11 +231,11 @@ export default function EducationSystemConfiguration() {
               </div>
             ) : (
               <div className="text-sm text-slate-600">
-                No education system configured for this tenant yet. Select a template above and apply it.
+                {t('admin_edu.no_config', 'Aucun système éducatif configuré pour cet établissement. Sélectionnez un modèle ci-dessus et appliquez-le.')}
               </div>
             )}
             {configError && (
-              <div className="text-xs text-red-600">Failed to load tenant configuration.</div>
+              <div className="text-xs text-red-600">{t('admin_edu.failed_config', 'Échec du chargement de la configuration.')}</div>
             )}
           </CardContent>
         </Card>

@@ -111,14 +111,14 @@ export function NotificationsPage() {
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <ChevronLeft className="h-4 w-4 mr-2" />
-                {t('common.back', 'Back')}
+                {t('common.back', 'Retour')}
               </button>
               <button
                 onClick={() => markAllAsRead()}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <CheckCheck className="h-4 w-4 mr-2" />
-                {t('notifications_page.mark_all_read', 'Mark all read')}
+                {t('notifications_page.mark_all_read', 'Tout marquer comme lu')}
               </button>
             </div>
           </div>
@@ -126,7 +126,7 @@ export function NotificationsPage() {
 
         {isError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
-            {t('notifications_page.failed_load', 'Failed to load notifications.')}
+            {t('notifications_page.failed_load', 'Échec du chargement des notifications.')}
           </div>
         )}
 
@@ -137,22 +137,20 @@ export function NotificationsPage() {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder={t('notifications_page.search', 'Search...')}
+                  placeholder={t('notifications_page.search', 'Rechercher…')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="pl-9 w-full pr-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="mt-4">
-                <div className="flex items-center mb-3">
-                  <Filter className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{t('notifications_page.filter', 'Filter')}</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
+              <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                <Filter className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                <span className="text-gray-500 uppercase tracking-wider font-semibold text-[10px]">{t('common.filter', 'Filtrer')}</span>
+                <div className="flex gap-1">
                   <button
                     onClick={() => setFilter('all')}
                     className={`px-3 py-1.5 text-xs font-medium rounded-full ${
@@ -161,7 +159,7 @@ export function NotificationsPage() {
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {t('notifications_page.all', 'All')}
+                    {t('common.all', 'Toutes')}
                   </button>
                   <button
                     onClick={() => setFilter('unread')}
@@ -171,7 +169,7 @@ export function NotificationsPage() {
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {t('notifications_page.unread', 'Unread')}
+                    {t('notifications_page.unread', 'Non lues')}
                   </button>
                   {(['info', 'warning', 'success', 'error'] as const).map((tVal) => (
                     <button
@@ -192,7 +190,7 @@ export function NotificationsPage() {
 
             <div className="divide-y divide-gray-200 dark:divide-slate-700">
               {isLoading ? (
-                <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('common.loading', 'Loading notifications...')}</div>
+                <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('common.loading', 'Chargement des notifications…')}</div>
               ) : currentItems.length > 0 ? (
                 currentItems.map((n) => {
                   const meta = typeMeta[n.type] || typeMeta.info;
@@ -242,9 +240,9 @@ export function NotificationsPage() {
               ) : (
                 <div className="p-8 text-center">
                   <Bell className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">{t('parent_portal.dashboard.no_notifications', 'No notifications')}</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-200">{t('parent_portal.dashboard.no_notifications', 'Aucune notification')}</h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {searchQuery ? t('notifications_page.no_matches', 'No notifications match your search.') : t('notifications_page.all_caught_up', "You're all caught up!")}
+                    {searchQuery ? t('notifications_page.no_matches', 'Aucune notification ne correspond à votre recherche.') : t('notifications_page.all_caught_up', 'Vous êtes à jour !')}
                   </p>
                 </div>
               )}
@@ -261,10 +259,10 @@ export function NotificationsPage() {
                       : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {t('common.prev', 'Previous')}
+                  {t('common.prev', 'Précédent')}
                 </button>
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {t('common.page', 'Page')} {safePage} {t('common.of', 'of')} {totalPages}
+                  {t('common.page', 'Page')} {safePage} {t('common.of', 'sur')} {totalPages}
                 </span>
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
@@ -275,7 +273,7 @@ export function NotificationsPage() {
                       : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {t('common.next', 'Next')}
+                  {t('common.next', 'Suivant')}
                 </button>
               </div>
             )}
@@ -283,7 +281,7 @@ export function NotificationsPage() {
 
           <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b border-gray-200 dark:border-slate-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t('common.details', 'Details')}</h2>
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">{t('common.details', 'Détails')}</h2>
             </div>
             <div className="min-h-[420px]">
               {selectedNotification ? (
@@ -315,8 +313,8 @@ export function NotificationsPage() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-6 text-center">
                   <Bell className="h-16 w-16 text-gray-300 dark:text-gray-600 animate-pulse" />
-                  <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">{t('notifications_page.no_notification_selected', 'No notification selected')}</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('notifications_page.select_desc', 'Select a notification from the list to view details')}</p>
+                  <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-gray-200">{t('notifications_page.no_notification_selected', 'Aucune notification sélectionnée')}</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('notifications_page.select_desc', 'Sélectionnez une notification dans la liste pour afficher les détails')}</p>
                 </div>
               )}
             </div>
