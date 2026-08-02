@@ -30,10 +30,12 @@ import DailyLessonMonitoring from '../../components/administration/DailyLessonMo
 
 import { useHeader } from '../../contexts/HeaderContext';
 import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { useTranslation } from 'react-i18next'
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 
 const AdministrationPage = () => {
+  const { t } = useTranslation();
   const { setHeaderSearch } = useHeader();
   const { current } = useSaasTenant()
   const [activeTab, setActiveTab] = useState('education-system');
@@ -41,96 +43,96 @@ const AdministrationPage = () => {
 
   const isGhanaTenant = current?.tenant?.country_code === 'GH'
 
-  const tabs = [
+  const tabs = useMemo(() => [
     {
       value: 'education-system',
-      label: 'Education System',
+      label: t('admin_tabs.education_system', 'Système éducatif'),
       icon: GraduationCap,
       component: EducationSystemConfiguration,
-      description: 'Configure the school framework, grading model, and active tenant setup.',
+      description: t('admin_tabs.education_system_desc', 'Configurez le cadre scolaire, le modèle de notation et la configuration de l\'établissement.'),
       keywords: ['education', 'system', 'grading', 'framework', 'tenant']
     },
     ...(isGhanaTenant ? [{
       value: 'ghana-education',
-      label: 'GES Standards',
+      label: t('admin_tabs.ges_standards', 'Normes GES'),
       icon: GraduationCap,
       component: GhanaEducationService,
-      description: 'Manage Ghana-specific curriculum, grading, STEM, and assessment standards.',
+      description: t('admin_tabs.ges_standards_desc', 'Gérez le programme, la notation, le STEM et les normes d\'évaluation spécifiques au Ghana.'),
       keywords: ['ges', 'ghana', 'curriculum', 'grading', 'assessment']
     }] : []),
     {
       value: 'competencies',
-      label: 'Core Competencies',
+      label: t('admin_tabs.core_competencies', 'Compétences clés'),
       icon: Brain,
       component: CoreCompetencies,
-      description: 'Maintain competency definitions used across learning and reporting flows.',
+      description: t('admin_tabs.core_competencies_desc', 'Gérez les définitions de compétences utilisées dans l\'apprentissage et les rapports.'),
       keywords: ['competencies', 'skills', 'learning', 'assessment']
     },
     {
       value: 'branches',
-      label: 'Branches',
+      label: t('admin_tabs.branches', 'Succursales'),
       icon: GitBranch,
       component: BranchesConfiguration,
-      description: 'Manage campuses, regional hubs, and branch-level activation.',
+      description: t('admin_tabs.branches_desc', 'Gérez les campus physiques et les centres régionaux de l\'école.'),
       keywords: ['branches', 'campus', 'campuses', 'locations', 'enterprise']
     },
     {
       value: 'financial',
-      label: 'Financial Management',
+      label: t('admin_tabs.financial_management', 'Gestion financière'),
       icon: DollarSign,
       component: FinancialManagement,
-      description: 'Review budgets, transactions, fee operations, and finance reporting.',
+      description: t('admin_tabs.financial_management_desc', 'Examinez les budgets, les transactions, les opérations de frais et les rapports financiers.'),
       keywords: ['financial', 'finance', 'budget', 'transactions', 'fees', 'reports']
     },
     {
       value: 'calendar',
-      label: 'Academic Calendar',
+      label: t('admin_tabs.academic_calendar', 'Calendrier académique'),
       icon: Calendar,
       component: AcademicCalendar,
-      description: 'Coordinate terms, events, schedules, and exam planning.',
+      description: t('admin_tabs.academic_calendar_desc', 'Coordonnez les trimestres, les événements, les emplois du temps et la planification des examens.'),
       keywords: ['calendar', 'terms', 'events', 'exam', 'schedule']
     },
     {
       value: 'daily-lessons',
-      label: 'Daily Lessons',
+      label: t('admin_tabs.daily_lessons', 'Leçons quotidiennes'),
       icon: ClipboardList,
       component: DailyLessonMonitoring,
-      description: 'Monitor daily lesson delivery, class coverage, and teacher reporting across the school.',
+      description: t('admin_tabs.daily_lessons_desc', 'Suivez le déroulement des cours quotidiens, la couverture des classes et les rapports d\'enseignants.'),
       keywords: ['daily lessons', 'lesson logs', 'teaching', 'coverage', 'monitoring', 'topics']
     },
     {
       value: 'library',
-      label: 'Library Management',
+      label: t('admin_tabs.library_management', 'Gestion de bibliothèque'),
       icon: BookOpen,
       component: LibraryManagement,
-      description: 'Track books, borrowing activity, categories, and library statistics.',
+      description: t('admin_tabs.library_management_desc', 'Suivez les livres, les activités d\'emprunt, les catégories et les statistiques de la bibliothèque.'),
       keywords: ['library', 'books', 'borrowers', 'borrowing', 'statistics']
     },
     {
       value: 'announcements',
-      label: 'Announcements',
+      label: t('admin_tabs.announcements', 'Annonces'),
       icon: Megaphone,
       component: Announcements,
-      description: 'Create, schedule, and monitor school-wide communications.',
+      description: t('admin_tabs.announcements_desc', 'Créez, planifiez et suivez les communications à l\'échelle de l\'école.'),
       keywords: ['announcements', 'communication', 'messages', 'broadcast']
     },
     {
       value: 'infrastructure',
-      label: 'Infrastructure',
+      label: t('admin_tabs.infrastructure', 'Infrastructure'),
       icon: Building2,
       component: Infrastructure,
-      description: 'Manage facilities, maintenance requests, assets, and planning.',
+      description: t('admin_tabs.infrastructure_desc', 'Gérez les installations, les demandes de maintenance, les actifs et la planification.'),
       keywords: ['infrastructure', 'facilities', 'maintenance', 'assets', 'planning']
     },
     {
       value: 'staff',
-      label: 'Staff Management',
+      label: t('admin_tabs.staff_management', 'Gestion du personnel'),
       icon: Users,
       component: StaffManagement,
-      description: 'Manage staff records, departments, attendance, and staffing structure.',
+      description: t('admin_tabs.staff_management_desc', 'Gérez les dossiers du personnel, les départements, la présence et la structure des effectifs.'),
       keywords: ['staff', 'teachers', 'departments', 'attendance', 'directory']
     }
-  ];
+  ], [isGhanaTenant, t]);
 
   const filteredTabs = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -173,28 +175,28 @@ const AdministrationPage = () => {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
               <Sparkles className="h-3.5 w-3.5" />
-              Administrative Control Center
+              {t('admin.control_center', 'Centre de contrôle administratif')}
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Administration</h1>
-              <p className="text-sm text-slate-600">Analyze standards, operations, finance, staffing, and infrastructure from one workspace.</p>
+              <h1 className="text-3xl font-bold text-slate-900">{t('admin.title', 'Administration')}</h1>
+              <p className="text-sm text-slate-600">{t('admin.subtitle', 'Analysez les normes, opérations, finances, personnel et infrastructures à partir d\'un seul espace de travail.')}</p>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[420px]">
             <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Modules</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('admin.modules', 'Modules')}</div>
               <div className="mt-2 text-2xl font-bold text-slate-900">{tabs.length}</div>
-              <div className="text-xs text-slate-500">Administration work areas</div>
+              <div className="text-xs text-slate-500">{t('admin.work_areas', 'Domaines de travail administratifs')}</div>
             </div>
             <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Visible Now</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('admin.visible_now', 'Visibles actuellement')}</div>
               <div className="mt-2 text-2xl font-bold text-slate-900">{filteredTabs.length}</div>
-              <div className="text-xs text-slate-500">{searchTerm.trim() ? 'Modules matching your search' : 'Modules currently available'}</div>
+              <div className="text-xs text-slate-500">{searchTerm.trim() ? t('admin.matching_search', 'Modules correspondant à votre recherche') : t('admin.currently_available', 'Modules actuellement disponibles')}</div>
             </div>
             <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Curriculum Scope</div>
-              <div className="mt-2 text-lg font-bold text-slate-900">{isGhanaTenant ? 'Ghana + Core' : 'Global Core'}</div>
-              <div className="text-xs text-slate-500">{isGhanaTenant ? 'GES standards enabled' : 'Country-specific tab hidden'}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('admin.curriculum_scope', 'Portée du programme')}</div>
+              <div className="mt-2 text-lg font-bold text-slate-900">{isGhanaTenant ? 'Ghana + Tronc commun' : 'Tronc commun mondial'}</div>
+              <div className="text-xs text-slate-500">{isGhanaTenant ? 'Normes GES activées' : 'Onglet spécifique au pays masqué'}</div>
             </div>
           </div>
         </div>
@@ -204,7 +206,7 @@ const AdministrationPage = () => {
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <LayoutGrid className="h-4 w-4" />
-            <span>{searchTerm.trim() ? `Showing ${filteredTabs.length} matching modules` : 'Browse administration modules by workflow area'}</span>
+            <span>{searchTerm.trim() ? `${t('admin.showing', 'Affichage de')} ${filteredTabs.length} ${t('admin.matching_modules', 'modules correspondants')}` : t('admin.browse_modules', 'Parcourir les modules d\'administration par domaine d\'activité')}</span>
           </div>
           <TabsList className="w-full justify-start overflow-x-auto bg-transparent h-auto p-0 gap-2">
           {filteredTabs.map((tab) => (

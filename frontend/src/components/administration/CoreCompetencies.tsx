@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -29,6 +30,7 @@ interface CoreCompetency {
 }
 
 const CoreCompetencies: React.FC = () => {
+  const { t } = useTranslation();
   const [competencies, setCompetencies] = useState<CoreCompetency[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingCompetency, setEditingCompetency] = useState<CoreCompetency | null>(null);
@@ -221,12 +223,12 @@ const CoreCompetencies: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">Core Competencies Management</h2>
-          <p className="text-gray-600">Manage 21st century skills and competency frameworks</p>
+          <h2 className="text-2xl font-bold">{t('admin_comp.title', 'Gestion des compétences clés')}</h2>
+          <p className="text-gray-600">{t('admin_comp.subtitle', 'Gérer les compétences du 21e siècle et les cadres de compétences')}</p>
         </div>
         <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Core Competency
+          {t('admin_comp.add_competency', 'Ajouter une compétence clé')}
         </Button>
       </div>
 
