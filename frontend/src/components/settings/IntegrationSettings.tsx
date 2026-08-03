@@ -342,8 +342,8 @@ const IntegrationSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.integrations', 'Integrations')}</h2>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.integrations_desc', 'Manage third-party integrations and APIs')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.integrations', 'Intégrations')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.integrations_desc', 'Gérer les intégrations tierces et les API')}</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -355,7 +355,7 @@ const IntegrationSettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Enregistrement…') : t('school_settings.save_changes', 'Enregistrer')}
         </Button>
       </div>
 
@@ -365,8 +365,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">{t('common.email', 'Email')}</p>
-                <p className="text-2xl font-bold">{settings.emailEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
+                <p className="text-sm font-medium text-gray-500">{t('common.email', 'E-mail')}</p>
+                <p className="text-2xl font-bold">{settings.emailEnabled ? t('admin_settings.active', 'Actif') : t('admin_settings.inactive', 'Inactif')}</p>
               </div>
               <Mail className="h-8 w-8 text-blue-500" />
             </div>
@@ -378,7 +378,7 @@ const IntegrationSettings = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">{t('admin_settings.sms', 'SMS')}</p>
-                <p className="text-2xl font-bold">{settings.smsEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
+                <p className="text-2xl font-bold">{settings.smsEnabled ? t('admin_settings.active', 'Actif') : t('admin_settings.inactive', 'Inactif')}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-green-500" />
             </div>
@@ -389,8 +389,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">{t('admin_settings.payments', 'Payments')}</p>
-                <p className="text-2xl font-bold">{settings.paymentEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
+                <p className="text-sm font-medium text-gray-500">{t('admin_settings.payments', 'Paiements')}</p>
+                <p className="text-2xl font-bold">{settings.paymentEnabled ? t('admin_settings.active', 'Actif') : t('admin_settings.inactive', 'Inactif')}</p>
               </div>
               <CreditCard className="h-8 w-8 text-purple-500" />
             </div>
@@ -401,8 +401,8 @@ const IntegrationSettings = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">{t('admin_settings.storage', 'Storage')}</p>
-                <p className="text-2xl font-bold">{settings.cloudStorageEnabled ? t('admin_settings.active', 'Active') : t('admin_settings.inactive', 'Inactive')}</p>
+                <p className="text-sm font-medium text-gray-500">{t('admin_settings.storage', 'Stockage')}</p>
+                <p className="text-2xl font-bold">{settings.cloudStorageEnabled ? t('admin_settings.active', 'Actif') : t('admin_settings.inactive', 'Inactif')}</p>
               </div>
               <Cloud className="h-8 w-8 text-orange-500" />
             </div>
@@ -419,15 +419,15 @@ const IntegrationSettings = () => {
           </TabsTrigger>
           <TabsTrigger value="payments" className="flex items-center gap-2 min-w-[130px]">
             <CreditCard className="h-4 w-4" />
-            {t('admin_settings.payments', 'Payments')}
+            {t('admin_settings.payments', 'Paiements')}
           </TabsTrigger>
           <TabsTrigger value="storage" className="flex items-center gap-2 min-w-[130px]">
             <Cloud className="h-4 w-4" />
-            {t('admin_settings.storage', 'Storage')}
+            {t('admin_settings.storage', 'Stockage')}
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2 min-w-[130px]">
             <BarChart3 className="h-4 w-4" />
-            {t('admin_settings.analytics', 'Analytics')}
+            {t('admin_settings.analytics', 'Statistiques & Analytics')}
           </TabsTrigger>
         </TabsList>
 
@@ -439,15 +439,15 @@ const IntegrationSettings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="h-5 w-5" />
-                  {t('admin_settings.email_config', 'Email Configuration')}
+                  {t('admin_settings.email_config', 'Configuration des e-mails')}
                 </CardTitle>
-                <CardDescription>{t('admin_settings.email_config_desc', 'Configure email service provider')}</CardDescription>
+                <CardDescription>{t('admin_settings.email_config_desc', 'Configurer le fournisseur de service e-mail')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="email-enabled">{t('admin_settings.enable_email', 'Enable Email Service')}</Label>
-                    <p className="text-sm text-gray-500">{t('admin_settings.enable_email_desc', 'Send emails to users')}</p>
+                    <Label htmlFor="email-enabled">{t('admin_settings.enable_email', 'Activer le service e-mail')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.enable_email_desc', 'Envoyer des e-mails aux utilisateurs')}</p>
                   </div>
                   <Switch
                     id="email-enabled"
@@ -459,7 +459,7 @@ const IntegrationSettings = () => {
                 {settings.emailEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="email-provider">{t('admin_settings.email_provider', 'Email Provider')}</Label>
+                      <Label htmlFor="email-provider">{t('admin_settings.email_provider', 'Fournisseur e-mail')}</Label>
                       <Select value={settings.emailProvider} onValueChange={(value) => handleInputChange('emailProvider', value)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -472,14 +472,14 @@ const IntegrationSettings = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
+                      <Label htmlFor="email-api-key">{t('admin_settings.api_key', 'Clé API')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="email-api-key"
                           type={showApiKeys.emailApiKey ? 'text' : 'password'}
                           value={settings.emailApiKey}
                           onChange={(e) => handleInputChange('emailApiKey', e.target.value)}
-                          placeholder={t('admin_settings.enter_email_api_key', 'Enter your email service API key')}
+                          placeholder={t('admin_settings.enter_email_api_key', 'Saisissez la clé API de votre service d\'e-mail')}
                         />
                         <Button
                           size="sm"
@@ -492,22 +492,22 @@ const IntegrationSettings = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="email-from">{t('admin_settings.from_address', 'From Address')}</Label>
+                        <Label htmlFor="email-from">{t('admin_settings.from_address', 'Adresse d\'expédition')}</Label>
                         <Input
                           id="email-from"
                           type="email"
                           value={settings.emailFromAddress}
                           onChange={(e) => handleInputChange('emailFromAddress', e.target.value)}
-                          placeholder="noreply@yourdomain.com"
+                          placeholder="noreply@votre-domaine.com"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email-from-name">{t('admin_settings.from_name', 'From Name')}</Label>
+                        <Label htmlFor="email-from-name">{t('admin_settings.from_name', 'Nom d\'expéditeur')}</Label>
                         <Input
                           id="email-from-name"
                           value={settings.emailFromName}
                           onChange={(e) => handleInputChange('emailFromName', e.target.value)}
-                          placeholder="Your School Name"
+                          placeholder="Nom de votre établissement"
                         />
                       </div>
                     </div>
@@ -522,7 +522,7 @@ const IntegrationSettings = () => {
                       ) : (
                         <TestTube className="h-4 w-4 mr-2" />
                       )}
-                      {t('admin_settings.test_email_config', 'Test Email Configuration')}
+                      {t('admin_settings.test_email_config', 'Tester la configuration e-mail')}
                     </Button>
                   </>
                 )}
@@ -534,15 +534,15 @@ const IntegrationSettings = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  {t('admin_settings.sms_config', 'SMS Configuration')}
+                  {t('admin_settings.sms_config', 'Configuration des SMS')}
                 </CardTitle>
-                <CardDescription>{t('admin_settings.sms_config_desc', 'Configure SMS service provider')}</CardDescription>
+                <CardDescription>{t('admin_settings.sms_config_desc', 'Configurer le fournisseur de service SMS')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms', 'Enable SMS Service')}</Label>
-                    <p className="text-sm text-gray-500">{t('admin_settings.enable_sms_desc', 'Send SMS notifications')}</p>
+                    <Label htmlFor="sms-enabled">{t('admin_settings.enable_sms', 'Activer le service SMS')}</Label>
+                    <p className="text-sm text-gray-500">{t('admin_settings.enable_sms_desc', 'Envoyer des notifications SMS')}</p>
                   </div>
                   <Switch
                     id="sms-enabled"
@@ -554,7 +554,7 @@ const IntegrationSettings = () => {
                 {settings.smsEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-provider">{t('admin_settings.sms_provider', 'SMS Provider')}</Label>
+                      <Label htmlFor="sms-provider">{t('admin_settings.sms_provider', 'Fournisseur SMS')}</Label>
                       <Select value={settings.smsProvider} onValueChange={(value) => handleInputChange('smsProvider', value)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -567,14 +567,14 @@ const IntegrationSettings = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-api-key">{t('admin_settings.api_key', 'API Key')}</Label>
+                      <Label htmlFor="sms-api-key">{t('admin_settings.api_key', 'Clé API')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="sms-api-key"
                           type={showApiKeys.smsApiKey ? 'text' : 'password'}
                           value={settings.smsApiKey}
                           onChange={(e) => handleInputChange('smsApiKey', e.target.value)}
-                          placeholder={t('admin_settings.enter_sms_api_key', 'Enter your SMS service API key')}
+                          placeholder={t('admin_settings.enter_sms_api_key', 'Saisissez la clé API de votre service SMS')}
                         />
                         <Button
                           size="sm"
@@ -586,14 +586,14 @@ const IntegrationSettings = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-api-secret">{t('admin_settings.api_secret', 'API Secret')}</Label>
+                      <Label htmlFor="sms-api-secret">{t('admin_settings.api_secret', 'Secret API')}</Label>
                       <div className="flex gap-2">
                         <Input
                           id="sms-api-secret"
                           type={showApiKeys.smsApiSecret ? 'text' : 'password'}
                           value={settings.smsApiSecret}
                           onChange={(e) => handleInputChange('smsApiSecret', e.target.value)}
-                          placeholder={t('admin_settings.enter_sms_api_secret', 'Enter your SMS service API secret')}
+                          placeholder={t('admin_settings.enter_sms_api_secret', 'Saisissez le secret API de votre service SMS')}
                         />
                         <Button
                           size="sm"
@@ -605,7 +605,7 @@ const IntegrationSettings = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sms-from">{t('admin_settings.from_number', 'From Number')}</Label>
+                      <Label htmlFor="sms-from">{t('admin_settings.from_number', 'Numéro ou ID d\'expéditeur')}</Label>
                       <Input
                         id="sms-from"
                         value={settings.smsFromNumber}
@@ -624,7 +624,7 @@ const IntegrationSettings = () => {
                       ) : (
                         <TestTube className="h-4 w-4 mr-2" />
                       )}
-                      {t('admin_settings.test_sms_config', 'Test SMS Configuration')}
+                      {t('admin_settings.test_sms_config', 'Tester la configuration SMS')}
                     </Button>
                   </>
                 )}

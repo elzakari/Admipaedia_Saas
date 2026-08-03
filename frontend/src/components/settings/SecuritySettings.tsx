@@ -200,8 +200,8 @@ const SecuritySettings = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.security_settings', 'Security Settings')}</h2>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.security_settings_desc', 'Configure security settings and access controls')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.security_settings', 'Paramètres de sécurité')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.security_settings_desc', 'Configurer les paramètres de sécurité et les contrôles d\'accès')}</p>
         </div>
         <Button 
           onClick={handleSave} 
@@ -213,7 +213,7 @@ const SecuritySettings = () => {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          {updateSettingsMutation.isPending ? t('common.saving', 'Saving...') : t('school_settings.save_changes', 'Save Changes')}
+          {updateSettingsMutation.isPending ? t('common.saving', 'Enregistrement…') : t('school_settings.save_changes', 'Enregistrer')}
         </Button>
       </div>
 
@@ -221,23 +221,23 @@ const SecuritySettings = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="authentication" className="flex items-center gap-2 min-w-[170px]">
             <Fingerprint className="h-4 w-4" />
-            {t('admin_settings.authentication', 'Authentication')}
+            {t('admin_settings.authentication', 'Authentification')}
           </TabsTrigger>
           <TabsTrigger value="login" className="flex items-center gap-2 min-w-[170px]">
             <Lock className="h-4 w-4" />
-            {t('admin_settings.login_security', 'Login Security')}
+            {t('admin_settings.login_security', 'Sécurité de connexion')}
           </TabsTrigger>
           <TabsTrigger value="access" className="flex items-center gap-2 min-w-[160px]">
             <Globe className="h-4 w-4" />
-            {t('admin_settings.access_control', 'Access Control')}
+            {t('admin_settings.access_control', 'Contrôle d\'accès')}
           </TabsTrigger>
           <TabsTrigger value="api" className="flex items-center gap-2 min-w-[150px]">
             <Key className="h-4 w-4" />
-            {t('admin_settings.api_security', 'API Security')}
+            {t('admin_settings.api_security', 'Sécurité API')}
           </TabsTrigger>
           <TabsTrigger value="monitoring" className="flex items-center gap-2 min-w-[150px]">
             <Shield className="h-4 w-4" />
-            {t('admin_settings.monitoring', 'Monitoring')}
+            {t('admin_settings.monitoring', 'Surveillance')}
           </TabsTrigger>
         </TabsList>
 
@@ -246,18 +246,18 @@ const SecuritySettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Fingerprint className="h-5 w-5" />
-                {t('admin_settings.two_factor_auth', 'Two-Factor Authentication')}
+                {t('admin_settings.two_factor_auth', 'Authentification à deux facteurs')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.two_factor_desc', 'Add an extra layer of security to user accounts')}
+                {t('admin_settings.two_factor_desc', 'Ajouter une couche de sécurité supplémentaire aux comptes utilisateurs')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="2fa-enabled">{t('admin_settings.enable_two_factor', 'Enable Two-Factor Authentication')}</Label>
+                  <Label htmlFor="2fa-enabled">{t('admin_settings.enable_two_factor', 'Activer l\'authentification à deux facteurs')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.require_second_auth', 'Require users to provide a second form of authentication')}
+                    {t('admin_settings.require_second_auth', 'Exiger des utilisateurs une deuxième forme d\'authentification')}
                   </p>
                 </div>
                 <Switch
@@ -270,16 +270,16 @@ const SecuritySettings = () => {
               {settings.twoFactorEnabled && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="2fa-method">{t('admin_settings.two_factor_method', 'Two-Factor Method')}</Label>
+                    <Label htmlFor="2fa-method">{t('admin_settings.two_factor_method', 'Méthode à deux facteurs')}</Label>
                     <Select value={settings.twoFactorMethod} onValueChange={(value) => handleInputChange('twoFactorMethod', value)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="authenticator">{t('admin_settings.authenticator_app', 'Authenticator App')}</SelectItem>
+                        <SelectItem value="authenticator">{t('admin_settings.authenticator_app', 'Application d\'authentification (OTP)')}</SelectItem>
                         <SelectItem value="sms">{t('admin_settings.sms', 'SMS')}</SelectItem>
-                        <SelectItem value="email">{t('common.email', 'Email')}</SelectItem>
-                        <SelectItem value="both">{t('admin_settings.sms_email', 'SMS + Email')}</SelectItem>
+                        <SelectItem value="email">{t('common.email', 'E-mail')}</SelectItem>
+                        <SelectItem value="both">{t('admin_settings.sms_email', 'SMS + E-mail')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -289,7 +289,7 @@ const SecuritySettings = () => {
               <div className="border-t pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="session-timeout">{t('admin_settings.session_timeout', 'Session Timeout (minutes)')}</Label>
+                    <Label htmlFor="session-timeout">{t('admin_settings.session_timeout', 'Délai d\'expiration de session (minutes)')}</Label>
                     <Input
                       id="session-timeout"
                       type="number"
@@ -298,10 +298,10 @@ const SecuritySettings = () => {
                       value={settings.sessionTimeout}
                       onChange={(e) => handleInputChange('sessionTimeout', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.session_timeout_desc', 'Automatically log out inactive users')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.session_timeout_desc', 'Déconnecter automatiquement les utilisateurs inactifs')}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password-expiry">{t('admin_settings.password_expiry', 'Password Expiry (days)')}</Label>
+                    <Label htmlFor="password-expiry">{t('admin_settings.password_expiry', 'Expiration du mot de passe (jours)')}</Label>
                     <Input
                       id="password-expiry"
                       type="number"
@@ -310,16 +310,16 @@ const SecuritySettings = () => {
                       value={settings.passwordExpiry}
                       onChange={(e) => handleInputChange('passwordExpiry', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.never_expire', '0 = never expire')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.never_expire', '0 = n\'expire jamais')}</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="password-complexity">{t('admin_settings.password_complexity', 'Password Complexity')}</Label>
+                  <Label htmlFor="password-complexity">{t('admin_settings.password_complexity', 'Complexité du mot de passe')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.password_complexity_desc', 'Require strong passwords with mixed case, numbers, and symbols')}
+                    {t('admin_settings.password_complexity_desc', 'Exiger des mots de passe forts contenant des majuscules, chiffres et symboles')}
                   </p>
                 </div>
                 <Switch
@@ -337,16 +337,16 @@ const SecuritySettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lock className="h-5 w-5" />
-                {t('admin_settings.login_security', 'Login Security')}
+                {t('admin_settings.login_security', 'Sécurité de connexion')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.captcha_desc', 'Require CAPTCHA verification for login attempts')}
+                {t('admin_settings.captcha_desc', 'Exiger une vérification CAPTCHA pour les tentatives de connexion')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="max-attempts">{t('admin_settings.max_login_attempts', 'Maximum Login Attempts')}</Label>
+                  <Label htmlFor="max-attempts">{t('admin_settings.max_login_attempts', 'Tentatives de connexion maximales')}</Label>
                   <Input
                     id="max-attempts"
                     type="number"
@@ -355,10 +355,10 @@ const SecuritySettings = () => {
                     value={settings.maxLoginAttempts}
                     onChange={(e) => handleInputChange('maxLoginAttempts', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-gray-500">{t('admin_settings.max_attempts_desc', 'Lock account after this many failed attempts')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.max_attempts_desc', 'Verrouiller le compte après autant d\'échecs')}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lockout-duration">{t('admin_settings.lockout_duration', 'Lockout Duration (minutes)')}</Label>
+                  <Label htmlFor="lockout-duration">{t('admin_settings.lockout_duration', 'Durée de verrouillage (minutes)')}</Label>
                   <Input
                     id="lockout-duration"
                     type="number"
@@ -367,15 +367,15 @@ const SecuritySettings = () => {
                     value={settings.lockoutDuration}
                     onChange={(e) => handleInputChange('lockoutDuration', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-gray-500">{t('admin_settings.lockout_duration_desc', 'How long to lock the account')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.lockout_duration_desc', 'Durée de blocage du compte')}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="captcha-enabled">{t('admin_settings.enable_captcha', 'Enable CAPTCHA')}</Label>
+                  <Label htmlFor="captcha-enabled">{t('admin_settings.enable_captcha', 'Activer le CAPTCHA')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.captcha_desc', 'Require CAPTCHA verification for login attempts')}
+                    {t('admin_settings.captcha_desc', 'Exiger une vérification CAPTCHA pour les tentatives de connexion')}
                   </p>
                 </div>
                 <Switch
@@ -387,7 +387,7 @@ const SecuritySettings = () => {
 
               {settings.captchaEnabled && (
                 <div className="space-y-2">
-                  <Label htmlFor="captcha-threshold">{t('admin_settings.captcha_threshold', 'CAPTCHA Threshold')}</Label>
+                  <Label htmlFor="captcha-threshold">{t('admin_settings.captcha_threshold', 'Seuil d\'affichage du CAPTCHA')}</Label>
                   <Input
                     id="captcha-threshold"
                     type="number"
@@ -396,16 +396,16 @@ const SecuritySettings = () => {
                     value={settings.captchaThreshold}
                     onChange={(e) => handleInputChange('captchaThreshold', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-gray-500">{t('admin_settings.captcha_threshold_desc', 'Show CAPTCHA after this many failed attempts')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.captcha_threshold_desc', 'Afficher le CAPTCHA après autant de tentatives échouées')}</p>
                 </div>
               )}
 
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="auto-logout-enabled">{t('admin_settings.auto_logout', 'Auto Logout')}</Label>
+                    <Label htmlFor="auto-logout-enabled">{t('admin_settings.auto_logout', 'Déconnexion automatique')}</Label>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t('admin_settings.auto_logout_desc', 'Automatically log out users after inactivity')}
+                      {t('admin_settings.auto_logout_desc', 'Déconnecter automatiquement les utilisateurs en cas d\'inactivité')}
                     </p>
                   </div>
                   <Switch
@@ -417,7 +417,7 @@ const SecuritySettings = () => {
 
                 {settings.autoLogoutEnabled && (
                   <div className="space-y-2 mt-4">
-                    <Label htmlFor="auto-logout-time">{t('admin_settings.auto_logout_time', 'Auto Logout Time (minutes)')}</Label>
+                    <Label htmlFor="auto-logout-time">{t('admin_settings.auto_logout_time', 'Délai de déconnexion automatique (minutes)')}</Label>
                     <Input
                       id="auto-logout-time"
                       type="number"
@@ -426,7 +426,7 @@ const SecuritySettings = () => {
                       value={settings.autoLogoutTime}
                       onChange={(e) => handleInputChange('autoLogoutTime', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.auto_logout_time_desc', 'Log out after this many minutes of inactivity')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.auto_logout_time_desc', 'Déconnecter après autant de minutes d\'inactivité')}</p>
                   </div>
                 )}
               </div>
@@ -439,18 +439,18 @@ const SecuritySettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5" />
-                {t('admin_settings.ip_access_control', 'IP & Access Control')}
+                {t('admin_settings.ip_access_control', 'IP et contrôle d\'accès')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.ip_access_desc', 'Control access based on IP addresses and geographic location')}
+                {t('admin_settings.ip_access_desc', 'Contrôler l\'accès selon les adresses IP et la géolocalisation')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="ip-whitelist-enabled">{t('admin_settings.enable_ip_whitelist', 'Enable IP Whitelist')}</Label>
+                  <Label htmlFor="ip-whitelist-enabled">{t('admin_settings.enable_ip_whitelist', 'Activer la liste blanche d\'IP')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.ip_whitelist_desc', 'Only allow access from specified IP addresses')}
+                    {t('admin_settings.ip_whitelist_desc', 'Autoriser l\'accès uniquement depuis les adresses IP spécifiées')}
                   </p>
                 </div>
                 <Switch
@@ -463,23 +463,23 @@ const SecuritySettings = () => {
               {settings.ipWhitelistEnabled && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="new-ip-address">{t('admin_settings.add_ip_address', 'Add IP Address')}</Label>
+                    <Label htmlFor="new-ip-address">{t('admin_settings.add_ip_address', 'Ajouter une adresse IP')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="new-ip-address"
                         value={newIpAddress}
                         onChange={(e) => setNewIpAddress(e.target.value)}
-                        placeholder="192.168.1.1 or 192.168.1.0/24"
+                        placeholder="192.168.1.1 ou 192.168.1.0/24"
                         className="flex-1"
                       />
                       <Button onClick={handleAddIpAddress} size="sm">
-                        {t('common.add', 'Add')}
+                        {t('common.add', 'Ajouter')}
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t('admin_settings.whitelisted_ips', 'Whitelisted IP Addresses')}</Label>
+                    <Label>{t('admin_settings.whitelisted_ips', 'Adresses IP autorisées (Liste blanche)')}</Label>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {settings.ipWhitelist.map((ip, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
@@ -501,9 +501,9 @@ const SecuritySettings = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="geo-blocking-enabled">{t('admin_settings.enable_geo_blocking', 'Enable Geographic Blocking')}</Label>
+                  <Label htmlFor="geo-blocking-enabled">{t('admin_settings.enable_geo_blocking', 'Activer le blocage géographique')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.geo_blocking_desc', 'Block access from specific countries')}
+                    {t('admin_settings.geo_blocking_desc', 'Bloquer l\'accès depuis des pays spécifiques')}
                   </p>
                 </div>
                 <Switch
@@ -518,9 +518,9 @@ const SecuritySettings = () => {
                   <div className="flex items-start">
                     <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-3" />
                     <div>
-                      <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('admin_settings.geographic_blocking', 'Geographic Blocking')}</h4>
+                      <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('admin_settings.geographic_blocking', 'Blocage géographique')}</h4>
                       <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                        {t('admin_settings.geo_blocking_alert', 'Geographic blocking is enabled. Please configure the list of blocked countries in the system configuration.')}
+                        {t('admin_settings.geo_blocking_alert', 'Le blocage géographique est activé. Veuillez configurer la liste des pays bloqués dans la configuration système.')}
                       </p>
                     </div>
                   </div>
@@ -535,15 +535,15 @@ const SecuritySettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
-                {t('admin_settings.api_security', 'API Security')}
+                {t('admin_settings.api_security', 'Sécurité API')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.api_key_rotation_desc', 'Automatically rotate API keys')}
+                {t('admin_settings.api_key_rotation_desc', 'Renouveler automatiquement les clés API')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="api-rate-limit">{t('admin_settings.api_rate_limit', 'API Rate Limit (requests per hour)')}</Label>
+                <Label htmlFor="api-rate-limit">{t('admin_settings.api_rate_limit', 'Limite de requêtes API (requêtes par heure)')}</Label>
                 <Input
                   id="api-rate-limit"
                   type="number"
@@ -552,14 +552,14 @@ const SecuritySettings = () => {
                   value={settings.apiRateLimit}
                   onChange={(e) => handleInputChange('apiRateLimit', parseInt(e.target.value))}
                 />
-                <p className="text-xs text-gray-500">{t('admin_settings.rate_limit_desc', 'Maximum API requests per hour per user')}</p>
+                <p className="text-xs text-gray-500">{t('admin_settings.rate_limit_desc', 'Nombre maximal de requêtes API par heure et par utilisateur')}</p>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="api-key-rotation">{t('admin_settings.api_key_rotation', 'API Key Rotation')}</Label>
+                  <Label htmlFor="api-key-rotation">{t('admin_settings.api_key_rotation', 'Rotation des clés API')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.api_key_rotation_desc', 'Automatically rotate API keys')}
+                    {t('admin_settings.api_key_rotation_desc', 'Renouveler automatiquement les clés API')}
                   </p>
                 </div>
                 <Switch
@@ -571,7 +571,7 @@ const SecuritySettings = () => {
 
               {settings.apiKeyRotation && (
                 <div className="space-y-2">
-                  <Label htmlFor="api-key-expiry">{t('admin_settings.api_key_expiry', 'API Key Expiry (days)')}</Label>
+                  <Label htmlFor="api-key-expiry">{t('admin_settings.api_key_expiry', 'Expiration des clés API (jours)')}</Label>
                   <Input
                     id="api-key-expiry"
                     type="number"
@@ -580,15 +580,15 @@ const SecuritySettings = () => {
                     value={settings.apiKeyExpiry}
                     onChange={(e) => handleInputChange('apiKeyExpiry', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-gray-500">{t('admin_settings.api_key_expiry_desc', 'API keys will expire after this many days')}</p>
+                  <p className="text-xs text-gray-500">{t('admin_settings.api_key_expiry_desc', 'Les clés API expireront après ce nombre de jours')}</p>
                 </div>
               )}
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="encryption-enabled">{t('admin_settings.data_encryption', 'Data Encryption')}</Label>
+                  <Label htmlFor="encryption-enabled">{t('admin_settings.data_encryption', 'Chiffrement des données')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.encryption_desc', 'Encrypt sensitive data at rest')}
+                    {t('admin_settings.encryption_desc', 'Chiffrer les données sensibles au repos')}
                   </p>
                 </div>
                 <Switch
@@ -599,7 +599,7 @@ const SecuritySettings = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="data-retention">{t('admin_settings.data_retention', 'Data Retention (days)')}</Label>
+                <Label htmlFor="data-retention">{t('admin_settings.data_retention', 'Rétention des données (jours)')}</Label>
                 <Input
                   id="data-retention"
                   type="number"
@@ -608,7 +608,7 @@ const SecuritySettings = () => {
                   value={settings.dataRetentionDays}
                   onChange={(e) => handleInputChange('dataRetentionDays', parseInt(e.target.value))}
                 />
-                <p className="text-xs text-gray-500">{t('admin_settings.data_retention_desc', 'How long to retain user data')}</p>
+                <p className="text-xs text-gray-500">{t('admin_settings.data_retention_desc', 'Durée de conservation des données utilisateurs')}</p>
               </div>
             </CardContent>
           </Card>
