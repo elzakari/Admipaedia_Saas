@@ -78,15 +78,15 @@ const ProfilePage: React.FC = () => {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <UserIcon className="h-4 w-4" />
-            Profile
+            Profil
           </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            Security
+            Sécurité
           </TabsTrigger>
           <TabsTrigger value="preferences" className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4" />
-            Preferences
+            Préférences
           </TabsTrigger>
         </TabsList>
 

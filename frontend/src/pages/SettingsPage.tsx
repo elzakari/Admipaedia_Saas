@@ -77,11 +77,11 @@ const SettingsPage = () => {
 
     if (user?.role === 'teacher') {
       return [
-        { id: 'general', name: 'Profile & General', icon: 'user' },
+        { id: 'general', name: 'Profil & Général', icon: 'user' },
         { id: 'notifications', name: 'Notifications', icon: 'bell' },
-        { id: 'theme', name: 'Theme', icon: 'palette' },
-        { id: 'privacy', name: 'Privacy', icon: 'shield' },
-        { id: 'security', name: 'Security', icon: 'lock' }
+        { id: 'theme', name: 'Thème', icon: 'palette' },
+        { id: 'privacy', name: 'Confidentialité', icon: 'shield' },
+        { id: 'security', name: 'Sécurité', icon: 'lock' }
       ];
     }
 
