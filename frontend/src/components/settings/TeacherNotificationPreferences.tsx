@@ -64,43 +64,43 @@ const TeacherNotificationPreferences: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
-        <p className="text-gray-500 dark:text-gray-400">Choose what you want to be notified about</p>
+        <p className="text-gray-500 dark:text-gray-400">Choisissez ce dont vous souhaitez être informé</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-indigo-600" />
-            Delivery
+            Modes de réception
           </CardTitle>
-          <CardDescription>Control how you receive notifications</CardDescription>
+          <CardDescription>Gérez la façon dont vous recevez vos notifications</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Row title="Email" description="Receive notifications by email" checked={prefs.email} onCheckedChange={(v) => setField('email', v)} />
-          <Row title="In-app" description="Show notifications inside ADMIPEDIA" checked={prefs.inApp} onCheckedChange={(v) => setField('inApp', v)} />
+          <Row title="E-mail" description="Recevoir les notifications par e-mail" checked={prefs.email} onCheckedChange={(v) => setField('email', v)} />
+          <Row title="Dans l'application" description="Afficher les notifications dans ADMIPAEDIA" checked={prefs.inApp} onCheckedChange={(v) => setField('inApp', v)} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Topics</CardTitle>
-          <CardDescription>Pick the updates that matter to you</CardDescription>
+          <CardTitle>Sujets</CardTitle>
+          <CardDescription>Choisissez les mises à jour qui vous réintéressent</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Row title="Announcements" description="School announcements and notices" checked={prefs.announcements} onCheckedChange={(v) => setField('announcements', v)} />
-          <Row title="Assignment submissions" description="When students submit or resubmit work" checked={prefs.assignmentSubmissions} onCheckedChange={(v) => setField('assignmentSubmissions', v)} />
-          <Row title="Timetable changes" description="Changes to your timetable" checked={prefs.timetableChanges} onCheckedChange={(v) => setField('timetableChanges', v)} />
+          <Row title="Annonces" description="Annonces et communiqués de l'établissement" checked={prefs.announcements} onCheckedChange={(v) => setField('announcements', v)} />
+          <Row title="Devoirs rendus" description="Lorsque les élèves soumettent ou re-soumettent un travail" checked={prefs.assignmentSubmissions} onCheckedChange={(v) => setField('assignmentSubmissions', v)} />
+          <Row title="Changements d'emploi du temps" description="Modifications apportées à votre emploi du temps" checked={prefs.timetableChanges} onCheckedChange={(v) => setField('timetableChanges', v)} />
         </CardContent>
       </Card>
 
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" onClick={reset} className="rounded-xl">
           <RefreshCw className="mr-2 h-4 w-4" />
-          Reset to Defaults
+          Réinitialiser aux valeurs par défaut
         </Button>
         <Button onClick={save} disabled={isSaving} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">
           {isSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isSaving ? 'Saving…' : 'Save'}
+          {isSaving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
       </div>
     </div>

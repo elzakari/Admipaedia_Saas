@@ -107,17 +107,17 @@ const TeacherGeneralSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Profile & General Settings</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Manage your active identity preferences and contact details</p>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Profil & Paramètres généraux</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Gérez vos préférences d'identité active et vos coordonnées de contact</p>
       </div>
 
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5 text-indigo-600" />
-            Personal Details
+            Informations personnelles
           </CardTitle>
-          <CardDescription>Update your name, email address, and phone number below</CardDescription>
+          <CardDescription>Mettez à jour votre nom, adresse e-mail et numéro de téléphone ci-dessous</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -136,25 +136,25 @@ const TeacherGeneralSettings: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="first-name">First Name</Label>
+                <Label htmlFor="first-name">Prénom</Label>
                 <input
                   id="first-name"
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="e.g. John"
+                  placeholder="ex. Jean"
                   className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="last-name">Last Name</Label>
+                <Label htmlFor="last-name">Nom</Label>
                 <input
                   id="last-name"
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="e.g. Doe"
+                  placeholder="ex. Dupont"
                   className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -162,26 +162,26 @@ const TeacherGeneralSettings: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="email-addr" className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-400" /> Email Address</Label>
+                <Label htmlFor="email-addr" className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-400" /> Adresse e-mail</Label>
                 <input
                   id="email-addr"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@school.com"
+                  placeholder="nom@ecole.com"
                   required
                   className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="phone-num" className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400" /> Phone Number</Label>
+                <Label htmlFor="phone-num" className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400" /> Numéro de téléphone</Label>
                 <input
                   id="phone-num"
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+33 6 00 00 00 00"
                   className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -190,7 +190,7 @@ const TeacherGeneralSettings: React.FC = () => {
             <div className="pt-2">
               <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Changes
+                Enregistrer les modifications
               </Button>
             </div>
           </form>
@@ -199,14 +199,14 @@ const TeacherGeneralSettings: React.FC = () => {
 
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
-          <CardTitle>Language</CardTitle>
-          <CardDescription>Choose how ADMIPEDIA is displayed for you</CardDescription>
+          <CardTitle>Langue</CardTitle>
+          <CardDescription>Choisissez comment ADMIPAEDIA s'affiche pour vous</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Label htmlFor="teacher-preferred-language">Preferred language</Label>
+          <Label htmlFor="teacher-preferred-language">Langue préférée</Label>
           <Select value={language} onValueChange={onChangeLanguage}>
             <SelectTrigger id="teacher-preferred-language" className="max-w-sm rounded-xl">
-              <SelectValue placeholder="Select language" />
+              <SelectValue placeholder="Sélectionner la langue" />
             </SelectTrigger>
             <SelectContent>
               {supportedLanguages.map((l) => (

@@ -258,7 +258,7 @@ const TeacherMessagesPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Messages & Communications</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Interact with direct messages and read school-wide announcement broadcasts</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Interagissez avec les messages directs et lisez les annonces officielles de l'établissement</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -272,7 +272,7 @@ const TeacherMessagesPage: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              Direct Threads
+              Discussions directes
             </button>
             <button
               onClick={() => { setActiveTab('broadcasts'); setIsComposing(false); }}
@@ -282,7 +282,7 @@ const TeacherMessagesPage: React.FC = () => {
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              Broadcasts
+              Annonces
             </button>
           </div>
 
@@ -290,11 +290,11 @@ const TeacherMessagesPage: React.FC = () => {
             <Button onClick={() => setIsComposing(!isComposing)} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2 w-full sm:w-auto">
               {isComposing ? (
                 <>
-                  <ArrowLeft className="h-4 w-4" /> Back
+                  <ArrowLeft className="h-4 w-4" /> Retour
                 </>
               ) : (
                 <>
-                  <Plus className="h-4 w-4" /> New Message
+                  <Plus className="h-4 w-4" /> Nouveau message
                 </>
               )}
             </Button>
@@ -306,14 +306,14 @@ const TeacherMessagesPage: React.FC = () => {
         isComposing ? (
           <Card className="max-w-2xl mx-auto hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle>Compose New Message</CardTitle>
-              <CardDescription>Send a message to a student, parent, teacher or administrator</CardDescription>
+              <CardTitle>Rédiger un nouveau message</CardTitle>
+              <CardDescription>Envoyez un message à un élève, un parent, un enseignant ou un administrateur</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateNewThread} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Recipient Role</label>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Rôle du destinataire</label>
                     <select
                       value={composeRecipientType}
                       onChange={(e) => {
@@ -323,22 +323,22 @@ const TeacherMessagesPage: React.FC = () => {
                       }}
                       className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                     >
-                      <option value="student">Student</option>
+                      <option value="student">Élève</option>
                       <option value="parent">Parent</option>
-                      <option value="teacher">Teacher</option>
-                      <option value="admin">Administrator</option>
-                      <option value="class">Class Group</option>
+                      <option value="teacher">Enseignant</option>
+                      <option value="admin">Administrateur</option>
+                      <option value="class">Groupe classe</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Recipient</label>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Destinataire</label>
                     <div className="space-y-2">
                       <div className="relative">
                         <input
                           type="text"
                           value={composeSearch}
                           onChange={(e) => setComposeSearch(e.target.value)}
-                          placeholder="Search name or group..."
+                          placeholder="Rechercher un nom ou un groupe..."
                           className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                         />
                         {loadingRecipients && (
@@ -353,7 +353,7 @@ const TeacherMessagesPage: React.FC = () => {
                         required
                         className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                       >
-                        <option value="">Select recipient...</option>
+                        <option value="">Sélectionner un destinataire...</option>
                         {recipientOptions.map((opt) => {
                           const parsed = parseRecipientOption(opt);
                           return (
@@ -368,33 +368,33 @@ const TeacherMessagesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Subject</label>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Sujet</label>
                   <input
                     type="text"
                     value={composeSubject}
                     onChange={(e) => setComposeSubject(e.target.value)}
                     required
-                    placeholder="e.g. Grade 10-A — Homework Help"
+                    placeholder="ex. Classe de 6ème A — Aide aux devoirs"
                     className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Message Content</label>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Contenu du message</label>
                   <textarea
                     value={composeContent}
                     onChange={(e) => setComposeContent(e.target.value)}
                     required
                     rows={5}
-                    placeholder="Type your message here..."
+                    placeholder="Saisissez votre message ici..."
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsComposing(false)} className="rounded-xl">Cancel</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsComposing(false)} className="rounded-xl">Annuler</Button>
                   <Button type="submit" disabled={composeSending} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2">
-                    {composeSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send Message
+                    {composeSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Envoyer le message
                   </Button>
                 </div>
               </form>
@@ -408,15 +408,15 @@ const TeacherMessagesPage: React.FC = () => {
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
                     <MessageSquare className="h-5 w-5" />
                   </div>
-                  <span className="font-bold">Active Threads</span>
+                  <span className="font-bold">Fil de discussions</span>
                 </CardTitle>
-                <CardDescription>Select a direct chat thread</CardDescription>
+                <CardDescription>Sélectionnez une discussion directe</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 max-h-[500px] overflow-y-auto p-4">
                 {threads.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 dark:text-slate-400">
                     <Info className="h-8 w-8 mx-auto text-slate-400 mb-2" />
-                    <p className="font-medium">No direct chats started</p>
+                    <p className="font-medium">Aucune discussion directe démarrée</p>
                   </div>
                 ) : (
                   threads.map((t) => (
@@ -439,8 +439,8 @@ const TeacherMessagesPage: React.FC = () => {
 
             <Card className="lg:col-span-2 hover:shadow-md transition-shadow">
               <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">{active?.title ?? 'Select a thread'}</CardTitle>
-                <CardDescription>{active?.participants ?? 'Choose a thread from the side panel to view direct logs'}</CardDescription>
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">{active?.title ?? 'Sélectionnez une discussion'}</CardTitle>
+                <CardDescription>{active?.participants ?? 'Choisissez une discussion dans le panneau latéral pour afficher l\'historique'}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 p-4">
                 <div className="max-h-[360px] overflow-y-auto space-y-3 p-3 border rounded-xl border-slate-100 dark:border-slate-800 min-h-[240px] bg-slate-50/20 dark:bg-slate-950/20">
@@ -448,13 +448,13 @@ const TeacherMessagesPage: React.FC = () => {
                     <div
                       key={m.id}
                       className={`rounded-xl p-4 border max-w-[85%] transition-all ${
-                        m.sender === 'You'
+                        m.sender === 'Vous' || m.sender === 'You'
                           ? 'border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/30 dark:bg-indigo-950/40 ml-auto'
                           : 'border-slate-200 dark:border-slate-700 mr-auto'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-4">
-                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{m.sender}</div>
+                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{m.sender === 'You' ? 'Vous' : m.sender}</div>
                         <div className="text-[10px] text-slate-500">{new Date(m.sentAt).toLocaleString()}</div>
                       </div>
                       <div className="text-sm text-slate-700 dark:text-slate-300 mt-2 whitespace-pre-wrap leading-relaxed">{m.body}</div>
@@ -462,7 +462,7 @@ const TeacherMessagesPage: React.FC = () => {
                   )) : (
                     <div className="flex flex-col items-center justify-center h-full py-12 text-slate-500 dark:text-slate-400">
                       <MessageSquare className="h-10 w-10 text-slate-300 mb-2 animate-bounce" />
-                      <p className="font-semibold text-slate-600 dark:text-slate-400">No active thread selected</p>
+                      <p className="font-semibold text-slate-600 dark:text-slate-400">Aucune discussion active sélectionnée</p>
                     </div>
                   )}
                 </div>
@@ -471,7 +471,7 @@ const TeacherMessagesPage: React.FC = () => {
                   <input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Write a message…"
+                    placeholder="Écrire un message…"
                     disabled={!active || replying}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
                     className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700 px-4 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all disabled:opacity-50"
@@ -495,16 +495,16 @@ const TeacherMessagesPage: React.FC = () => {
               <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
                 <Megaphone className="h-5 w-5" />
               </div>
-              <span className="font-bold">Announcement Broadcasts</span>
+              <span className="font-bold">Annonces officielles</span>
             </CardTitle>
-            <CardDescription>Read-only school and faculty wide official announcements from administrators</CardDescription>
+            <CardDescription>Annonces officielles de l'administration pour l'établissement et le corps enseignant</CardDescription>
           </CardHeader>
           <CardContent className="p-4">
             <div className="space-y-4">
               {announcements.length === 0 ? (
                 <div className="text-center py-16 text-slate-500 dark:text-slate-400 border border-dashed rounded-xl border-slate-200 dark:border-slate-800">
                   <Info className="h-8 w-8 mx-auto text-slate-400 mb-2" />
-                  <p className="font-semibold text-slate-600">No active announcements</p>
+                  <p className="font-semibold text-slate-600">Aucune annonce active</p>
                 </div>
               ) : (
                 announcements.map((a) => (
@@ -514,7 +514,7 @@ const TeacherMessagesPage: React.FC = () => {
                         <h4 className="text-base font-bold text-slate-950 dark:text-slate-50">{a.title}</h4>
                         <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-3">
                           <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {a.created_at ? new Date(a.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' }) : ''}</span>
-                          {a.author_name && <span>By: {a.author_name}</span>}
+                          {a.author_name && <span>Par : {a.author_name}</span>}
                           {a.priority && (
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                               a.priority === 'urgent' || a.priority === 'high'
