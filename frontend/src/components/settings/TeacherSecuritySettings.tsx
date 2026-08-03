@@ -62,17 +62,17 @@ const TeacherSecuritySettings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Security Settings</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Manage your credentials and MFA devices</p>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Paramètres de sécurité</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Gérez vos identifiants et vos appareils MFA</p>
       </div>
 
       <Card className="hover:shadow-md transition-shadow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-indigo-600" />
-            Change Password
+            Changer le mot de passe
           </CardTitle>
-          <CardDescription>Update your secure account password below</CardDescription>
+          <CardDescription>Mettez à jour le mot de passe sécurisé de votre compte ci-dessous</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpdatePassword} className="space-y-4">
@@ -90,14 +90,14 @@ const TeacherSecuritySettings: React.FC = () => {
             )}
 
             <div className="space-y-1">
-              <Label htmlFor="current-pw">Current Password</Label>
+              <Label htmlFor="current-pw">Mot de passe actuel</Label>
               <div className="relative max-w-md">
                 <input
                   id="current-pw"
                   type={showCurrent ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
+                  placeholder="Saisissez le mot de passe actuel"
                   required
                   className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 pl-3 pr-10 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                 />
@@ -113,14 +113,14 @@ const TeacherSecuritySettings: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
               <div className="space-y-1">
-                <Label htmlFor="new-pw">New Password</Label>
+                <Label htmlFor="new-pw">Nouveau mot de passe</Label>
                 <div className="relative">
                   <input
                     id="new-pw"
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 8 chars"
+                    placeholder="Au moins 8 caractères"
                     required
                     className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 pl-3 pr-10 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                   />
@@ -135,14 +135,14 @@ const TeacherSecuritySettings: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="confirm-pw">Confirm Password</Label>
+                <Label htmlFor="confirm-pw">Confirmer le mot de passe</Label>
                 <div className="relative">
                   <input
                     id="confirm-pw"
                     type={showConfirm ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
+                    placeholder="Répétez le mot de passe"
                     required
                     className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-700 pl-3 pr-10 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                   />
@@ -160,7 +160,7 @@ const TeacherSecuritySettings: React.FC = () => {
             <div className="pt-2">
               <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Change Password
+                Changer le mot de passe
               </Button>
             </div>
           </form>
@@ -171,13 +171,13 @@ const TeacherSecuritySettings: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-indigo-600" />
-            Multi-Factor Authentication
+            Authentification multifacteur (MFA)
           </CardTitle>
-          <CardDescription>Secure your account with MFA for premium level protection</CardDescription>
+          <CardDescription>Sécurisez votre compte avec le MFA pour une protection de niveau supérieur</CardDescription>
         </CardHeader>
         <CardContent>
           <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => navigate('/auth/mfa/setup')}>
-            Set up MFA
+            Configurer le MFA
           </Button>
         </CardContent>
       </Card>

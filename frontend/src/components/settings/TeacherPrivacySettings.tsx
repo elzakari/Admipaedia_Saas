@@ -59,26 +59,26 @@ const TeacherPrivacySettings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Privacy</h2>
-        <p className="text-gray-500 dark:text-gray-400">Control how your data is used in the app</p>
+        <h2 className="text-2xl font-bold tracking-tight">Confidentialité</h2>
+        <p className="text-gray-500 dark:text-gray-400">Gérez l'utilisation de vos données dans l'application</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-indigo-600" />
-            Preferences
+            Préférences
           </CardTitle>
-          <CardDescription>These settings apply only to your account</CardDescription>
+          <CardDescription>Ces paramètres s'appliquent uniquement à votre compte</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Row title="Analytics" description="Allow anonymous analytics to improve the app" checked={prefs.analytics} onCheckedChange={(v) => setField('analytics', v)} />
-          <Row title="Personalization" description="Personalize content like shortcuts and recommendations" checked={prefs.personalization} onCheckedChange={(v) => setField('personalization', v)} />
-          <Row title="Share usage data" description="Share extended diagnostic data when issues occur" checked={prefs.shareUsageData} onCheckedChange={(v) => setField('shareUsageData', v)} />
+          <Row title="Statistiques & Analytique" description="Autoriser les données analytiques anonymes pour améliorer l'application" checked={prefs.analytics} onCheckedChange={(v) => setField('analytics', v)} />
+          <Row title="Personnalisation" description="Personnaliser le contenu comme les raccourcis et recommandations" checked={prefs.personalization} onCheckedChange={(v) => setField('personalization', v)} />
+          <Row title="Partager les données d'utilisation" description="Partager les données de diagnostic étendues en cas d'incident" checked={prefs.shareUsageData} onCheckedChange={(v) => setField('shareUsageData', v)} />
 
           <div className="flex items-center gap-2 text-sm">
             <a href="/privacy" className="inline-flex items-center text-indigo-600 hover:text-indigo-700" target="_blank" rel="noreferrer">
-              Read Privacy Policy
+              Lire la Politique de confidentialité
               <ExternalLink className="ml-1 h-4 w-4" />
             </a>
           </div>
@@ -88,11 +88,11 @@ const TeacherPrivacySettings: React.FC = () => {
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" onClick={reset} className="rounded-xl">
           <RefreshCw className="mr-2 h-4 w-4" />
-          Reset to Defaults
+          Réinitialiser aux valeurs par défaut
         </Button>
         <Button onClick={save} disabled={isSaving} className="rounded-xl bg-indigo-600 hover:bg-indigo-700">
           {isSaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isSaving ? 'Saving…' : 'Save'}
+          {isSaving ? 'Enregistrement…' : 'Enregistrer'}
         </Button>
       </div>
     </div>
