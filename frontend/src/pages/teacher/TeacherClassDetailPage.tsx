@@ -151,7 +151,7 @@ const TeacherClassDetailPage: React.FC = () => {
                 <TabsList className="w-full justify-start overflow-x-auto">
                   <TabsTrigger value="roster" className="min-w-[140px]">
                     <Users className="h-4 w-4 mr-2" />
-                    Roster
+                    Élèves
                   </TabsTrigger>
                   <TabsTrigger value="attendance" className="min-w-[140px]">
                     <CalendarCheck2 className="h-4 w-4 mr-2" />
@@ -167,7 +167,7 @@ const TeacherClassDetailPage: React.FC = () => {
                   </TabsTrigger>
                   <TabsTrigger value="lessons" className="min-w-[140px]">
                     <BookOpen className="h-4 w-4 mr-2" />
-                    Daily Lessons
+                    Leçons quotidiennes
                   </TabsTrigger>
                   <TabsTrigger value="announcements" className="min-w-[160px]">
                     <Megaphone className="h-4 w-4 mr-2" />

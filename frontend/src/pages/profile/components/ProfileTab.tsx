@@ -114,13 +114,13 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Personal Details</CardTitle>
-          <CardDescription>Update how your profile appears across the app.</CardDescription>
+          <CardTitle>Informations personnelles</CardTitle>
+          <CardDescription>Mettez à jour l'apparence de votre profil dans l'application.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="display_name">Display name</Label>
+              <Label htmlFor="display_name">Nom d'affichage</Label>
               <Input
                 id="display_name"
                 value={form.display_name}
@@ -128,11 +128,11 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   setForm(s => ({ ...s, display_name: e.target.value }));
                   setDirty(true);
                 }}
-                placeholder="e.g., Alex Mensah"
+                placeholder="ex. Alex Mensah"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="legal_name">Legal name</Label>
+              <Label htmlFor="legal_name">Nom légal</Label>
               <Input
                 id="legal_name"
                 value={form.legal_name}
@@ -140,11 +140,11 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   setForm(s => ({ ...s, legal_name: e.target.value }));
                   setDirty(true);
                 }}
-                placeholder="Optional"
+                placeholder="Optionnel"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Téléphone</Label>
               <Input
                 id="phone"
                 value={form.phone}
@@ -152,11 +152,11 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   setForm(s => ({ ...s, phone: e.target.value }));
                   setDirty(true);
                 }}
-                placeholder="Optional"
+                placeholder="Optionnel"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country/Region</Label>
+              <Label htmlFor="country">Pays/Région</Label>
               <Input
                 id="country"
                 value={form.country}
@@ -164,11 +164,11 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   setForm(s => ({ ...s, country: e.target.value }));
                   setDirty(true);
                 }}
-                placeholder="Optional"
+                placeholder="Optionnel"
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="timezone">Timezone</Label>
+              <Label htmlFor="timezone">Fuseau horaire</Label>
               <Input
                 id="timezone"
                 value={form.timezone}
@@ -176,7 +176,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   setForm(s => ({ ...s, timezone: e.target.value }));
                   setDirty(true);
                 }}
-                placeholder="e.g., Africa/Accra"
+                placeholder="ex. Africa/Accra"
               />
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
 
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              {dirty ? 'You have unsaved changes.' : 'Your profile is up to date.'}
+              {dirty ? 'Vous avez des modifications non enregistrées.' : 'Votre profil est à jour.'}
             </div>
             <div className="flex gap-2">
               <Button
@@ -204,11 +204,11 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                 disabled={!dirty || updateMutation.isPending}
               >
                 <Undo2 className="h-4 w-4 mr-2" />
-                Cancel
+                Annuler
               </Button>
               <Button type="button" onClick={() => updateMutation.mutate()} disabled={!canSave}>
                 {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Save
+                Enregistrer
               </Button>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
         <Card>
           <CardHeader>
             <CardTitle>Avatar</CardTitle>
-            <CardDescription>Upload a profile photo (PNG/JPG/WEBP).</CardDescription>
+            <CardDescription>Téléversez une photo de profil (PNG/JPG/WEBP).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   if (file.size > 2 * 1024 * 1024) {
-                    toast.error('Max avatar size is 2MB');
+                    toast.error('La taille maximale de l\'avatar est de 2 Mo');
                     e.target.value = '';
                     return;
                   }
@@ -248,7 +248,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
                 disabled={uploadAvatarMutation.isPending}
               >
                 {uploadAvatarMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-                Upload
+                Téléverser
               </Button>
             </div>
             <Button
@@ -259,7 +259,7 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
               disabled={!profile.avatar_url || removeAvatarMutation.isPending}
             >
               {removeAvatarMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <X className="h-4 w-4 mr-2" />}
-              Remove avatar
+              Supprimer l'avatar
             </Button>
           </CardContent>
         </Card>
@@ -267,14 +267,14 @@ export default function ProfileTab({ profile, email, emailVerified }: Props) {
         <Card>
           <CardHeader>
             <CardTitle>Contact</CardTitle>
-            <CardDescription>Basic contact and verification status.</CardDescription>
+            <CardDescription>Coordonnées de base et statut de vérification.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Email</div>
+              <div className="text-sm font-medium text-slate-700 dark:text-slate-200">E-mail</div>
               <div className="text-sm text-slate-600 dark:text-slate-300 break-all">{email}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                {emailVerified ? 'Verified' : 'Not verified'}
+                {emailVerified ? 'Vérifié' : 'Non vérifié'}
               </div>
             </div>
           </CardContent>

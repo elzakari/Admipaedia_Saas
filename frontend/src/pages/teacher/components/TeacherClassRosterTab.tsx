@@ -8,8 +8,8 @@ export function TeacherClassRosterTab({ cls }: { cls: TeacherClass }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-slate-500">
-            <th className="py-2">Student</th>
-            <th className="py-2">Status</th>
+            <th className="py-2">Élève</th>
+            <th className="py-2">Statut</th>
           </tr>
         </thead>
         <tbody>

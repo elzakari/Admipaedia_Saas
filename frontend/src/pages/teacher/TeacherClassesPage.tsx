@@ -69,15 +69,15 @@ const TeacherClassesPage: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">My Classes</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Manage and access your assigned educational classes</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Mes classes</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Gérez et accédez aux classes pédagogiques qui vous sont attribuées</p>
         </div>
         <div className="relative w-full sm:w-80">
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search class or subject…"
+            placeholder="Rechercher une classe ou une matière…"
             className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm"
           />
         </div>
@@ -93,7 +93,7 @@ const TeacherClassesPage: React.FC = () => {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          Active Allocations
+          Affectations actives
         </button>
         <button
           onClick={() => setActiveTab('past')}
@@ -103,15 +103,15 @@ const TeacherClassesPage: React.FC = () => {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          Subject Log
+          Journal des matières
         </button>
       </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/50">
           <BookOpen className="h-12 w-12 mx-auto text-slate-400 mb-4 animate-pulse" />
-          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">No classes found</h3>
-          <p className="text-sm mt-1 text-slate-500">There are no classes in the {activeTab === 'active' ? 'Active Allocations' : 'Subject Log'} category.</p>
+          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Aucune classe trouvée</h3>
+          <p className="text-sm mt-1 text-slate-500">Il n'y a aucune classe dans la catégorie {activeTab === 'active' ? 'Affectations actives' : 'Journal des matières'}.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -125,18 +125,18 @@ const TeacherClassesPage: React.FC = () => {
                         <BookOpen className="h-5 w-5" />
                       </div>
                       <span className="font-bold text-slate-900 dark:text-slate-100">
-                        {c.grade_level_name || 'Class'} — {c.name}
+                        {c.grade_level_name || 'Classe'} — {c.name}
                       </span>
                     </span>
                     <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors" />
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 mt-2">
                     <Calendar className="h-4 w-4 text-slate-400" />
-                    <span>{c.academic_year || '—'}{c.room ? ` • ${c.room}` : ''} • {c.current_enrollment ?? 0} student(s)</span>
+                    <span>{c.academic_year || '—'}{c.room ? ` • ${c.room}` : ''} • {c.current_enrollment ?? 0} élève(s)</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-sm text-slate-600 dark:text-slate-400 pt-1">
-                  Click to open interactive class workspace and view resources, grades, and schedules.
+                  Cliquez pour ouvrir l'espace de travail interactif de la classe et consulter les ressources, notes et emplois du temps.
                 </CardContent>
               </Card>
             </Link>

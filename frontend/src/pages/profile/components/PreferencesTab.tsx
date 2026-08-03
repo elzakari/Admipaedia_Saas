@@ -20,17 +20,17 @@ type Props = {
 };
 
 const THEME_OPTIONS: Array<{ value: ThemeMode; label: string; icon: React.ReactNode }> = [
-  { value: 'system', label: 'System', icon: <Palette className="h-4 w-4" /> },
-  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
-  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
-  { value: 'gradient', label: 'Gradient', icon: <Palette className="h-4 w-4" /> },
+  { value: 'system', label: 'Système', icon: <Palette className="h-4 w-4" /> },
+  { value: 'light', label: 'Clair', icon: <Sun className="h-4 w-4" /> },
+  { value: 'dark', label: 'Sombre', icon: <Moon className="h-4 w-4" /> },
+  { value: 'gradient', label: 'Dégradé', icon: <Palette className="h-4 w-4" /> },
   { value: 'casaos', label: 'CasaOS', icon: <Palette className="h-4 w-4" /> },
 ];
 
 const TAB_OPTIONS: Array<{ value: ProfileTabKey; label: string }> = [
-  { value: 'profile', label: 'Profile' },
-  { value: 'security', label: 'Security' },
-  { value: 'preferences', label: 'Preferences' },
+  { value: 'profile', label: 'Profil' },
+  { value: 'security', label: 'Sécurité' },
+  { value: 'preferences', label: 'Préférences' },
 ];
 
 export default function PreferencesTab({ preferences }: Props) {
@@ -83,13 +83,13 @@ export default function PreferencesTab({ preferences }: Props) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Palette className="h-5 w-5" />
-            Appearance & Language
+            Thème & Apparence
           </CardTitle>
-          <CardDescription>Personalize how the app looks and feels.</CardDescription>
+          <CardDescription>Personnalisez l'apparence et la convivialité de l'application.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>Thème</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {THEME_OPTIONS.map(opt => {
                 const active = form.theme_mode === opt.value;
@@ -116,7 +116,7 @@ export default function PreferencesTab({ preferences }: Props) {
                 );
               })}
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">Current: {themeMode}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Actuel : {themeMode}</div>
           </div>
 
           <Separator />
@@ -125,7 +125,7 @@ export default function PreferencesTab({ preferences }: Props) {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Languages className="h-4 w-4" />
-                Language
+                Langue
               </Label>
               <Select
                 value={form.language}
@@ -135,17 +135,17 @@ export default function PreferencesTab({ preferences }: Props) {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select language" />
+                  <SelectValue placeholder="Sélectionner la langue" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="en">Anglais (English)</SelectItem>
+                  <SelectItem value="fr">Français (French)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Date/time format</Label>
+              <Label>Format date/heure</Label>
               <Select
                 value={form.date_time_format}
                 onValueChange={(v) => {
@@ -154,35 +154,36 @@ export default function PreferencesTab({ preferences }: Props) {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select format" />
+                  <SelectValue placeholder="Sélectionner le format" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="12h">12-hour</SelectItem>
-                  <SelectItem value="24h">24-hour</SelectItem>
+                  <SelectItem value="auto">Automatique</SelectItem>
+                  <SelectItem value="YYYY-MM-DD">AAAA-MM-JJ</SelectItem>
+                  <SelectItem value="DD/MM/YYYY">JJ/MM/AAAA</SelectItem>
+                  <SelectItem value="MM/DD/YYYY">MM/JJ/AAAA</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Default profile tab</Label>
-            <Select
-              value={form.default_profile_tab}
-              onValueChange={(v) => {
-                setForm(s => ({ ...s, default_profile_tab: v as ProfileTabKey }));
-                setDirty(true);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select tab" />
-              </SelectTrigger>
-              <SelectContent>
-                {TAB_OPTIONS.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Onglet de profil par défaut</Label>
+              <Select
+                value={form.default_profile_tab}
+                onValueChange={(v) => {
+                  setForm(s => ({ ...s, default_profile_tab: v as any }));
+                  setDirty(true);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner l'onglet par défaut" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TAB_OPTIONS.map(tab => (
+                    <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -190,18 +191,19 @@ export default function PreferencesTab({ preferences }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>Notifications</CardTitle>
-          <CardDescription>Control the emails you receive.</CardDescription>
+          <CardDescription>Gérez les e-mails que vous recevez.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">Product updates</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">Release notes and feature announcements.</div>
-            </div>
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor="notify_product_updates" className="flex flex-col space-y-1">
+              <span>Mises à jour du produit</span>
+              <span className="font-normal text-xs text-slate-500">Notes de version et annonces de fonctionnalités.</span>
+            </Label>
             <Switch
+              id="notify_product_updates"
               checked={form.notify_product_updates}
-              onCheckedChange={(checked) => {
-                setForm(s => ({ ...s, notify_product_updates: checked }));
+              onCheckedChange={(v) => {
+                setForm(s => ({ ...s, notify_product_updates: v }));
                 setDirty(true);
               }}
             />
@@ -209,15 +211,16 @@ export default function PreferencesTab({ preferences }: Props) {
 
           <Separator />
 
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">Security alerts</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">Recommended. Important account activity.</div>
-            </div>
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor="notify_security_alerts" className="flex flex-col space-y-1">
+              <span>Alertes de sécurité</span>
+              <span className="font-normal text-xs text-slate-500">Recommandé. Activités importantes du compte.</span>
+            </Label>
             <Switch
+              id="notify_security_alerts"
               checked={form.notify_security_alerts}
-              onCheckedChange={(checked) => {
-                setForm(s => ({ ...s, notify_security_alerts: checked }));
+              onCheckedChange={(v) => {
+                setForm(s => ({ ...s, notify_security_alerts: v }));
                 setDirty(true);
               }}
             />
@@ -225,13 +228,17 @@ export default function PreferencesTab({ preferences }: Props) {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              {dirty ? 'You have unsaved changes.' : 'Preferences are saved.'}
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-xs text-slate-500">
+              {dirty ? 'Modifications non enregistrées' : 'Les préférences sont enregistrées.'}
             </div>
-            <Button type="button" onClick={() => saveMutation.mutate()} disabled={!dirty || saveMutation.isPending}>
+            <Button
+              type="button"
+              disabled={!dirty || saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Save
+              Enregistrer
             </Button>
           </div>
         </CardContent>

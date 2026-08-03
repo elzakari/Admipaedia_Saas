@@ -27,11 +27,11 @@ function formatDateTime(iso: string | null | undefined) {
 
 function strengthHints(pw: string) {
   const hints = [
-    { ok: pw.length >= 8, label: 'At least 8 characters' },
-    { ok: /[A-Z]/.test(pw), label: 'One uppercase letter' },
-    { ok: /[a-z]/.test(pw), label: 'One lowercase letter' },
-    { ok: /\d/.test(pw), label: 'One number' },
-    { ok: /[^A-Za-z0-9]/.test(pw), label: 'One symbol' },
+    { ok: pw.length >= 8, label: 'Au moins 8 caractères' },
+    { ok: /[A-Z]/.test(pw), label: 'Une lettre majuscule' },
+    { ok: /[a-z]/.test(pw), label: 'Une lettre minuscule' },
+    { ok: /\d/.test(pw), label: 'Un chiffre' },
+    { ok: /[^A-Za-z0-9]/.test(pw), label: 'Un symbole' },
   ];
   return hints;
 }
@@ -52,24 +52,24 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
   const revokeMutation = useMutation({
     mutationFn: async (sessionId: number) => profileService.revokeSession(sessionId),
     onSuccess: async () => {
-      toast.success('Session revoked');
+      toast.success('Session révoquée');
       await queryClient.invalidateQueries({ queryKey: ['profile-sessions'] });
       await queryClient.invalidateQueries({ queryKey: ['profile-security-events'] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to revoke session');
+      toast.error(err?.response?.data?.error || 'Échec de la révocation de la session');
     }
   });
 
   const revokeOthersMutation = useMutation({
     mutationFn: async () => profileService.revokeOtherSessions(),
     onSuccess: async () => {
-      toast.success('Other sessions revoked');
+      toast.success('Autres sessions révoquées');
       await queryClient.invalidateQueries({ queryKey: ['profile-sessions'] });
       await queryClient.invalidateQueries({ queryKey: ['profile-security-events'] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.error || 'Failed to revoke sessions');
+      toast.error(err?.response?.data?.error || 'Échec de la révocation des sessions');
     }
   });
 
@@ -85,18 +85,18 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
   const changePwMutation = useMutation({
     mutationFn: async () => {
       if (pw.next !== pw.confirm) {
-        throw new Error('New passwords do not match');
+        throw new Error('Les nouveaux mots de passe ne correspondent pas');
       }
       await authService.changePassword(pw.current, pw.next);
     },
     onSuccess: async () => {
-      toast.success('Password updated');
+      toast.success('Mot de passe mis à jour');
       setPw({ current: '', next: '', confirm: '' });
       await queryClient.invalidateQueries({ queryKey: ['profile-me'] });
       await queryClient.invalidateQueries({ queryKey: ['profile-security-events'] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Failed to change password');
+      toast.error(err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Échec du changement de mot de passe');
     }
   });
 
@@ -106,15 +106,15 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <KeyRound className="h-5 w-5" />
-            Change Password
+            Changer le mot de passe
           </CardTitle>
           <CardDescription>
-            Last changed: {formatDateTime(passwordChangedAt)}
+            Dernière modification : {formatDateTime(passwordChangedAt)}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="current_password">Current password</Label>
+            <Label htmlFor="current_password">Mot de passe actuel</Label>
             <Input
               id="current_password"
               type="password"
@@ -125,7 +125,7 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="new_password">New password</Label>
+              <Label htmlFor="new_password">Nouveau mot de passe</Label>
               <Input
                 id="new_password"
                 type="password"
@@ -135,7 +135,7 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm_password">Confirm new password</Label>
+              <Label htmlFor="confirm_password">Confirmer le nouveau mot de passe</Label>
               <Input
                 id="confirm_password"
                 type="password"
@@ -161,7 +161,7 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
             disabled={!pw.current || !pwOk || changePwMutation.isPending}
           >
             {changePwMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
-            Update password
+            Mettre à jour le mot de passe
           </Button>
         </CardContent>
       </Card>
@@ -170,18 +170,18 @@ export default function SecurityTab({ mfaEnabled, passwordChangedAt }: Props) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Multi-factor Authentication
+            Authentification multifacteur (MFA)
           </CardTitle>
           <CardDescription>
-            Add an extra layer of security to your account.
+            Ajoutez une couche de sécurité supplémentaire à votre compte.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div className="text-sm text-slate-600 dark:text-slate-300">
-            Status: <span className="font-semibold">{mfaEnabled ? 'Enabled' : 'Not enabled'}</span>
+            Statut : <span className="font-semibold">{mfaEnabled ? 'Activé' : 'Non activé'}</span>
           </div>
           <Button asChild variant={mfaEnabled ? 'outline' : 'default'}>
-            <Link to="/auth/mfa/setup">{mfaEnabled ? 'Manage MFA' : 'Enable MFA'}</Link>
+            <Link to="/auth/mfa/setup">{mfaEnabled ? 'Gérer le MFA' : 'Activer le MFA'}</Link>
           </Button>
         </CardContent>
       </Card>

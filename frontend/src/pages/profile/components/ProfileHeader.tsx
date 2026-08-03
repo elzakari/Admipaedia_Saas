@@ -72,18 +72,18 @@ export default function ProfileHeader({
                 <span className="text-sm text-slate-600 dark:text-slate-300 truncate">{email}</span>
                 <Badge variant="secondary" className="capitalize">{role}</Badge>
                 <Badge variant={emailVerified ? 'outline' : 'secondary'} className={cn(emailVerified ? 'border-green-200 text-green-700 bg-green-50' : '')}>
-                  {emailVerified ? 'Email verified' : 'Email unverified'}
+                  {emailVerified ? 'E-mail vérifié' : 'E-mail non vérifié'}
                 </Badge>
                 <Badge variant={mfaEnabled ? 'outline' : 'secondary'} className={cn(mfaEnabled ? 'border-blue-200 text-blue-700 bg-blue-50' : '')}>
-                  {mfaEnabled ? 'MFA enabled' : 'MFA not enabled'}
+                  {mfaEnabled ? 'MFA activé' : 'MFA non activé'}
                 </Badge>
               </div>
             </div>
           </div>
 
           <div className="text-sm text-slate-500 dark:text-slate-400">
-            <div className="font-medium">Edit in the Profile tab</div>
-            <div>{updated ? `Last updated: ${updated}` : 'Last updated: —'}</div>
+            <div className="font-medium">Modifier dans l'onglet Profil</div>
+            <div>{updated ? `Dernière mise à jour : ${updated}` : 'Dernière mise à jour : —'}</div>
           </div>
         </div>
       </CardContent>
