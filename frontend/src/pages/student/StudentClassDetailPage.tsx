@@ -34,11 +34,11 @@ const StudentClassDetailPage: React.FC = () => {
       <div className="p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Class not found</CardTitle>
-            <CardDescription>The class you requested isn’t available.</CardDescription>
+            <CardTitle>Classe introuvable</CardTitle>
+            <CardDescription>La classe demandée n'est pas disponible.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/student/classes" className="text-indigo-600 hover:text-indigo-700">Back to My Classes</Link>
+            <Link to="/student/classes" className="text-indigo-600 hover:text-indigo-700">Retour à Mes classes</Link>
           </CardContent>
         </Card>
       </div>
@@ -48,7 +48,7 @@ const StudentClassDetailPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center text-sm text-indigo-700">
-        <Link to="/student/classes" className="hover:text-indigo-900">My Classes</Link>
+        <Link to="/student/classes" className="hover:text-indigo-900">Mes classes</Link>
         <ChevronRight className="h-4 w-4 mx-2" />
         <span className="font-medium text-indigo-900">{cls.subject}</span>
       </div>
@@ -61,17 +61,17 @@ const StudentClassDetailPage: React.FC = () => {
         <CardContent>
           <Tabs defaultValue="lessons">
             <TabsList className="grid grid-cols-2 max-w-sm">
-              <TabsTrigger value="lessons">Daily Lessons</TabsTrigger>
-              <TabsTrigger value="catchup">Catch Up</TabsTrigger>
+              <TabsTrigger value="lessons">Leçons quotidiennes</TabsTrigger>
+              <TabsTrigger value="catchup">Rattrapage</TabsTrigger>
             </TabsList>
 
             <TabsContent value="lessons" className="mt-4">
               {isLoading ? (
-                <div className="text-sm text-slate-600 dark:text-slate-400">Loading lesson history...</div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">Chargement de l'historique des leçons...</div>
               ) : (
                 <div className="space-y-3">
                   {lessons.length === 0 ? (
-                    <div className="text-sm text-slate-600 dark:text-slate-400">No daily lessons have been shared for this subject yet.</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Aucune leçon quotidienne n'a encore été partagée pour cette matière.</div>
                   ) : (
                     lessons.map((lesson) => (
                       <div key={lesson.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-3">
@@ -84,7 +84,7 @@ const StudentClassDetailPage: React.FC = () => {
                             <div className="mt-1 text-xs text-slate-500">{lesson.date}</div>
                           </div>
                           {lesson.was_absent ? (
-                            <Badge variant="destructive" className="w-fit">You were absent</Badge>
+                            <Badge variant="destructive" className="w-fit">Vous étiez absent(e)</Badge>
                           ) : (
                             <Badge variant="secondary" className="w-fit">{lesson.status}</Badge>
                           )}
@@ -96,7 +96,7 @@ const StudentClassDetailPage: React.FC = () => {
 
                         {lesson.objectives ? (
                           <div className="rounded-md bg-slate-50 dark:bg-slate-800 p-3 text-sm">
-                            <div className="font-medium text-slate-900 dark:text-slate-100">Objectives</div>
+                            <div className="font-medium text-slate-900 dark:text-slate-100">Objectifs</div>
                             <div className="mt-1 whitespace-pre-wrap text-slate-600 dark:text-slate-300">{lesson.objectives}</div>
                           </div>
                         ) : null}
@@ -105,7 +105,7 @@ const StudentClassDetailPage: React.FC = () => {
                           <div className="rounded-md bg-slate-50 dark:bg-slate-800 p-3 text-sm">
                             <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-slate-100">
                               <ClipboardCheck className="h-4 w-4 text-indigo-600" />
-                              Classwork
+                              Travail en classe
                             </div>
                             <div className="mt-1 whitespace-pre-wrap text-slate-600 dark:text-slate-300">{lesson.classwork}</div>
                           </div>
@@ -115,7 +115,7 @@ const StudentClassDetailPage: React.FC = () => {
                           <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
                             <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
                               <CheckCircle2 className="h-4 w-4" />
-                              Homework
+                              Devoirs
                             </div>
                             <div className="mt-1 whitespace-pre-wrap text-amber-800 dark:text-amber-100">{lesson.homework}</div>
                           </div>
@@ -123,7 +123,7 @@ const StudentClassDetailPage: React.FC = () => {
 
                         {lesson.notes ? (
                           <div className="rounded-md bg-indigo-50 dark:bg-indigo-950/30 p-3 text-sm">
-                            <div className="font-medium text-indigo-900 dark:text-indigo-100">Catch-up Notes</div>
+                            <div className="font-medium text-indigo-900 dark:text-indigo-100">Notes de rattrapage</div>
                             <div className="mt-1 whitespace-pre-wrap text-indigo-800 dark:text-indigo-100">{lesson.notes}</div>
                           </div>
                         ) : null}
@@ -154,7 +154,7 @@ const StudentClassDetailPage: React.FC = () => {
             <TabsContent value="catchup" className="mt-4">
               <div className="space-y-3">
                 {lessons.filter((lesson) => lesson.was_absent).length === 0 ? (
-                  <div className="text-sm text-slate-600 dark:text-slate-400">No missed lesson logs were detected for this subject.</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Aucun journal de leçon manquée n'a été détecté pour cette matière.</div>
                 ) : (
                   lessons.filter((lesson) => lesson.was_absent).map((lesson) => (
                     <div key={lesson.id} className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 p-4">
@@ -165,9 +165,9 @@ const StudentClassDetailPage: React.FC = () => {
                       <div className="mt-1 text-xs text-amber-700 dark:text-amber-200">{lesson.date}</div>
                       <div className="mt-3 space-y-2 text-sm text-amber-900 dark:text-amber-50">
                         {lesson.description ? <p>{lesson.description}</p> : null}
-                        {lesson.classwork ? <p><span className="font-medium">Classwork:</span> {lesson.classwork}</p> : null}
-                        {lesson.homework ? <p><span className="font-medium">Homework:</span> {lesson.homework}</p> : null}
-                        {lesson.notes ? <p><span className="font-medium">Catch-up:</span> {lesson.notes}</p> : null}
+                        {lesson.classwork ? <p><span className="font-medium">Travail en classe :</span> {lesson.classwork}</p> : null}
+                        {lesson.homework ? <p><span className="font-medium">Devoirs :</span> {lesson.homework}</p> : null}
+                        {lesson.notes ? <p><span className="font-medium">Rattrapage :</span> {lesson.notes}</p> : null}
                       </div>
                     </div>
                   ))
@@ -182,4 +182,3 @@ const StudentClassDetailPage: React.FC = () => {
 };
 
 export default StudentClassDetailPage;
-

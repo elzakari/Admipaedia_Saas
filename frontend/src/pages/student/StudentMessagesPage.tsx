@@ -48,20 +48,20 @@ const StudentMessagesPage: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('messages.student_title', 'Messages')}</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">{t('messages.student_subtitle', 'Contact teachers and view replies')}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{t('messages.student_subtitle', 'Contactez vos enseignants et consultez leurs réponses')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-160px)]">
         <Card className="lg:col-span-1 flex flex-col h-full">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5 text-indigo-600" /> {t('messages.threads', 'Threads')}</CardTitle>
-            <CardDescription>{t('messages.select_conversation', 'Select a conversation')}</CardDescription>
+            <CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5 text-indigo-600" /> {t('messages.threads', 'Discussions')}</CardTitle>
+            <CardDescription>{t('messages.select_conversation', 'Sélectionnez une conversation')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 flex-1 overflow-y-auto pb-4">
             {loading && threads.length === 0 ? (
-              <div className="text-sm text-slate-500">Loading threads...</div>
+              <div className="text-sm text-slate-500">Chargement des discussions...</div>
             ) : threads.length === 0 ? (
-              <div className="text-sm text-slate-500">No conversations.</div>
+              <div className="text-sm text-slate-500">Aucune conversation.</div>
             ) : (
               threads.map((thread) => (
                 <button
@@ -71,7 +71,7 @@ const StudentMessagesPage: React.FC = () => {
                 >
                   <div className="flex justify-between items-center">
                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{thread.title}</div>
-                    {thread.unread && <span className="w-2 h-2 rounded-full bg-rose-500" title="Unread"></span>}
+                    {thread.unread && <span className="w-2 h-2 rounded-full bg-rose-500" title="Non lu"></span>}
                   </div>
                   <div className="text-xs text-slate-500">{thread.participants}</div>
                 </button>
@@ -82,15 +82,15 @@ const StudentMessagesPage: React.FC = () => {
 
         <Card className="lg:col-span-2 flex flex-col h-full">
           <CardHeader>
-            <CardTitle>{active?.title ?? t('messages.select_conversation', 'Select a conversation')}</CardTitle>
+            <CardTitle>{active?.title ?? t('messages.select_conversation', 'Sélectionnez une conversation')}</CardTitle>
             <CardDescription>{active?.participants ?? ''}</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-2">
               {active?.messages.map((m: any) => (
-                <div key={m.id} className={`rounded-lg p-3 border ${m.sender === 'You' ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                <div key={m.id} className={`rounded-lg p-3 border ${m.sender === 'You' || m.sender === 'Vous' ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{m.sender}</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{m.sender === 'You' ? 'Vous' : m.sender}</div>
                     <div className="text-xs text-slate-500">{m.sentAt ? new Date(m.sentAt).toLocaleString() : ''}</div>
                   </div>
                   <div className="text-sm text-slate-700 dark:text-slate-300 mt-2">{m.body}</div>
@@ -102,7 +102,7 @@ const StudentMessagesPage: React.FC = () => {
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder={t('messages.input_placeholder', 'Type a message...')}
+                placeholder={t('messages.input_placeholder', 'Écrire un message...')}
                 className="flex-1 h-10 rounded-lg border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSend();
@@ -114,7 +114,7 @@ const StudentMessagesPage: React.FC = () => {
                 disabled={!active || !draft.trim()}
               >
                 <Send className="h-4 w-4 mr-2 sm:hidden" />
-                <span className="hidden sm:inline">{t('messages.send_action', 'Send')}</span>
+                <span className="hidden sm:inline">{t('messages.send_action', 'Envoyer')}</span>
               </Button>
             </div>
           </CardContent>

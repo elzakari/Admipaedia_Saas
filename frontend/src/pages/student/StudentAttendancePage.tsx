@@ -172,7 +172,7 @@ const StudentAttendancePage: React.FC = () => {
             </div>
           </div>
           <CardDescription className="text-xs text-slate-500 mt-2">
-            Overall presence metric calculated against all active terms
+            Mesure de présence globale calculée sur tous les trimestres actifs
           </CardDescription>
         </Card>
 
@@ -180,10 +180,10 @@ const StudentAttendancePage: React.FC = () => {
         <Card className="lg:col-span-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/50 dark:border-slate-800/50 shadow-sm p-6">
           <CardHeader className="pb-4 pt-0 px-0">
             <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Attendance Analytics Summary
+              Synthèse analytique de l'assiduité
             </CardTitle>
             <CardDescription className="text-xs">
-              Consolidated real database aggregates computed in real-time
+              Données consolidées en temps réel
             </CardDescription>
           </CardHeader>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 h-full">
@@ -267,7 +267,7 @@ const StudentAttendancePage: React.FC = () => {
                       {formatDate(e.date)}
                     </span>
                     <span className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                      <span className="font-semibold text-slate-400">Remarks:</span>
+                      <span className="font-semibold text-slate-400">Remarques :</span>
                       {e.remarks || '-'}
                     </span>
                   </div>
@@ -287,10 +287,10 @@ const StudentAttendancePage: React.FC = () => {
                 <CalendarCheck2 className="h-8 w-8" />
               </div>
               <div className="text-base font-semibold text-slate-700 dark:text-slate-300">
-                No history entries found.
+                Aucune entrée trouvée dans l'historique.
               </div>
               <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                No attendance checkpoints have been recorded yet. Talk to your homeroom instructor if you believe this is in error.
+                Aucun relevé d'assiduité n'a encore été enregistré. Contactez votre professeur principal si vous pensez qu'il s'agit d'une erreur.
               </p>
             </div>
           )}

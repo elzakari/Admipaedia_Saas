@@ -67,10 +67,10 @@ const StudentNotificationsPage: React.FC = () => {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 60) return "À l'instant";
+    if (diffInSeconds < 3600) return `Il y a ${Math.floor(diffInSeconds / 60)} min`;
+    if (diffInSeconds < 86400) return `Il y a ${Math.floor(diffInSeconds / 3600)} h`;
+    return `Il y a ${Math.floor(diffInSeconds / 86400)} j`;
   };
 
   return (
@@ -78,37 +78,37 @@ const StudentNotificationsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('notifications.student_title', 'Notifications')}</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">{t('notifications.student_subtitle', 'Announcements and updates')}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t('notifications.student_subtitle', 'Annonces et mises à jour')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')} className="rounded-xl">All</Button>
-          <Button variant={filter === 'unread' ? 'default' : 'outline'} onClick={() => setFilter('unread')} className="rounded-xl">Unread</Button>
+          <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')} className="rounded-xl">Toutes</Button>
+          <Button variant={filter === 'unread' ? 'default' : 'outline'} onClick={() => setFilter('unread')} className="rounded-xl">Non lues</Button>
         </div>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={handleMarkAllRead} className="text-indigo-600 dark:text-indigo-400">
           <CheckSquare className="w-4 h-4 mr-2" />
-          {t('notifications.mark_all_read', 'Mark all as read')}
+          {t('notifications.mark_all_read', 'Tout marquer comme lu')}
         </Button>
         <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-rose-600 dark:text-rose-400">
           <Trash2 className="w-4 h-4 mr-2" />
-          {t('notifications.clear_history', 'Clear history')}
+          {t('notifications.clear_history', "Effacer l'historique")}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-600" /> {t('notifications.inbox', 'Inbox')}</CardTitle>
-          <CardDescription>{t('notifications.mark_item_read', 'Mark items as read')}</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-600" /> {t('notifications.inbox', 'Boîte de réception')}</CardTitle>
+          <CardDescription>{t('notifications.mark_item_read', 'Marquer des éléments comme lus')}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-sm text-slate-500 py-4">Loading notifications...</div>
+            <div className="text-sm text-slate-500 py-4">Chargement des notifications...</div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
               <Bell className="h-12 w-12 text-slate-200 dark:text-slate-700 mb-4" />
-              <p>{t('notifications.empty_state', 'You are all caught up!')}</p>
+              <p>{t('notifications.empty_state', 'Vous êtes à jour !')}</p>
             </div>
           ) : (
             <div className="space-y-3">
