@@ -619,18 +619,18 @@ const SecuritySettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                {t('admin_settings.security_monitoring', 'Security Monitoring')}
+                {t('admin_settings.security_monitoring', 'Surveillance de la sécurité')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.security_monitoring_desc', 'Configure security alerts and monitoring')}
+                {t('admin_settings.security_monitoring_desc', 'Configurer les alertes de sécurité et la surveillance')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="login-alerts">{t('admin_settings.login_alerts', 'Login Alerts')}</Label>
+                  <Label htmlFor="login-alerts">{t('admin_settings.login_alerts', 'Alertes de connexion')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.login_alerts_desc', 'Send alerts for successful and failed login attempts')}
+                    {t('admin_settings.login_alerts_desc', 'Envoyer des alertes pour les tentatives de connexion réussies et échouées')}
                   </p>
                 </div>
                 <Switch
@@ -642,9 +642,9 @@ const SecuritySettings = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="suspicious-alerts">{t('admin_settings.suspicious_alerts', 'Suspicious Activity Alerts')}</Label>
+                  <Label htmlFor="suspicious-alerts">{t('admin_settings.suspicious_alerts', 'Alertes d\'activité suspecte')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.suspicious_alerts_desc', 'Alert administrators about suspicious user activity')}
+                    {t('admin_settings.suspicious_alerts_desc', 'Avertir les administrateurs en cas d\'activité utilisateur suspecte')}
                   </p>
                 </div>
                 <Switch
@@ -656,9 +656,9 @@ const SecuritySettings = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="security-audit">{t('admin_settings.security_audit', 'Security Audit Logging')}</Label>
+                  <Label htmlFor="security-audit">{t('admin_settings.security_audit', 'Journalisation de l\'audit de sécurité')}</Label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('admin_settings.security_audit_desc', 'Log all security-related events')}
+                    {t('admin_settings.security_audit_desc', 'Enregistrer tous les événements liés à la sécurité')}
                   </p>
                 </div>
                 <Switch
@@ -672,10 +672,10 @@ const SecuritySettings = () => {
                 <div className="flex items-start">
                   <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                   <div>
-                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.security_status', 'Security Status')}</h4>
+                    <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.security_status', 'Statut de sécurité')}</h4>
                     <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                      {t('admin_settings.security_status_desc', 'Your security settings are currently {{level}} level.', { level: settings.twoFactorEnabled ? 'enhanced' : 'standard' })}
-                      {settings.twoFactorEnabled && t('admin_settings.two_factor_active_note', ' Two-factor authentication is enabled for all users.')}
+                      {t('admin_settings.security_status_desc', 'Vos paramètres de sécurité sont actuellement au niveau {{level}}.', { level: settings.twoFactorEnabled ? 'renforcé' : 'standard' })}
+                      {settings.twoFactorEnabled && t('admin_settings.two_factor_active_note', ' L\'authentification à deux facteurs est activée pour tous les utilisateurs.')}
                     </p>
                   </div>
                 </div>

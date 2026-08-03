@@ -314,8 +314,8 @@ const BackupSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.backup_recovery', 'Backup & Recovery')}</h2>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.backup_recovery_desc', 'Configure data backup and recovery options')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.backup_recovery', 'Sauvegarde & Restauration')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.backup_recovery_desc', 'Configurer les options de sauvegarde et de récupération des données')}</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -328,7 +328,7 @@ const BackupSettings = () => {
             ) : (
               <Database className="h-4 w-4" />
             )}
-            {isCreatingBackup ? t('common.creating', 'Creating...') : t('admin_settings.create_backup', 'Create Backup')}
+            {isCreatingBackup ? t('common.creating', 'Création…') : t('admin_settings.create_backup', 'Créer une sauvegarde')}
           </Button>
           <Button 
             onClick={handleSaveSettings}
@@ -341,7 +341,7 @@ const BackupSettings = () => {
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {t('school_settings.save_changes', 'Save Settings')}
+            {t('school_settings.save_changes', 'Enregistrer')}
           </Button>
         </div>
       </div>
@@ -352,13 +352,13 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 animate-spin" />
-              {t('admin_settings.creating_backup', 'Creating Backup')}
+              {t('admin_settings.creating_backup', 'Création de la sauvegarde')}
             </CardTitle>
-            <CardDescription>{t('admin_settings.creating_backup_desc', 'Please wait while we create your backup')}</CardDescription>
+            <CardDescription>{t('admin_settings.creating_backup_desc', 'Veuillez patienter pendant la création de votre sauvegarde')}</CardDescription>
           </CardHeader>
           <CardContent>
             <Progress value={backupProgress} className="w-full" />
-            <p className="text-sm text-gray-500 mt-2">{backupProgress}{t('admin_settings.percent_complete', '% complete')}</p>
+            <p className="text-sm text-gray-500 mt-2">{backupProgress}{t('admin_settings.percent_complete', '% terminé')}</p>
           </CardContent>
         </Card>
       )}
@@ -370,7 +370,7 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                {t('admin_settings.next_backup', 'Next Backup')}
+                {t('admin_settings.next_backup', 'Prochaine sauvegarde')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -383,13 +383,13 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <History className="h-4 w-4" />
-                {t('admin_settings.last_backup', 'Last Backup')}
+                {t('admin_settings.last_backup', 'Dernière sauvegarde')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{hasLast ? format(lastBackupDate!, 'MMM dd, HH:mm') : '—'}</p>
               <p className="text-sm text-gray-500">
-                {hasLast ? `${Math.floor((Date.now() - lastBackupDate!.getTime()) / (1000 * 60 * 60))} ${t('admin_settings.hours_ago', 'hours ago')}` : '—'}
+                {hasLast ? `${Math.floor((Date.now() - lastBackupDate!.getTime()) / (1000 * 60 * 60))} ${t('admin_settings.hours_ago', 'heures au préalable')}` : '—'}
               </p>
             </CardContent>
           </Card>
@@ -398,12 +398,12 @@ const BackupSettings = () => {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <HardDrive className="h-4 w-4" />
-                {t('admin_settings.storage_status', 'Storage Status')}
+                {t('admin_settings.storage_status', 'Statut du stockage')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{normalizedSchedule.availableSpace || '—'}</p>
-              <p className="text-sm text-gray-500">{t('admin_settings.available_space', 'Available space')}</p>
+              <p className="text-sm text-gray-500">{t('admin_settings.available_space', 'Espace disponible')}</p>
             </CardContent>
           </Card>
         </div>
@@ -415,15 +415,15 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {t('admin_settings.auto_backup_config', 'Auto Backup Configuration')}
+              {t('admin_settings.auto_backup_config', 'Configuration de sauvegarde automatique')}
             </CardTitle>
-            <CardDescription>{t('admin_settings.auto_backup_config_desc', 'Configure automatic backup settings')}</CardDescription>
+            <CardDescription>{t('admin_settings.auto_backup_config_desc', 'Configurer les paramètres de sauvegarde automatique')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="auto-backup">{t('admin_settings.enable_auto_backup', 'Enable Auto Backup')}</Label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.auto_backup_desc', 'Automatically create backups on schedule')}</p>
+                <Label htmlFor="auto-backup">{t('admin_settings.enable_auto_backup', 'Activer la sauvegarde automatique')}</Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.auto_backup_desc', 'Créer automatiquement des sauvegardes selon la planification')}</p>
               </div>
               <Switch
                 id="auto-backup"
@@ -436,20 +436,20 @@ const BackupSettings = () => {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="backup-frequency">{t('admin_settings.frequency', 'Frequency')}</Label>
+                    <Label htmlFor="backup-frequency">{t('admin_settings.frequency', 'Fréquence')}</Label>
                     <Select value={settings.backupFrequency} onValueChange={(value) => handleInputChange('backupFrequency', value)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">{t('admin_settings.daily', 'Daily')}</SelectItem>
-                        <SelectItem value="weekly">{t('admin_settings.weekly', 'Weekly')}</SelectItem>
-                        <SelectItem value="monthly">{t('admin_settings.monthly', 'Monthly')}</SelectItem>
+                        <SelectItem value="daily">{t('admin_settings.daily', 'Quotidienne')}</SelectItem>
+                        <SelectItem value="weekly">{t('admin_settings.weekly', 'Hebdomadaire')}</SelectItem>
+                        <SelectItem value="monthly">{t('admin_settings.monthly', 'Mensuelle')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="backup-time">{t('common.time', 'Time')}</Label>
+                    <Label htmlFor="backup-time">{t('common.time', 'Heure')}</Label>
                     <Input
                       id="backup-time"
                       type="time"
@@ -459,7 +459,7 @@ const BackupSettings = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="retention">{t('admin_settings.retention_period', 'Retention Period (days)')}</Label>
+                  <Label htmlFor="retention">{t('admin_settings.retention_period', 'Période de rétention (jours)')}</Label>
                   <Input
                     id="retention"
                     type="number"
@@ -479,28 +479,28 @@ const BackupSettings = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <HardDrive className="h-5 w-5" />
-              {t('admin_settings.storage_config', 'Storage Configuration')}
+              {t('admin_settings.storage_config', 'Configuration du stockage')}
             </CardTitle>
-            <CardDescription>{t('admin_settings.storage_config_desc', 'Configure backup storage options')}</CardDescription>
+            <CardDescription>{t('admin_settings.storage_config_desc', 'Configurer les options de stockage des sauvegardes')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="storage-type">{t('admin_settings.storage_type', 'Storage Type')}</Label>
+              <Label htmlFor="storage-type">{t('admin_settings.storage_type', 'Type de stockage')}</Label>
               <Select value={settings.storageType} onValueChange={(value) => handleInputChange('storageType', value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="local">{t('admin_settings.local_storage', 'Local Storage')}</SelectItem>
-                  <SelectItem value="cloud">{t('admin_settings.cloud_storage', 'Cloud Storage')}</SelectItem>
-                  <SelectItem value="hybrid">{t('admin_settings.hybrid_storage', 'Hybrid (Local + Cloud)')}</SelectItem>
+                  <SelectItem value="local">{t('admin_settings.local_storage', 'Stockage local')}</SelectItem>
+                  <SelectItem value="cloud">{t('admin_settings.cloud_storage', 'Stockage Cloud')}</SelectItem>
+                  <SelectItem value="hybrid">{t('admin_settings.hybrid_storage', 'Hybride (Local + Cloud)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {settings.storageType !== 'cloud' && (
               <div className="space-y-2">
-                <Label htmlFor="local-path">{t('admin_settings.local_path', 'Local Storage Path')}</Label>
+                <Label htmlFor="local-path">{t('admin_settings.local_path', 'Chemin du stockage local')}</Label>
                 <Input
                   id="local-path"
                   value={settings.localStoragePath}
@@ -513,7 +513,7 @@ const BackupSettings = () => {
             {(settings.storageType === 'cloud' || settings.storageType === 'hybrid') && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="cloud-provider">{t('admin_settings.cloud_provider', 'Cloud Provider')}</Label>
+                  <Label htmlFor="cloud-provider">{t('admin_settings.cloud_provider', 'Fournisseur Cloud')}</Label>
                   <Select value={settings.cloudProvider} onValueChange={(value) => handleInputChange('cloudProvider', value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -522,12 +522,12 @@ const BackupSettings = () => {
                       <SelectItem value="aws">{t('admin_settings.aws', 'Amazon Web Services')}</SelectItem>
                       <SelectItem value="gcp">{t('admin_settings.gcp', 'Google Cloud Platform')}</SelectItem>
                       <SelectItem value="azure">{t('admin_settings.azure', 'Microsoft Azure')}</SelectItem>
-                      <SelectItem value="custom">{t('admin_settings.custom_s3', 'Custom S3 Compatible')}</SelectItem>
+                      <SelectItem value="custom">{t('admin_settings.custom_s3', 'Compatible S3 personnalisé')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cloud-bucket">{t('admin_settings.bucket_name', 'Bucket/Container Name')}</Label>
+                  <Label htmlFor="cloud-bucket">{t('admin_settings.bucket_name', 'Nom du Bucket / Conteneur')}</Label>
                   <Input
                     id="cloud-bucket"
                     value={settings.cloudBucket}
@@ -540,8 +540,8 @@ const BackupSettings = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="encryption">{t('admin_settings.enable_encryption', 'Enable Encryption')}</Label>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.encrypt_desc', 'Encrypt backup data')}</p>
+                <Label htmlFor="encryption">{t('admin_settings.enable_encryption', 'Activer le chiffrement')}</Label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('admin_settings.encrypt_desc', 'Chiffrer les données de sauvegarde')}</p>
               </div>
               <Switch
                 id="encryption"
@@ -558,16 +558,16 @@ const BackupSettings = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            {t('admin_settings.backup_content', 'Backup Content')}
+            {t('admin_settings.backup_content', 'Contenu de la sauvegarde')}
           </CardTitle>
-          <CardDescription>{t('admin_settings.backup_content_desc', 'Select what data to include in backups')}</CardDescription>
+          <CardDescription>{t('admin_settings.backup_content_desc', 'Sélectionner les données à inclure dans les sauvegardes')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-students">{t('admin_settings.student_data', 'Student Data')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.student_data_desc', 'Student records and profiles')}</p>
+                <Label htmlFor="backup-students">{t('admin_settings.student_data', 'Données des élèves')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.student_data_desc', 'Dossiers et profils des élèves')}</p>
               </div>
               <Switch
                 id="backup-students"
@@ -577,8 +577,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-teachers">{t('admin_settings.teacher_data', 'Teacher Data')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.teacher_data_desc', 'Teacher records and profiles')}</p>
+                <Label htmlFor="backup-teachers">{t('admin_settings.teacher_data', 'Données des enseignants')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.teacher_data_desc', 'Dossiers et profils des enseignants')}</p>
               </div>
               <Switch
                 id="backup-teachers"
@@ -588,8 +588,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-academic">{t('admin_settings.academic_data', 'Academic Data')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.academic_data_desc', 'Grades, schedules, curriculum')}</p>
+                <Label htmlFor="backup-academic">{t('admin_settings.academic_data', 'Données académiques')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.academic_data_desc', 'Notes, emplois du temps, programmes')}</p>
               </div>
               <Switch
                 id="backup-academic"
@@ -599,8 +599,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-financial">{t('admin_settings.financial_data', 'Financial Data')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.financial_data_desc', 'Fees, payments, transactions')}</p>
+                <Label htmlFor="backup-financial">{t('admin_settings.financial_data', 'Données financières')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.financial_data_desc', 'Frais, paiements, transactions')}</p>
               </div>
               <Switch
                 id="backup-financial"
@@ -610,8 +610,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-settings">{t('admin_settings.system_settings', 'System Settings')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.system_settings_desc', 'Configuration and preferences')}</p>
+                <Label htmlFor="backup-settings">{t('admin_settings.system_settings', 'Paramètres système')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.system_settings_desc', 'Configuration et préférences')}</p>
               </div>
               <Switch
                 id="backup-settings"
@@ -621,8 +621,8 @@ const BackupSettings = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="backup-media">{t('admin_settings.media_files', 'Media Files')}</Label>
-                <p className="text-sm text-gray-500">{t('admin_settings.media_files_desc', 'Images, documents, uploads')}</p>
+                <Label htmlFor="backup-media">{t('admin_settings.media_files', 'Fichiers médias')}</Label>
+                <p className="text-sm text-gray-500">{t('admin_settings.media_files_desc', 'Images, documents, fichiers téléversés')}</p>
               </div>
               <Switch
                 id="backup-media"

@@ -255,8 +255,8 @@ const AuditLogs = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.audit_logs', 'Audit Logs')}</h2>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.audit_logs_desc', 'View system activity and user actions')}</p>
+          <h2 className="text-2xl font-bold tracking-tight">{t('admin_settings.audit_logs', 'Journaux d\'audit')}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.audit_logs_desc', 'Consulter l\'activité du système et les actions des utilisateurs')}</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -270,7 +270,7 @@ const AuditLogs = () => {
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            {t('common.refresh', 'Refresh')}
+            {t('common.refresh', 'Actualiser')}
           </Button>
           <Button 
             onClick={handleExportLogs}
@@ -283,7 +283,7 @@ const AuditLogs = () => {
             ) : (
               <Download className="h-4 w-4" />
             )}
-            {t('common.export', 'Export')}
+            {t('common.export', 'Exporter')}
           </Button>
           <Button 
             onClick={() => setShowFilters(!showFilters)}
@@ -291,7 +291,7 @@ const AuditLogs = () => {
             className="flex items-center gap-2"
           >
             <Filter className="h-4 w-4" />
-            {t('common.filters', 'Filters')} {getActiveFiltersCount() > 0 && `(${getActiveFiltersCount()})`}
+            {t('common.filters', 'Filtres')} {getActiveFiltersCount() > 0 && `(${getActiveFiltersCount()})`}
           </Button>
         </div>
       </div>
@@ -303,7 +303,7 @@ const AuditLogs = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.total_logs', 'Total Logs')}</p>
+                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.total_logs', 'Total des journaux')}</p>
                   <p className="text-2xl font-bold">{auditStats.totalLogs.toLocaleString()}</p>
                 </div>
                 <FileText className="h-8 w-8 text-blue-500" />
@@ -315,7 +315,7 @@ const AuditLogs = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.success_rate', 'Success Rate')}</p>
+                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.success_rate', 'Taux de réussite')}</p>
                   <p className="text-2xl font-bold">{auditStats.successRate}%</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-500" />
@@ -327,7 +327,7 @@ const AuditLogs = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.critical_events', 'Critical Events')}</p>
+                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.critical_events', 'Événements critiques')}</p>
                   <p className="text-2xl font-bold">{auditStats.criticalEvents}</p>
                 </div>
                 <AlertCircle className="h-8 w-8 text-red-500" />
@@ -339,7 +339,7 @@ const AuditLogs = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.active_users', 'Active Users')}</p>
+                  <p className="text-sm font-medium text-gray-500">{t('admin_settings.active_users', 'Utilisateurs actifs')}</p>
                   <p className="text-2xl font-bold">{auditStats.uniqueUsers}</p>
                 </div>
                 <Users className="h-8 w-8 text-purple-500" />
@@ -355,19 +355,19 @@ const AuditLogs = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Filter className="h-5 w-5" />
-              {t('common.filters', 'Filters')}
+              {t('common.filters', 'Filtres')}
             </CardTitle>
-            <CardDescription>{t('admin_settings.filter_audit_logs_desc', 'Filter audit logs by various criteria')}</CardDescription>
+            <CardDescription>{t('admin_settings.filter_audit_logs_desc', 'Filtrer les journaux d\'audit selon divers critères')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="search">{t('common.search', 'Search')}</Label>
+                <Label htmlFor="search">{t('common.search', 'Rechercher')}</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="search"
-                    placeholder={t('admin_settings.search_logs_placeholder', 'Search logs...')}
+                    placeholder={t('admin_settings.search_logs_placeholder', 'Rechercher des journaux…')}
                     value={filters.searchTerm}
                     onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                     className="pl-10"
@@ -376,69 +376,73 @@ const AuditLogs = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="category">{t('common.category', 'Category')}</Label>
+                <Label htmlFor="category">{t('common.category', 'Catégorie')}</Label>
                 <Select value={filters.category} onValueChange={(value) => handleFilterChange('category', value)}>
                   <SelectTrigger id="category">
-                    <SelectValue />
+                    <SelectValue placeholder={t('common.all_categories', 'Toutes les catégories')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('admin_settings.all_categories', 'All Categories')}</SelectItem>
-                    {filterOptions?.categories?.map((category: string) => (
-                      <SelectItem key={category} value={category}>{formatAction(category)}</SelectItem>
-                    ))}
+                    <SelectItem value="all">{t('common.all_categories', 'Toutes les catégories')}</SelectItem>
+                    <SelectItem value="authentication">{t('admin_settings.authentication', 'Authentification')}</SelectItem>
+                    <SelectItem value="authorization">{t('admin_settings.authorization', 'Autorisation')}</SelectItem>
+                    <SelectItem value="data_access">{t('admin_settings.data_access', 'Accès aux données')}</SelectItem>
+                    <SelectItem value="data_modification">{t('admin_settings.data_modification', 'Modification de données')}</SelectItem>
+                    <SelectItem value="system">{t('admin_settings.system', 'Système')}</SelectItem>
+                    <SelectItem value="security">{t('admin_settings.security', 'Sécurité')}</SelectItem>
+                    <SelectItem value="api">API</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="severity">{t('admin_settings.severity', 'Severity')}</Label>
+                <Label htmlFor="severity">{t('admin_settings.severity', 'Gravité')}</Label>
                 <Select value={filters.severity} onValueChange={(value) => handleFilterChange('severity', value)}>
                   <SelectTrigger id="severity">
-                    <SelectValue />
+                    <SelectValue placeholder={t('common.all_severities', 'Toutes les gravités')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('admin_settings.all_severities', 'All Severities')}</SelectItem>
-                    <SelectItem value="low">{t('admin_settings.severity_low', 'Low')}</SelectItem>
-                    <SelectItem value="medium">{t('admin_settings.severity_medium', 'Medium')}</SelectItem>
-                    <SelectItem value="high">{t('admin_settings.severity_high', 'High')}</SelectItem>
-                    <SelectItem value="critical">{t('admin_settings.severity_critical', 'Critical')}</SelectItem>
+                    <SelectItem value="all">{t('common.all_severities', 'Toutes les gravités')}</SelectItem>
+                    <SelectItem value="low">{t('admin_settings.severity_low', 'Faible')}</SelectItem>
+                    <SelectItem value="medium">{t('admin_settings.severity_medium', 'Moyenne')}</SelectItem>
+                    <SelectItem value="high">{t('admin_settings.severity_high', 'Élevée')}</SelectItem>
+                    <SelectItem value="critical">{t('admin_settings.severity_critical', 'Critique')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="status">{t('common.status', 'Status')}</Label>
+                <Label htmlFor="status">{t('common.status', 'Statut')}</Label>
                 <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
                   <SelectTrigger id="status">
-                    <SelectValue />
+                    <SelectValue placeholder={t('common.all_statuses', 'Tous les statuts')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('admin_settings.all_statuses', 'All Statuses')}</SelectItem>
-                    <SelectItem value="success">{t('common.success', 'Success')}</SelectItem>
-                    <SelectItem value="failure">{t('common.failed', 'Failed')}</SelectItem>
-                    <SelectItem value="warning">{t('common.warning', 'Warning')}</SelectItem>
+                    <SelectItem value="all">{t('common.all_statuses', 'Tous les statuts')}</SelectItem>
+                    <SelectItem value="success">{t('common.success', 'Réussite')}</SelectItem>
+                    <SelectItem value="failure">{t('common.failed', 'Échec')}</SelectItem>
+                    <SelectItem value="warning">{t('common.warning', 'Avertissement')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="userRole">{t('admin_settings.user_role', 'User Role')}</Label>
+                <Label htmlFor="userRole">{t('common.role', 'Rôle utilisateur')}</Label>
                 <Select value={filters.userRole} onValueChange={(value) => handleFilterChange('userRole', value)}>
                   <SelectTrigger id="userRole">
-                    <SelectValue />
+                    <SelectValue placeholder={t('common.all_roles', 'Tous les rôles')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('admin_settings.all_roles', 'All Roles')}</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
+                    <SelectItem value="all">{t('common.all_roles', 'Tous les rôles')}</SelectItem>
+                    <SelectItem value="admin">{t('roles.admin', 'Administrateur')}</SelectItem>
+                    <SelectItem value="teacher">{t('roles.teacher', 'Enseignant')}</SelectItem>
+                    <SelectItem value="student">{t('roles.student', 'Élève')}</SelectItem>
+                    <SelectItem value="parent">{t('roles.parent', 'Parent')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="dateFrom">{t('admin_settings.from_date', 'From Date')}</Label>
+                <Label htmlFor="dateFrom">{t('admin_settings.from_date', 'Du')}</Label>
                 <Input
                   id="dateFrom"
                   type="date"
@@ -448,7 +452,7 @@ const AuditLogs = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="dateTo">{t('admin_settings.to_date', 'To Date')}</Label>
+                <Label htmlFor="dateTo">{t('admin_settings.to_date', 'Au')}</Label>
                 <Input
                   id="dateTo"
                   type="date"
@@ -460,12 +464,12 @@ const AuditLogs = () => {
             
             <div className="flex justify-between items-center">
               <Button onClick={handleClearFilters} variant="outline" size="sm">
-                {t('admin_settings.clear_all_filters', 'Clear All Filters')}
+                {t('admin_settings.clear_all_filters', 'Réinitialiser tous les filtres')}
               </Button>
               <div className="text-sm text-gray-500">
                 {filters.searchTerm || filters.category !== 'all' || filters.severity !== 'all' || filters.status !== 'all' || filters.userRole !== 'all' || filters.dateFrom || filters.dateTo
-                  ? t('admin_settings.active_filters', '{{count}} active filters', { count: getActiveFiltersCount() })
-                  : t('admin_settings.active_filters', '0 active filters', { count: 0 })}
+                  ? t('admin_settings.active_filters', '{{count}} filtre(s) actif(s)', { count: getActiveFiltersCount() })
+                  : t('admin_settings.active_filters', '0 filtre actif', { count: 0 })}
               </div>
             </div>
           </CardContent>
@@ -477,12 +481,12 @@ const AuditLogs = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            {t('admin_settings.activity_log', 'Activity Log')}
+            {t('admin_settings.activity_log', 'Journal d\'activité')}
           </CardTitle>
           <CardDescription>
             {auditLogs.length === 0 
-              ? t('admin_settings.no_audit_logs_found', 'No audit logs found matching your criteria.')
-              : t('admin_settings.showing_audit_logs', 'Showing {{count}} audit log entries', { count: auditLogs.length })
+              ? t('admin_settings.no_audit_logs_found', 'Aucun journal d\'audit ne correspond à vos critères.')
+              : t('admin_settings.showing_audit_logs', 'Affichage de {{count}} entrée(s) du journal d\'audit', { count: auditLogs.length })
             }
           </CardDescription>
         </CardHeader>
@@ -492,7 +496,7 @@ const AuditLogs = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {t('admin_settings.no_audit_logs_empty_state', 'No audit logs found. Try adjusting your filters or check back later.')}
+                  {t('admin_settings.no_audit_logs_empty_state', 'Aucun journal d\'audit trouvé. Ajustez vos filtres ou réessayez plus tard.')}
                 </AlertDescription>
               </Alert>
             ) : (
@@ -500,14 +504,14 @@ const AuditLogs = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('common.time', 'Time')}</TableHead>
-                      <TableHead>{t('common.user', 'User')}</TableHead>
+                      <TableHead>{t('common.time', 'Heure')}</TableHead>
+                      <TableHead>{t('common.user', 'Utilisateur')}</TableHead>
                       <TableHead>{t('common.action', 'Action')}</TableHead>
-                      <TableHead>{t('admin_settings.resource', 'Resource')}</TableHead>
-                      <TableHead>{t('common.category', 'Category')}</TableHead>
-                      <TableHead>{t('admin_settings.severity', 'Severity')}</TableHead>
-                      <TableHead>{t('common.status', 'Status')}</TableHead>
-                      <TableHead>{t('common.details', 'Details')}</TableHead>
+                      <TableHead>{t('admin_settings.resource', 'Ressource')}</TableHead>
+                      <TableHead>{t('common.category', 'Catégorie')}</TableHead>
+                      <TableHead>{t('admin_settings.severity', 'Gravité')}</TableHead>
+                      <TableHead>{t('common.status', 'Statut')}</TableHead>
+                      <TableHead>{t('common.details', 'Détails')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
