@@ -73,24 +73,24 @@ const TeacherNotificationsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Notifications</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Teaching updates and announcements</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Mises à jour d'enseignement et annonces</p>
         </div>
         <div className="flex gap-2">
-          <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')} className="rounded-xl">All</Button>
-          <Button variant={filter === 'unread' ? 'default' : 'outline'} onClick={() => setFilter('unread')} className="rounded-xl">Unread</Button>
+          <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')} className="rounded-xl">Toutes</Button>
+          <Button variant={filter === 'unread' ? 'default' : 'outline'} onClick={() => setFilter('unread')} className="rounded-xl">Non lues</Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-600" /> Inbox</CardTitle>
-          <CardDescription>Mark items as read</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-indigo-600" /> Boîte de réception</CardTitle>
+          <CardDescription>Marquer les éléments comme lus</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {items.length === 0 ? (
               <div className="text-center py-6 text-slate-500 dark:text-slate-400 border border-dashed rounded-lg border-slate-200 dark:border-slate-800">
-                No notifications found
+                Aucune notification trouvée
               </div>
             ) : (
               items.map((n) => (

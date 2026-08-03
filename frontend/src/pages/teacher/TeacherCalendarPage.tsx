@@ -14,6 +14,14 @@ const dayMapping: Record<string, 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri'> = {
   friday: 'Fri', fri: 'Fri'
 };
 
+const dayLabels: Record<string, string> = {
+  Mon: 'Lundi',
+  Tue: 'Mardi',
+  Wed: 'Mercredi',
+  Thu: 'Jeudi',
+  Fri: 'Vendredi'
+};
+
 const TeacherCalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'term' | 'weekly'>('term'); // Default to term view for calendar
   const [timetable, setTimetable] = useState<any[]>([]);
@@ -39,7 +47,7 @@ const TeacherCalendarPage: React.FC = () => {
                 start: s.start_time || '',
                 end: s.end_time || '',
                 classId: s.class_id?.toString() || '',
-                label: `${s.subject_name || 'Class'} — ${s.class_name || ''}`
+                label: `${s.subject_name || 'Classe'} — ${s.class_name || ''}`
               };
             });
             setTimetable(mapped);
@@ -48,7 +56,7 @@ const TeacherCalendarPage: React.FC = () => {
         }
       } catch (err: any) {
         if (active) {
-          setError(err.message || 'Failed to load schedule assets.');
+          setError(err.message || 'Échec du chargement du calendrier.');
         }
       } finally {
         if (active) {
@@ -93,8 +101,8 @@ const TeacherCalendarPage: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Calendar & Term Schedule</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">View school-wide term calendar events and weekly schedules in one unified control</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">Calendrier & Planning du trimestre</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Consultez les événements scolaires du trimestre et les emplois du temps hebdomadaires dans une vue unifiée</p>
         </div>
 
         {/* Tabs Controls */}
@@ -107,7 +115,7 @@ const TeacherCalendarPage: React.FC = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            Term Schedule
+            Planning du trimestre
           </button>
           <button
             onClick={() => setActiveTab('weekly')}
@@ -117,7 +125,7 @@ const TeacherCalendarPage: React.FC = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            Weekly Grid
+            Grille hebdomadaire
           </button>
         </div>
       </div>
@@ -129,16 +137,16 @@ const TeacherCalendarPage: React.FC = () => {
               <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
                 <CalendarDays className="h-5 w-5" />
               </div>
-              <span className="font-bold">Term Schedule Events</span>
+              <span className="font-bold">Événements du trimestre</span>
             </CardTitle>
-            <CardDescription>Chronological listing of all school-wide active calendar events</CardDescription>
+            <CardDescription>Liste chronologique de tous les événements actifs du calendrier scolaire</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {events.length === 0 ? (
                 <div className="text-center py-12 text-slate-500 dark:text-slate-400 border border-dashed rounded-lg border-slate-200 dark:border-slate-800">
                   <Info className="h-8 w-8 mx-auto text-slate-400 mb-2" />
-                  <p className="font-medium">No upcoming calendar events</p>
+                  <p className="font-medium">Aucun événement à venir au calendrier</p>
                 </div>
               ) : (
                 events.map((e) => (
@@ -171,9 +179,9 @@ const TeacherCalendarPage: React.FC = () => {
                   <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
                     <CalendarClock className="h-5 w-5" />
                   </div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{d}</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{dayLabels[d] || d}</span>
                 </CardTitle>
-                <CardDescription>{byDay[d].length ? `${byDay[d].length} session(s)` : 'No sessions'}</CardDescription>
+                <CardDescription>{byDay[d].length ? `${byDay[d].length} séance(s)` : 'Aucune séance'}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -192,7 +200,7 @@ const TeacherCalendarPage: React.FC = () => {
                       </div>
                     </Link>
                   )) : (
-                    <div className="text-sm text-slate-400 dark:text-slate-500 italic py-2">No active teaching sessions scheduled</div>
+                    <div className="text-sm text-slate-400 dark:text-slate-500 italic py-2">Aucune séance d'enseignement active planifiée</div>
                   )}
                 </div>
               </CardContent>
