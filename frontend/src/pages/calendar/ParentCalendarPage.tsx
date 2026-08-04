@@ -31,15 +31,15 @@ export default function ParentCalendarPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" /> {t('calendar.title', 'Calendar')}
+            <Calendar className="h-5 w-5" /> {t('calendar.title', 'Calendrier')}
           </CardTitle>
-          <CardDescription>{t('calendar.description', 'Read-only school calendar')}</CardDescription>
+          <CardDescription>{t('calendar.description', 'Calendrier scolaire en lecture seule')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-sm text-slate-600">{t('common.loading', 'Loading…')}</div>
+            <div className="text-sm text-slate-600">{t('common.loading', 'Chargement…')}</div>
           ) : !list.length ? (
-            <div className="text-sm text-slate-600">{t('calendar.no_events_current_month', 'No events this month.')}</div>
+            <div className="text-sm text-slate-600">{t('calendar.no_events_current_month', 'Aucun événement ce mois-ci.')}</div>
           ) : (
             <div className="space-y-2">
               {list.map((e: any) => (
