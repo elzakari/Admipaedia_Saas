@@ -10,14 +10,14 @@ const StudentSecuritySettings: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('student_settings.security_options', 'Security Options')}</CardTitle>
-          <CardDescription>Manage your password and security settings.</CardDescription>
+          <CardTitle>{t('student_settings.security_options', 'Options de Sécurité')}</CardTitle>
+          <CardDescription>Gérez votre mot de passe et vos paramètres de sécurité.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-500 block mb-1">Password</label>
+            <label className="text-sm font-medium text-slate-500 block mb-1">Mot de passe</label>
             <div className="text-sm mb-3">**************</div>
-            <Button variant="outline">{t('student_settings.update_password', 'Update Password')}</Button>
+            <Button variant="outline">{t('student_settings.update_password', 'Mettre à jour le mot de passe')}</Button>
           </div>
         </CardContent>
       </Card>

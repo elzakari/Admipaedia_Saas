@@ -14,12 +14,12 @@ const StudentPreferencesSettings: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('student_settings.system_preferences', 'System Preferences')}</CardTitle>
-          <CardDescription>Configure localization and system preferences.</CardDescription>
+          <CardTitle>{t('student_settings.system_preferences', 'Préférences du Système')}</CardTitle>
+          <CardDescription>Configurez la localisation et les préférences du système.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="text-sm font-medium mb-2">Language Preferences</h3>
+            <h3 className="text-sm font-medium mb-2">Préférences de langue</h3>
             <div className="flex gap-3">
               <Button 
                 variant={i18n.language === 'en' ? 'default' : 'outline'} 
@@ -34,7 +34,7 @@ const StudentPreferencesSettings: React.FC = () => {
                 Français
               </Button>
             </div>
-            <p className="text-xs text-slate-500 mt-2">Language switching applies immediately without reloading.</p>
+            <p className="text-xs text-slate-500 mt-2">Le changement de langue s'applique immédiatement sans rechargement.</p>
           </div>
         </CardContent>
       </Card>
