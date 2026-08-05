@@ -69,21 +69,53 @@ class WebSocketService {
       // to a real WebSocket when the intermediate path permits it.
       transports: ['polling', 'websocket'],
       upgrade: true,
+      withCredentials: true,
       auth: (cb: (auth: any) => void) => {
         // Always read token + tenant/branch context fresh on each (re)connect
         // so refreshed tokens and tenancy changes take effect.
         const refreshed = buildSocketAuthPayload();
         cb(refreshed ?? {});
       },
+      // Reconnect behavior uses FULL EXPONENTIAL JITTER between 1s and 30s.
+      // This is the AWS/Google recommended backoff for reconnect storms so
+      // thousands of concurrent browsers don't re-synchronize and produce a
+      // "thundering herd" against the socket backend after a blip.
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 15000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.9,
       timeout: 20000,
       autoConnect: false,
     });
 
     if (!this.boundInternalListeners) {
+      // Detect terminal (non-transient) auth-rejection messages returned by
+      // the engine.  When we hit these, stop retrying entirely — any further
+      // attempts would just waste server capacity (and trigger reconnect
+      // cascade 400 loops exactly like admipaedia.easymsdigit.com saw).
+      const AUTH_REJECTION_MARKERS: ReadonlyArray<RegExp> = [
+        /invalid.*(token|auth)/i,
+        /expired.*(token|auth)/i,
+        /unauthorized/i,
+        /forbidden/i,
+        /authentication.*required/i,
+        /jwt/i,
+      ];
+      const isAuthRejection = (err: any): boolean => {
+        if (!err) return false;
+        const raw: string = [
+          (err as any)?.message,
+          (err as any)?.description,
+          (err as any)?.error,
+          (err as any)?.name,
+          String(err),
+        ]
+          .filter((s) => typeof s === 'string' && s)
+          .join(' ');
+        return AUTH_REJECTION_MARKERS.some((rx) => rx.test(raw));
+      };
+
       this.socket.on('connect', () => {
         console.log(`Socket connected to ${this.namespace}`);
         this.attachPendingSubscriptions();
@@ -107,6 +139,33 @@ class WebSocketService {
         const safeMessage = error?.message ?? String(error ?? 'unknown');
         console.warn(`Socket connection error for ${this.namespace}: ${safeMessage}`);
         this.setStatus('error');
+
+        // Terminal auth failure -> stop retrying.  The dashboard namespace
+        // rejects auth at the Engine.IO layer via the connect_error callback
+        // (bad JWT signature, expired JWT, missing tenant membership, ...).
+        // In these cases every new reconnect is a new invalid handshake.
+        if (isAuthRejection(error)) {
+          console.warn(
+            `Socket auth rejected for ${this.namespace}; stopping automatic reconnect.`,
+          );
+          try {
+            this.socket?.io?.reconnection(false);
+          } catch {
+            /* older socket.io client versions expose io.opts instead */
+          }
+          try {
+            const anySocket = this.socket as any;
+            if (anySocket?.io && typeof anySocket.io.reconnection === 'function') {
+              anySocket.io.reconnection(false);
+            }
+            if (anySocket?.opts) {
+              anySocket.opts.reconnection = false;
+            }
+          } catch {
+            /* no-op */
+          }
+          this.permanentlyDisconnected = true;
+        }
       });
 
       // Capture all events and dispatch to global handlers

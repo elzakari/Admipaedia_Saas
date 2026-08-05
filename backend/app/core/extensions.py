@@ -2,14 +2,19 @@
 Flask Extensions Initialization
 """
 
+import os
+
 from urllib.parse import urlparse
 
 from flask import g, request
 from flask_cors import CORS
 from flask_talisman import Talisman
+import structlog
 
 from app.extensions import (babel, bcrypt, cors, db, jwt, mail, migrate,
                             socketio)
+
+logger = structlog.get_logger()
 
 
 def init_extensions(app):
@@ -136,9 +141,63 @@ def init_extensions(app):
     # WebSocket
     from app.extensions import SOCKETIO_ASYNC_MODE as _selected_async_mode
 
-    socketio.init_app(
-        app, cors_allowed_origins=frontend_origins, ping_timeout=120, ping_interval=25
-    )
+    # Optional horizontal-scaling primitive: when SOCKETIO_USE_REDIS=1 and a
+    # Redis URL is reachable, install a Redis pubsub client_manager so Engine.IO
+    # sid/broadcast state is shared across multiple backend-socket workers.
+    # Default OFF (SOCKETIO_USE_REDIS unset/0) — today's topology relies on a
+    # single backend-socket gthread worker with in-process state and the
+    # frontend nginx route guarantees stickiness.  Do NOT enable the Redis
+    # manager unless you also raise GUNICORN_WORKERS above 1 and add explicit
+    # session/cookie sticky-session rules at the edge (IP hash or cookie).
+    use_redis_mgr = False
+    redis_url_candidate = (
+        app.config.get("REDIS_URL") or os.environ.get("REDIS_URL") or ""
+    ).strip()
+    try:
+        _enable = (os.environ.get("SOCKETIO_USE_REDIS", "0") or "0").strip().lower()
+        if _enable in {"1", "true", "yes", "on"} and redis_url_candidate:
+            import kombu  # noqa: F401  (lazily detect optional dependency)
+            from kombu.utils.url import maybe_sanitize_url  # type: ignore
+
+            void = maybe_sanitize_url
+            from redis import Redis as _RedisClient  # type: ignore
+
+            try:
+                import atexit as _atexit
+
+                _probe = _RedisClient.from_url(redis_url_candidate, socket_connect_timeout=2)
+                _probe.ping()
+                try:
+                    _atexit.register(_probe.close)
+                except Exception:
+                    pass
+                use_redis_mgr = True
+            except Exception as _probe_exc:
+                logger.warning(
+                    "socketio_redis_manager_probe_failed",
+                    error_type=type(_probe_exc).__name__,
+                )
+    except Exception:
+        use_redis_mgr = False
+
+    socketio_kwargs = {
+        "cors_allowed_origins": frontend_origins,
+        "ping_timeout": 120,
+        "ping_interval": 25,
+    }
+    if use_redis_mgr:
+        try:
+            import socketio as _raw_socketio_pkg  # python-socketio, dep of flask-socketio
+
+            _manager = _raw_socketio_pkg.KombuManager(redis_url_candidate)
+            socketio_kwargs["client_manager"] = _manager
+        except Exception:
+            # Kombu/Redis import or manager instantiation failed, fall back
+            # to the default in-process manager — socket service still works
+            # but state will not be shared across workers.
+            use_redis_mgr = False
+
+    socketio.init_app(app, **socketio_kwargs)
 
     try:
         import structlog as _sl
@@ -148,6 +207,7 @@ def init_extensions(app):
             async_mode=_selected_async_mode,
             ping_timeout=120,
             ping_interval=25,
+            use_redis_manager=use_redis_mgr,
         )
     except Exception:
         pass
