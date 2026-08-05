@@ -19,6 +19,8 @@ class WebSocketService {
   private statusCallbacks = new Set<(status: ConnectionStatus) => void>();
   private globalMessageHandlers = new Set<GlobalMessageHandler>();
   private pendingSubscriptions = new Map<string, Set<SubscriptionHandler>>();
+  private permanentlyDisconnected = false;
+  private boundInternalListeners = false;
 
   private constructor(namespace: string = '/') {
     this.namespace = namespace;
@@ -32,6 +34,10 @@ class WebSocketService {
   }
 
   connect(): void {
+    if (this.permanentlyDisconnected) {
+      this.setStatus('disconnected');
+      return;
+    }
     if (this.socket?.connected || this.connectionStatus === 'connecting') {
       return;
     }
@@ -56,59 +62,81 @@ class WebSocketService {
     // Construct full URL
     const url = `${SOCKET_BASE_URL}${this.namespace}`;
 
-    // #region debug-point A:socket-connect-config
-    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:58",msg:"[DEBUG] preparing socket connection",data:{namespace:this.namespace,url,hasAuth:Boolean(authPayload),transportOrder:["websocket","polling"],upgrade:true},ts:Date.now()})}).catch(()=>{});
-    // #endregion
-
     this.socket = io(url, {
       path: '/socket.io',
-      auth: authPayload,
-      transports: ['websocket', 'polling'],
+      // Resilient transport order: long-polling first guarantees a working
+      // handshake regardless of intermediary proxies, then the engine upgrades
+      // to a real WebSocket when the intermediate path permits it.
+      transports: ['polling', 'websocket'],
       upgrade: true,
+      auth: (cb: (auth: any) => void) => {
+        // Always read token + tenant/branch context fresh on each (re)connect
+        // so refreshed tokens and tenancy changes take effect.
+        const refreshed = buildSocketAuthPayload();
+        cb(refreshed ?? {});
+      },
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 15000,
       timeout: 20000,
-      autoConnect: true
+      autoConnect: false,
     });
 
-    this.socket.on('connect', () => {
-      // #region debug-point A:socket-connected
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:77",msg:"[DEBUG] socket connected",data:{namespace:this.namespace,transport:this.socket?.io?.engine?.transport?.name ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
-      console.log(`✅ Socket connected to ${this.namespace}`);
-      this.attachPendingSubscriptions();
-      this.setStatus('connected');
-    });
+    if (!this.boundInternalListeners) {
+      this.socket.on('connect', () => {
+        console.log(`Socket connected to ${this.namespace}`);
+        this.attachPendingSubscriptions();
+        this.setStatus('connected');
+      });
 
-    this.socket.on('disconnect', (reason) => {
-      // Don't log as an error if it's a normal disconnect or page reload
-      if (reason === 'io client disconnect' || reason === 'transport close') {
-        console.log(`ℹ️ Socket disconnected from ${this.namespace}:`, reason);
-      } else {
-        console.warn(`⚠️ Socket disconnected from ${this.namespace} (unexpected):`, reason);
+      this.socket.on('disconnect', (reason) => {
+        const normalReasons = ['io client disconnect', 'transport close'];
+        if (normalReasons.includes(reason)) {
+          console.log(`Socket disconnected from ${this.namespace}: ${reason}`);
+        } else {
+          console.warn(`Socket disconnected from ${this.namespace} (unexpected): ${reason}`);
+        }
+
+        if (reason !== 'io client disconnect') {
+          this.setStatus('disconnected');
+        }
+      });
+
+      this.socket.on('connect_error', (error: any) => {
+        const safeMessage = error?.message ?? String(error ?? 'unknown');
+        console.warn(`Socket connection error for ${this.namespace}: ${safeMessage}`);
+        this.setStatus('error');
+      });
+
+      // Capture all events and dispatch to global handlers
+      this.socket.onAny((event, ...args) => {
+        const data = args.length > 0 ? args[0] : null;
+        this.globalMessageHandlers.forEach((handler) => handler(event, data));
+      });
+
+      this.boundInternalListeners = true;
+    }
+
+    this.socket.connect();
+  }
+
+  /**
+   * Trigger a safe reconnect after tenancy/token context changes. Preserves
+   * existing subscriptions but re-reads auth on the next handshake.
+   */
+  reconnect(): void {
+    this.permanentlyDisconnected = false;
+    if (this.socket) {
+      try {
+        this.socket.disconnect();
+      } catch {
+        /* no-op */
       }
-      
-      // Only set status if we didn't explicitly disconnect
-      if (reason !== 'io client disconnect') {
-        this.setStatus('disconnected');
-      }
-    });
-
-    this.socket.on('connect_error', (error) => {
-      // #region debug-point A:socket-connect-error
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:99",msg:"[DEBUG] socket connect error",data:{namespace:this.namespace,message:error?.message ?? null,description:(error as any)?.description ?? null,type:(error as any)?.type ?? null,transport:this.socket?.io?.engine?.transport?.name ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
-      console.error(`❌ Socket connection error for ${this.namespace}:`, error);
-      this.setStatus('error');
-    });
-
-    // Capture all events and dispatch to global handlers
-    this.socket.onAny((event, ...args) => {
-      const data = args.length > 0 ? args[0] : null;
-      this.globalMessageHandlers.forEach(handler => handler(event, data));
-    });
+      this.socket = null;
+      this.boundInternalListeners = false;
+    }
+    this.connect();
   }
 
   private setStatus(status: ConnectionStatus): void {
@@ -167,9 +195,17 @@ class WebSocketService {
   }
 
   disconnect(): void {
+    // Explicit logout-style disconnect: forbid any further automatic
+    // reconnection until connect() / reconnect() is explicitly called.
+    this.permanentlyDisconnected = true;
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {
+        /* no-op */
+      }
       this.socket = null;
+      this.boundInternalListeners = false;
     }
     this.globalMessageHandlers.clear();
     this.setStatus('disconnected');

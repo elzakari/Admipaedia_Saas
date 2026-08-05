@@ -42,6 +42,40 @@ MAIL_USERNAME=replace-me
 MAIL_PASSWORD=replace-me
 ```
 
+## Socket.IO / Realtime Runtime
+```env
+# Flask-SocketIO async mode - MUST remain explicit.
+# Production default: "threading" (matches Gunicorn gthread worker class).
+# Eventlet/gevent are NOT production defaults because they monkey-patch Python
+# I/O and are incompatible with gthread + Werkzeug Response handling.
+# Whitelist: threading | eventlet | gevent (invalid values fall back to threading)
+SOCKETIO_ASYNC_MODE=threading
+
+# REST-only backend-api workers can disable Socket.IO entirely:
+# SOCKETIO_ASYNC_MODE=disabled
+
+# Gunicorn (backend-socket service — the one that serves Socket.IO upgrades)
+# Why 1 worker? Flask-SocketIO keeps the connection registry AND the single
+# background telemetry task in-process. Multi-worker without a Socket.IO Redis
+# Adapter + sticky sessions causes: duplicate tasks, lost client state, and
+# 400/5xx during websocket upgrade because the handshake hits a worker with
+# no matching Engine.IO session.
+GUNICORN_WORKERS=1
+GUNICORN_WORKER_CLASS=gthread
+GUNICORN_THREADS=16
+GUNICORN_TIMEOUT=120
+GUNICORN_GRACEFUL_TIMEOUT=30
+GUNICORN_KEEPALIVE=5
+GUNICORN_MAX_REQUESTS=1000
+GUNICORN_MAX_REQUESTS_JITTER=100
+
+# Optional future horizontal scaling: if you deploy N single-worker backend-socket
+# containers behind a load balancer, you MUST additionally provide:
+# SOCKETIO_MESSAGE_QUEUE=redis://<host>:6379/<db>   (cross-instance pub/sub)
+# and enable sticky (session-affinity) load balancing so Engine.IO handshakes
+# and upgrades always return to the same originating process.
+```
+
 ## Windows PowerShell Examples
 ```powershell
 $env:ALEMBIC_DB_USER="user"

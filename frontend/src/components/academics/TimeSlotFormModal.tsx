@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useCreateTimeSlot, useUpdateTimeSlot, usePeriods } from '../../hooks/useTimetable';
 import { useClasses } from '../../hooks/useClasses';
 import { useSubjects } from '../../hooks/useSubjects';
-import { useTeachers } from '../../hooks/useTeachers';
 import { toast } from 'sonner';
 import { ResponsiveForm, FormSection, FormRow, FormField } from '../common/ResponsiveForm';
 import MobileOptimizedInput from '../common/MobileOptimizedInput';
@@ -21,6 +20,26 @@ const formatCreditHours = (value?: number | null) => {
     return '1';
   }
   return Number.isInteger(Number(value)) ? String(Number(value)) : Number(value).toFixed(1);
+};
+
+const buildTeacherLabel = (teacher: any): string => {
+  if (!teacher || typeof teacher !== 'object') return 'Teacher';
+  const t = teacher as Record<string, any>;
+  const directName = typeof t.name === 'string' && t.name.trim() ? t.name.trim() : '';
+  const fullName = typeof t.full_name === 'string' && t.full_name.trim() ? t.full_name.trim() : '';
+  const userFirst = typeof t.user?.first_name === 'string' ? t.user.first_name : '';
+  const userLast = typeof t.user?.last_name === 'string' ? t.user.last_name : '';
+  const fromUser = `${userFirst} ${userLast}`.trim();
+  const ownFirst = typeof t.first_name === 'string' ? t.first_name : '';
+  const ownLast = typeof t.last_name === 'string' ? t.last_name : '';
+  const fromOwn = `${ownFirst} ${ownLast}`.trim();
+  return (
+    directName ||
+    fullName ||
+    fromUser ||
+    fromOwn ||
+    `Teacher ${String(t.id ?? 'unknown')}`
+  );
 };
 
 interface TimeSlotFormModalProps {
@@ -42,22 +61,6 @@ interface TimeSlotFormModalProps {
   disableTermSelection?: boolean;
 }
 
-const dayOptions = [
-  { value: 'Monday', label: 'Monday' },
-  { value: 'Tuesday', label: 'Tuesday' },
-  { value: 'Wednesday', label: 'Wednesday' },
-  { value: 'Thursday', label: 'Thursday' },
-  { value: 'Friday', label: 'Friday' },
-  { value: 'Saturday', label: 'Saturday' },
-  { value: 'Sunday', label: 'Sunday' },
-];
-
-const termOptions = [
-  { value: 'Term 1', label: 'Term 1' },
-  { value: 'Term 2', label: 'Term 2' },
-  { value: 'Term 3', label: 'Term 3' },
-];
-
 const normalizeTimetableTerm = (term?: string) => {
   const normalized = String(term || '').trim().toLowerCase();
   if (normalized === 'term1' || normalized === 'term 1' || normalized === '1') return 'Term 1';
@@ -78,7 +81,7 @@ export function TimeSlotFormModal({
   const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 640px)');
   const { height, isVisible } = useMobileKeyboard();
-  
+
   const translatedDayOptions = useMemo(() => [
     { value: 'Monday', label: t('common.days.monday', 'Monday') },
     { value: 'Tuesday', label: t('common.days.tuesday', 'Tuesday') },
@@ -105,9 +108,9 @@ export function TimeSlotFormModal({
     academic_year: new Date().getFullYear().toString(),
     term: 'Term 1',
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const { data: classesData } = useClasses();
   const { data: subjectsData } = useSubjects({
     class_id: formData.class_id || undefined,
@@ -115,7 +118,6 @@ export function TimeSlotFormModal({
     per_page: 200,
     is_active: true,
   });
-  const { data: teachersData } = useTeachers({ page: 1, per_page: 200, status: 'active' });
   const selectedClass = useMemo(
     () => (classesData?.data || []).find((cls: any) => Number(cls.id) === Number(formData.class_id)),
     [classesData, formData.class_id]
@@ -129,11 +131,11 @@ export function TimeSlotFormModal({
     academic_year: formData.academic_year || undefined,
     slot_id: slotData?.id || undefined,
   });
-  
+
   const createTimeSlot = useCreateTimeSlot();
   const updateTimeSlot = useUpdateTimeSlot();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const classOptions = useMemo(() => {
     if (!classesData?.data) return [];
     return classesData.data.map((cls: any) => ({
@@ -156,29 +158,77 @@ export function TimeSlotFormModal({
     [subjectsData, formData.subject_id]
   );
 
-  const teacherOptions = useMemo(() => {
-    const subjectTeachers = Array.isArray(selectedSubject?.teachers) ? selectedSubject.teachers : [];
+  const assignedTeacherIds = useMemo(() => {
+    const teachers = Array.isArray(selectedSubject?.teachers)
+      ? selectedSubject.teachers
+      : [];
+    return new Set(
+      teachers
+        .map((teacher) => Number(teacher.id))
+        .filter(Number.isFinite)
+    );
+  }, [selectedSubject]);
 
-    if (subjectTeachers.length > 0) {
-      return subjectTeachers.map((teacher: any) => ({
-        value: String(teacher.id),
-        label: String(teacher.name || `Teacher ${teacher.id}`),
-      }));
+  const teacherOptions = useMemo(() => {
+    const teachers = Array.isArray(selectedSubject?.teachers)
+      ? selectedSubject.teachers
+      : [];
+    return teachers.map((teacher: any) => ({
+      value: String(teacher.id),
+      label: buildTeacherLabel(teacher),
+    }));
+  }, [selectedSubject]);
+
+  const teacherSelectorDisabled =
+    !formData.subject_id ||
+    assignedTeacherIds.size === 0 ||
+    isSubmitting;
+
+  const mutationPending =
+    createTimeSlot.isPending || updateTimeSlot.isPending;
+
+  const invalidTeacherSelected =
+    formData.teacher_id !== 0 && !assignedTeacherIds.has(Number(formData.teacher_id));
+
+  const submitDisabled =
+    isSubmitting ||
+    mutationPending ||
+    assignedTeacherIds.size === 0 ||
+    invalidTeacherSelected ||
+    formData.teacher_id === 0;
+
+  // Teacher selection reconciliation: auto-select the only assigned teacher;
+  // clear invalid / stale selections; never update if the value is already correct.
+  useEffect(() => {
+    const currentTeacherId = Number(formData.teacher_id) || 0;
+    const assignedCount = assignedTeacherIds.size;
+
+    if (!formData.subject_id) {
+      if (currentTeacherId !== 0) {
+        setFormData(prev => prev.teacher_id === 0 ? prev : { ...prev, teacher_id: 0 });
+      }
+      return;
     }
 
-    if (!teachersData?.teachers) return [];
+    if (assignedCount === 0) {
+      if (currentTeacherId !== 0) {
+        setFormData(prev => prev.teacher_id === 0 ? prev : { ...prev, teacher_id: 0 });
+      }
+      return;
+    }
 
-    return teachersData.teachers.map((teacher: any) => ({
-      value: teacher.id.toString(),
-      label: `${teacher.user?.first_name || teacher.first_name || ''} ${teacher.user?.last_name || teacher.last_name || ''}`.trim() || teacher.full_name || `Teacher ${teacher.id}`
-    }));
-  }, [teachersData, selectedSubject]);
+    if (assignedCount === 1) {
+      const [onlyId] = Array.from(assignedTeacherIds);
+      if (currentTeacherId !== onlyId) {
+        setFormData(prev => (Number(prev.teacher_id) === onlyId ? prev : { ...prev, teacher_id: onlyId }));
+      }
+      return;
+    }
 
-  useEffect(() => {
-    // #region debug-point D:teacher-option-state
-    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"D",location:"frontend/src/components/academics/TimeSlotFormModal.tsx:172",msg:"[DEBUG] teacher option state",data:{classId:formData.class_id,subjectId:formData.subject_id,teacherId:formData.teacher_id,selectedSubjectTeacherIds:Array.isArray(selectedSubject?.teachers)?selectedSubject.teachers.map((teacher:any)=>Number(teacher.id)):[],teacherOptionIds:teacherOptions.map((option)=>Number(option.value)),teacherOptionCount:teacherOptions.length},ts:Date.now()})}).catch(()=>{});
-    // #endregion
-  }, [formData.class_id, formData.subject_id, formData.teacher_id, selectedSubject, teacherOptions]);
+    if (currentTeacherId !== 0 && !assignedTeacherIds.has(currentTeacherId)) {
+      setFormData(prev => prev.teacher_id === 0 ? prev : { ...prev, teacher_id: 0 });
+    }
+  }, [assignedTeacherIds, formData.subject_id, formData.teacher_id]);
 
   const periodOptions = useMemo(() => {
     if (!periodsData?.data) return [];
@@ -191,6 +241,7 @@ export function TimeSlotFormModal({
 
   const periodMeta = periodsData?.meta;
 
+  // Initialize slot data / initial values on open
   useEffect(() => {
     if (slotData) {
       setFormData({
@@ -217,19 +268,31 @@ export function TimeSlotFormModal({
     }
     setErrors({});
   }, [slotData, isOpen, initialValues]);
-  
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.period_id) newErrors.period_id = t('academics.timetable.errors.period_required', 'Timeframe is required');
     if (!formData.subject_id) newErrors.subject_id = t('academics.timetable.errors.subject_required', 'Subject is required');
     if (!formData.class_id) newErrors.class_id = t('academics.timetable.errors.class_required', 'Class is required');
     if (!formData.teacher_id) newErrors.teacher_id = t('academics.timetable.errors.teacher_required', 'Teacher is required');
-    
+
+    if (formData.subject_id && assignedTeacherIds.size === 0) {
+      newErrors.teacher_id = t(
+        'academics.timetable.errors.no_teachers_assigned_to_subject',
+        'No teachers are assigned to this subject yet. Assign a teacher in Settings > Academic > Subjects.'
+      );
+    } else if (formData.subject_id && formData.teacher_id && !assignedTeacherIds.has(Number(formData.teacher_id))) {
+      newErrors.teacher_id = t(
+        'academics.timetable.errors.teacher_not_assigned_to_subject',
+        'The selected teacher is not assigned to this subject.'
+      );
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const handleInputChange = (name: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -237,7 +300,7 @@ export function TimeSlotFormModal({
       ...(name === 'class_id' ? { subject_id: 0, teacher_id: 0 } : {}),
       ...(name === 'subject_id' ? { teacher_id: 0 } : {}),
     }));
-    
+
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -246,22 +309,6 @@ export function TimeSlotFormModal({
       });
     }
   };
-
-  useEffect(() => {
-    if (!selectedSubject || !Array.isArray(selectedSubject.teachers)) {
-      return;
-    }
-
-    const allowedTeacherIds = selectedSubject.teachers.map((teacher: any) => Number(teacher.id));
-    if (allowedTeacherIds.length === 1) {
-      setFormData((prev) => ({ ...prev, teacher_id: allowedTeacherIds[0] }));
-      return;
-    }
-
-    if (allowedTeacherIds.length > 0 && formData.teacher_id && !allowedTeacherIds.includes(Number(formData.teacher_id))) {
-      setFormData((prev) => ({ ...prev, teacher_id: 0 }));
-    }
-  }, [selectedSubject, formData.teacher_id]);
 
   useEffect(() => {
     if (!isOpen || slotData || !periodMeta?.recommended_period_id) {
@@ -278,21 +325,42 @@ export function TimeSlotFormModal({
       period_id: Number(periodMeta.recommended_period_id) || prev.period_id,
     }));
   }, [isOpen, slotData, periodMeta?.recommended_period_id, periodsData?.data, formData.period_id]);
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // #region debug-point D:submit-attempt
-    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"D",location:"frontend/src/components/academics/TimeSlotFormModal.tsx:279",msg:"[DEBUG] submit attempt",data:{formData,subjectTeacherIds:Array.isArray(selectedSubject?.teachers)?selectedSubject.teachers.map((teacher:any)=>Number(teacher.id)):[],teacherOptionIds:teacherOptions.map((option)=>Number(option.value))},ts:Date.now()})}).catch(()=>{});
-    // #endregion
-    
+    // Duplicate-submit guard
+    if (isSubmitting || mutationPending) {
+      return;
+    }
+
     if (!validateForm()) {
       toast.error(t('common.errors.fix_errors', 'Please fix the errors in the form'));
       return;
     }
-    
+
+    // Final relationship guard BEFORE any network call
+    if (!formData.subject_id) {
+      toast.error(t('academics.timetable.toast.subject_required', 'Please select a subject before submitting.'));
+      return;
+    }
+    if (assignedTeacherIds.size === 0) {
+      toast.error(t(
+        'academics.timetable.toast.no_assigned_teachers',
+        'This subject has no assigned teachers. Assign a teacher in Settings > Academic > Subjects before creating the timetable slot.'
+      ));
+      return;
+    }
+    if (formData.teacher_id === 0 || !assignedTeacherIds.has(Number(formData.teacher_id))) {
+      toast.error(t(
+        'academics.timetable.toast.teacher_not_assigned',
+        'The selected teacher is not assigned to this subject. Update the subject setup before creating the timetable slot.'
+      ));
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
       const payload = {
         ...formData,
@@ -309,7 +377,7 @@ export function TimeSlotFormModal({
         await createTimeSlot.mutateAsync(payload as any);
         toast.success(t('academics.timetable.toast.create_success', 'Time slot created successfully'));
       }
-      
+
       if (onSuccess) onSuccess();
       onClose();
     } catch (error: any) {
@@ -318,11 +386,11 @@ export function TimeSlotFormModal({
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <FormValidationProvider>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent 
+        <DialogContent
           className={`sm:max-w-[600px] max-h-[90vh] overflow-y-auto ${
             isMobile && isVisible ? 'h-screen' : ''
           }`}
@@ -338,7 +406,7 @@ export function TimeSlotFormModal({
               {slotData ? t('academics.timetable.edit_slot_desc', 'Update the details of this timetable slot.') : t('academics.timetable.add_slot_desc', 'Fill in the details to add a new lesson to the timetable.')}
             </DialogDescription>
           </DialogHeader>
-          
+
           <ResponsiveForm onSubmit={handleSubmit}>
             <FormSection>
               <FormRow>
@@ -350,7 +418,7 @@ export function TimeSlotFormModal({
                     leftIcon={<Calendar className="h-4 w-4" />}
                   />
                 </FormField>
-                
+
                 <FormField label={t('academics.timetable.term', 'Term')} htmlFor="term" error={errors.term} required>
                   <MobileOptimizedSelect
                     value={formData.term}
@@ -377,7 +445,7 @@ export function TimeSlotFormModal({
                       : t('academics.timetable.period_info_placeholder', 'Select a class and subject to automate the available timeframe options.')}
                   </div>
                 </FormField>
-                
+
                 <FormField label={t('academics.timetable.room_number', 'Room Number')} htmlFor="room_id" error={errors.room_id}>
                   <MobileOptimizedInput
                     id="room_id"
@@ -402,7 +470,7 @@ export function TimeSlotFormModal({
                     disabled={disableClassSelection}
                   />
                 </FormField>
-                
+
                 <FormField label={t('common.subject', 'Subject')} htmlFor="subject_id" error={errors.subject_id} required>
                   <MobileOptimizedSelect
                     value={formData.subject_id.toString()}
@@ -431,21 +499,22 @@ export function TimeSlotFormModal({
                     value={formData.teacher_id.toString()}
                     onChange={(value: string) => handleInputChange('teacher_id', parseInt(value))}
                     options={teacherOptions}
-                    placeholder={formData.subject_id ? t('academics.timetable.select_teacher', 'Select Teacher') : t('academics.timetable.select_subject_first', 'Select subject first')}
+                    placeholder={formData.subject_id ? (assignedTeacherIds.size === 0 ? t('academics.timetable.no_teachers_assigned_short', 'No teachers assigned') : t('academics.timetable.select_teacher', 'Select Teacher')) : t('academics.timetable.select_subject_first', 'Select subject first')}
                     leftIcon={<User className="h-4 w-4" />}
+                    disabled={teacherSelectorDisabled}
                   />
                   {formData.subject_id > 0 && teacherOptions.length === 0 && (
                     <div className="mt-2 text-xs text-amber-700">
                       {t(
                         'academics.timetable.no_teachers_available',
-                        'No teachers are available for this subject yet. Assign a teacher in Settings > Academic > Subjects, or verify that active teachers can be loaded.'
+                        'No teachers are available for this subject yet. Assign a teacher in Settings > Academic > Subjects.'
                       )}
                     </div>
                   )}
                 </FormField>
               </FormRow>
             </FormSection>
-            
+
             <DialogFooter className={`${isMobile ? 'flex-col gap-3 pt-6' : 'flex-row gap-2'}`}>
               <TouchFriendlyButton
                 type="button"
@@ -458,7 +527,8 @@ export function TimeSlotFormModal({
               </TouchFriendlyButton>
               <TouchFriendlyButton
                 type="submit"
-                loading={isSubmitting}
+                loading={isSubmitting || mutationPending}
+                disabled={submitDisabled}
                 size={isMobile ? "lg" : "md"}
                 className={isMobile ? 'w-full order-1' : ''}
               >

@@ -62,5 +62,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 5000
 
-# Start the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "eventlet", "--worker-connections", "1000", "--timeout", "120", "--keepalive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "--preload", "wsgi:app"]
+# Start the application with Gunicorn (authoritative runtime: one gthread worker so
+# the Socket.IO in-process connection registry stays consistent; SOCKETIO_ASYNC_MODE
+# defaults to "threading" inside the app). Horizontal scaling requires multiple
+# single-worker containers behind sticky sessions + a Redis message queue.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "gthread", "--threads", "16", "--timeout", "120", "--graceful-timeout", "30", "--keepalive", "5", "--max-requests", "1000", "--max-requests-jitter", "100", "wsgi:app"]

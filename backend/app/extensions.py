@@ -70,14 +70,19 @@ bcrypt = Bcrypt()
 cors = CORS()
 mail = Mail()
 babel = Babel()
-# Initialize SocketIO with async mode and ping timeout settings
+# Initialize SocketIO with explicit threading-first (production default)
 import os
 
-socketio_async_mode = os.environ.get("SOCKETIO_ASYNC_MODE", "eventlet")
-async_mode = "threading" if socketio_async_mode == "disabled" else socketio_async_mode
+SOCKETIO_ASYNC_MODE = os.environ.get("SOCKETIO_ASYNC_MODE", "threading").strip().lower()
+_VALID_ASYNC_MODES = {"threading", "eventlet", "gevent"}
+if SOCKETIO_ASYNC_MODE not in _VALID_ASYNC_MODES:
+    SOCKETIO_ASYNC_MODE = "threading"
 
 socketio = SocketIO(
-    async_mode=async_mode, ping_timeout=120, ping_interval=25, cors_allowed_origins="*"
+    async_mode=SOCKETIO_ASYNC_MODE,
+    ping_timeout=120,
+    ping_interval=25,
+    cors_allowed_origins="*",
 )
 
 # Configure structured logging

@@ -1,8 +1,9 @@
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 
+import structlog
 from flask import current_app, request
 from flask_socketio import Namespace, emit
 
@@ -10,21 +11,36 @@ try:
     import psutil  # type: ignore
 except Exception:
     psutil = None
-from flask_jwt_extended import decode_token
-from sqlalchemy import func
 
-from app.extensions import db, socketio
+from flask_jwt_extended import decode_token
+
+from app.extensions import socketio
+from app.models.tenant import Branch, TenantMembership
 from app.models.user import User
-from app.services.performance_monitoring_service import \
-    PerformanceMonitoringService
+from app.services.performance_monitoring_service import PerformanceMonitoringService
+from app.utils.auth_utils import ADMIN_COMPATIBLE_ROLES
+
+logger = structlog.get_logger()
+
+_PLATFORM_ROLES = frozenset({"super_admin", "superadmin", "super_manager"})
+
+
+def _utcnow() -> datetime:
+    return datetime.utcnow()
 
 
 class DashboardNamespace(Namespace):
-    """Namespace for dashboard real-time updates."""
+    """Namespace for dashboard real-time updates.
+
+    Authentication, authorization and tenant/branch scoping are enforced BEFORE
+    a connection is registered and BEFORE the periodic telemetry loop is
+    started or restarted.
+    """
 
     def __init__(self, namespace=None):
         super().__init__(namespace)
-        self.active_connections = 0
+        self._connections_lock = threading.Lock()
+        self._bg_task_lock = threading.Lock()
         self.update_thread = None
         self.stop_event = threading.Event()
         self._app = None
@@ -33,93 +49,372 @@ class DashboardNamespace(Namespace):
         self._last_disk_ts = None
         self._connected = {}
 
+    @property
+    def active_connections(self):
+        with self._connections_lock:
+            return len(self._connected)
+
+    @active_connections.setter
+    def active_connections(self, _value):
+        return
+
+    # ------------------------------------------------------------------
+    # Connection entrypoint: reject unauthorized early.
+    # ------------------------------------------------------------------
     def on_connect(self, auth=None):
-        self.active_connections += 1
-        if not self._app:
-            self._app = current_app._get_current_object()
+        # Ensure request app is captured once per process
+        if self._app is None:
+            try:
+                self._app = current_app._get_current_object()
+            except Exception:
+                self._app = None
 
         try:
             sid = request.sid
         except Exception:
             sid = None
 
-        user_id = None
-        role = None
-        tenant_id = None
-        branch_id = None
+        if not sid:
+            logger.warning("dashboard_connect_rejected", reason="missing_sid")
+            return False
 
-        token = None
-        if isinstance(auth, dict):
-            token = auth.get("token")
-            tenant_id = auth.get("tenant_id")
-            branch_id = auth.get("branch_id")
+        # 1) require auth payload as dict
+        if not isinstance(auth, dict):
+            logger.warning("dashboard_connect_rejected",
+                           reason="missing_auth", sid=sid)
+            return False
 
-        if token and sid:
-            try:
-                payload = decode_token(token)
-                user_id = payload.get("sub")
-                if user_id is not None:
-                    user = User.query.get(int(user_id))
-                    role = getattr(user, "role", None) if user else None
-            except Exception:
-                user_id = None
-                role = None
+        # 2) require non-empty token
+        raw_token = auth.get("token")
+        if not raw_token or not isinstance(raw_token, str) or not raw_token.strip():
+            logger.warning("dashboard_connect_rejected",
+                           reason="missing_token", sid=sid)
+            return False
 
-        if sid:
+        # 3) decode and validate JWT
+        try:
+            payload = decode_token(raw_token)
+        except Exception as exc:
+            logger.warning("dashboard_connect_rejected",
+                           reason="invalid_or_expired_token", sid=sid,
+                           error_type=type(exc).__name__)
+            return False
+
+        raw_sub = payload.get("sub")
+        if raw_sub is None:
+            logger.warning("dashboard_connect_rejected",
+                           reason="missing_subject", sid=sid)
+            return False
+
+        try:
+            user_id = int(raw_sub)
+        except (TypeError, ValueError):
+            logger.warning("dashboard_connect_rejected",
+                           reason="malformed_subject", sid=sid)
+            return False
+
+        # 4) load user and validate existence / status
+        user = User.query.get(user_id)
+        if user is None:
+            logger.warning("dashboard_connect_rejected",
+                           reason="nonexistent_user", sid=sid, user_id=user_id)
+            return False
+
+        if not getattr(user, "is_active", False):
+            logger.warning("dashboard_connect_rejected",
+                           reason="inactive_user", sid=sid, user_id=user_id)
+            return False
+
+        locked_until = getattr(user, "account_locked_until", None)
+        if locked_until is not None and locked_until > _utcnow():
+            logger.warning("dashboard_connect_rejected",
+                           reason="disabled_user", sid=sid, user_id=user_id)
+            return False
+
+        role = (getattr(user, "role", None) or "").lower() or None
+        if role not in ADMIN_COMPATIBLE_ROLES:
+            logger.warning("dashboard_connect_rejected",
+                           reason="unauthorized_role", sid=sid,
+                           user_id=user_id, role=role)
+            return False
+
+        # 5) resolve tenant (server-side derivation, not trusting browser)
+        raw_tenant_id = auth.get("tenant_id")
+        raw_branch_id = auth.get("branch_id")
+        is_platform = role in _PLATFORM_ROLES
+
+        tenant_id, reject_tenant = self._resolve_tenant(
+            user, role, raw_tenant_id, is_platform, sid
+        )
+        if reject_tenant:
+            return False
+        if tenant_id is None and not is_platform:
+            return False
+
+        branch_id, reject_branch = self._resolve_branch(
+            tenant_id, raw_branch_id, is_platform, sid, user_id
+        )
+        if reject_branch:
+            return False
+
+        # 6) register connection (lock protected) ONLY after all checks pass
+        with self._connections_lock:
             self._connected[sid] = {
-                "user_id": int(user_id) if user_id is not None else None,
+                "user_id": int(user_id),
                 "role": role,
-                "tenant_id": self._parse_uuid(tenant_id),
-                "branch_id": self._parse_uuid(branch_id),
+                "tenant_id": tenant_id,
+                "branch_id": branch_id,
                 "connected_at": time.time(),
             }
 
-        print(f"Dashboard client connected. Active: {self.active_connections}")
+        logger.info(
+            "dashboard_client_connected",
+            sid=sid,
+            user_id=user_id,
+            role=role,
+            tenant_id=str(tenant_id) if tenant_id else None,
+            branch_id=str(branch_id) if branch_id else None,
+            active_count=self._snapshot_count(),
+        )
 
-        # Start background thread if not already running
-        if not self.update_thread or not self.update_thread.is_alive():
-            self.stop_event.clear()
-            self.update_thread = threading.Thread(target=self.background_updates)
-            self.update_thread.daemon = True
-            self.update_thread.start()
+        # 7) ensure exactly one background task per process
+        self._ensure_background_task()
+        return True
 
+    # ------------------------------------------------------------------
+    # Tenancy isolation helpers
+    # ------------------------------------------------------------------
+    def _resolve_tenant(self, user, role, raw_tenant_id, is_platform, sid):
+        """Return a tuple (tenant_id, should_reject).
+
+        For platform-level admins we permit explicit selection of any active
+        tenant; when a selection is requested but that tenant is invalid or
+        inactive we REJECT rather than silently falling back to global
+        telemetry. When no tenant is selected, platform-level telemetry is
+        permitted (tenant_id=None, should_reject=False).
+
+        For school-level admins we require or derive an active tenant
+        membership and reject cross-tenant requests.
+        """
+        memberships = TenantMembership.query.filter_by(
+            user_id=user.id, status="active"
+        ).all()
+
+        if is_platform:
+            if raw_tenant_id:
+                requested = self._parse_uuid(raw_tenant_id)
+                if requested is None:
+                    logger.warning("dashboard_connect_rejected",
+                                   reason="invalid_tenant", sid=sid,
+                                   user_id=user.id, role=role)
+                    return None, True
+                # platform impersonation: tenant must exist and be active
+                from app.models.tenant import Tenant
+                tenant = Tenant.query.filter_by(id=requested).first()
+                if tenant is None or tenant.status != "active":
+                    logger.warning("dashboard_connect_rejected",
+                                   reason="nonexistent_tenant", sid=sid,
+                                   user_id=user.id, role=role)
+                    return None, True
+                return requested, False
+            # no tenant selected: platform-wide telemetry only
+            return None, False
+
+        # school-level: derive from memberships
+        if not memberships:
+            logger.warning("dashboard_connect_rejected",
+                           reason="no_tenant_membership", sid=sid,
+                           user_id=user.id, role=role)
+            return None, True
+
+        server_tenant_ids = {m.tenant_id for m in memberships}
+        if raw_tenant_id:
+            requested = self._parse_uuid(raw_tenant_id)
+            if requested is None or requested not in server_tenant_ids:
+                logger.warning("dashboard_connect_rejected",
+                               reason="cross_tenant_access", sid=sid,
+                               user_id=user.id, role=role)
+                return None, True
+            return requested, False
+
+        # fall back to first active membership
+        return memberships[0].tenant_id, False
+
+    def _resolve_branch(self, tenant_id, raw_branch_id, is_platform, sid, user_id):
+        """Return (branch_id, should_reject) where branch_id may be None."""
+        if not raw_branch_id:
+            return None, False
+        if tenant_id is None:
+            # Platform users without tenant selection cannot scope to a branch
+            logger.warning("dashboard_connect_rejected",
+                           reason="branch_without_tenant", sid=sid,
+                           user_id=user_id)
+            return None, True
+        branch_uuid = self._parse_uuid(raw_branch_id)
+        if branch_uuid is None:
+            logger.warning("dashboard_connect_rejected",
+                           reason="invalid_branch", sid=sid,
+                           user_id=user_id)
+            return None, True
+        branch = Branch.query.filter_by(id=branch_uuid).first()
+        if branch is None:
+            logger.warning("dashboard_connect_rejected",
+                           reason="nonexistent_branch", sid=sid,
+                           user_id=user_id)
+            return None, True
+        if not getattr(branch, "is_active", True):
+            logger.warning("dashboard_connect_rejected",
+                           reason="inactive_branch", sid=sid,
+                           user_id=user_id)
+            return None, True
+        if branch.tenant_id != tenant_id:
+            logger.warning("dashboard_connect_rejected",
+                           reason="branch_outside_tenant", sid=sid,
+                           user_id=user_id)
+            return None, True
+        return branch_uuid, False
+
+    # ------------------------------------------------------------------
+    # Safe disconnect
+    # ------------------------------------------------------------------
     def on_disconnect(self, *args):
-        self.active_connections -= 1
         try:
             sid = request.sid
-            if sid in self._connected:
-                del self._connected[sid]
         except Exception:
-            pass
-        print(f"Dashboard client disconnected. Active: {self.active_connections}")
+            sid = None
 
-        if self.active_connections <= 0:
+        removed = False
+        user_id = role = tenant_id = branch_id = None
+        if sid:
+            with self._connections_lock:
+                existing = self._connected.pop(sid, None)
+            if existing is not None:
+                removed = True
+                user_id = existing.get("user_id")
+                role = existing.get("role")
+                tenant_id = existing.get("tenant_id")
+                branch_id = existing.get("branch_id")
+
+        with self._connections_lock:
+            count = len(self._connected)
+
+        if removed:
+            logger.info(
+                "dashboard_client_disconnected",
+                sid=sid,
+                user_id=user_id,
+                role=role,
+                tenant_id=str(tenant_id) if tenant_id else None,
+                branch_id=str(branch_id) if branch_id else None,
+                active_count=count,
+            )
+        else:
+            logger.info(
+                "dashboard_client_disconnected_unknown_sid",
+                sid=sid,
+                active_count=count,
+            )
+
+        if count <= 0:
             self.stop_event.set()
 
+    # ------------------------------------------------------------------
+    # Background task lifecycle: exactly one per process
+    # ------------------------------------------------------------------
+    def _snapshot_count(self):
+        with self._connections_lock:
+            return len(self._connected)
+
+    def _ensure_background_task(self):
+        with self._bg_task_lock:
+            existing = self.update_thread
+            if existing is not None and existing.is_alive():
+                return
+            self.stop_event.clear()
+            self.update_thread = socketio.start_background_task(
+                target=self.background_updates
+            )
+            logger.info("dashboard_background_task_started",
+                        active_count=self._snapshot_count())
+
+    # ------------------------------------------------------------------
+    # Telemetry loop (always scoped from server-validated context)
+    # ------------------------------------------------------------------
     def background_updates(self):
-        """Periodically emit system updates while clients are connected."""
-        app = self._app or current_app._get_current_object()
+        """Periodically emit scoped system updates while authorized clients remain."""
+        try:
+            app = self._app or current_app._get_current_object()
+        except Exception:
+            app = None
+
         while not self.stop_event.is_set():
             try:
+                if app is None:
+                    app = current_app._get_current_object()
                 with app.app_context():
-                    from app.services.dashboard_telemetry import \
-                        DashboardTelemetryService
+                    from app.services.dashboard_telemetry import DashboardTelemetryService
 
                     disk_io = self._get_disk_io_mb_s()
+
+                    with self._connections_lock:
+                        connections = list(self._connected.items())
+                        active_count = len(self._connected)
+
+                    if active_count <= 0:
+                        logger.info(
+                            "dashboard_background_task_stopping",
+                            reason="no_authorized_clients",
+                        )
+                        self.stop_event.set()
+                        break
+
                     contexts = {}
-                    for sid, connection in self._connected.items():
+                    for sid, connection in connections:
+                        role = connection.get("role")
+                        is_platform = role in _PLATFORM_ROLES
                         key = (
                             str(connection.get("tenant_id") or ""),
                             str(connection.get("branch_id") or ""),
+                            bool(is_platform),
                         )
                         contexts.setdefault(key, []).append((sid, connection))
 
-                    for (_, _), entries in contexts.items():
+                    for (_, _, _is_platform), entries in contexts.items():
                         sample = entries[0][1]
                         tenant_id = sample.get("tenant_id")
                         branch_id = sample.get("branch_id")
 
-                        if tenant_id is not None:
+                        if _is_platform and tenant_id is None:
+                            # Platform view: server metrics only for super admins
+                            system = self._perf.get_system_metrics() or {}
+                            dbm = self._perf.get_database_metrics() or {}
+                            appm = self._perf.get_application_metrics() or {}
+                            update_data = {
+                                "activeUsers": max(0, active_count),
+                                "onlineTeachers": 0,
+                                "currentClasses": int(
+                                    (appm.get("table_counts") or {}).get("classes", 0) or 0
+                                ),
+                                "systemLoad": round(
+                                    float(system.get("cpu", {}).get("usage_percent", 0) or 0)
+                                ),
+                                "memoryUsage": round(
+                                    float(system.get("memory", {}).get("usage_percent", 0) or 0)
+                                ),
+                                "diskUsage": round(
+                                    float(system.get("disk", {}).get("usage_percent", 0) or 0)
+                                ),
+                                "diskIO": disk_io,
+                                "networkLatency": round(
+                                    float(dbm.get("connection_time_ms", 0) or 0)
+                                ),
+                                "databaseConnections": int(
+                                    dbm.get("active_connections", 0) or 0
+                                ),
+                                "timestamp": time.time(),
+                            }
+                        else:
+                            # Tenant-scoped view
                             telemetry = DashboardTelemetryService.get_live_telemetry(
                                 tenant_id, branch_id
                             )
@@ -153,44 +448,6 @@ class DashboardNamespace(Namespace):
                                 ),
                                 "timestamp": time.time(),
                             }
-                        else:
-                            system = self._perf.get_system_metrics() or {}
-                            dbm = self._perf.get_database_metrics() or {}
-                            appm = self._perf.get_application_metrics() or {}
-                            update_data = {
-                                "activeUsers": max(0, self.active_connections),
-                                "onlineTeachers": 0,
-                                "currentClasses": int(
-                                    (appm.get("table_counts") or {}).get("classes", 0)
-                                    or 0
-                                ),
-                                "systemLoad": round(
-                                    float(
-                                        system.get("cpu", {}).get("usage_percent", 0)
-                                        or 0
-                                    )
-                                ),
-                                "memoryUsage": round(
-                                    float(
-                                        system.get("memory", {}).get("usage_percent", 0)
-                                        or 0
-                                    )
-                                ),
-                                "diskUsage": round(
-                                    float(
-                                        system.get("disk", {}).get("usage_percent", 0)
-                                        or 0
-                                    )
-                                ),
-                                "diskIO": disk_io,
-                                "networkLatency": round(
-                                    float(dbm.get("connection_time_ms", 0) or 0)
-                                ),
-                                "databaseConnections": int(
-                                    dbm.get("active_connections", 0) or 0
-                                ),
-                                "timestamp": time.time(),
-                            }
 
                         for sid, _connection in entries:
                             socketio.emit(
@@ -199,14 +456,27 @@ class DashboardNamespace(Namespace):
                                 namespace="/dashboard",
                                 to=sid,
                             )
-            except Exception as e:
-                try:
-                    print(f"Dashboard realtime metrics error: {e}")
-                except Exception:
-                    pass
+            except Exception as exc:
+                logger.warning(
+                    "dashboard_telemetry_exception",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    exc_info=True,
+                )
 
-            time.sleep(5)
+            try:
+                socketio.sleep(5)
+            except Exception:
+                if self.stop_event.is_set():
+                    break
 
+        with self._bg_task_lock:
+            self.update_thread = None
+        logger.info("dashboard_background_task_stopped")
+
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
     def _get_disk_io_mb_s(self) -> float:
         try:
             if psutil is None:
@@ -237,9 +507,22 @@ class DashboardNamespace(Namespace):
             return 0.0
 
     def on_request_refresh(self, data):
-        """Handle manual refresh requests from clients."""
-        # Broadcast to all clients in the namespace that they should refresh their data
-        emit("data_invalidated", {"type": data.get("type", "all")}, broadcast=True)
+        """Handle manual refresh requests from connected clients."""
+        try:
+            sid = request.sid
+        except Exception:
+            sid = None
+        if not sid:
+            return
+        with self._connections_lock:
+            authorized = sid in self._connected
+        if not authorized:
+            return
+        emit(
+            "data_invalidated",
+            {"type": data.get("type", "all") if isinstance(data, dict) else "all"},
+            broadcast=True,
+        )
 
     @staticmethod
     def _parse_uuid(value):

@@ -127,18 +127,9 @@ class TimetableService {
   // Create a new time slot
   async createTimeSlot(timeSlotData: CreateTimeSlotParams): Promise<TimeSlot> {
     try {
-      // #region debug-point B:create-slot-request
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"B",location:"frontend/src/services/timetableService.ts:107",msg:"[DEBUG] create slot request",data:{payload:timeSlotData},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       const response = await api.post('/timetable/slots', timeSlotData);
-      // #region debug-point B:create-slot-success
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"B",location:"frontend/src/services/timetableService.ts:111",msg:"[DEBUG] create slot success",data:{status:response.status,slotId:response.data?.data?.id ?? response.data?.id ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       return response.data?.data || response.data;
     } catch (error) {
-      // #region debug-point B:create-slot-error
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"B",location:"frontend/src/services/timetableService.ts:115",msg:"[DEBUG] create slot error",data:{message:(error as any)?.message ?? null,status:(error as any)?.response?.status ?? null,response:(error as any)?.response?.data ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('Error creating time slot:', error);
       throw error;
     }
@@ -186,18 +177,9 @@ class TimetableService {
     slot_id?: number;
   }): Promise<PeriodOptionsResponse> {
     try {
-      // #region debug-point C:period-options-request
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"C",location:"frontend/src/services/timetableService.ts:179",msg:"[DEBUG] period options request",data:{params},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       const response = await api.get('/timetable/periods', { params });
-      // #region debug-point C:period-options-success
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"C",location:"frontend/src/services/timetableService.ts:183",msg:"[DEBUG] period options success",data:{status:response.status,count:Array.isArray(response.data?.data)?response.data.data.length:null,meta:response.data?.meta ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       return response.data;
     } catch (error) {
-      // #region debug-point C:period-options-error
-      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"C",location:"frontend/src/services/timetableService.ts:187",msg:"[DEBUG] period options error",data:{params,message:(error as any)?.message ?? null,status:(error as any)?.response?.status ?? null,response:(error as any)?.response?.data ?? null},ts:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('Error fetching period options:', error);
       throw error;
     }

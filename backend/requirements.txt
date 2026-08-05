@@ -42,7 +42,11 @@ redis==5.0.1
 
 # WebSockets
 Flask-SocketIO==5.3.6
+simple-websocket==1.0.0
 gunicorn>=21.2.0  # Upgraded for 3.11 support
+# NOTE: eventlet / gevent / gevent-websocket are currently unused in the
+# authoritative production threading+gunicorn runtime and remain pinned here as removable
+# technical debt. They can be removed once dependent background tasks prove they are unused.
 eventlet==0.33.3
 gevent==23.9.1
 gevent-websocket==0.10.1

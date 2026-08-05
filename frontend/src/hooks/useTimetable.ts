@@ -43,6 +43,7 @@ export const useCreateTimeSlot = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateTimeSlotParams) => timetableService.createTimeSlot(data),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timetable'] });
     },
@@ -54,6 +55,7 @@ export const useUpdateTimeSlot = () => {
   return useMutation({
     mutationFn: ({ slotId, updates }: { slotId: string; updates: Partial<CreateTimeSlotParams> }) =>
       timetableService.updateTimeSlot(slotId, updates),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timetable'] });
     },
@@ -64,6 +66,7 @@ export const useDeleteTimeSlot = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (slotId: string) => timetableService.deleteTimeSlot(slotId),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timetable'] });
     },

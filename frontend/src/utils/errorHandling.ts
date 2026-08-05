@@ -18,19 +18,42 @@ export interface AppError {
 }
 
 /**
- * Safely extracts error message from unknown error types
+ * Safely extracts error message from unknown error types.
+ * Priority order matches Axios/HTTP client error envelopes:
+ *   1. error.response.data.message   (backend JSON payload, HTTP 4xx/5xx)
+ *   2. error.response.data.error     (backend alternate payload shape)
+ *   3. error.message (native Error, or Axios synthesized message)
+ *   4. string error argument
+ *   5. generic fallback
  * @param error - The caught error of unknown type
  * @returns A string error message
  */
 export const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
+  if (error && typeof error === 'object') {
+    const anyErr = error as any;
+    if (
+      anyErr.response &&
+      typeof anyErr.response === 'object' &&
+      anyErr.response.data &&
+      typeof anyErr.response.data === 'object'
+    ) {
+      const dm = anyErr.response.data.message;
+      if (typeof dm === 'string' && dm.trim()) return dm;
+      const de = anyErr.response.data.error;
+      if (typeof de === 'string' && de.trim()) return de;
+      if (typeof dm !== 'undefined' && dm !== null && String(dm).trim()) return String(dm);
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if ('message' in error) {
+      const m = (error as any).message;
+      if (typeof m === 'string' && m.trim()) return m;
+      if (m !== undefined && m !== null) return String(m);
+    }
   }
   if (typeof error === 'string') {
     return error;
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    return String((error as any).message);
   }
   return 'An unexpected error occurred';
 };

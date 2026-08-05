@@ -134,9 +134,23 @@ def init_extensions(app):
     mail.init_app(app)
 
     # WebSocket
+    from app.extensions import SOCKETIO_ASYNC_MODE as _selected_async_mode
+
     socketio.init_app(
         app, cors_allowed_origins=frontend_origins, ping_timeout=120, ping_interval=25
     )
+
+    try:
+        import structlog as _sl
+        _socketio_logger = _sl.get_logger()
+        _socketio_logger.info(
+            "socketio_initialized",
+            async_mode=_selected_async_mode,
+            ping_timeout=120,
+            ping_interval=25,
+        )
+    except Exception:
+        pass
 
     # JWT Configuration
     _configure_jwt(app)

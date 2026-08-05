@@ -50,12 +50,34 @@ services:
     networks:
       - admipaedia-network
 
-  # Backend Socket.IO Service
+  # Backend Socket.IO Service (single gthread worker required for in-process
+  # Socket.IO state; future horizontal scaling must use multiple instances
+  # behind sticky sessions + a Redis message queue)
   backend-socket:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "eventlet", "--timeout", "120", "--keepalive", "2", "socket_server:app"]
+    command:
+      - "gunicorn"
+      - "--bind"
+      - "0.0.0.0:5000"
+      - "--workers"
+      - "${GUNICORN_WORKERS:-1}"
+      - "--worker-class"
+      - "gthread"
+      - "--threads"
+      - "${GUNICORN_THREADS:-16}"
+      - "--timeout"
+      - "${GUNICORN_TIMEOUT:-120}"
+      - "--graceful-timeout"
+      - "30"
+      - "--keepalive"
+      - "5"
+      - "--max-requests"
+      - "1000"
+      - "--max-requests-jitter"
+      - "100"
+      - "wsgi:app"
     depends_on:
       - postgres
       - redis
@@ -65,9 +87,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - SOCKETIO_ASYNC_MODE=eventlet
+      - SOCKETIO_ASYNC_MODE=${SOCKETIO_ASYNC_MODE:-threading}
       - FRONTEND_URL=https://admipaedia.easymsdigit.com
       - CORS_ORIGINS=https://admipaedia.easymsdigit.com
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-16}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
