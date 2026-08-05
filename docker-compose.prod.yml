@@ -60,7 +60,7 @@ services:
     command:
       - "gunicorn"
       - "--bind"
-      - "0.0.0.0:5000"
+      - "0.0.0.0:5001"
       - "--workers"
       - "${GUNICORN_WORKERS:-1}"
       - "--worker-class"
@@ -72,12 +72,12 @@ services:
       - "--graceful-timeout"
       - "30"
       - "--keepalive"
-      - "5"
+      - "15"
       - "--max-requests"
-      - "1000"
+      - "0"
       - "--max-requests-jitter"
-      - "100"
-      - "wsgi:app"
+      - "0"
+      - "wsgi_socket:app"
     depends_on:
       - postgres
       - redis
@@ -97,11 +97,11 @@ services:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 5000))"]
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 5001))"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
     restart: unless-stopped
     networks:
       - admipaedia-network
