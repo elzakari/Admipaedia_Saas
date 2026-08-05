@@ -174,6 +174,12 @@ export function TimeSlotFormModal({
     }));
   }, [teachersData, selectedSubject]);
 
+  useEffect(() => {
+    // #region debug-point D:teacher-option-state
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"D",location:"frontend/src/components/academics/TimeSlotFormModal.tsx:172",msg:"[DEBUG] teacher option state",data:{classId:formData.class_id,subjectId:formData.subject_id,teacherId:formData.teacher_id,selectedSubjectTeacherIds:Array.isArray(selectedSubject?.teachers)?selectedSubject.teachers.map((teacher:any)=>Number(teacher.id)):[],teacherOptionIds:teacherOptions.map((option)=>Number(option.value)),teacherOptionCount:teacherOptions.length},ts:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [formData.class_id, formData.subject_id, formData.teacher_id, selectedSubject, teacherOptions]);
+
   const periodOptions = useMemo(() => {
     if (!periodsData?.data) return [];
     return periodsData.data.map((p: any) => ({
@@ -275,6 +281,10 @@ export function TimeSlotFormModal({
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // #region debug-point D:submit-attempt
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"D",location:"frontend/src/components/academics/TimeSlotFormModal.tsx:279",msg:"[DEBUG] submit attempt",data:{formData,subjectTeacherIds:Array.isArray(selectedSubject?.teachers)?selectedSubject.teachers.map((teacher:any)=>Number(teacher.id)):[],teacherOptionIds:teacherOptions.map((option)=>Number(option.value))},ts:Date.now()})}).catch(()=>{});
+    // #endregion
     
     if (!validateForm()) {
       toast.error(t('common.errors.fix_errors', 'Please fix the errors in the form'));

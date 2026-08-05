@@ -73,6 +73,9 @@ class TimetableService:
 
     @staticmethod
     def validate_slot_relationships(data):
+        # #region debug-point E:validate-slot-relationships-start
+        import json, urllib.request; exec("try:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:7777/event', data=json.dumps({'sessionId':'timetable-socket-timeout','runId':'pre-fix','hypothesisId':'E','location':'backend/app/services/timetable/service.py:64','msg':'[DEBUG] validate slot relationships start','data':{'class_id':data.get('class_id'),'subject_id':data.get('subject_id'),'teacher_id':data.get('teacher_id')}}).encode(), headers={'Content-Type':'application/json'}), timeout=0.5).read()\nexcept Exception:\n pass")
+        # #endregion
         class_obj = Class.query.get(data.get("class_id"))
         if not class_obj:
             return None, None, "Class not found"
@@ -86,6 +89,9 @@ class TimetableService:
             return class_obj, subject, "Teacher not found"
 
         if not any(mapped_class.id == class_obj.id for mapped_class in subject.classes):
+            # #region debug-point E:subject-class-mismatch
+            import json, urllib.request; exec("try:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:7777/event', data=json.dumps({'sessionId':'timetable-socket-timeout','runId':'pre-fix','hypothesisId':'E','location':'backend/app/services/timetable/service.py:77','msg':'[DEBUG] subject class mismatch','data':{'class_id':class_obj.id,'subject_id':subject.id,'subject_class_ids':[mapped_class.id for mapped_class in subject.classes]}}).encode(), headers={'Content-Type':'application/json'}), timeout=0.5).read()\nexcept Exception:\n pass")
+            # #endregion
             return (
                 class_obj,
                 subject,
@@ -95,6 +101,9 @@ class TimetableService:
         if not any(
             mapped_teacher.id == teacher.id for mapped_teacher in subject.teachers
         ):
+            # #region debug-point E:teacher-subject-mismatch
+            import json, urllib.request; exec("try:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:7777/event', data=json.dumps({'sessionId':'timetable-socket-timeout','runId':'pre-fix','hypothesisId':'E','location':'backend/app/services/timetable/service.py:89','msg':'[DEBUG] teacher subject mismatch','data':{'class_id':class_obj.id,'subject_id':subject.id,'teacher_id':teacher.id,'subject_teacher_ids':[mapped_teacher.id for mapped_teacher in subject.teachers]}}).encode(), headers={'Content-Type':'application/json'}), timeout=0.5).read()\nexcept Exception:\n pass")
+            # #endregion
             return (
                 class_obj,
                 subject,

@@ -56,6 +56,10 @@ class WebSocketService {
     // Construct full URL
     const url = `${SOCKET_BASE_URL}${this.namespace}`;
 
+    // #region debug-point A:socket-connect-config
+    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:58",msg:"[DEBUG] preparing socket connection",data:{namespace:this.namespace,url,hasAuth:Boolean(authPayload),transportOrder:["websocket","polling"],upgrade:true},ts:Date.now()})}).catch(()=>{});
+    // #endregion
+
     this.socket = io(url, {
       path: '/socket.io',
       auth: authPayload,
@@ -70,6 +74,9 @@ class WebSocketService {
     });
 
     this.socket.on('connect', () => {
+      // #region debug-point A:socket-connected
+      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:77",msg:"[DEBUG] socket connected",data:{namespace:this.namespace,transport:this.socket?.io?.engine?.transport?.name ?? null},ts:Date.now()})}).catch(()=>{});
+      // #endregion
       console.log(`✅ Socket connected to ${this.namespace}`);
       this.attachPendingSubscriptions();
       this.setStatus('connected');
@@ -90,6 +97,9 @@ class WebSocketService {
     });
 
     this.socket.on('connect_error', (error) => {
+      // #region debug-point A:socket-connect-error
+      fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"timetable-socket-timeout",runId:"pre-fix",hypothesisId:"A",location:"frontend/src/services/websocketService.ts:99",msg:"[DEBUG] socket connect error",data:{namespace:this.namespace,message:error?.message ?? null,description:(error as any)?.description ?? null,type:(error as any)?.type ?? null,transport:this.socket?.io?.engine?.transport?.name ?? null},ts:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error(`❌ Socket connection error for ${this.namespace}:`, error);
       this.setStatus('error');
     });
