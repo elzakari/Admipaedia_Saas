@@ -19,6 +19,16 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
   const activeRoster = useMemo(() => cls.roster.filter((r) => r.status === 'active'), [cls.roster]);
   const numericClassId = Number(cls.id);
 
+  // Optional subject scoping key, used when a class workspace is scoped to a
+  // specific subject (currently cls exposes a display-name `subject` string
+  // only, so this is intentionally Number(null) -> falsy and treated as
+  // whole-class attendance).  Do NOT reference a bare identifier that was
+  // never declared in scope (it blows up as ReferenceError at render time).
+  const subjectId: number | undefined =
+    Number.isFinite(Number((cls as any).subject_id))
+      ? Number((cls as any).subject_id)
+      : undefined;
+
   const loadAttendance = useCallback(async () => {
     if (!Number.isFinite(numericClassId) || numericClassId <= 0) {
       setAttendanceDraft({});
@@ -27,7 +37,11 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
 
     try {
       setLoading(true);
-      const records = await attendanceService.getClassAttendance(numericClassId, attendanceDate);
+      const records = await attendanceService.getClassAttendance(
+        numericClassId,
+        attendanceDate,
+        subjectId,
+      );
       const next: Record<string, AttendanceRow> = {};
       for (const record of records) {
         next[String(record.student_id)] = {
