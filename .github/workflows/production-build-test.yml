@@ -28,7 +28,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Pin npm
-        run: npm i -g npm@9.9.4
+        run: |
+          echo "Current node: $(node --version) / npm: $(npm --version)"
+          MAJOR=$(node --version | sed 's/^v//' | cut -d. -f1)
+          if [ "$MAJOR" -ge 22 ]; then
+            echo "Node 22+ detected: keeping bundled npm (npm 10+ required, npm 9 incompatible)"
+            npm install -g npm@10.9.2 || true
+          else
+            npm install -g npm@9.9.4
+          fi
+          npm --version
 
       - name: Install dependencies (clean)
         run: |

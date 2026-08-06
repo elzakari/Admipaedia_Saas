@@ -29,4 +29,5 @@ def test_websocket_namespace_registration_is_idempotent(monkeypatch):
         "/ws/announcements",
         "/messages",
         "/dashboard",
+        "/ws/lessons",
     ]

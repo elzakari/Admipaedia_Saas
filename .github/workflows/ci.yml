@@ -82,7 +82,7 @@ jobs:
       continue-on-error: true
       env:
         FLASK_ENV: testing
-        TEST_DB_URL: sqlite:///:memory:
+        TEST_DB_URL: "sqlite:///:memory:"
     
     - name: Upload test coverage
       uses: codecov/codecov-action@v3

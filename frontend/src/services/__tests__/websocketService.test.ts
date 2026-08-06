@@ -11,32 +11,32 @@ const mockedBuildSocketAuthPayload = vi.mocked(buildSocketAuthPayload);
 
 const DASHBOARD_NS = '/dashboard';
 
-type ListenersMap = Map<string, Set<Function>>;
+type ListenersMap = Map<string, Set<(...args: any[]) => any>>;
 
 class MockSocket {
   connected: boolean;
   opts: any;
   url: string;
   listeners: ListenersMap;
-  anyListeners: Set<Function>;
+  anyListeners: Set<(...args: any[]) => any>;
   connect = vi.fn(() => { this.connected = true; return this; });
   disconnect = vi.fn(() => { this.connected = false; return this; });
   emit = vi.fn();
-  on = vi.fn((event: string, handler: Function) => {
+  on = vi.fn((event: string, handler: (...args: any[]) => any) => {
     if (!this.listeners.has(event)) this.listeners.set(event, new Set());
     this.listeners.get(event)!.add(handler);
   });
-  off = vi.fn((event: string, handler?: Function) => {
+  off = vi.fn((event: string, handler?: (...args: any[]) => any) => {
     if (!this.listeners.has(event)) return;
     if (!handler) this.listeners.get(event)!.clear();
     else this.listeners.get(event)!.delete(handler);
   });
-  onAny = vi.fn((handler: Function) => { this.anyListeners.add(handler); });
+  onAny = vi.fn((handler: (...args: any[]) => any) => { this.anyListeners.add(handler); });
 
   fire(event: string, ...args: any[]) {
     const set = this.listeners.get(event);
-    if (set) for (const h of [...set]) { try { h(...args); } catch {} }
-    for (const h of [...this.anyListeners]) { try { h(event, ...args); } catch {} }
+    if (set) for (const h of [...set]) { try { h(...args); } catch { /* no-op */ } }
+    for (const h of [...this.anyListeners]) { try { h(event, ...args); } catch { /* no-op */ } }
   }
 
   constructor(url: string, opts: any, connectedInitial = false) {
