@@ -15,6 +15,7 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceRow>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   const activeRoster = useMemo(() => cls.roster.filter((r) => r.status === 'active'), [cls.roster]);
   const numericClassId = Number(cls.id);
@@ -37,6 +38,7 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
 
     try {
       setLoading(true);
+      setAccessError(null);
       const records = await attendanceService.getClassAttendance(
         numericClassId,
         attendanceDate,
@@ -114,7 +116,7 @@ export function TeacherClassAttendanceTab({ cls }: { cls: TeacherClass }) {
           <Button variant="outline" className="rounded-xl" onClick={loadAttendance} disabled={loading || saving}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('teacher_portal.attendance.load')}
           </Button>
-          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveAttendance} disabled={loading || saving}>
+          <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" onClick={saveAttendance} disabled={loading || saving || !!accessError || activeRoster.length === 0}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('teacher_portal.attendance.save')}
           </Button>
         </div>

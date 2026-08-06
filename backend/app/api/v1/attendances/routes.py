@@ -1,16 +1,21 @@
 from datetime import datetime
 
-from flask import jsonify, request
+from flask import abort, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from marshmallow import ValidationError
 
 from app.api.v1.attendances import attendances_bp
+from app.extensions import db
+from app.models.class_ import Class, ClassTeacherMapping
+from app.models.teacher import Teacher
+from app.models.user import User
 from app.schemas.attendance import (AttendanceBulkCreateSchema,
                                     AttendanceCreateSchema, AttendanceSchema,
                                     AttendanceUpdateSchema)
 from app.services.attendance_service import AttendanceService
 from app.utils.auth_utils import admin_required, teacher_required
-from app.utils.rbac_decorators import require_permission, require_role
+from app.utils.rbac_decorators import (has_permission, require_permission,
+                                      require_role)
 from app.utils.tenant_context import tenant_required
 
 # Initialize schemas
@@ -21,18 +26,150 @@ attendance_update_schema = AttendanceUpdateSchema()
 attendance_bulk_create_schema = AttendanceBulkCreateSchema()
 
 
+def _current_user_teacher_ids() -> list:
+    """Return Teacher ids owned by the current JWT user, or [] if none.
+
+    A teacher portal login normally has a User row with role == 'teacher',
+    a matching Teacher.user_id row, and tenant-membership assignments.
+    """
+    user_id = get_jwt_identity()
+    if not user_id:
+        return []
+    rows = (
+        db.session.query(Teacher.id)
+        .filter(Teacher.user_id == user_id)
+        .all()
+    )
+    return [int(r[0]) for r in rows if r and r[0]]
+
+
+def _current_user_is_admin_like() -> bool:
+    """Return True iff the current user carries an explicit admin-like role."""
+    user_id = get_jwt_identity()
+    if not user_id:
+        return False
+    user = db.session.query(User).filter(User.id == user_id).first()
+    if getattr(user, "role", None) in {
+        "admin",
+        "school_admin",
+        "super_admin",
+        "super_manager",
+        "manager",
+        "billing_admin",
+    }:
+        return True
+    return False
+
+
+def _teacher_is_assigned_to_class(teacher_ids, class_id: int) -> bool:
+    """Return True iff any of the supplied teacher ids is assigned to class_id.
+
+    Assignment is satisfied by any one of:
+      1. Class.teacher_id direct FK (the homeroom teacher).
+      2. A ClassTeacherMapping row for the class/teacher pair.
+      3. A subject assignment (TeacherSubjects join) for a subject linked to
+         the class via ClassSubject join â€” this covers subject teachers who
+         are not set as the homeroom contact.
+    """
+    if not teacher_ids or not class_id:
+        return False
+
+    class_ = db.session.query(Class).filter(Class.id == class_id).first()
+    if class_ is None:
+        return False
+
+    if class_.teacher_id and int(class_.teacher_id) in {
+        int(t) for t in teacher_ids
+    }:
+        return True
+
+    mapping_exists = (
+        db.session.query(ClassTeacherMapping.id)
+        .filter(
+            ClassTeacherMapping.class_id == class_id,
+            ClassTeacherMapping.teacher_id.in_(teacher_ids),
+        )
+        .first()
+    )
+    if mapping_exists:
+        return True
+
+    # Subject-teacher assignments join: class -> class_subjects -> subjects -> teacher_subjects
+    try:
+        from app.models.associations import (class_subjects, teacher_subjects)
+        from app.models.subject import Subject
+
+        assigned_subject_ids = (
+            db.session.query(class_subjects.c.subject_id)
+            .filter(class_subjects.c.class_id == class_id)
+            .all()
+        )
+        if not assigned_subject_ids:
+            return False
+        subject_ids = [int(r[0]) for r in assigned_subject_ids if r and r[0]]
+        linked_teacher = (
+            db.session.query(teacher_subjects.c.teacher_id)
+            .filter(
+                teacher_subjects.c.subject_id.in_(subject_ids),
+                teacher_subjects.c.teacher_id.in_(teacher_ids),
+            )
+            .first()
+        )
+        if linked_teacher is not None:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _is_teacher_and_scoped_to_class(class_id=None, bulk_class_id=None, student_scope_class_id=None) -> bool:
+    """Return True iff caller is a teacher AND the scope is assigned to them.
+
+    When a teacher calls the endpoints without the global admin permission,
+    we still allow the call only if the requested class is one they are
+    explicitly assigned to (homeroom, class-teacher mapping, or subject
+    teacher via ClassSubjects + TeacherSubjects joins).
+    """
+    target_class_ids = [c for c in [class_id, bulk_class_id, student_scope_class_id] if c]
+    deduped = sorted({int(c) for c in target_class_ids})
+    if not deduped:
+        return False
+    teacher_ids = _current_user_teacher_ids()
+    if not teacher_ids:
+        return False
+    return all(_teacher_is_assigned_to_class(teacher_ids, c) for c in deduped)
+
+
 @attendances_bp.route("/", methods=["GET"])
 @jwt_required()
 @tenant_required
-@require_permission("attendance.read")
 def get_attendances():
-    """Get all attendances with pagination and filtering."""
+    """Get all attendances with pagination and filtering.
+
+    Admin path: requires the explicit attendance.read permission.
+    Teacher path: allowed ONLY when an explicit class_id filter is present
+    AND the JWT user resolves to a Teacher assigned to that class (homeroom,
+    ClassTeacherMapping, or subject-teacher via class subjects join).
+    """
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     class_id = request.args.get("class_id", type=int)
     student_id = request.args.get("student_id", type=int)
     subject_id = request.args.get("subject_id", type=int)
     status = request.args.get("status", type=str)
+
+    # Authorization gate.  Do this BEFORE any business logic so an unprivileged
+    # caller cannot enumerate attendance IDs if they craft a request.
+    current_user = db.session.query(User).filter(User.id == get_jwt_identity()).first() if get_jwt_identity() else None
+    authorized = bool(current_user) and has_permission(current_user, "attendance.read")
+
+    if not authorized:
+        # Teacher-scoped escape hatch: must have explicit class_id and be
+        # an assigned teacher for that class.
+        if class_id is None:
+            abort(403)
+        if not _is_teacher_and_scoped_to_class(class_id=class_id):
+            abort(403)
 
     # Parse date parameters
     date_from = request.args.get("date_from", type=str)
@@ -197,15 +334,31 @@ def delete_attendance(attendance_id):
 @jwt_required()
 @tenant_required
 @require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
-@require_permission("attendance.create")
 def bulk_create_attendance():
-    """Create multiple attendance records at once."""
+    """Create multiple attendance records at once.
+
+    Admin path: requires the explicit attendance.create permission.
+    Teacher path: allowed when an explicit class_id is supplied in the bulk
+    payload AND the JWT user resolves to a Teacher assigned to that class.
+    """
     try:
         data = attendance_bulk_create_schema.load(request.json)
 
         # Set recorded_by to current user if not provided
         if "recorded_by" not in data:
             data["recorded_by"] = get_jwt_identity()
+
+        # Authorization gate (must run AFTER schema load so class_id parsed).
+        user_for_bulk = db.session.query(User).filter(User.id == get_jwt_identity()).first() if get_jwt_identity() else None
+        bulk_authorized = bool(user_for_bulk) and has_permission(user_for_bulk, "attendance.create")
+        if not bulk_authorized:
+            payload_class_id = None
+            try:
+                payload_class_id = int(data.get("class_id")) if data.get("class_id") not in (None, "") else None
+            except Exception:
+                payload_class_id = None
+            if not _is_teacher_and_scoped_to_class(class_id=payload_class_id):
+                abort(403)
 
         attendances, error = AttendanceService.bulk_create_attendance(data)
 
