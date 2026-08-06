@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BookOpen,
@@ -25,6 +26,11 @@ import {
   Send,
   Share2,
   X,
+  Link,
+  Upload as UploadIcon,
+  FileUp,
+  Award,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,6 +43,19 @@ import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Textarea } from "../ui/textarea";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Upload } from "../ui/upload";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from "../ui/drawer";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -45,11 +64,14 @@ import {
 } from "../ui/tooltip";
 import { cn, formatDate, formatDateTime, getInitials } from "../../lib/utils";
 import { useToast } from "../ui/use-toast";
+import { toast as sonnerToast } from "sonner";
+import classService, { HomeworkSubmission, HomeworkSubmissionType } from "../../services/classService";
 import type {
   Lesson,
   LessonComment,
   LessonResource,
   LessonAcknowledgement,
+  HomeworkStatus,
 } from "./DailyLessonsTab";
 
 export interface LessonDetailViewerHandle {
@@ -105,12 +127,34 @@ const LessonDetailViewer = forwardRef<
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
+  const [homeworkDrawerOpen, setHomeworkDrawerOpen] = useState(false);
+  const [hwSubmissionType, setHwSubmissionType] = useState<HomeworkSubmissionType>('text');
+  const [hwTextContent, setHwTextContent] = useState('');
+  const [hwLinkUrl, setHwLinkUrl] = useState('');
+  const [hwFile, setHwFile] = useState<File | null>(null);
+  const [hwSubmissions, setHwSubmissions] = useState<HomeworkSubmission[]>([]);
+  const [viewedHwStatus, setViewedHwStatus] = useState<HomeworkStatus | undefined>(undefined);
+  const [viewedHwGrade, setViewedHwGrade] = useState<number | undefined>(undefined);
+  const [viewedHwFeedback, setViewedHwFeedback] = useState<string | undefined>(undefined);
+  const [viewedHwSubmittedAt, setViewedHwSubmittedAt] = useState<string | undefined>(undefined);
+  const [viewedHwGradedAt, setViewedHwGradedAt] = useState<string | undefined>(undefined);
+
   useImperativeHandle(ref, () => ({
     open: (lesson: Lesson) => {
       setCurrentLesson(lesson);
       setComments(lesson.comments || []);
       setAcknowledgements(lesson.acknowledgements || []);
       setLiveViewerCount(lesson.liveViewerCount || 0);
+      setViewedHwStatus(lesson.homeworkStatus as HomeworkStatus | undefined);
+      setViewedHwGrade(lesson.homeworkGrade);
+      setViewedHwFeedback(lesson.homeworkFeedback);
+      setViewedHwSubmittedAt(lesson.homeworkSubmittedAt);
+      setViewedHwGradedAt(lesson.homeworkGradedAt);
+      setHwTextContent('');
+      setHwLinkUrl('');
+      setHwFile(null);
+      setHwSubmissionType('text');
+      setHwSubmissions([]);
       setIsOpen(true);
     },
     close: () => {
@@ -235,6 +279,97 @@ const LessonDetailViewer = forwardRef<
     });
   }, [currentLesson, toast]);
 
+  const numericLessonId = currentLesson?.id ? Number(currentLesson.id) : 0;
+
+  const { refetch: refetchHomework } = useQuery({
+    queryKey: ["lesson-homework", numericLessonId],
+    queryFn: async () => {
+      if (!numericLessonId) return null;
+      const result = await classService.getHomeworkForLesson(numericLessonId);
+      return result.data || null;
+    },
+    enabled: !!numericLessonId && homeworkDrawerOpen,
+    refetchInterval: (data: any) => {
+      if (data && Array.isArray(data) && data.length > 0 && (data[0] as any).status === 'submitted') {
+        return 5000;
+      }
+      return false;
+    },
+    onSuccess: (data: any) => {
+      if (data && Array.isArray(data) && data.length > 0) {
+        const submissions = data as HomeworkSubmission[];
+        setHwSubmissions(submissions);
+        const sub = submissions[0];
+        setViewedHwStatus(((sub.status as any) || 'submitted') as HomeworkStatus);
+        if ((sub as any).grade !== undefined && (sub as any).grade !== null) setViewedHwGrade(Number((sub as any).grade));
+        if ((sub as any).feedback) setViewedHwFeedback(String((sub as any).feedback));
+        if ((sub as any).submitted_at) setViewedHwSubmittedAt(String((sub as any).submitted_at));
+        if ((sub as any).graded_at) setViewedHwGradedAt(String((sub as any).graded_at));
+      }
+    },
+  } as any);
+
+  const submitHomeworkMutation = useMutation({
+    mutationFn: async () => {
+      if (!numericLessonId) throw new Error("No lesson selected");
+      const payload: any = { submission_type: hwSubmissionType };
+      if (hwSubmissionType === 'text') {
+        if (!hwTextContent.trim()) throw new Error("Please enter homework text");
+        payload.content = hwTextContent.trim();
+      } else if (hwSubmissionType === 'link') {
+        if (!hwLinkUrl.trim()) throw new Error("Please enter a link URL");
+        payload.link_url = hwLinkUrl.trim();
+      } else if (hwSubmissionType === 'file') {
+        if (!hwFile) throw new Error("Please select a file");
+        payload.file = hwFile;
+      }
+      return classService.submitHomework(numericLessonId, payload);
+    },
+    onMutate: () => {
+      sonnerToast.loading("Submitting homework...", { id: 'hw-submit' });
+    },
+    onSuccess: () => {
+      sonnerToast.success("Homework submitted!", { id: 'hw-submit', description: 'Waiting for teacher to grade.' });
+      setViewedHwStatus('submitted');
+      setViewedHwSubmittedAt(new Date().toISOString());
+      setHomeworkDrawerOpen(false);
+      setHwTextContent('');
+      setHwLinkUrl('');
+      setHwFile(null);
+      refetchHomework();
+    },
+    onError: (err) => {
+      sonnerToast.error("Failed to submit", { id: 'hw-submit', description: err?.message || 'Unknown error' });
+    },
+  });
+
+  const canSubmitHomework = useMemo(() => {
+    if (!currentLesson?.homework) return false;
+    if (viewedHwStatus === 'submitted' || viewedHwStatus === 'graded') return false;
+    return viewerRole === 'student' || viewerRole === 'parent';
+  }, [currentLesson, viewedHwStatus, viewerRole]);
+
+  const getHomeworkStatusVariant = (status?: HomeworkStatus) => {
+    switch (status) {
+      case 'graded': return 'default';
+      case 'submitted': return 'secondary';
+      case 'overdue': return 'destructive';
+      case 'pending': return 'outline';
+      default: return 'outline';
+    }
+  };
+
+  const getHomeworkStatusText = (status?: HomeworkStatus) => {
+    switch (status) {
+      case 'graded': return 'Graded';
+      case 'submitted': return 'Submitted';
+      case 'overdue': return 'Overdue';
+      case 'pending': return 'Pending';
+      case 'not-set': return 'Not Assigned';
+      default: return 'Not Started';
+    }
+  };
+
   const renderSection = (
     icon: React.ReactNode,
     title: string,
@@ -273,6 +408,7 @@ const LessonDetailViewer = forwardRef<
   if (!currentLesson) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
         if (ref && typeof ref !== "function") {
@@ -521,27 +657,105 @@ const LessonDetailViewer = forwardRef<
                 )}
 
                 {currentLesson.homework && (
-                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 p-5 border border-amber-100 dark:border-amber-900/30">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 p-5 border border-amber-100 dark:border-amber-900/30 space-y-4">
+                    <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <HomeIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                         <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
                           🏠 Homework / Practice
                         </h4>
                       </div>
-                      {currentLesson.homeworkDueDate && (
-                        <Badge variant="warning" className="text-[10px]">
-                          Due:{" "}
-                          {formatDate(currentLesson.homeworkDueDate, {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {viewedHwStatus && (
+                          <Badge variant={getHomeworkStatusVariant(viewedHwStatus) as any} className="text-[10px] gap-1">
+                            {viewedHwStatus === 'graded' && <Award className="h-3 w-3" />}
+                            {viewedHwStatus === 'submitted' && <Send className="h-3 w-3" />}
+                            {viewedHwStatus === 'overdue' && <AlertTriangle className="h-3 w-3" />}
+                            {getHomeworkStatusText(viewedHwStatus)}
+                          </Badge>
+                        )}
+                        {currentLesson.homeworkDueDate && (
+                          <Badge variant="warning" className="text-[10px]">
+                            Due:{" "}
+                            {formatDate(currentLesson.homeworkDueDate, {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="whitespace-pre-wrap text-sm text-amber-900 dark:text-amber-200 leading-relaxed bg-white/60 dark:bg-slate-900/40 rounded-lg p-4">
                       {currentLesson.homework}
                     </div>
+
+                    {viewedHwStatus === 'graded' && viewedHwGrade !== undefined && (
+                      <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Award className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            <h5 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                              Teacher Feedback
+                            </h5>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
+                              {viewedHwGrade}%
+                            </div>
+                            {viewedHwGradedAt && (
+                              <div className="text-[10px] text-emerald-600/70 dark:text-emerald-300/70 mt-0.5">
+                                Graded {formatDate(viewedHwGradedAt, { month: 'short', day: 'numeric' })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {viewedHwFeedback && (
+                          <>
+                            <Separator className="bg-emerald-200/60 dark:bg-emerald-800/60" />
+                            <div className="text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">
+                              {viewedHwFeedback}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {viewedHwStatus === 'submitted' && viewedHwGrade === undefined && (
+                      <div className="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-sky-200/50 dark:bg-sky-800/50 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle2 className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-sky-900 dark:text-sky-100">
+                              Submitted successfully
+                            </div>
+                            {viewedHwSubmittedAt && (
+                              <div className="text-xs text-sky-700/70 dark:text-sky-300/70 mt-0.5">
+                                {formatDateTime(viewedHwSubmittedAt)} • Waiting for teacher review
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {canSubmitHomework && (
+                      <div className="flex items-center gap-3 pt-1">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-sm"
+                          onClick={() => setHomeworkDrawerOpen(true)}
+                        >
+                          <FileUp className="h-4 w-4" />
+                          Submit Homework
+                        </Button>
+                        <span className="text-xs text-amber-800/70 dark:text-amber-200/70">
+                          Submit text, a link, or a file attachment
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -753,6 +967,226 @@ const LessonDetailViewer = forwardRef<
         </div>
       </DialogContent>
     </Dialog>
+
+    <Drawer open={homeworkDrawerOpen} onOpenChange={setHomeworkDrawerOpen}>
+      <DrawerContent className="h-[88vh] max-h-[88vh] flex flex-col">
+        <DrawerHeader className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <FileUp className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Submit Homework
+              </DrawerTitle>
+              <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentLesson?.title}
+              </DrawerDescription>
+            </div>
+          </div>
+        </DrawerHeader>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              Submission Type
+            </Label>
+            <RadioGroup
+              value={hwSubmissionType}
+              onValueChange={(v) => setHwSubmissionType(v as HomeworkSubmissionType)}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+            >
+              <div>
+                <RadioGroupItem
+                  value="text"
+                  id="hw-type-text"
+                  className="peer sr-only"
+                />
+                <Label
+                  htmlFor="hw-type-text"
+                  className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/70 cursor-pointer transition-all peer-data-[state=checked]:border-amber-500 peer-data-[state=checked]:bg-amber-50 dark:peer-data-[state=checked]:bg-amber-950/30 peer-data-[state=checked]:shadow-sm"
+                >
+                  <FileText className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Text</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Type your answer</span>
+                </Label>
+              </div>
+              <div>
+                <RadioGroupItem
+                  value="link"
+                  id="hw-type-link"
+                  className="peer sr-only"
+                />
+                <Label
+                  htmlFor="hw-type-link"
+                  className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/70 cursor-pointer transition-all peer-data-[state=checked]:border-amber-500 peer-data-[state=checked]:bg-amber-50 dark:peer-data-[state=checked]:bg-amber-950/30 peer-data-[state=checked]:shadow-sm"
+                >
+                  <Link className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Link</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Google Docs etc.</span>
+                </Label>
+              </div>
+              <div>
+                <RadioGroupItem
+                  value="file"
+                  id="hw-type-file"
+                  className="peer sr-only"
+                />
+                <Label
+                  htmlFor="hw-type-file"
+                  className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/70 cursor-pointer transition-all peer-data-[state=checked]:border-amber-500 peer-data-[state=checked]:bg-amber-50 dark:peer-data-[state=checked]:bg-amber-950/30 peer-data-[state=checked]:shadow-sm"
+                >
+                  <UploadIcon className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">File</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 text-center">PDF, images, zip</span>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <Separator className="bg-slate-200 dark:bg-slate-800" />
+
+          {hwSubmissionType === 'text' && (
+            <div className="space-y-2">
+              <Label htmlFor="hw-text" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Your Answer <span className="text-rose-500">*</span>
+              </Label>
+              <Textarea
+                id="hw-text"
+                value={hwTextContent}
+                onChange={(e) => setHwTextContent(e.target.value)}
+                placeholder="Write your homework answer here..."
+                className="min-h-[200px] resize-y bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-amber-400 dark:focus:border-amber-600 text-slate-800 dark:text-slate-200"
+              />
+              <div className="flex justify-end">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {hwTextContent.length} characters
+                </span>
+              </div>
+            </div>
+          )}
+
+          {hwSubmissionType === 'link' && (
+            <div className="space-y-2">
+              <Label htmlFor="hw-link" className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Link URL <span className="text-rose-500">*</span>
+              </Label>
+              <div className="relative">
+                <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <Input
+                  id="hw-link"
+                  type="url"
+                  value={hwLinkUrl}
+                  onChange={(e) => setHwLinkUrl(e.target.value)}
+                  placeholder="https://docs.google.com/document/d/..."
+                  className="pl-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-amber-400 dark:focus:border-amber-600 text-slate-800 dark:text-slate-200"
+                />
+              </div>
+              {hwLinkUrl && (
+                <a
+                  href={hwLinkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Open link
+                </a>
+              )}
+            </div>
+          )}
+
+          {hwSubmissionType === 'file' && (
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Upload File <span className="text-rose-500">*</span>
+              </Label>
+              <Upload
+                onFileSelect={(files: FileList | null) => {
+                  if (files && files.length > 0) setHwFile(files.item(0) || files[0]);
+                }}
+                accept="application/pdf,image/*,video/*,.zip,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                maxSize={25 * 1024 * 1024}
+                multiple={false}
+                className="min-h-[140px] border-dashed"
+              />
+              {hwFile && (
+                <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center border border-amber-200 dark:border-amber-800 flex-shrink-0">
+                      <Paperclip className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        {hwFile.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {(hwFile.size / 1024 / 1024).toFixed(2)} MB
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHwFile(null)}
+                      className="h-8 w-8 p-0 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {currentLesson?.homework && (
+            <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <CardHeader className="px-4 py-3 pb-2">
+                <CardTitle className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <HomeIcon className="h-3.5 w-3.5 text-amber-600" />
+                  Homework Task (Reference)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-1">
+                <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  {currentLesson.homework}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <DrawerFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 pt-4 pb-5 flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setHomeworkDrawerOpen(false)}
+            disabled={submitHomeworkMutation.isPending}
+            className="min-w-[96px]"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => submitHomeworkMutation.mutate()}
+            disabled={submitHomeworkMutation.isPending}
+            className="gap-2 min-w-[140px] bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-sm"
+          >
+            {submitHomeworkMutation.isPending ? (
+              <>
+                <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                Submitting…
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Submit Homework
+              </>
+            )}
+          </Button>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+    </>
   );
 });
 

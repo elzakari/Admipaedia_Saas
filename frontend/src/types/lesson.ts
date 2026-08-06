@@ -201,4 +201,5 @@ export interface LessonMonitoringKpis {
   lessons_without_logs_today: number;
   live_count: number;
   peak_viewers_today: number;
+  homework_completion_percent?: number;
 }

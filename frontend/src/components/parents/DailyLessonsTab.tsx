@@ -10,6 +10,9 @@ import {
   CheckCircle2,
   User,
   Users,
+  BarChart3,
+  XCircle,
+  Send,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -23,6 +26,8 @@ import {
 } from "../ui/select";
 import { Separator } from "../ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Progress } from "../ui/progress";
 import { cn, getInitials, formatDate } from "../../lib/utils";
 import type { LessonDetailViewerHandle } from "./LessonDetailViewer";
 import LessonDetailViewer from "./LessonDetailViewer";
@@ -58,6 +63,8 @@ export interface LessonAcknowledgement {
   timestamp: string;
 }
 
+export type HomeworkStatus = 'not-set' | 'pending' | 'submitted' | 'graded' | 'overdue';
+
 export interface Lesson {
   id: string;
   title: string;
@@ -76,6 +83,11 @@ export interface Lesson {
   assessment?: string;
   homework?: string;
   homeworkDueDate?: string;
+  homeworkStatus?: HomeworkStatus;
+  homeworkGrade?: number;
+  homeworkFeedback?: string;
+  homeworkSubmittedAt?: string;
+  homeworkGradedAt?: string;
   notes?: string;
   isLive?: boolean;
   liveViewerCount?: number;
@@ -213,6 +225,79 @@ export default function DailyLessonsTab({
     [filteredLessons]
   );
 
+  const lessonsWithHomework = useMemo(
+    () => filteredLessons.filter((l) => l.homework),
+    [filteredLessons]
+  );
+
+  const homeworkStats = useMemo(() => {
+    const total = lessonsWithHomework.length;
+    const submitted = lessonsWithHomework.filter((l) =>
+      l.homeworkStatus === 'submitted' || l.homeworkStatus === 'graded'
+    ).length;
+    const graded = lessonsWithHomework.filter((l) => l.homeworkStatus === 'graded').length;
+    const overdue = lessonsWithHomework.filter((l) => l.homeworkStatus === 'overdue').length;
+    const pending = lessonsWithHomework.filter((l) => l.homeworkStatus === 'pending').length;
+    const completionPct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+    const avgGrade = graded > 0
+      ? Math.round(
+          lessonsWithHomework
+            .filter((l) => typeof l.homeworkGrade === 'number')
+            .reduce((sum, l) => sum + (l.homeworkGrade || 0), 0) / graded
+        )
+      : null;
+    return { total, submitted, graded, overdue, pending, completionPct, avgGrade };
+  }, [lessonsWithHomework]);
+
+  function getHomeworkStatusVariant(status?: HomeworkStatus): 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning' {
+    switch (status) {
+      case 'graded': return 'success';
+      case 'submitted': return 'secondary';
+      case 'overdue': return 'destructive';
+      case 'pending': return 'warning';
+      default: return 'outline';
+    }
+  }
+
+  function getHomeworkStatusText(status?: HomeworkStatus): string {
+    switch (status) {
+      case 'graded': return 'Graded';
+      case 'submitted': return 'Submitted';
+      case 'overdue': return 'Overdue';
+      case 'pending': return 'Pending';
+      case 'not-set': return 'Not assigned';
+      default: return '—';
+    }
+  }
+
+  const HomeworkStatusBadge = ({ status, grade }: { status?: HomeworkStatus; grade?: number }) => (
+    <Badge variant={getHomeworkStatusVariant(status) as any} className="gap-1 text-[10px] h-5 px-2">
+      {status === 'graded' && grade !== undefined && typeof grade === 'number' ? (
+        <>
+          <CheckCircle2 className="h-3 w-3" />
+          Graded: {grade}%
+        </>
+      ) : status === 'submitted' ? (
+        <>
+          <Send className="h-3 w-3" />
+          Submitted
+        </>
+      ) : status === 'overdue' ? (
+        <>
+          <XCircle className="h-3 w-3" />
+          Overdue
+        </>
+      ) : status === 'pending' ? (
+        <>
+          <Clock className="h-3 w-3" />
+          Pending
+        </>
+      ) : (
+        getHomeworkStatusText(status)
+      )}
+    </Badge>
+  );
+
   return (
     <div className="space-y-6">
       {viewerRole === "parent" && childIds.length > 0 && (
@@ -265,6 +350,25 @@ export default function DailyLessonsTab({
           </p>
         </div>
       )}
+
+      <Tabs defaultValue="lessons" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="lessons" className="gap-1.5">
+            <BookOpen className="h-4 w-4" />
+            Lessons
+          </TabsTrigger>
+          <TabsTrigger value="homework" className="gap-1.5">
+            <Home className="h-4 w-4" />
+            Homework
+            {lessonsWithHomework.length > 0 && (
+              <Badge variant={homeworkStats.overdue > 0 ? 'destructive' : 'secondary'} className="ml-1 h-4 px-1.5 text-[9px]">
+                {lessonsWithHomework.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lessons" className="mt-6 space-y-6">
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/30 dark:bg-slate-900">
@@ -658,6 +762,217 @@ export default function DailyLessonsTab({
           ))
         )}
       </div>
+
+        </TabsContent>
+
+        <TabsContent value="homework" className="mt-6 space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/30 dark:bg-slate-900">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-amber-700 dark:text-amber-300">Total Homework</div>
+                <div className="mt-1 text-2xl font-bold text-amber-900 dark:text-amber-100">{homeworkStats.total}</div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                <Home className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+            </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/30 dark:bg-slate-900">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-emerald-700 dark:text-emerald-300">Submitted</div>
+                <div className="mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                  {homeworkStats.submitted}/{homeworkStats.total}
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+            </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/30 dark:bg-slate-900">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-rose-700 dark:text-rose-300">Overdue</div>
+                <div className="mt-1 text-2xl font-bold text-rose-900 dark:text-rose-100">{homeworkStats.overdue}</div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-rose-600 dark:text-rose-400" />
+              </div>
+            </div>
+            </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/30 dark:bg-slate-900">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-indigo-700 dark:text-indigo-300">Completion</div>
+                <div className="mt-1 text-2xl font-bold text-indigo-900 dark:text-indigo-100">
+                  {homeworkStats.completionPct}%
+                  {homeworkStats.avgGrade !== null && (
+                    <span className="ml-2 text-sm font-normal text-indigo-600 dark:text-indigo-400">
+                      · Avg {homeworkStats.avgGrade}%
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2">
+                  <Progress value={homeworkStats.completionPct} className="h-2" />
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+            </div>
+            </CardContent>
+            </Card>
+          </div>
+
+          {lessonsWithHomework.length === 0 ? (
+            <Card className="border-dashed border-slate-300 dark:border-slate-700">
+              <CardContent className="p-12 text-center">
+                <Home className="h-12 w-12 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">No homework assigned</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Homework assigned by teachers will appear here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {lessonsWithHomework.map((lesson) => (
+                <Card
+                  key={lesson.id}
+                  id={`hw-${lesson.id}`}
+                  className={cn(
+                    "overflow-hidden transition-all hover:shadow-md cursor-pointer",
+                    lesson.homeworkStatus === 'overdue' && "border-2 border-rose-300 dark:border-rose-700 bg-rose-50/30 dark:bg-rose-950/10"
+                  )}
+                  onClick={() => openLessonDetail(lesson)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3">
+                          <div className="hidden sm:block flex-shrink-0">
+                            <Avatar className="h-11 w-11 border-2 border-slate-100 dark:border-slate-800">
+                              {lesson.teacherAvatar ? (
+                                <AvatarImage
+                                  src={lesson.teacherAvatar}
+                                  alt={lesson.teacherName || "Teacher"}
+                                />
+                              ) : null}
+                              <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-semibold">
+                                {lesson.teacherName
+                                  ? getInitials(lesson.teacherName)
+                                  : <User className="h-5 w-5" />}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div
+                                className={cn(
+                                  "h-2.5 w-2.5 rounded-full flex-shrink-0",
+                                  getSubjectColor(lesson.subject)
+                                )}
+                              />
+                              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                                {lesson.subject}
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                <Calendar className="h-3 w-3" />
+                                Lesson: {formatDate(lesson.date, { month: "short", day: "numeric" })}
+                              </span>
+                              {lesson.homeworkDueDate && (
+                                <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <Clock className="h-3 w-3" />
+                                  Due: {formatDate(lesson.homeworkDueDate, { month: "short", day: "numeric" })}
+                                </span>
+                              )}
+                              {lesson.className && (
+                                <Badge variant="outline" className="text-[10px] px-2 py-0">
+                                  {lesson.className}
+                                </Badge>
+                              )}
+                            </div>
+                            <CardTitle className="mt-1.5 text-base flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                              <BookOpen className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                              <span className="truncate">{lesson.title}</span>
+                            </CardTitle>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
+                        <HomeworkStatusBadge status={lesson.homeworkStatus} grade={lesson.homeworkGrade} />
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); openLessonDetail(lesson); }}
+                        >
+                          <Send className="h-4 w-4 mr-1" />
+                          {lesson.homeworkStatus === 'graded' ? 'View Grade' : 'View Task'}
+                          <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pb-5">
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 p-4 text-sm border border-amber-100 dark:border-amber-900/30">
+                      <div className="whitespace-pre-wrap text-amber-900 dark:text-amber-200 leading-relaxed">
+                        {lesson.homework}
+                      </div>
+                    </div>
+
+                    {lesson.homeworkStatus === 'graded' && (
+                      <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 p-4 text-sm border border-emerald-100 dark:border-emerald-900/30">
+                        <div className="flex flex-wrap items-center gap-4 mb-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Grade</p>
+                            <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                              {lesson.homeworkGrade}%
+                            </p>
+                          </div>
+                          {lesson.homeworkGradedAt && (
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Graded on</p>
+                              <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                                {formatDate(lesson.homeworkGradedAt, { month: "short", day: "numeric", year: "numeric" })}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {lesson.homeworkFeedback && (
+                          <>
+                            <Separator className="my-3 border-emerald-200 dark:border-emerald-800/50" />
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-semibold mb-1">Teacher Feedback</p>
+                              <p className="text-emerald-800 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">
+                                {lesson.homeworkFeedback}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {lesson.homeworkSubmittedAt && lesson.homeworkStatus !== 'graded' && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Submitted on {formatDate(lesson.homeworkSubmittedAt, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · awaiting grade
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <LessonDetailViewer
         ref={detailViewerRef}

@@ -601,3 +601,229 @@ class LessonService:
             db.session.rollback()
             logger.error("Error deleting lesson", error=str(e), lesson_id=lesson_id)
             return False, str(e)
+
+    @staticmethod
+    def ai_generate_objectives(subject_name, class_level, topic_hint=None):
+        """Generate learning objectives using the AIModelProvider adapter.
+
+        Args:
+            subject_name: Name of the subject (e.g. "Mathematics")
+            class_level: Class/grade level (e.g. "Grade 5", "JHS 1")
+            topic_hint: Optional topic or keyword to focus objectives around
+
+        Returns:
+            Tuple of (objectives_data, error_message). On success, objectives_data
+            is the parsed JSON dict from AIModelProvider.generate_json().
+        """
+        try:
+            from app.services.adapters.ai_ml.factory import AIModelProviderFactory
+
+            ai = AIModelProviderFactory.default()
+
+            topic_clause = (
+                f" Focus on the topic: {topic_hint}."
+                if topic_hint and str(topic_hint).strip()
+                else ""
+            )
+
+            prompt = (
+                f"Generate a list of 3-5 specific, measurable learning objectives "
+                f"for a {subject_name} lesson at {class_level} level.{topic_clause} "
+                f"Return JSON with the shape "
+                f"{{\"objectives\": [{{\"id\": int, \"text\": string, \"domain\": string}}]}}. "
+                f"Each objective should start with a Bloom's taxonomy verb "
+                f"and be written in student-facing language."
+            )
+
+            system_prompt = (
+                "You are an experienced K-12 curriculum designer. "
+                "Return ONLY valid JSON. Do not include markdown fences or commentary."
+            )
+
+            result = ai.generate_json(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "objectives": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "integer"},
+                                    "text": {"type": "string"},
+                                    "domain": {"type": "string"},
+                                },
+                                "required": ["id", "text", "domain"],
+                            },
+                        }
+                    },
+                    "required": ["objectives"],
+                },
+            )
+            return result.data, None
+        except Exception as exc:
+            logger.error(
+                "ai_generate_objectives_failed",
+                subject=subject_name,
+                class_level=class_level,
+                error=str(exc),
+            )
+            return None, str(exc)
+
+    @staticmethod
+    def ai_generate_classwork_activities(objectives_list):
+        """Generate classwork activity suggestions based on a list of objectives.
+
+        Args:
+            objectives_list: List of objective strings or dicts with a "text" key
+
+        Returns:
+            Tuple of (activities_text, error_message). On success, activities_text
+            is a free-form string returned by AIModelProvider.generate_text().
+        """
+        try:
+            from app.services.adapters.ai_ml.factory import AIModelProviderFactory
+
+            ai = AIModelProviderFactory.default()
+
+            normalized = []
+            if isinstance(objectives_list, list):
+                for obj in objectives_list:
+                    if isinstance(obj, dict):
+                        normalized.append(obj.get("text") or obj.get("label") or "")
+                    else:
+                        normalized.append(str(obj))
+            normalized = [line for line in normalized if line and line.strip()]
+            objectives_bullet = "\n".join(f"- {line}" for line in normalized) or "N/A"
+
+            prompt = (
+                "Design a 45-minute in-class activity sequence aligned with the "
+                "following learning objectives:\n\n"
+                f"{objectives_bullet}\n\n"
+                "Produce 3 sections: (1) Warm-up / Activate Prior Knowledge, "
+                "(2) Main Collaborative Activities with grouping and timing, and "
+                "(3) Check-for-Understanding prompts. Include teacher actions, "
+                "student actions, and differentiation for struggling/advanced "
+                "learners."
+            )
+
+            system_prompt = (
+                "You are a pedagogical coach writing practical, classroom-ready "
+                "lesson activities. Use clear headings and bullet points."
+            )
+
+            result = ai.generate_text(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=1200,
+                temperature=0.6,
+            )
+            return result.content, None
+        except Exception as exc:
+            logger.error(
+                "ai_generate_classwork_activities_failed",
+                objectives_count=len(objectives_list or []),
+                error=str(exc),
+            )
+            return None, str(exc)
+
+    @staticmethod
+    def ai_generate_exit_ticket(objectives_list, difficulty="medium"):
+        """Generate a formative exit-ticket quiz via AIModelProvider.generate_json.
+
+        Args:
+            objectives_list: List of objective strings or dicts with a "text" key
+            difficulty: 'easy' | 'medium' | 'hard' — controls question complexity
+
+        Returns:
+            Tuple of (ticket_data, error_message). On success, ticket_data
+            is the parsed JSON dict with questions, options, and answers.
+        """
+        try:
+            from app.services.adapters.ai_ml.factory import AIModelProviderFactory
+
+            ai = AIModelProviderFactory.default()
+
+            normalized = []
+            if isinstance(objectives_list, list):
+                for obj in objectives_list:
+                    if isinstance(obj, dict):
+                        normalized.append(obj.get("text") or obj.get("label") or "")
+                    else:
+                        normalized.append(str(obj))
+            normalized = [line for line in normalized if line and line.strip()]
+            objectives_bullet = "\n".join(f"- {line}" for line in normalized) or "N/A"
+
+            diff_label = str(difficulty or "medium").lower()
+            if diff_label not in ("easy", "medium", "hard"):
+                diff_label = "medium"
+
+            prompt = (
+                f"Create a 3-5 question exit-ticket quiz at {diff_label.upper()} "
+                f"difficulty covering these learning objectives:\n\n"
+                f"{objectives_bullet}\n\n"
+                f"Mix 1 open-response reflection prompt with 2-4 selected-response "
+                f"(multiple choice / true-false) items. Return JSON matching the "
+                f"schema and include a scoring rubric per question and an "
+                f"overall mastery threshold."
+            )
+
+            system_prompt = (
+                "You are an assessment designer creating short formative exit "
+                "tickets. Return ONLY valid JSON. No markdown or prose outside "
+                "the JSON object."
+            )
+
+            result = ai.generate_json(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "difficulty": {"type": "string"},
+                        "mastery_threshold_percent": {"type": "integer"},
+                        "questions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "integer"},
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["multiple_choice", "true_false", "open_response"],
+                                    },
+                                    "prompt": {"type": "string"},
+                                    "options": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "correct_answer": {
+                                        "anyOf": [
+                                            {"type": "string"},
+                                            {"type": "integer"},
+                                            {"type": "array"},
+                                        ]
+                                    },
+                                    "points": {"type": "integer"},
+                                    "rubric": {"type": "string"},
+                                    "objective_index": {"type": "integer"},
+                                },
+                                "required": ["id", "type", "prompt", "points", "rubric"],
+                            },
+                        },
+                    },
+                    "required": ["title", "difficulty", "questions"],
+                },
+            )
+            return result.data, None
+        except Exception as exc:
+            logger.error(
+                "ai_generate_exit_ticket_failed",
+                objectives_count=len(objectives_list or []),
+                difficulty=difficulty,
+                error=str(exc),
+            )
+            return None, str(exc)

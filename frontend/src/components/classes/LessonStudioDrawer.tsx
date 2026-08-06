@@ -6,7 +6,7 @@ import {
   Target, ClipboardList, Paperclip, GraduationCap, Home, Radio,
   Save, X, Plus, Trash2, Check, Clock, Link, Send, MessageSquare,
   ThumbsUp, BarChart3, Users, Eye, PlayCircle, FileText, Square,
-  ChevronUp, BarChart2, GripVertical
+  ChevronUp, BarChart2, GripVertical, Sparkles, AlertCircle, RefreshCw, Download
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, AreaChart, Area,
@@ -41,7 +41,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 import { cn, getInitials } from '../../lib/utils';
-import classService, { Lesson, LessonData } from '../../services/classService';
+import classService, {
+  Lesson, LessonData, AIObjectiveItem, AIClassworkActivity,
+  AIExitTicket, AttachmentValidationLimits
+} from '../../services/classService';
 import type {
   LessonBroadcast, LiveLessonStats, LessonAttachment,
   LessonComment, BroadcastStatus
@@ -79,6 +82,21 @@ interface ViewerHistoryPoint {
   viewers: number;
 }
 
+interface AttachmentTile {
+  id: string;
+  attachment_id?: number;
+  filename: string;
+  size?: number;
+  mime_type?: string;
+  signed_url?: string;
+  expires_at?: string;
+  upload_status: 'pending' | 'uploading' | 'success' | 'error';
+  error_message?: string;
+  is_invalid?: boolean;
+  validation_errors?: string[];
+  link_url?: string;
+}
+
 const createEmptyFormState = (): LessonData => ({
   title: '',
   description: '',
@@ -111,6 +129,8 @@ export function LessonStudioDrawer({
   });
   const [dueDatePicker, setDueDatePicker] = useState<Date | undefined>(undefined);
   const [newResource, setNewResource] = useState({ title: '', url: '' });
+  const [exitTicketDifficulty, setExitTicketDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [attachmentTiles, setAttachmentTiles] = useState<AttachmentTile[]>([]);
 
   const [broadcastTab, setBroadcastTab] = useState<'status' | 'qa' | 'actions'>('status');
   const [broadcast, setBroadcast] = useState<LessonBroadcast | null>(null);
@@ -388,14 +408,160 @@ export function LessonStudioDrawer({
     onError: (e: any) => toast.error(e?.message || 'Failed to post'),
   });
 
+  const { data: attachmentLimitsRes } = useQuery({
+    queryKey: ['attachment-validation-limits'],
+    queryFn: () => classService.getAttachmentValidationLimits(),
+    staleTime: 5 * 60_000,
+  });
+  const attachmentLimits: AttachmentValidationLimits | undefined = attachmentLimitsRes?.data as any;
+
+  const generateObjectivesMutation = useMutation({
+    mutationFn: (payload: { subject: string; class_level: string; topic_hint: string }) => {
+      return classService.aiGenerateLessonObjectives(
+        payload.subject,
+        payload.class_level,
+        payload.topic_hint,
+        (partial) => {
+          if (partial && partial.length > 0) {
+            setObjectives(partial.map((o, i) => ({
+              id: `obj-ai-${Date.now()}-${i}`,
+              text: o.text,
+              completed: false,
+            })));
+          }
+        }
+      );
+    },
+    onSuccess: (res) => {
+      const data = res.data;
+      if (Array.isArray(data) && data.length > 0) {
+        setObjectives(data.map((o, i) => ({
+          id: `obj-ai-${Date.now()}-${i}`,
+          text: typeof o === 'string' ? o : o.text,
+          completed: false,
+        })));
+      }
+      toast.success('Objectives generated with AI ✦');
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to generate objectives'),
+  });
+
+  const generateClassworkMutation = useMutation({
+    mutationFn: () => {
+      const objectivesPayload = objectives.map((o) => ({ id: o.id, text: o.text }));
+      return classService.aiGenerateClassworkActivities(objectivesPayload);
+    },
+    onMutate: () => {
+      toast.loading('✦ AI is generating activities...', { id: 'ai-classwork' });
+    },
+    onSuccess: (res) => {
+      const data = res.data;
+      if (Array.isArray(data) && data.length > 0) {
+        const existingCount = classworkSteps.length;
+        const newSteps = data.map((s: AIClassworkActivity, i: number) => ({
+          id: `cw-ai-${Date.now()}-${i}`,
+          title: s.title || `Step ${existingCount + i + 1}`,
+          duration: s.duration || 10,
+          description: s.description || '',
+        }));
+        setClassworkSteps((prev) => [...prev, ...newSteps]);
+        toast.success('Classwork activities filled with AI ✦', { id: 'ai-classwork' });
+      } else {
+        toast.error('No activities returned', { id: 'ai-classwork' });
+      }
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to generate activities', { id: 'ai-classwork' }),
+  });
+
+  const generateExitTicketMutation = useMutation({
+    mutationFn: () => {
+      const objectivesPayload = objectives.map((o) => ({ id: o.id, text: o.text }));
+      return classService.aiGenerateExitTicket(objectivesPayload, exitTicketDifficulty);
+    },
+    onMutate: () => {
+      toast.loading('✦ Generating exit ticket MCQs...', { id: 'ai-exit' });
+    },
+    onSuccess: (res) => {
+      const data = res.data as unknown as AIExitTicket;
+      if (data?.questions && data.questions.length > 0) {
+        const mcqText = data.questions.map((q, i) => {
+          const optionsText = q.options
+            .map((opt, j) => `  ${String.fromCharCode(65 + j)}. ${opt}`)
+            .join('\n');
+          const correctLetter = String.fromCharCode(65 + (q.correct_index || 0));
+          return `Q${i + 1}. ${q.question}\n${optionsText}\n   Correct: ${correctLetter}${q.explanation ? ` — ${q.explanation}` : ''}`;
+        }).join('\n\n');
+
+        setAssessment((prev) => ({
+          ...prev,
+          type: 'exit-ticket',
+          content: prev.content ? `${prev.content}\n\n${mcqText}` : mcqText,
+        }));
+        toast.success('Exit ticket MCQs generated ✦', { id: 'ai-exit' });
+      } else {
+        toast.error('No MCQ questions returned', { id: 'ai-exit' });
+      }
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to generate exit ticket', { id: 'ai-exit' }),
+  });
+
   const uploadAttachmentMutation = useMutation({
-    mutationFn: (file: File | { link_url: string; filename: string }) =>
-      classService.uploadLessonAttachment(lessonId!, file),
-    onSuccess: () => {
+    mutationFn: async ({ tileId, payload }: { tileId: string; payload: File | { link_url: string; filename: string } }) => {
+      setAttachmentTiles((prev) =>
+        prev.map((t) => t.id === tileId ? { ...t, upload_status: 'uploading' } : t)
+      );
+      return classService.uploadLessonAttachment(lessonId!, payload);
+    },
+    onSuccess: (res, { tileId }) => {
+      const att = res.data;
+      if (att) {
+        setAttachmentTiles((prev) =>
+          prev.map((t) =>
+            t.id === tileId
+              ? {
+                  ...t,
+                  upload_status: 'success',
+                  attachment_id: (att as any).id,
+                  signed_url: (att as any).signed_url || (att as any).link_url,
+                  mime_type: (att as any).mime_type,
+                  size: (att as any).size,
+                  is_invalid: false,
+                  error_message: undefined,
+                }
+              : t
+          )
+        );
+      }
       toast.success('Attachment uploaded');
       fetchLiveStats(false);
     },
-    onError: (e: any) => toast.error(e?.message || 'Upload failed'),
+    onError: (e: any, { tileId }) => {
+      setAttachmentTiles((prev) =>
+        prev.map((t) =>
+          t.id === tileId
+            ? { ...t, upload_status: 'error', error_message: e?.message || 'Upload failed', is_invalid: true }
+            : t
+        )
+      );
+      toast.error(e?.message || 'Upload failed');
+    },
+  });
+
+  const refreshSignedUrlMutation = useMutation({
+    mutationFn: ({ lessonId, attachmentId, tileId }: { lessonId: number; attachmentId: number; tileId: string }) =>
+      classService.refreshAttachmentSignedUrl(lessonId, attachmentId),
+    onSuccess: (res, { tileId }) => {
+      const data = res.data as { signed_url: string; expires_at: string } | undefined;
+      if (data) {
+        setAttachmentTiles((prev) =>
+          prev.map((t) =>
+            t.id === tileId
+              ? { ...t, signed_url: data.signed_url, expires_at: data.expires_at }
+              : t
+          )
+        );
+      }
+    },
   });
 
   const handleSave = (e?: React.FormEvent) => {
@@ -469,6 +635,123 @@ export function LessonStudioDrawer({
     () => classworkSteps.reduce((sum, s) => sum + (s.duration || 0), 0),
     [classworkSteps]
   );
+
+  const handleGenerateObjectives = () => {
+    const subject_name = form.subject_id
+      ? subjects.find((s) => s.id === form.subject_id)?.name || ''
+      : '';
+    const class_level = (form as any).class_level || (form as any).class_name || '';
+    const topic_hint = form.title || form.description || '';
+
+    if (!subject_name && !topic_hint) {
+      toast.warning('Select a subject or enter a lesson title to generate objectives');
+      return;
+    }
+
+    generateObjectivesMutation.mutate({
+      subject: subject_name,
+      class_level,
+      topic_hint,
+    });
+  };
+
+  const handleGenerateClasswork = () => {
+    if (objectives.length === 0) {
+      toast.warning('Add at least one objective first');
+      return;
+    }
+    generateClassworkMutation.mutate();
+  };
+
+  const handleGenerateExitTicket = () => {
+    if (objectives.length === 0) {
+      toast.warning('Add at least one objective first');
+      return;
+    }
+    generateExitTicketMutation.mutate();
+  };
+
+  const handleAttachmentFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (!lessonId) {
+      toast.warning('Save the lesson first before uploading files');
+      return;
+    }
+
+    const fileArray = Array.from(files);
+    const preflightPayload = fileArray.map((f) => ({
+      filename: f.name,
+      size: f.size,
+      mime_type: f.type || 'application/octet-stream',
+    }));
+
+    let validationResults: Array<{ valid: boolean; errors?: string[] }> = fileArray.map(() => ({ valid: true }));
+    try {
+      const preflightRes = await classService.submitAttachmentPreflightValidate(preflightPayload, lessonId);
+      const pre = preflightRes.data as any;
+      if (pre?.files) {
+        validationResults = pre.files;
+      } else if (pre?.errors || pre?.error) {
+        validationResults = fileArray.map(() => ({
+          valid: pre.valid !== false,
+          errors: pre.errors || [pre.error].filter(Boolean),
+        }));
+      }
+    } catch (pfErr: any) {
+      // Still allow uploading with client-side checks
+    }
+
+    const tiles: AttachmentTile[] = fileArray.map((f, i) => {
+      const val = validationResults[i] || { valid: true };
+      let clientValid = true;
+      const clientErrors: string[] = [];
+      if (attachmentLimits) {
+        if (attachmentLimits.max_file_size && f.size > attachmentLimits.max_file_size) {
+          clientValid = false;
+          const maxMB = (attachmentLimits.max_file_size / (1024 * 1024)).toFixed(1);
+          clientErrors.push(`File exceeds max size of ${maxMB}MB`);
+        }
+        if (
+          attachmentLimits.allowed_mime_types &&
+          attachmentLimits.allowed_mime_types.length > 0 &&
+          f.type &&
+          !attachmentLimits.allowed_mime_types.includes(f.type)
+        ) {
+          clientValid = false;
+          clientErrors.push(`File type ${f.type} not allowed`);
+        }
+      }
+      const is_invalid = !val.valid || !clientValid;
+      const allErrors = [
+        ...(val.errors || []),
+        ...(clientErrors || []),
+      ].filter(Boolean) as string[];
+
+      return {
+        id: `att-${Date.now()}-${i}`,
+        filename: f.name,
+        size: f.size,
+        mime_type: f.type || 'application/octet-stream',
+        upload_status: is_invalid ? 'error' : 'pending',
+        is_invalid,
+        validation_errors: allErrors.length > 0 ? allErrors : undefined,
+        error_message: allErrors.length > 0 ? allErrors.join('; ') : undefined,
+      };
+    });
+
+    setAttachmentTiles((prev) => [...prev, ...tiles]);
+
+    tiles.forEach((tile) => {
+      if (!tile.is_invalid) {
+        const f = fileArray[tiles.indexOf(tile)];
+        uploadAttachmentMutation.mutate({ tileId: tile.id, payload: f });
+      }
+    });
+  };
+
+  const removeAttachmentTile = (tileId: string) => {
+    setAttachmentTiles((prev) => prev.filter((t) => t.id !== tileId));
+  };
 
   const handleGoLive = async () => {
     if (!lessonId) {
@@ -596,9 +879,20 @@ export function LessonStudioDrawer({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateObjectives}
+                    disabled={generateObjectivesMutation.isPending}
+                    className="w-full gap-2 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {generateObjectivesMutation.isPending ? 'Generating…' : '✦ Generate Objectives'}
+                  </Button>
                   {objectives.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">
-                      No objectives yet. Add measurable learning outcomes below.
+                      No objectives yet. Click ✦ above or add measurable learning outcomes below.
                     </p>
                   )}
                   {objectives.map((obj, i) => (
@@ -659,9 +953,20 @@ export function LessonStudioDrawer({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateClasswork}
+                    disabled={generateClassworkMutation.isPending}
+                    className="w-full gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {generateClassworkMutation.isPending ? 'Generating…' : '✦ Fill with activities'}
+                  </Button>
                   {classworkSteps.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">
-                      Build the flow of the lesson with timed activities.
+                      Build the flow of the lesson with timed activities, or click ✦ above to auto-fill.
                     </p>
                   )}
                   {classworkSteps.map((step, i) => (
@@ -765,20 +1070,161 @@ export function LessonStudioDrawer({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
+                  {attachmentLimits && (
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Max size per file: {(attachmentLimits.max_file_size / (1024 * 1024)).toFixed(1)}MB</span>
+                        <span>Max per lesson: {attachmentLimits.max_attachments_per_lesson} files</span>
+                        <span>Total size limit: {(attachmentLimits.max_total_size_per_lesson / (1024 * 1024)).toFixed(1)}MB</span>
+                      </div>
+                    </div>
+                  )}
                   <Upload
-                    accept="application/pdf,image/*,video/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                    accept={attachmentLimits?.allowed_mime_types?.length ? attachmentLimits.allowed_mime_types.join(',') : "application/pdf,image/*,video/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx"}
                     multiple
                     showPreview
-                    maxSize={25 * 1024 * 1024}
-                    onFileSelect={(files) => {
-                      if (!files || files.length === 0) return;
-                      if (!lessonId) {
-                        toast.warning('Save the lesson first before uploading files');
-                        return;
-                      }
-                      Array.from(files).forEach((f) => uploadAttachmentMutation.mutate(f));
-                    }}
+                    maxSize={attachmentLimits?.max_file_size || (25 * 1024 * 1024)}
+                    onFileSelect={handleAttachmentFileSelect}
                   />
+                  {attachmentTiles.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm flex items-center justify-between">
+                        <span>Uploaded Attachments</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {attachmentTiles.filter(t => !t.is_invalid).length} valid · {attachmentTiles.filter(t => t.is_invalid).length} invalid
+                        </Badge>
+                      </Label>
+                      {attachmentTiles.map((tile) => (
+                        <div
+                          key={tile.id}
+                          className={cn(
+                            "rounded-lg border px-3 py-2 bg-white dark:bg-slate-900 transition-all",
+                            tile.is_invalid
+                              ? "border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20"
+                              : "border-slate-200 dark:border-slate-700"
+                          )}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="pt-0.5">
+                              <FileText className={cn(
+                                "h-4 w-4 shrink-0",
+                                tile.is_invalid ? "text-red-500" : "text-indigo-500"
+                              )} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  {tile.signed_url ? (
+                                    <a
+                                      href={tile.signed_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={cn(
+                                        "text-sm font-medium hover:underline truncate block",
+                                        tile.is_invalid ? "text-red-700 dark:text-red-300" : "text-indigo-600 dark:text-indigo-400"
+                                      )}
+                                    >
+                                      {tile.filename}
+                                    </a>
+                                  ) : (
+                                    <p className={cn(
+                                      "text-sm font-medium truncate",
+                                      tile.is_invalid ? "text-red-700 dark:text-red-300" : "text-slate-700 dark:text-slate-300"
+                                    )}>
+                                      {tile.filename}
+                                    </p>
+                                  )}
+                                  {tile.size !== undefined && (
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                      {tile.size < 1024 ? `${tile.size} B` : tile.size < 1024 * 1024 ? `${(tile.size / 1024).toFixed(1)} KB` : `${(tile.size / (1024 * 1024)).toFixed(1)} MB`}
+                                      {tile.mime_type && ` · ${tile.mime_type}`}
+                                      {tile.upload_status === 'uploading' && ' · Uploading…'}
+                                      {tile.upload_status === 'success' && tile.attachment_id && ` · ID ${tile.attachment_id}`}
+                                    </p>
+                                  )}
+                                  {tile.validation_errors && tile.validation_errors.length > 0 && (
+                                    <div className="mt-1.5 space-y-0.5">
+                                      {tile.validation_errors.map((err, ei) => (
+                                        <p key={ei} className="text-[11px] text-red-600 dark:text-red-400 flex items-start gap-1">
+                                          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                                          <span>{err}</span>
+                                        </p>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {tile.error_message && !tile.validation_errors && (
+                                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-1 flex items-start gap-1">
+                                      <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                                      <span>{tile.error_message}</span>
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                  {tile.is_invalid && (
+                                    <Badge variant="destructive" className="text-[10px] h-5 gap-1">
+                                      <AlertCircle className="h-3 w-3" />
+                                      Invalid
+                                    </Badge>
+                                  )}
+                                  {!tile.is_invalid && tile.upload_status === 'success' && (
+                                    <Badge variant="success" className="text-[10px] h-5 gap-1">
+                                      <Check className="h-3 w-3" />
+                                      OK
+                                    </Badge>
+                                  )}
+                                  {!tile.is_invalid && tile.upload_status === 'uploading' && (
+                                    <Badge variant="secondary" className="text-[10px] h-5">
+                                      Uploading
+                                    </Badge>
+                                  )}
+                                  {tile.signed_url && tile.attachment_id && lessonId && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-slate-500 hover:text-indigo-600"
+                                      onClick={() => refreshSignedUrlMutation.mutate({
+                                        lessonId,
+                                        attachmentId: tile.attachment_id!,
+                                        tileId: tile.id,
+                                      })}
+                                      disabled={refreshSignedUrlMutation.isPending}
+                                      title="Refresh download link"
+                                    >
+                                      <RefreshCw className={cn(
+                                        "h-3 w-3",
+                                        refreshSignedUrlMutation.isPending && "animate-spin"
+                                      )} />
+                                    </Button>
+                                  )}
+                                  {tile.signed_url && (
+                                    <a
+                                      href={tile.signed_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                      title="Download"
+                                    >
+                                      <Download className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-slate-500 hover:text-red-500"
+                                    onClick={() => removeAttachmentTile(tile.id)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <Separator />
                   <div className="space-y-2">
                     <Label className="text-sm">Quick Link</Label>
@@ -852,7 +1298,7 @@ export function LessonStudioDrawer({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <Label>Assessment Type</Label>
                       <Select
@@ -883,7 +1329,36 @@ export function LessonStudioDrawer({
                         }
                       />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label>Difficulty (for AI)</Label>
+                      <Select
+                        value={exitTicketDifficulty}
+                        onValueChange={(v) => setExitTicketDifficulty(v as 'easy' | 'medium' | 'hard')}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="easy">Easy</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="hard">Hard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateExitTicket}
+                    disabled={generateExitTicketMutation.isPending}
+                    className="w-full gap-2 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/40 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:from-violet-100 hover:to-purple-100 dark:hover:from-violet-900/40 dark:hover:to-purple-900/40"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {generateExitTicketMutation.isPending ? 'Generating MCQs…' : '✦ Generate Exit Ticket'}
+                  </Button>
+
                   <div className="space-y-1.5">
                     <Label>Questions / Tasks / Rubric</Label>
                     <Textarea
@@ -1304,7 +1779,25 @@ export function LessonStudioDrawer({
                           fileInput.accept = '*';
                           fileInput.onchange = (ev) => {
                             const f = (ev.target as HTMLInputElement).files?.[0];
-                            if (f) uploadAttachmentMutation.mutate(f);
+                            if (f) {
+                              const tileId = `quick-attach-${Date.now()}`;
+                              setAttachmentTiles((prev) => [
+                                ...prev,
+                                {
+                                  id: tileId,
+                                  attachment_id: undefined,
+                                  filename: f.name,
+                                  size: f.size,
+                                  mime_type: f.type,
+                                  signed_url: undefined,
+                                  expires_at: undefined,
+                                  upload_status: 'uploading',
+                                  error_message: undefined,
+                                  is_invalid: false,
+                                },
+                              ]);
+                              uploadAttachmentMutation.mutate({ tileId, payload: f });
+                            }
                           };
                           fileInput.click();
                         }}

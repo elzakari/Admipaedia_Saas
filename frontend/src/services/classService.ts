@@ -111,6 +111,78 @@ export interface Lesson {
   updated_at: string;
 }
 
+export interface AttachmentValidationLimits {
+  max_file_size: number;
+  allowed_mime_types: string[];
+  max_attachments_per_lesson: number;
+  max_total_size_per_lesson: number;
+}
+
+export interface AttachmentPreflightResult {
+  valid: boolean;
+  error?: string;
+  errors?: string[];
+}
+
+export interface AIObjectiveItem {
+  id: string;
+  text: string;
+}
+
+export interface AIClassworkActivity {
+  id: string;
+  title: string;
+  duration: number;
+  description: string;
+}
+
+export interface AIExitTicketMCQ {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation?: string;
+}
+
+export interface AIExitTicket {
+  type: string;
+  questions: AIExitTicketMCQ[];
+  difficulty: string;
+}
+
+export type HomeworkSubmissionType = 'text' | 'link' | 'file';
+
+export interface HomeworkSubmissionPayload {
+  submission_type: HomeworkSubmissionType;
+  text_content?: string;
+  link_url?: string;
+  file?: File;
+  filename?: string;
+}
+
+export interface HomeworkSubmission {
+  id: number;
+  lesson_id: number;
+  student_id: number;
+  student_name?: string;
+  submission_type: HomeworkSubmissionType;
+  text_content?: string;
+  link_url?: string;
+  file_url?: string;
+  filename?: string;
+  status: 'pending' | 'submitted' | 'graded' | 'late';
+  grade?: number;
+  feedback?: string;
+  graded_by_id?: number;
+  graded_by_name?: string;
+  graded_at?: string;
+  submitted_at: string;
+}
+
+export interface HomeworkGradePayload {
+  grade: number;
+  feedback?: string;
+}
+
 export interface LessonMonitoringSummary {
   total_logs: number;
   completed_logs: number;
@@ -637,6 +709,341 @@ const classService = {
       return ApiResponseStandardizer.standardizeSingleResponse(response);
     } catch (error) {
       console.error(`Error escalating lesson ${lessonId} to principal:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonMonitoringWeeklyTrends: async (filters?: {
+    class_id?: number;
+    subject_id?: number[] | number;
+    department_id?: number[] | number;
+    date_from?: string;
+    date_to?: string;
+    teacher_id?: number;
+  }): Promise<StandardApiResponse<{
+    weekly_lessons_by_status: Array<{
+      week_start: string;
+      completed: number;
+      in_progress: number;
+      planned: number;
+      cancelled: number;
+    }>;
+    department_coverage: Array<{
+      department_id: number;
+      department_name: string;
+      week_1_avg: number;
+      week_2_avg: number;
+      week_3_avg: number;
+      week_4_avg: number;
+    }>;
+    ack_vs_viewers: Array<{
+      date: string;
+      acknowledgement_rate: number;
+      broadcast_viewers: number;
+    }>;
+  }>> => {
+    try {
+      const response = await api.get('/lesson-monitoring/weekly-trends', { params: filters });
+      return ApiResponseStandardizer.standardizeSingleResponse(response, 'trends');
+    } catch (error) {
+      console.error('Error fetching lesson monitoring weekly trends:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonMonitoringNonCompliance: async (filters?: {
+    class_id?: number;
+    subject_id?: number[] | number;
+    department_id?: number[] | number;
+    date_from?: string;
+    date_to?: string;
+    reason?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<StandardPaginatedResponse<{
+    id: number;
+    lesson_id: number;
+    class_id: number;
+    class_name: string;
+    subject_name: string;
+    teacher_id: number;
+    teacher_name: string;
+    date: string;
+    period_number?: number;
+    reasons: string[];
+    severity: 'low' | 'medium' | 'high';
+    ack_rate?: number;
+    last_reminded_at?: string;
+  }>> => {
+    try {
+      const response = await api.get('/lesson-monitoring/non-compliance', { params: filters });
+      return ApiResponseStandardizer.standardizePaginatedResponse(response, 'items');
+    } catch (error) {
+      console.error('Error fetching lesson monitoring non-compliance:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  downloadWeeklyClassReport: async (
+    classId: number,
+    weekStartDate: string
+  ): Promise<string> => {
+    try {
+      const baseUrl = api.defaults.baseURL || '';
+      const url = `${baseUrl}/classes/${classId}/weekly-report.pdf?week_start=${encodeURIComponent(weekStartDate)}`;
+      return url;
+    } catch (error) {
+      console.error(`Error generating weekly report URL for class ${classId}:`, error);
+      throw error;
+    }
+  },
+
+  exportLessonMonitoringCsv: async (filters?: {
+    class_id?: number;
+    subject_id?: number[] | number;
+    department_id?: number[] | number;
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  }): Promise<string> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          if (Array.isArray(value)) {
+            value.forEach((v) => params.append(key, String(v)));
+          } else {
+            params.append(key, String(value));
+          }
+        });
+      }
+      const response = await api.get('/lesson-monitoring/export.csv', {
+        params,
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error exporting lesson monitoring CSV:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  exportLessonMonitoringXlsx: async (filters?: {
+    class_id?: number;
+    subject_id?: number[] | number;
+    department_id?: number[] | number;
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  }): Promise<string> => {
+    try {
+      const params = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          if (Array.isArray(value)) {
+            value.forEach((v) => params.append(key, String(v)));
+          } else {
+            params.append(key, String(value));
+          }
+        });
+      }
+      const response = await api.get('/lesson-monitoring/export.xlsx', {
+        params,
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error exporting lesson monitoring XLSX:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  aiGenerateLessonObjectives: async (
+    subject: string,
+    class_level: string,
+    topic_hint: string,
+    onChunk?: (partial: AIObjectiveItem[]) => void
+  ): Promise<StandardApiResponse<AIObjectiveItem[]>> => {
+    try {
+      const response = await api.post('/lessons/ai/generate-objectives', {
+        subject,
+        class_level,
+        topic_hint,
+        stream: !!onChunk,
+      }, {
+        responseType: onChunk ? 'stream' : 'json',
+        onDownloadProgress: onChunk ? (progressEvent: any) => {
+          try {
+            const raw = progressEvent.event?.target?.responseText || '';
+            if (!raw) return;
+            const lines = raw.split('\n').filter((l: string) => l.trim().startsWith('data:'));
+            const last = lines[lines.length - 1];
+            if (!last) return;
+            const jsonStr = last.slice(5).trim();
+            if (jsonStr && jsonStr !== '[DONE]') {
+              const parsed = JSON.parse(jsonStr);
+              if (Array.isArray(parsed)) onChunk(parsed);
+              else if (parsed.objectives) onChunk(parsed.objectives);
+            }
+          } catch { /* noop */ }
+        } : undefined,
+      } as any);
+      if (onChunk) {
+        const raw = (response as any).request?.responseText || '';
+        const lines = raw.split('\n').filter((l: string) => l.trim().startsWith('data:'));
+        let objectives: AIObjectiveItem[] = [];
+        for (const line of lines) {
+          const jsonStr = line.slice(5).trim();
+          if (jsonStr && jsonStr !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(jsonStr);
+              objectives = Array.isArray(parsed) ? parsed : parsed.objectives || objectives;
+            } catch { /* noop */ }
+          }
+        }
+        return ApiResponseStandardizer.standardizeSingleResponse<AIObjectiveItem[]>(
+          { data: objectives } as any,
+          'objectives'
+        );
+      }
+      return ApiResponseStandardizer.standardizeSingleResponse<AIObjectiveItem[]>(response, 'objectives');
+    } catch (error) {
+      console.error('Error generating AI objectives:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  aiGenerateClassworkActivities: async (
+    objectives_list: AIObjectiveItem[]
+  ): Promise<StandardApiResponse<AIClassworkActivity[]>> => {
+    try {
+      const response = await api.post('/lessons/ai/generate-classwork', {
+        objectives: objectives_list,
+      });
+      return ApiResponseStandardizer.standardizeSingleResponse<AIClassworkActivity[]>(response, 'activities');
+    } catch (error) {
+      console.error('Error generating AI classwork activities:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  aiGenerateExitTicket: async (
+    objectives: AIObjectiveItem[],
+    difficulty: 'easy' | 'medium' | 'hard' = 'medium'
+  ): Promise<StandardApiResponse<AIExitTicket>> => {
+    try {
+      const response = await api.post('/lessons/ai/generate-exit-ticket', {
+        objectives,
+        difficulty,
+      });
+      return ApiResponseStandardizer.standardizeSingleResponse<AIExitTicket>(response, 'exit_ticket');
+    } catch (error) {
+      console.error('Error generating AI exit ticket:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  submitHomework: async (
+    lessonId: number,
+    payload: HomeworkSubmissionPayload
+  ): Promise<StandardApiResponse<HomeworkSubmission>> => {
+    try {
+      if (payload.submission_type === 'file' && payload.file) {
+        const formData = new FormData();
+        formData.append('file', payload.file);
+        formData.append('submission_type', 'file');
+        if (payload.filename) formData.append('filename', payload.filename);
+
+        const response = await api.post(`/lessons/${lessonId}/homework/submit`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return ApiResponseStandardizer.standardizeSingleResponse<HomeworkSubmission>(response, 'submission');
+      }
+      const response = await api.post(`/lessons/${lessonId}/homework/submit`, {
+        submission_type: payload.submission_type,
+        text_content: payload.text_content,
+        link_url: payload.link_url,
+      });
+      return ApiResponseStandardizer.standardizeSingleResponse<HomeworkSubmission>(response, 'submission');
+    } catch (error) {
+      console.error(`Error submitting homework for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getHomeworkForLesson: async (
+    lessonId: number
+  ): Promise<StandardApiResponse<HomeworkSubmission[]>> => {
+    try {
+      const response = await api.get(`/lessons/${lessonId}/homework`);
+      return ApiResponseStandardizer.standardizePaginatedResponse<HomeworkSubmission>(
+        response,
+        'submissions'
+      );
+    } catch (error) {
+      console.error(`Error fetching homework for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  gradeHomework: async (
+    lessonId: number,
+    submissionId: number,
+    payload: HomeworkGradePayload
+  ): Promise<StandardApiResponse<HomeworkSubmission>> => {
+    try {
+      const response = await api.post(
+        `/lessons/${lessonId}/homework/${submissionId}/grade`,
+        payload
+      );
+      return ApiResponseStandardizer.standardizeSingleResponse<HomeworkSubmission>(response, 'submission');
+    } catch (error) {
+      console.error(`Error grading homework ${submissionId} for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getAttachmentValidationLimits: async (): Promise<StandardApiResponse<AttachmentValidationLimits>> => {
+    try {
+      const response = await api.get('/attachments/validation/limits');
+      return ApiResponseStandardizer.standardizeSingleResponse<AttachmentValidationLimits>(response, 'limits');
+    } catch (error) {
+      console.error('Error fetching attachment validation limits:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  submitAttachmentPreflightValidate: async (
+    files: Array<{ filename: string; size: number; mime_type: string }>,
+    lessonId?: number
+  ): Promise<StandardApiResponse<AttachmentPreflightResult>> => {
+    try {
+      const response = await api.post('/attachments/validation/preflight', {
+        files,
+        lesson_id: lessonId,
+      });
+      return ApiResponseStandardizer.standardizeSingleResponse<AttachmentPreflightResult>(response);
+    } catch (error) {
+      console.error('Error during attachment preflight validation:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  refreshAttachmentSignedUrl: async (
+    lessonId: number,
+    attachmentId: number
+  ): Promise<StandardApiResponse<{ signed_url: string; expires_at: string }>> => {
+    try {
+      const response = await api.post(`/lessons/${lessonId}/attachments/${attachmentId}/refresh-signed-url`);
+      return ApiResponseStandardizer.standardizeSingleResponse<{ signed_url: string; expires_at: string }>(response);
+    } catch (error) {
+      console.error(`Error refreshing signed URL for attachment ${attachmentId}:`, error);
       throw ApiResponseStandardizer.handleApiError(error);
     }
   },

@@ -636,7 +636,7 @@ def get_parent_events():
 @jwt_required()
 @parent_required
 def get_child_homework(child_id):
-    """Get homework assignments for a specific child"""
+    """Get homework assignments (legacy) plus lesson homework summary for a specific child."""
     try:
         current_user_id = get_jwt_identity()
         parent = ParentService.get_parent_by_user_id(current_user_id)
@@ -652,7 +652,28 @@ def get_child_homework(child_id):
                 message="Child not found or access denied", status_code=403
             )
 
-        # Get homework assignments
+        # === Phase 4: Lesson Homework Submission Summary via service ===
+        from app.services.lesson_homework_service import LessonHomeworkService
+        try:
+            lesson_homework_summary = LessonHomeworkService.summarize_homework_for_parent(
+                parent_profile=parent,
+                student_ids=[child_id],
+            )
+        except Exception as _lh_err:
+            logger.warning(f"lesson_homework_summary_lookup_failed: {_lh_err}")
+            lesson_homework_summary = {}
+        per_child_summary = None
+        per_child_latest = []
+        if isinstance(lesson_homework_summary, dict):
+            per_child = lesson_homework_summary.get("per_child") or {}
+            if isinstance(per_child, dict) and str(child_id) in per_child:
+                per_child_summary = per_child[str(child_id)]
+            elif isinstance(per_child, dict) and int(child_id) in per_child:
+                per_child_summary = per_child[int(child_id)]
+            if isinstance(per_child_summary, dict):
+                per_child_latest = per_child_summary.pop("latest_submissions", []) or []
+
+        # === Legacy Assignment Homework (backward compatible) ===
         page = request.args.get("page", 1, type=int)
         per_page = min(request.args.get("per_page", 20, type=int), 100)
 
@@ -725,17 +746,25 @@ def get_child_homework(child_id):
                     }
                 )
 
-        return success_response(
-            data={
-                "homework": homework,
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": total,
-                    "pages": (total + per_page - 1) // per_page,
-                },
+        response_data = {
+            "assignments": homework,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page,
             },
-            message="Homework assignments retrieved successfully",
+            "lesson_homework": {
+                "summary": per_child_summary,
+                "latest_submissions": per_child_latest,
+            },
+        }
+        if isinstance(lesson_homework_summary, dict) and "overall" in lesson_homework_summary:
+            response_data["lesson_homework"]["overall"] = lesson_homework_summary.get("overall")
+
+        return success_response(
+            data=response_data,
+            message="Homework data retrieved successfully",
         )
     except Exception as e:
         logger.error(f"Error retrieving child homework: {str(e)}")

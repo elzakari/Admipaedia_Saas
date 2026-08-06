@@ -75,6 +75,7 @@ from app.models.lesson_acknowledgement import LessonAcknowledgement
 from app.models.lesson_attachment import LessonAttachment
 from app.models.lesson_broadcast import LessonBroadcast
 from app.models.lesson_comment import LessonComment
+from app.models.lesson_homework_submission import LessonHomeworkSubmission
 from app.models.library import (Book, BookCategory, BookReservation,
                                 BookStatus, BorrowRecord, BorrowStatus,
                                 FineRecord, LibraryMember, LibrarySettings,

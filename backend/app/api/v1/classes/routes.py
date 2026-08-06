@@ -2287,3 +2287,564 @@ try:
     )
 except Exception as _reg_err:
     current_app.logger.warning(f"Could not register canonical lesson routes: {_reg_err}")
+
+
+# =============================================================================
+# Phase 3 — Admin Lesson Monitoring: Analytics, Exports, Reminders, Escalations
+# =============================================================================
+
+import io
+from flask import send_file, Response
+from app.services.lesson_analytics_service import LessonAnalyticsService
+from app.services.lesson_export_service import LessonExportService
+from app.services.lesson_reminder_service import LessonReminderService
+
+
+@classes_bp.route("/lesson-monitoring/weekly-trends", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_weekly_trends():
+    """Return per-day stacked lesson KPIs for up to N weeks across optional scopes."""
+    try:
+        class_id = request.args.get("class_id", type=int)
+        teacher_id = request.args.get("teacher_id", type=int)
+        department_id = request.args.get("department_id", type=int)
+        weeks = request.args.get("weeks", 4, type=int)
+        try:
+            weeks = max(1, min(52, int(weeks)))
+        except (TypeError, ValueError):
+            weeks = 4
+
+        tenant_id = getattr(g, "tenant_id", None)
+        data = LessonAnalyticsService.weekly_trends(
+            class_id=class_id,
+            teacher_id=teacher_id,
+            department_id=department_id,
+            weeks=weeks,
+            tenant_id=tenant_id,
+        )
+        return jsonify({"success": True, "data": data}), 200
+    except Exception as e:
+        current_app.logger.error(f"weekly_trends_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lesson-monitoring/non-compliance", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_non_compliance():
+    """Return classes + assigned teachers flagged as non-compliant within a window."""
+    try:
+        days = request.args.get("days", 3, type=int)
+        try:
+            days = max(1, min(30, int(days)))
+        except (TypeError, ValueError):
+            days = 3
+
+        scope = {
+            "class_id": request.args.get("class_id", type=int),
+            "teacher_id": request.args.get("teacher_id", type=int),
+            "department_id": request.args.get("department_id", type=int),
+        }
+        tenant_id = getattr(g, "tenant_id", None)
+        rows = LessonAnalyticsService.non_compliance(
+            scope=scope, days=days, tenant_id=tenant_id
+        )
+        return jsonify({
+            "success": True,
+            "count": len(rows),
+            "non_compliance_items": rows,
+            "window_days": days,
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"non_compliance_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/<int:class_id>/lessons/weekly-report.pdf", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_class_weekly_report_pdf(class_id):
+    """Download a weekly lesson report as PDF (or HTML with warning banner fallback)."""
+    try:
+        from datetime import date as _date
+
+        raw = request.args.get("week_start_date")
+        if raw:
+            try:
+                if len(raw) >= 10:
+                    ws = datetime.strptime(raw[:10], "%Y-%m-%d").date()
+                else:
+                    raise ValueError("short date")
+            except Exception:
+                return jsonify({"success": False, "message": "Invalid week_start_date. Use YYYY-MM-DD."}), 400
+        else:
+            today = datetime.utcnow().date()
+            ws = today - timedelta(days=today.weekday())
+
+        tenant_id = getattr(g, "tenant_id", None)
+        class_obj = Class.query.get(class_id)
+        if not class_obj:
+            return jsonify({"success": False, "message": "Class not found"}), 404
+        if tenant_id is not None and getattr(class_obj, "tenant_id", None) != tenant_id:
+            return jsonify({"success": False, "message": "Class not found"}), 404
+
+        result = LessonAnalyticsService.class_weekly_report_pdf_bytes(
+            class_id=class_id, week_start_date=ws, tenant_id=tenant_id
+        )
+        class_slug = (getattr(class_obj, "name", "") or f"class_{class_id}").replace(" ", "_")
+        filename = f"{class_slug}_weekly_report_{ws.isoformat()}"
+
+        if isinstance(result, bytes):
+            return send_file(
+                io.BytesIO(result),
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=f"{filename}.pdf",
+            )
+        return Response(
+            result,
+            status=200,
+            mimetype="text/html",
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}.html"',
+                "X-PDF-Fallback": "reportlab_missing",
+            },
+        )
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
+    except Exception as e:
+        current_app.logger.error(f"weekly_report_pdf_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lesson-monitoring/export.csv", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_monitoring_export_csv():
+    """Export filtered lessons as CSV."""
+    try:
+        tenant_id = getattr(g, "tenant_id", None)
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 1000, type=int)
+        try:
+            per_page = max(1, min(10000, int(per_page)))
+        except (TypeError, ValueError):
+            per_page = 1000
+        class_id = request.args.get("class_id", type=int)
+        teacher_id = request.args.get("teacher_id", type=int)
+        status = request.args.get("status", type=str)
+
+        def parse_date(value):
+            if not value:
+                return None
+            try:
+                return datetime.strptime(value[:10], "%Y-%m-%d").date()
+            except ValueError:
+                return None
+
+        date_from = parse_date(request.args.get("date_from"))
+        date_to = parse_date(request.args.get("date_to"))
+
+        paginated_lessons, _summary = LessonService.get_lesson_monitoring(
+            page=page,
+            per_page=per_page,
+            tenant_id=tenant_id,
+            class_id=class_id,
+            teacher_id=teacher_id,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        buffer = LessonExportService.csv_export(paginated_lessons.items)
+        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            buffer,
+            mimetype="text/csv; charset=utf-8",
+            as_attachment=True,
+            download_name=f"lessons_export_{stamp}.csv",
+        )
+    except Exception as e:
+        current_app.logger.error(f"lessons_csv_export_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lesson-monitoring/export.xlsx", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_monitoring_export_xlsx():
+    """Export filtered lessons as XLSX (with CSV stub fallback when openpyxl missing)."""
+    try:
+        tenant_id = getattr(g, "tenant_id", None)
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 1000, type=int)
+        try:
+            per_page = max(1, min(10000, int(per_page)))
+        except (TypeError, ValueError):
+            per_page = 1000
+        class_id = request.args.get("class_id", type=int)
+        teacher_id = request.args.get("teacher_id", type=int)
+        status = request.args.get("status", type=str)
+
+        def parse_date(value):
+            if not value:
+                return None
+            try:
+                return datetime.strptime(value[:10], "%Y-%m-%d").date()
+            except ValueError:
+                return None
+
+        date_from = parse_date(request.args.get("date_from"))
+        date_to = parse_date(request.args.get("date_to"))
+
+        paginated_lessons, _summary = LessonService.get_lesson_monitoring(
+            page=page,
+            per_page=per_page,
+            tenant_id=tenant_id,
+            class_id=class_id,
+            teacher_id=teacher_id,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        export_result = LessonExportService.xlsx_export(paginated_lessons.items)
+        warning_meta = None
+        if isinstance(export_result, tuple):
+            buffer, warning_meta = export_result
+        else:
+            buffer = export_result
+
+        stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        filename = f"lessons_export_{stamp}.xlsx"
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        headers = {}
+        if warning_meta:
+            headers["X-Export-Fallback"] = "csv_stub_in_xlsx_wrapper"
+            for k, v in warning_meta.items():
+                headers[f"X-Warn-{k}"] = str(v)
+
+        return send_file(
+            buffer,
+            mimetype=mime,
+            as_attachment=True,
+            download_name=filename,
+            headers=headers if headers else None,
+        )
+    except Exception as e:
+        current_app.logger.error(f"lessons_xlsx_export_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/remind-teacher", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def post_lesson_remind_teacher(lesson_id):
+    """Send teacher reminder via selected channels (SMS/Email/Push) using adapter factory."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        channels = payload.get("channels") or ["email"]
+        if isinstance(channels, str):
+            channels = [channels]
+        channels = [str(c).strip().lower() for c in channels if c]
+
+        message = (payload.get("message") or "").strip()
+        if not message:
+            lesson = LessonModel.query.get(lesson_id)
+            if lesson:
+                ld = lesson.date.isoformat() if lesson.date else "scheduled"
+                message = (
+                    f"Reminder: Please update the status of lesson '{lesson.title}' "
+                    f"(date: {ld}). "
+                    "Mark it complete and ensure objectives/materials are recorded."
+                )
+            else:
+                return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+        lesson = LessonModel.query.get(lesson_id)
+        if not lesson:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+        tenant_id = getattr(g, "tenant_id", None)
+        class_obj = lesson.class_ or Class.query.get(lesson.class_id)
+        if tenant_id is not None and class_obj and getattr(class_obj, "tenant_id", None) != tenant_id:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+        result = LessonReminderService.send_teacher_reminder(
+            lesson_id=lesson_id,
+            channels=channels,
+            message=message,
+            adapter_factory=None,
+        )
+        code = 200 if result.get("success") else 400
+        return jsonify(result), code
+    except Exception as e:
+        current_app.logger.error(f"remind_teacher_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/escalate-to-principal", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["super_admin", "super_manager"])
+def post_lesson_escalate_to_principal(lesson_id):
+    """Escalate a lesson concern to all admin-role users (principal fanout)."""
+    try:
+        approver_user_id = get_jwt_identity()
+        if approver_user_id is None:
+            return jsonify({"success": False, "message": "Authenticated identity missing"}), 401
+        try:
+            approver_user_id = int(approver_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid approver user id"}), 400
+
+        payload = request.get_json(silent=True) or {}
+        escalation_note = (payload.get("escalation_note") or payload.get("note") or "").strip()
+        if not escalation_note:
+            return jsonify({"success": False, "message": "escalation_note is required"}), 400
+
+        lesson = LessonModel.query.get(lesson_id)
+        if not lesson:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+        tenant_id = getattr(g, "tenant_id", None)
+        result = LessonReminderService.escalate_to_principal(
+            lesson_id=lesson_id,
+            escalation_note=escalation_note,
+            approver_user_id=approver_user_id,
+            tenant_id=tenant_id,
+        )
+        code = 200 if result.get("success") else 400
+        return jsonify(result), code
+    except Exception as e:
+        current_app.logger.error(f"escalate_principal_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# =============================================================================
+# Phase 4 — Lesson Homework Submissions & Grading
+# =============================================================================
+
+from app.services.lesson_homework_service import LessonHomeworkService
+from app.services.student_service import StudentService
+from app.services.adapters.storage.factory import StorageProviderFactory
+from app.utils.file_utils import FileUtils
+from app.models.student import Student
+from app.utils.auth_utils import student_required as _student_required
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/homework", methods=["POST"])
+@jwt_required()
+@tenant_required
+@_student_required
+def post_lesson_homework_submit(lesson_id):
+    """Student submits or updates homework for a given lesson."""
+    try:
+        current_user_id = get_jwt_identity()
+        if current_user_id is None:
+            return jsonify({"success": False, "message": "Authenticated identity missing"}), 401
+        try:
+            current_user_id = int(current_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid user id"}), 400
+
+        tenant_id = getattr(g, "tenant_id", None)
+
+        student_svc = StudentService()
+        student = student_svc.get_student_by_user_id(current_user_id)
+        if not student:
+            return jsonify({"success": False, "message": "Student profile not found"}), 404
+        student_id = int(student.id)
+
+        lesson = LessonModel.query.get(lesson_id)
+        if not lesson:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+        if tenant_id is not None and getattr(lesson, "tenant_id", None) is not None and lesson.tenant_id != tenant_id:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+        if getattr(lesson, "class_id", None) and student.class_id and int(lesson.class_id) != int(student.class_id):
+            return jsonify({"success": False, "message": "Student is not enrolled in this lesson's class"}), 403
+
+        submission_type = None
+        submission_text = None
+        storage_key = None
+        link_url = None
+        file_obj = None
+
+        content_type = (request.content_type or "").lower()
+        if "multipart/form-data" in content_type:
+            submission_type = (request.form.get("submission_type") or "text").strip().lower()
+            submission_text = request.form.get("submission_text")
+            link_url = request.form.get("link_url")
+            storage_key = request.form.get("storage_key")
+            if "file" in request.files:
+                candidate = request.files["file"]
+                if candidate and getattr(candidate, "filename", None):
+                    file_obj = candidate
+        else:
+            payload = request.get_json(silent=True) or {}
+            submission_type = (payload.get("submission_type") or "text").strip().lower()
+            submission_text = payload.get("submission_text")
+            storage_key = payload.get("storage_key")
+            link_url = payload.get("link_url")
+
+        if submission_type not in {"text", "file", "link"}:
+            return jsonify({"success": False, "message": "submission_type must be one of: text, file, link"}), 400
+
+        payload_dict = {
+            "submission_type": submission_type,
+            "submission_text": submission_text,
+            "storage_key": storage_key,
+            "link_url": link_url,
+        }
+        if file_obj is not None:
+            payload_dict["file"] = file_obj
+
+        try:
+            storage_adapter = StorageProviderFactory.default()
+        except Exception:
+            storage_adapter = None
+
+        result = LessonHomeworkService.submit_homework(
+            lesson_id=lesson_id,
+            student_id=student_id,
+            payload=payload_dict,
+            storage_adapter=storage_adapter,
+        )
+
+        code = 200 if result.get("success") else 400
+        return jsonify(result), code
+    except Exception as e:
+        current_app.logger.error(f"homework_submit_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/homework", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_homework_list(lesson_id):
+    """Teacher/admin lists all homework submissions for a lesson."""
+    try:
+        lesson = LessonModel.query.get(lesson_id)
+        if not lesson:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+        tenant_id = getattr(g, "tenant_id", None)
+        if tenant_id is not None and getattr(lesson, "tenant_id", None) is not None and lesson.tenant_id != tenant_id:
+            return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+        _classes_ensure_teacher_or_admin_by_lesson(lesson, "lesson.view")
+
+        try:
+            storage_adapter = StorageProviderFactory.default()
+        except Exception:
+            storage_adapter = None
+
+        include_graded_only = request.args.get("graded_only", type=lambda v: v.lower() in {"1", "true", "yes"})
+        student_id_filter = request.args.get("student_id", type=int)
+
+        result = LessonHomeworkService.list_submissions_for_lesson(
+            lesson_id=lesson_id,
+            storage_adapter=storage_adapter,
+            student_id=student_id_filter,
+            include_graded_only=include_graded_only,
+        )
+
+        if not result.get("success"):
+            return jsonify(result), 400
+
+        submissions = result.get("submissions", [])
+        return jsonify({
+            "success": True,
+            "lesson_id": lesson_id,
+            "submissions": submissions,
+            "total": len(submissions),
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"homework_list_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@classes_bp.route("/homework/<int:submission_id>/grade", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def post_homework_grade(submission_id):
+    """Teacher grades a homework submission."""
+    try:
+        grader_user_id = get_jwt_identity()
+        if grader_user_id is None:
+            return jsonify({"success": False, "message": "Authenticated identity missing"}), 401
+        try:
+            grader_user_id = int(grader_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Invalid grader user id"}), 400
+
+        tenant_id = getattr(g, "tenant_id", None)
+        payload = request.get_json(silent=True) or {}
+
+        grade_raw = payload.get("grade")
+        if grade_raw is None:
+            grade_raw = payload.get("grade_number")
+        if grade_raw is None:
+            return jsonify({"success": False, "message": "grade is required"}), 400
+        try:
+            grade_number = float(grade_raw)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "grade must be a valid number"}), 400
+
+        feedback = payload.get("feedback")
+
+        result = LessonHomeworkService.grade_submission(
+            submission_id=submission_id,
+            grader_id=grader_user_id,
+            grade=grade_number,
+            feedback=feedback,
+        )
+
+        code = 200 if result.get("success") else 400
+        if result.get("success") is False and "not found" in (result.get("message") or "").lower():
+            code = 404
+        elif result.get("success") is False and "not authorized" in (result.get("message") or "").lower():
+            code = 403
+        return jsonify(result), code
+    except Exception as e:
+        current_app.logger.error(f"homework_grade_route_error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# Append to canonical lesson route registrations on api_v1_bp
+try:
+    from app.api.v1 import api_v1_bp as _api_v1_bp_p4
+
+    def _mk_view_p4(fn):
+        from functools import wraps
+        @wraps(fn)
+        def wrapper(*a, **kw):
+            return fn(*a, **kw)
+        return wrapper
+
+    _api_v1_bp_p4.add_url_rule(
+        "/lessons/<int:lesson_id>/homework",
+        endpoint="v1_lesson_homework_submit",
+        view_func=_mk_view_p4(post_lesson_homework_submit),
+        methods=["POST"],
+    )
+    _api_v1_bp_p4.add_url_rule(
+        "/lessons/<int:lesson_id>/homework",
+        endpoint="v1_lesson_homework_list",
+        view_func=_mk_view_p4(get_lesson_homework_list),
+        methods=["GET"],
+    )
+    _api_v1_bp_p4.add_url_rule(
+        "/homework/<int:submission_id>/grade",
+        endpoint="v1_homework_grade",
+        view_func=_mk_view_p4(post_homework_grade),
+        methods=["POST"],
+    )
+except Exception as _reg_err_p4:
+    current_app.logger.warning(f"Could not register Phase 4 homework canonical routes: {_reg_err_p4}")
+
