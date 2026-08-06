@@ -7,7 +7,10 @@ on:
     branches: [ "main" ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }} # Standardized concurrency group
+  # Shared concurrency group across ci.yml / enhanced-ci-cd.yml / production-build-test.yml
+  # on the SAME ref. New push to the same ref cancels any still-running instances,
+  # so 3 workflows never starve public runners by stacking 6 parallel runs.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,6 +27,7 @@ jobs:
 
   frontend-tests:
     runs-on: ubuntu-latest
+    needs: security-scan
     defaults:
       run:
         working-directory: ./frontend
@@ -60,6 +64,7 @@ jobs:
 
   backend-tests:
     runs-on: ubuntu-latest
+    needs: security-scan
     defaults:
       run:
         working-directory: ./backend
