@@ -8,20 +8,18 @@ import {
   Users, GraduationCap, BookOpen, Settings,
   RefreshCw, TrendingUp, TrendingDown,
   Calendar, Bell, Activity, BarChart3,
-  PieChart, Clock, AlertCircle, CheckCircle,
+  AlertCircle, CheckCircle,
   XCircle, Minus, ChevronRight, Search,
-  Filter, Download, Plus
+  Download, Plus
 } from 'lucide-react';
 import { useStatistics, useCalendarEvents, useNotifications } from '../hooks/useDashboardData';
 import { useDashboardStatistics, useAttendanceAnalytics } from '../hooks/useAnalytics';
 import { analyticsService } from '../services/analyticsService';
-import { LineChart, Line, AreaChart, Area, PieChart as RechartsPieChart, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { LineChart, Line, AreaChart, Area, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 import StatisticsPanel from './dashboard/StatisticsPanel';
 
-// Lazy load heavy components
-const AdvancedAnalytics = lazy(() => import('./dashboard/AdvancedAnalyticsDashboard'));
 const CalendarWidget = lazy(() => import('./dashboard/CalendarWidget'));
 const RealTimeWidget = lazy(() => import('./dashboard/RealTimeWidget'));
 
@@ -50,20 +48,20 @@ const AdminDashboard: React.FC<DashboardLayoutProps> = ({ className = '' }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showWelcome, setShowWelcome] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
+  const [_selectedTimeRange, _setSelectedTimeRange] = useState('7d');
   const [dashboardView, setDashboardView] = useState<'overview' | 'analytics' | 'reports'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [_showFilters, _setShowFilters] = useState(false);
   const [systemHealthData, setSystemHealthData] = useState<SystemHealthData | null>(null);
 
   // Data hooks with error handling
   const { statistics, isLoading: statsLoading, isError: statsError, mutate: refreshStats } = useStatistics();
-  const { events, isLoading: eventsLoading, isError: eventsError } = useCalendarEvents();
+  const { events: _events, isLoading: eventsLoading, isError: eventsError } = useCalendarEvents();
   const { notifications, isLoading: notificationsLoading, isError: notificationsError } = useNotifications();
   
   // Add analytics hooks for live data
-  const { statistics: liveStatistics, loading: analyticsLoading, error: analyticsError, refetch: refetchAnalytics } = useDashboardStatistics('admin');
-  const { analytics: attendanceAnalytics, loading: attendanceLoading, error: attendanceError } = useAttendanceAnalytics();
+  const { statistics: liveStatistics, loading: _analyticsLoading, error: _analyticsError, refetch: refetchAnalytics } = useDashboardStatistics('admin');
+  const { analytics: attendanceAnalytics, loading: _attendanceLoading, error: _attendanceError } = useAttendanceAnalytics();
 
   const isLoading = statsLoading || eventsLoading || notificationsLoading;
   const hasErrors = statsError || eventsError || notificationsError;

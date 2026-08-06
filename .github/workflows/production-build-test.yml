@@ -7,10 +7,13 @@ on:
     branches: [ "main" ]
 
 concurrency:
-  # Shared concurrency group across ci.yml / enhanced-ci-cd.yml / production-build-test.yml
-  # on the SAME ref. New push to the same ref cancels any still-running instances,
-  # so 3 workflows never starve public runners by stacking 6 parallel runs.
-  group: ci-${{ github.event_name }}-${{ github.ref }}
+  # Per-workflow unique concurrency group. cancel-in-progress cancels only the
+  # SAME WORKFLOW on the same ref when a newer push lands. CI/Enhanced/Production
+  # are deliberately DIFFERENT groups so they run side-by-side on a push (they
+  # have always been intended to run concurrently on the same commit) instead of
+  # cancelling each other mid-run (which was causing backend-tests to get CANCELLED
+  # at 15 minutes in CI #422).
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
