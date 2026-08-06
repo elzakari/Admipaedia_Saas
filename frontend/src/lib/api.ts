@@ -137,6 +137,35 @@ api.interceptors.response.use(
       }
     }
 
+    // Enrich the thrown error so UI toast layers can display actionable messages without
+    // re-plumbing error responses at every mutation/call site.
+    try {
+      const data: any = error?.response?.data;
+      if (data && typeof data === 'object') {
+        const candidates: string[] = [];
+        if (typeof data.message === 'string' && data.message.trim()) candidates.push(data.message);
+        if (typeof data.error === 'string' && data.error.trim() && data.error !== data.message) candidates.push(data.error);
+        const msg = candidates[0] || null;
+        const detail = candidates.slice(1).join(' — ') || null;
+        if (msg) {
+          Object.defineProperty(error, 'message', {
+            writable: true,
+            configurable: true,
+            enumerable: false,
+            value: msg,
+          });
+        }
+        if (detail) {
+          (error as any).errorDetail = detail;
+        }
+        if (typeof data.error_type === 'string') {
+          (error as any).errorType = data.error_type;
+        }
+      }
+    } catch {
+      // Fall through with the original error if enrichment parsing fails.
+    }
+
     return Promise.reject(error);
   }
 );

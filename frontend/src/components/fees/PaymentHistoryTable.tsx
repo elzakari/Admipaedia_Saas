@@ -141,7 +141,12 @@ const PaymentHistoryTable: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['fees', 'records'] })
       setRecordOpen(false)
     },
-    onError: (e: any) => toast.error(e?.message || e?.response?.data?.message || t('admin_fees.failed_record_payment', 'Failed to record payment'))
+    onError: (e: any) => {
+      const fallback = t('admin_fees.failed_record_payment', 'Failed to record payment');
+      const title = e?.message || e?.response?.data?.message || fallback;
+      const detail = e?.errorDetail || e?.response?.data?.error || null;
+      toast.error(title + (detail ? ` — ${detail}` : ''));
+    }
   })
 
   return (

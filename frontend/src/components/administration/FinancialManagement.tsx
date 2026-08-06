@@ -884,7 +884,14 @@ const FinancialManagement: React.FC = () => {
                   toast({ title: 'Payment recorded', variant: 'default' });
                   setPaymentDialogOpen(false);
                 } catch (e: any) {
-                  toast({ title: 'Failed to record payment', description: e?.message || 'Try again', variant: 'destructive' });
+                  const fallback = 'Try again';
+                  const title = e?.message || 'Failed to record payment';
+                  const detail = e?.errorDetail || fallback;
+                  toast({
+                    title,
+                    description: title !== detail ? detail : undefined,
+                    variant: 'destructive',
+                  });
                 }
               }}
             >

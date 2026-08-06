@@ -825,16 +825,33 @@ def create_fee_payment_v2():
                 400,
             )
 
+        amount_decimal = Decimal(str(amount_val))
+        zero_decimal = Decimal("0")
+        reference_is_auto = False
+        if not (data.get("reference_number") or "").strip():
+            reference_number = "PAY-" + datetime.utcnow().strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:6].upper()
+            reference_is_auto = True
         existing_reference = Payment.query.filter(
             Payment.transaction_id == reference_number
         ).first()
-        if existing_reference:
+        if existing_reference and not reference_is_auto:
             return (
                 jsonify(
                     {"success": False, "message": "Reference number already exists"}
                 ),
                 400,
             )
+        if existing_reference and reference_is_auto:
+            for _ in range(5):
+                candidate = "PAY-" + datetime.utcnow().strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:6].upper()
+                if not Payment.query.filter(Payment.transaction_id == candidate).first():
+                    reference_number = candidate
+                    break
+            else:
+                return (
+                    jsonify({"success": False, "message": "Unable to generate unique payment reference; please retry"}),
+                    500,
+                )
 
         paid_at = datetime.utcnow()
         if payment_date_raw:
@@ -846,24 +863,28 @@ def create_fee_payment_v2():
                 paid_at = datetime.utcnow()
 
         user_id = get_jwt_identity()
+        try:
+            user_id_int = int(user_id) if user_id is not None else None
+        except Exception:
+            user_id_int = None
         payment_currency = _get_school_currency(
             getattr(getattr(fee, "structure", None), "currency", None) or "USD"
         )
         payment = Payment(
             transaction_id=reference_number,
             student_id=fee.student_id,
-            amount=amount_val,
+            amount=amount_decimal,
             currency=payment_currency,
             payment_method=payment_method,
             payment_provider="manual",
-            recorded_by=user_id,
+            recorded_by=user_id_int,
             status="completed",
             paid_at=paid_at,
         )
         db.session.add(payment)
         db.session.flush()
 
-        allocation_amount = amount_val
+        allocation_amount = amount_decimal
         alloc = PaymentAllocation(
             payment_id=payment.id,
             student_fee_id=fee.id,
@@ -871,7 +892,19 @@ def create_fee_payment_v2():
         )
         db.session.add(alloc)
 
-        fee.paid_amount = float(fee.paid_amount or 0) + allocation_amount
+        prior_paid = fee.paid_amount
+        try:
+            if prior_paid is None:
+                prior_paid_decimal = zero_decimal
+            elif isinstance(prior_paid, Decimal):
+                prior_paid_decimal = prior_paid
+            else:
+                prior_paid_decimal = Decimal(str(prior_paid))
+            fee.paid_amount = prior_paid_decimal + allocation_amount
+        except Exception:
+            fee.paid_amount = (
+                Decimal(str(float(fee.paid_amount or 0))) + allocation_amount
+            )
         fee.update_balance()
         db.session.commit()
 
@@ -903,8 +936,18 @@ def create_fee_payment_v2():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error creating fee payment: {str(e)}")
+        show_detail = bool(
+            current_app.config.get("DEBUG") or current_app.config.get("TESTING")
+        )
+        payload = {
+            "success": False,
+            "message": "Failed to create fee payment",
+        }
+        if show_detail:
+            payload["error"] = str(e)
+            payload["error_type"] = type(e).__name__
         return (
-            jsonify({"success": False, "message": "Failed to create fee payment"}),
+            jsonify(payload),
             500,
         )
 

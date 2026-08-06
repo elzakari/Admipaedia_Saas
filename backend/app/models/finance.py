@@ -151,14 +151,31 @@ class StudentFee(db.Model):
     branch = db.relationship("Branch", backref=db.backref("student_fees", lazy=True))
 
     def update_balance(self):
-        self.balance = self.final_amount - self.paid_amount
-        if self.balance <= 0:
+        from decimal import Decimal
+
+        def _to_decimal(value):
+            if value is None:
+                return Decimal("0")
+            if isinstance(value, Decimal):
+                return value
+            try:
+                return Decimal(str(value))
+            except Exception:
+                return Decimal(str(float(value) if isinstance(value, (int, float)) else "0"))
+
+        final = _to_decimal(self.final_amount)
+        paid = _to_decimal(self.paid_amount)
+        bal = final - paid
+        zero = Decimal("0")
+        if bal <= zero:
             self.status = "paid"
-            self.balance = 0
-        elif self.paid_amount > 0:
+            self.balance = zero
+        elif paid > zero:
             self.status = "partial"
+            self.balance = bal
         else:
             self.status = "pending"
+            self.balance = bal
 
     def __repr__(self):
         return f"<StudentFee {self.student_id}: {self.balance} pending>"
