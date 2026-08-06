@@ -1,6 +1,19 @@
 import api from '../lib';
 import { StandardPaginatedResponse, StandardApiResponse } from '../types';
 import { ApiResponseStandardizer } from '../lib/apiResponseStandardizer';
+import {
+  LessonV2,
+  LessonBroadcast,
+  LessonAttachment,
+  LessonComment,
+  LessonAcknowledgement,
+  LiveLessonStats,
+  LinkPayload,
+  AcknowledgeLessonPayload,
+  CreateLessonCommentPayload,
+  MonitoringKpiFilters,
+  LessonMonitoringKpis,
+} from '../types/lesson';
 
 // classService types
 export interface Class {
@@ -62,9 +75,13 @@ export interface LessonData {
   objectives?: string;
   classwork?: string;
   homework?: string;
+  homework_due_date?: string;
   notes?: string;
   resources?: string[];
   materials?: Array<Record<string, unknown>>;
+  period_number?: number;
+  start_time?: string;
+  end_time?: string;
 }
 
 export interface Lesson {
@@ -82,9 +99,14 @@ export interface Lesson {
   objectives?: string;
   classwork?: string;
   homework?: string;
+  homework_due_date?: string;
   notes?: string;
   resources?: string[];
   materials?: Array<Record<string, unknown>>;
+  period_number?: number;
+  start_time?: string;
+  end_time?: string;
+  broadcast_status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -273,6 +295,13 @@ const classService = {
     status?: string;
     date_from?: string;
     date_to?: string;
+    department_id?: number[] | number;
+    subject_id?: number[] | number;
+    period_number?: number[] | number;
+    visibility?: string[] | string;
+    broadcast_status?: string[] | string;
+    homework_due_from?: string;
+    homework_due_to?: string;
   }): Promise<LessonMonitoringResponse> => {
     try {
       const response = await api.get('/classes/lesson-monitoring', { params });
@@ -429,7 +458,188 @@ const classService = {
       console.error(`Error deleting resource ${resourceId} for class ${classId}:`, error);
       throw error;
     }
-  }
+  },
+
+  startLessonBroadcast: async (classId: number, lessonId: number): Promise<StandardApiResponse<LessonBroadcast>> => {
+    try {
+      const response = await api.post(`/classes/${classId}/lessons/${lessonId}/broadcast/start`);
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonBroadcast>(response, 'broadcast');
+    } catch (error) {
+      console.error(`Error starting broadcast for lesson ${lessonId} in class ${classId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  endLessonBroadcast: async (classId: number, lessonId: number): Promise<StandardApiResponse<LessonBroadcast>> => {
+    try {
+      const response = await api.post(`/classes/${classId}/lessons/${lessonId}/broadcast/end`);
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonBroadcast>(response, 'broadcast');
+    } catch (error) {
+      console.error(`Error ending broadcast for lesson ${lessonId} in class ${classId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonLiveStats: async (classId: number, lessonId: number): Promise<StandardApiResponse<LiveLessonStats>> => {
+    try {
+      const response = await api.get(`/classes/${classId}/lessons/${lessonId}/live-stats`);
+      return ApiResponseStandardizer.standardizeSingleResponse<LiveLessonStats>(response, 'stats');
+    } catch (error) {
+      console.error(`Error fetching live stats for lesson ${lessonId} in class ${classId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  uploadLessonAttachment: async (
+    lessonId: number,
+    payload: File | LinkPayload
+  ): Promise<StandardApiResponse<LessonAttachment>> => {
+    try {
+      if (payload instanceof File) {
+        const formData = new FormData();
+        formData.append('file', payload);
+        formData.append('attachment_type', 'file');
+        formData.append('filename', payload.name);
+
+        const response = await api.post(`/lessons/${lessonId}/attachments`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        return ApiResponseStandardizer.standardizeSingleResponse<LessonAttachment>(response, 'attachment');
+      } else {
+        const response = await api.post(`/lessons/${lessonId}/attachments`, {
+          ...payload,
+          attachment_type: 'link',
+        });
+        return ApiResponseStandardizer.standardizeSingleResponse<LessonAttachment>(response, 'attachment');
+      }
+    } catch (error) {
+      console.error(`Error uploading attachment for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonAttachmentSignedUrl: async (
+    lessonId: number,
+    attachmentId: number
+  ): Promise<StandardApiResponse<{ signed_url: string; expires_at: string }>> => {
+    try {
+      const response = await api.get(`/lessons/${lessonId}/attachments/${attachmentId}/signed-url`);
+      return ApiResponseStandardizer.standardizeSingleResponse<{ signed_url: string; expires_at: string }>(response);
+    } catch (error) {
+      console.error(`Error fetching signed URL for attachment ${attachmentId} in lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  acknowledgeLesson: async (
+    lessonId: number,
+    payload: AcknowledgeLessonPayload
+  ): Promise<StandardApiResponse<LessonAcknowledgement>> => {
+    try {
+      const response = await api.post(`/lessons/${lessonId}/acknowledge`, payload);
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonAcknowledgement>(response, 'acknowledgement');
+    } catch (error) {
+      console.error(`Error acknowledging lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonAcknowledgements: async (lessonId: number): Promise<StandardPaginatedResponse<LessonAcknowledgement>> => {
+    try {
+      const response = await api.get(`/lessons/${lessonId}/acknowledgements`);
+      return ApiResponseStandardizer.standardizePaginatedResponse<LessonAcknowledgement>(
+        response,
+        'acknowledgements'
+      );
+    } catch (error) {
+      console.error(`Error fetching acknowledgements for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  createLessonComment: async (
+    lessonId: number,
+    body: CreateLessonCommentPayload
+  ): Promise<StandardApiResponse<LessonComment>> => {
+    try {
+      const response = await api.post(`/lessons/${lessonId}/comments`, body);
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonComment>(response, 'comment');
+    } catch (error) {
+      console.error(`Error creating comment for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonComments: async (
+    lessonId: number,
+    page: number = 1
+  ): Promise<StandardPaginatedResponse<LessonComment>> => {
+    try {
+      const response = await api.get(`/lessons/${lessonId}/comments`, { params: { page, per_page: 50 } });
+      return ApiResponseStandardizer.standardizePaginatedResponse<LessonComment>(response, 'comments');
+    } catch (error) {
+      console.error(`Error fetching comments for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  approveLessonComment: async (commentId: number): Promise<StandardApiResponse<LessonComment>> => {
+    try {
+      const response = await api.post(`/lessons/comments/${commentId}/approve`);
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonComment>(response, 'comment');
+    } catch (error) {
+      console.error(`Error approving comment ${commentId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  deleteLessonComment: async (commentId: number): Promise<StandardApiResponse<void>> => {
+    try {
+      const response = await api.delete(`/lessons/comments/${commentId}`);
+      return ApiResponseStandardizer.standardizeSingleResponse<void>(response);
+    } catch (error) {
+      console.error(`Error deleting comment ${commentId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  getLessonMonitoringKpis: async (filters: MonitoringKpiFilters): Promise<StandardApiResponse<LessonMonitoringKpis>> => {
+    try {
+      const response = await api.get('/classes/lesson-monitoring/kpis', { params: filters });
+      return ApiResponseStandardizer.standardizeSingleResponse<LessonMonitoringKpis>(response, 'kpis');
+    } catch (error) {
+      console.error('Error fetching lesson monitoring KPIs:', error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  sendTeacherReminder: async (
+    lessonId: number,
+    payload: { channels: ('email' | 'sms' | 'app')[]; message?: string }
+  ): Promise<StandardApiResponse<{ sent: boolean; channels: string[] }>> => {
+    try {
+      const response = await api.post(`/lessons/${lessonId}/remind-teacher`, payload);
+      return ApiResponseStandardizer.standardizeSingleResponse(response);
+    } catch (error) {
+      console.error(`Error sending reminder for lesson ${lessonId}:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
+
+  escalateToPrincipal: async (
+    lessonId: number,
+    payload: { note?: string }
+  ): Promise<StandardApiResponse<{ escalated: boolean; principal_notified: boolean }>> => {
+    try {
+      const response = await api.post(`/lessons/${lessonId}/escalate-principal`, payload);
+      return ApiResponseStandardizer.standardizeSingleResponse(response);
+    } catch (error) {
+      console.error(`Error escalating lesson ${lessonId} to principal:`, error);
+      throw ApiResponseStandardizer.handleApiError(error);
+    }
+  },
 };
 
 export { classService };

@@ -70,6 +70,11 @@ from app.models.grading_system import (AssessmentType, EnhancedGrade,
                                        FinalGrade, GradeBoundary,
                                        GradingScheme, GradingStandard)
 # Library system models
+from app.models.lesson import Lesson
+from app.models.lesson_acknowledgement import LessonAcknowledgement
+from app.models.lesson_attachment import LessonAttachment
+from app.models.lesson_broadcast import LessonBroadcast
+from app.models.lesson_comment import LessonComment
 from app.models.library import (Book, BookCategory, BookReservation,
                                 BookStatus, BorrowRecord, BorrowStatus,
                                 FineRecord, LibraryMember, LibrarySettings,

@@ -1079,3 +1079,125 @@ def get_parent_messages(parent_id):
     except Exception as e:
         logger.error(f"Error retrieving parent messages: {str(e)}")
         return error_response(message="Failed to retrieve messages", status_code=500)
+
+
+@parents_bp.route("/children/<int:child_id>/lessons/summary", methods=["GET"])
+@jwt_required()
+@parent_required
+def get_child_lessons_summary(child_id):
+    """Get KPI summary for a child's lessons: lessons this week, pending acks,
+    live lessons, homework due."""
+    try:
+        current_user_id = get_jwt_identity()
+        parent = ParentService.get_parent_by_user_id(current_user_id)
+
+        if not parent:
+            return error_response(message="Parent profile not found", status_code=404)
+
+        children, _ = ParentService.get_children(parent.id)
+        child_ids = [child.id for child in children]
+
+        if child_id not in child_ids:
+            return error_response(
+                message="Child not found or access denied", status_code=403
+            )
+
+        from datetime import datetime, timedelta
+
+        from sqlalchemy import and_, func, or_
+
+        from app.models.assignment import Assignment
+        from app.models.assignment_submission import AssignmentSubmission
+        from app.models.lesson import Lesson
+        from app.models.lesson_acknowledgement import LessonAcknowledgement
+        from app.models.lesson_broadcast import LessonBroadcast
+        from app.models.student import Student
+        from app.extensions import db
+
+        child = Student.query.get(child_id)
+        class_id = getattr(child, "class_id", None) if child else None
+        today = datetime.utcnow().date()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        lessons_this_week = 0
+        pending_acks = 0
+        live_lessons = 0
+        homework_due_count = 0
+        homework_due_list = []
+
+        if class_id:
+            lessons_q = Lesson.query.filter_by(class_id=class_id).filter(
+                Lesson.date >= week_start, Lesson.date <= week_end
+            )
+            lessons_this_week = lessons_q.count()
+
+            lesson_ids = [l.id for l in lessons_q.all()]
+            if lesson_ids:
+                acked = LessonAcknowledgement.query.filter(
+                    LessonAcknowledgement.lesson_id.in_(lesson_ids),
+                    LessonAcknowledgement.user_id == int(current_user_id),
+                    LessonAcknowledgement.is_acknowledged == True,
+                ).count()
+                pending_acks = max(len(lesson_ids) - acked, 0)
+
+            live_lessons = (
+                LessonBroadcast.query
+                .join(Lesson, LessonBroadcast.lesson_id == Lesson.id)
+                .filter(
+                    Lesson.class_id == class_id,
+                    LessonBroadcast.status == "live",
+                )
+                .count()
+            )
+
+            assignments_q = (
+                Assignment.query.filter_by(class_id=class_id, status="active")
+                .filter(Assignment.due_date >= today)
+                .order_by(Assignment.due_date.asc())
+            )
+            due_assignments = assignments_q.all()
+            homework_due_count = len(due_assignments)
+
+            submission_ids_for_student = [
+                s.assignment_id
+                for s in AssignmentSubmission.query.filter_by(
+                    student_id=child_id
+                ).all()
+            ]
+
+            homework_due_list = []
+            for a in due_assignments[:10]:
+                subject_name = None
+                if getattr(a, "subject", None):
+                    subject_name = getattr(a.subject, "name", None)
+                submitted = a.id in submission_ids_for_student
+                homework_due_list.append({
+                    "id": a.id,
+                    "title": a.title,
+                    "due_date": a.due_date.isoformat() if a.due_date else None,
+                    "subject_name": subject_name or "General",
+                    "assignment_type": a.assignment_type,
+                    "total_points": float(a.total_points or 0),
+                    "is_submitted": submitted,
+                })
+
+        summary = {
+            "student_id": child_id,
+            "class_id": class_id,
+            "lessons_this_week": lessons_this_week,
+            "week_start": week_start.isoformat(),
+            "week_end": week_end.isoformat(),
+            "pending_acknowledgements": pending_acks,
+            "live_lessons_now": live_lessons,
+            "homework_due_count": homework_due_count,
+            "homework_due": homework_due_list,
+        }
+
+        return success_response(
+            data=summary,
+            message="Child lessons summary retrieved successfully",
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving child lessons summary {child_id}: {str(e)}")
+        return error_response(message="Failed to retrieve lessons summary", status_code=500)

@@ -2,6 +2,7 @@ import app.services.communication_service  # noqa: F401
 from app.extensions import socketio
 from app.websockets.announcements import announcements_namespace
 from app.websockets.dashboard_handler import DashboardNamespace
+from app.websockets.lessons import lessons_namespace
 from app.websockets.message_handler import MessageNamespace
 from app.websockets.notifications import notifications_namespace
 from app.websockets.teachers import teachers_namespace
@@ -23,6 +24,7 @@ def register_websocket_namespaces():
     socketio.on_namespace(announcements_namespace)
     socketio.on_namespace(messages_namespace)
     socketio.on_namespace(dashboard_namespace)
+    socketio.on_namespace(lessons_namespace)
     _namespaces_registered = True
 
 
@@ -32,5 +34,6 @@ __all__ = [
     "announcements_namespace",
     "messages_namespace",
     "dashboard_namespace",
+    "lessons_namespace",
     "register_websocket_namespaces",
 ]

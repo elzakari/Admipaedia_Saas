@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_BASE_URL } from '../config/constants';
 import { buildSocketAuthPayload } from './socketConnectionContext';
+import { LiveLessonStats } from '../types/lesson';
 
 // Message handler type
 type SubscriptionHandler = (data: any) => void;
@@ -9,6 +10,52 @@ type GlobalMessageHandler = (event: string, data: any) => void;
 
 // WebSocket connection status
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+// Lessons namespace constant
+export const LESSONS_NAMESPACE = '/ws/lessons';
+const HEARTBEAT_INTERVAL_MS = 15000;
+
+export interface LessonRoomContext {
+  lesson_id?: number;
+  class_id?: number;
+  subject_id?: number;
+  teacher_id?: number;
+}
+
+export interface LessonViewersUpdatedPayload {
+  lesson_room: string;
+  active_viewers: number;
+  peak_viewers: number;
+  timestamp: number;
+}
+
+export interface LessonLiveStartedPayload {
+  lesson_id: number;
+  class_id?: number;
+  broadcast_id?: number;
+  started_at: string;
+  stream_url?: string;
+}
+
+export interface LessonSlidePostedPayload {
+  lesson_id: number;
+  slide_id?: string | number;
+  slide_index?: number;
+  content?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface LessonCommentPostedPayload {
+  lesson_id: number;
+  comment_id: number;
+  content: string;
+  author_id?: number;
+  author_name?: string;
+  is_approved: boolean;
+  created_at: string;
+}
+
+export type ViewerUpdateCallback = (payload: LessonViewersUpdatedPayload) => void;
 
 // WebSocket service class
 class WebSocketService {
@@ -21,6 +68,8 @@ class WebSocketService {
   private pendingSubscriptions = new Map<string, Set<SubscriptionHandler>>();
   private permanentlyDisconnected = false;
   private boundInternalListeners = false;
+  private heartbeatIntervals = new Map<number, ReturnType<typeof setInterval>>();
+  private viewerCallbacks = new Map<number, Set<ViewerUpdateCallback>>();
 
   private constructor(namespace: string = '/') {
     this.namespace = namespace;
@@ -253,9 +302,129 @@ class WebSocketService {
     }
   }
 
+  connectLessonsNamespace(): void {
+    if (this.namespace !== LESSONS_NAMESPACE) {
+      console.warn(
+        `connectLessonsNamespace called on wrong namespace: ${this.namespace}. Use getInstance('${LESSONS_NAMESPACE}') instead.`
+      );
+      return;
+    }
+    this.connect();
+  }
+
+  joinLessonRoom(context: LessonRoomContext): void {
+    if (!context.lesson_id && !context.class_id && !context.subject_id && !context.teacher_id) {
+      console.warn('joinLessonRoom requires at least one of lesson_id/class_id/subject_id/teacher_id');
+      return;
+    }
+    if (!this.socket?.connected) {
+      this.connect();
+    }
+    this.send('join_room', context);
+  }
+
+  leaveLessonRoom(context: LessonRoomContext): void {
+    if (!context.lesson_id && !context.class_id && !context.subject_id && !context.teacher_id) {
+      console.warn('leaveLessonRoom requires at least one of lesson_id/class_id/subject_id/teacher_id');
+      return;
+    }
+    this.send('leave_room', context);
+
+    if (context.lesson_id) {
+      this.stopHeartbeatLoop(context.lesson_id);
+    }
+  }
+
+  startHeartbeatLoop(lessonId: number, onViewerUpdate: ViewerUpdateCallback): () => void {
+    if (this.heartbeatIntervals.has(lessonId)) {
+      if (onViewerUpdate) {
+        if (!this.viewerCallbacks.has(lessonId)) {
+          this.viewerCallbacks.set(lessonId, new Set());
+        }
+        this.viewerCallbacks.get(lessonId)!.add(onViewerUpdate);
+      }
+      return () => {
+        this.viewerCallbacks.get(lessonId)?.delete(onViewerUpdate);
+      };
+    }
+
+    if (!this.viewerCallbacks.has(lessonId)) {
+      this.viewerCallbacks.set(lessonId, new Set());
+    }
+    if (onViewerUpdate) {
+      this.viewerCallbacks.get(lessonId)!.add(onViewerUpdate);
+    }
+
+    const sendHeartbeat = () => {
+      if (this.socket?.connected) {
+        this.socket.emit('viewer_heartbeat', { lesson_id: lessonId });
+      }
+    };
+
+    this.subscribe('lesson_viewers_updated', (data: LessonViewersUpdatedPayload) => {
+      const expectedRoom = `lesson_${lessonId}`;
+      if (data && data.lesson_room === expectedRoom) {
+        const callbacks = this.viewerCallbacks.get(lessonId);
+        if (callbacks) {
+          callbacks.forEach((cb) => {
+            try {
+              cb(data);
+            } catch (err) {
+              console.error('Error in viewer update callback:', err);
+            }
+          });
+        }
+      }
+    });
+
+    sendHeartbeat();
+
+    const interval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    this.heartbeatIntervals.set(lessonId, interval);
+
+    return () => {
+      this.viewerCallbacks.get(lessonId)?.delete(onViewerUpdate);
+      if (this.viewerCallbacks.get(lessonId)?.size === 0) {
+        this.stopHeartbeatLoop(lessonId);
+      }
+    };
+  }
+
+  private stopHeartbeatLoop(lessonId: number): void {
+    const interval = this.heartbeatIntervals.get(lessonId);
+    if (interval) {
+      clearInterval(interval);
+      this.heartbeatIntervals.delete(lessonId);
+    }
+    this.viewerCallbacks.delete(lessonId);
+  }
+
+  onLessonLiveStarted(handler: (data: LessonLiveStartedPayload) => void): () => void {
+    return this.subscribe('lesson_live_started', handler);
+  }
+
+  onLessonSlidePosted(handler: (data: LessonSlidePostedPayload) => void): () => void {
+    return this.subscribe('lesson_slide_posted', handler);
+  }
+
+  onLessonCommentPosted(handler: (data: LessonCommentPostedPayload) => void): () => void {
+    return this.subscribe('lesson_comment_posted', handler);
+  }
+
+  onLessonViewersUpdated(lessonId: number, handler: ViewerUpdateCallback): () => void {
+    return this.subscribe('lesson_viewers_updated', (data: LessonViewersUpdatedPayload) => {
+      const expectedRoom = `lesson_${lessonId}`;
+      if (data && data.lesson_room === expectedRoom) {
+        handler(data);
+      }
+    });
+  }
+
   disconnect(): void {
-    // Explicit logout-style disconnect: forbid any further automatic
-    // reconnection until connect() / reconnect() is explicitly called.
+    this.heartbeatIntervals.forEach((interval) => clearInterval(interval));
+    this.heartbeatIntervals.clear();
+    this.viewerCallbacks.clear();
+
     this.permanentlyDisconnected = true;
     if (this.socket) {
       try {

@@ -1462,3 +1462,828 @@ def grade_class_submission(submission_id):
         )
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+# =============================================================================
+# Teacher Scope RBAC Helpers (3-way class assignment pattern)
+# =============================================================================
+
+from flask import abort as _abort
+from app.extensions import db
+from app.models.class_ import Class, ClassTeacherMapping
+from app.models.teacher import Teacher
+from app.models.user import User
+from app.utils.rbac_decorators import has_permission as _has_permission
+
+
+def _classes_current_user_teacher_ids() -> list:
+    user_id = get_jwt_identity()
+    if not user_id:
+        return []
+    rows = (
+        db.session.query(Teacher.id)
+        .filter(Teacher.user_id == user_id)
+        .all()
+    )
+    return [int(r[0]) for r in rows if r and r[0]]
+
+
+def _classes_current_user_is_admin_like() -> bool:
+    user_id = get_jwt_identity()
+    if not user_id:
+        return False
+    user = db.session.query(User).filter(User.id == user_id).first()
+    if getattr(user, "role", None) in {
+        "admin", "school_admin", "super_admin", "super_manager", "manager", "billing_admin",
+    }:
+        return True
+    return False
+
+
+def _classes_teacher_is_assigned_to_class(teacher_ids, class_id: int) -> bool:
+    if not teacher_ids or not class_id:
+        return False
+
+    class_ = db.session.query(Class).filter(Class.id == class_id).first()
+    if class_ is None:
+        return False
+
+    if class_.teacher_id and int(class_.teacher_id) in {int(t) for t in teacher_ids}:
+        return True
+
+    mapping_exists = (
+        db.session.query(ClassTeacherMapping.id)
+        .filter(
+            ClassTeacherMapping.class_id == class_id,
+            ClassTeacherMapping.teacher_id.in_(teacher_ids),
+        )
+        .first()
+    )
+    if mapping_exists:
+        return True
+
+    try:
+        from app.models.associations import class_subjects, teacher_subjects
+        from app.models.subject import Subject
+
+        assigned_subject_ids = (
+            db.session.query(class_subjects.c.subject_id)
+            .filter(class_subjects.c.class_id == class_id)
+            .all()
+        )
+        if not assigned_subject_ids:
+            return False
+        subject_ids = [int(r[0]) for r in assigned_subject_ids if r and r[0]]
+        linked_teacher = (
+            db.session.query(teacher_subjects.c.teacher_id)
+            .filter(
+                teacher_subjects.c.subject_id.in_(subject_ids),
+                teacher_subjects.c.teacher_id.in_(teacher_ids),
+            )
+            .first()
+        )
+        if linked_teacher is not None:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _classes_is_teacher_and_scoped_to_class(class_id) -> bool:
+    if class_id is None:
+        return False
+    teacher_ids = _classes_current_user_teacher_ids()
+    if not teacher_ids:
+        return False
+    return _classes_teacher_is_assigned_to_class(teacher_ids, int(class_id))
+
+
+def _classes_ensure_teacher_or_admin(class_id, permission: str) -> None:
+    current_user = db.session.query(User).filter(User.id == get_jwt_identity()).first() if get_jwt_identity() else None
+    authorized = bool(current_user) and _has_permission(current_user, permission)
+    if authorized:
+        return
+    if _classes_is_teacher_and_scoped_to_class(class_id):
+        return
+    _abort(403)
+
+
+def _classes_ensure_teacher_or_admin_by_lesson(lesson, permission: str) -> None:
+    class_id = getattr(lesson, "class_id", None)
+    _classes_ensure_teacher_or_admin(class_id, permission)
+
+
+# =============================================================================
+# Lesson Broadcast Endpoints
+# =============================================================================
+
+from app.models.lesson_broadcast import LessonBroadcast
+from app.models.lesson import Lesson as LessonModel
+
+
+@classes_bp.route("/<int:class_id>/lessons/<int:lesson_id>/broadcast", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def start_lesson_broadcast(class_id, lesson_id):
+    lesson = LessonModel.query.filter_by(id=lesson_id, class_id=class_id).first()
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    _classes_ensure_teacher_or_admin(class_id, "lesson.update")
+
+    tenant_id = getattr(g, "tenant_id", None) or getattr(lesson, "tenant_id", None)
+
+    broadcast = (
+        LessonBroadcast.query.filter_by(
+            lesson_id=lesson_id, status="live"
+        ).first()
+    )
+    if broadcast:
+        return jsonify({"success": False, "message": "Broadcast already live"}), 400
+
+    now = datetime.utcnow()
+    broadcast = LessonBroadcast(
+        lesson_id=lesson_id,
+        tenant_id=tenant_id,
+        status="live",
+        started_at=now,
+        viewer_count=0,
+        peak_viewers=0,
+    )
+    db.session.add(broadcast)
+    lesson.status = "in-progress"
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Broadcast started",
+        "broadcast": {
+            "id": broadcast.id,
+            "lesson_id": broadcast.lesson_id,
+            "status": broadcast.status,
+            "started_at": broadcast.started_at.isoformat() if broadcast.started_at else None,
+            "viewer_count": broadcast.viewer_count,
+            "peak_viewers": broadcast.peak_viewers,
+        }
+    }), 200
+
+
+@classes_bp.route("/<int:class_id>/lessons/<int:lesson_id>/end-broadcast", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def end_lesson_broadcast(class_id, lesson_id):
+    lesson = LessonModel.query.filter_by(id=lesson_id, class_id=class_id).first()
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    _classes_ensure_teacher_or_admin(class_id, "lesson.update")
+
+    broadcast = (
+        LessonBroadcast.query.filter_by(
+            lesson_id=lesson_id
+        ).order_by(LessonBroadcast.created_at.desc()).first()
+    )
+    if not broadcast:
+        return jsonify({"success": False, "message": "No broadcast found"}), 404
+
+    if broadcast.status == "ended":
+        return jsonify({"success": False, "message": "Broadcast already ended"}), 400
+
+    broadcast.status = "ended"
+    broadcast.ended_at = datetime.utcnow()
+    lesson.status = "completed"
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Broadcast ended",
+        "broadcast": {
+            "id": broadcast.id,
+            "lesson_id": broadcast.lesson_id,
+            "status": broadcast.status,
+            "started_at": broadcast.started_at.isoformat() if broadcast.started_at else None,
+            "ended_at": broadcast.ended_at.isoformat() if broadcast.ended_at else None,
+            "viewer_count": broadcast.viewer_count,
+            "peak_viewers": broadcast.peak_viewers,
+        }
+    }), 200
+
+
+@classes_bp.route("/<int:class_id>/lessons/<int:lesson_id>/live-stats", methods=["GET"])
+@jwt_required()
+@tenant_required
+def get_lesson_live_stats(class_id, lesson_id):
+    lesson = LessonModel.query.filter_by(id=lesson_id, class_id=class_id).first()
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    broadcast = (
+        LessonBroadcast.query.filter_by(
+            lesson_id=lesson_id
+        ).order_by(LessonBroadcast.created_at.desc()).first()
+    )
+
+    if not broadcast:
+        return jsonify({
+            "success": True,
+            "stats": {
+                "viewer_count": 0,
+                "peak_viewers": 0,
+                "status": "offline",
+            }
+        }), 200
+
+    return jsonify({
+        "success": True,
+        "stats": {
+            "viewer_count": int(broadcast.viewer_count or 0),
+            "peak_viewers": int(broadcast.peak_viewers or 0),
+            "status": broadcast.status,
+            "started_at": broadcast.started_at.isoformat() if broadcast.started_at else None,
+            "ended_at": broadcast.ended_at.isoformat() if broadcast.ended_at else None,
+        }
+    }), 200
+
+
+# =============================================================================
+# Lesson Attachment Endpoints
+# =============================================================================
+
+from app.models.lesson_attachment import LessonAttachment
+from app.services.adapters import StorageProviderFactory
+
+
+def _serialize_lesson_attachment(att: LessonAttachment, signed_url: str | None = None) -> dict:
+    payload = {
+        "id": att.id,
+        "lesson_id": att.lesson_id,
+        "filename": att.filename,
+        "mime_type": att.mime_type,
+        "size": att.size,
+        "storage_key": att.storage_key,
+        "link_url": att.link_url,
+        "attachment_type": att.attachment_type,
+        "display_order": att.display_order,
+        "uploader_id": att.uploader_id,
+        "created_at": att.created_at.isoformat() if att.created_at else None,
+        "updated_at": att.updated_at.isoformat() if att.updated_at else None,
+    }
+    if signed_url is not None:
+        payload["signed_url"] = signed_url
+    return payload
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/attachments", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def upload_lesson_attachment(lesson_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    _classes_ensure_teacher_or_admin_by_lesson(lesson, "lesson.update")
+
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"success": False, "message": "File is required"}), 400
+
+    tenant_id = getattr(g, "tenant_id", None) or getattr(lesson, "tenant_id", None)
+    uploader_id = get_jwt_identity()
+
+    filename = file.filename or "attachment"
+    content_type = file.mimetype or "application/octet-stream"
+    file_bytes = file.read()
+    size = len(file_bytes)
+
+    adapter = StorageProviderFactory.adapter_for()
+    storage_key = f"tenants/{tenant_id}/lessons/{lesson_id}/attachments/{filename}"
+    result = adapter.put_file(
+        key=storage_key,
+        data=file_bytes,
+        content_type=content_type,
+        metadata={
+            "lesson_id": str(lesson_id),
+            "uploader_id": str(uploader_id),
+            "original_name": filename,
+        },
+    )
+
+    if not result.success:
+        return jsonify({"success": False, "message": "Storage upload failed"}), 500
+
+    attachment = LessonAttachment(
+        lesson_id=lesson_id,
+        tenant_id=tenant_id,
+        storage_key=storage_key,
+        filename=filename,
+        mime_type=content_type,
+        size=size,
+        attachment_type="file",
+        uploader_id=int(uploader_id) if uploader_id else None,
+    )
+    db.session.add(attachment)
+    db.session.flush()
+
+    signed_url = adapter.get_signed_url(key=storage_key, expires_in=3600)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Attachment uploaded successfully",
+        "attachment": _serialize_lesson_attachment(attachment, signed_url=signed_url),
+    }), 201
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/attachments/<int:attachment_id>/signed-url", methods=["GET"])
+@jwt_required()
+@tenant_required
+def get_lesson_attachment_signed_url(lesson_id, attachment_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    attachment = (
+        LessonAttachment.query.filter_by(
+            id=attachment_id, lesson_id=lesson_id
+        ).first()
+    )
+    if not attachment:
+        return jsonify({"success": False, "message": "Attachment not found"}), 404
+
+    adapter = StorageProviderFactory.adapter_for()
+    signed_url = adapter.get_signed_url(key=attachment.storage_key, expires_in=3600)
+
+    return jsonify({
+        "success": True,
+        "attachment_id": attachment.id,
+        "signed_url": signed_url,
+    }), 200
+
+
+# =============================================================================
+# Lesson Acknowledgement Endpoints
+# =============================================================================
+
+from app.models.lesson_acknowledgement import LessonAcknowledgement
+
+
+def _serialize_lesson_acknowledgement(ack: LessonAcknowledgement) -> dict:
+    return {
+        "id": ack.id,
+        "lesson_id": ack.lesson_id,
+        "user_id": ack.user_id,
+        "role": ack.role,
+        "is_acknowledged": ack.is_acknowledged,
+        "is_seen": ack.is_seen,
+        "acknowledged_at": ack.acknowledged_at.isoformat() if ack.acknowledged_at else None,
+        "seen_at": ack.seen_at.isoformat() if ack.seen_at else None,
+        "acknowledgement_note": ack.acknowledgement_note,
+        "created_at": ack.created_at.isoformat() if ack.created_at else None,
+    }
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/acknowledge", methods=["POST"])
+@jwt_required()
+@tenant_required
+def acknowledge_lesson(lesson_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    user_id = get_jwt_identity()
+    user = db.session.query(User).filter(User.id == user_id).first()
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    role = request.json.get("role") if request.is_json else None
+    if not role:
+        role_map = {
+            "teacher": "teacher",
+            "student": "student",
+            "parent": "parent",
+            "admin": "admin",
+            "school_admin": "admin",
+            "super_admin": "admin",
+            "super_manager": "admin",
+            "manager": "staff",
+        }
+        role = role_map.get(getattr(user, "role", ""), "staff")
+
+    payload = request.get_json(silent=True) or {}
+    note = payload.get("acknowledgement_note") or payload.get("note") or None
+    tenant_id = getattr(g, "tenant_id", None) or getattr(lesson, "tenant_id", None)
+    now = datetime.utcnow()
+
+    ack = (
+        LessonAcknowledgement.query.filter_by(
+            lesson_id=lesson_id,
+            user_id=int(user_id),
+            role=role,
+            tenant_id=tenant_id,
+        ).first()
+    )
+    if ack:
+        ack.is_acknowledged = True
+        ack.acknowledged_at = now
+        ack.is_seen = True
+        ack.seen_at = now
+        if note:
+            ack.acknowledgement_note = note
+    else:
+        ack = LessonAcknowledgement(
+            lesson_id=lesson_id,
+            user_id=int(user_id),
+            role=role,
+            tenant_id=tenant_id,
+            is_acknowledged=True,
+            acknowledged_at=now,
+            is_seen=True,
+            seen_at=now,
+            acknowledgement_note=note,
+        )
+        db.session.add(ack)
+
+    if lesson.engagement_ack_count is None:
+        lesson.engagement_ack_count = 0
+    existing_count = (
+        LessonAcknowledgement.query.filter_by(
+            lesson_id=lesson_id, is_acknowledged=True
+        ).count()
+    )
+    lesson.engagement_ack_count = existing_count + (0 if ack.id else 1)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Lesson acknowledged",
+        "acknowledgement": _serialize_lesson_acknowledgement(ack),
+    }), 200
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/acknowledgements", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_acknowledgements(lesson_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    _classes_ensure_teacher_or_admin_by_lesson(lesson, "lesson.read")
+
+    acks = (
+        LessonAcknowledgement.query.filter_by(lesson_id=lesson_id)
+        .order_by(LessonAcknowledgement.created_at.desc())
+        .all()
+    )
+
+    return jsonify({
+        "success": True,
+        "acknowledgements": [_serialize_lesson_acknowledgement(a) for a in acks],
+    }), 200
+
+
+# =============================================================================
+# Lesson Comment Endpoints + LessonModerationService
+# =============================================================================
+
+from app.models.lesson_comment import LessonComment
+
+
+class LessonModerationService:
+    @staticmethod
+    def auto_approve_comment(comment: LessonComment) -> None:
+        content = (comment.content or "").strip().lower()
+        flagged_tokens = ["spam", "advertise", "buy now", "click here"]
+        has_flagged = any(tok in content for tok in flagged_tokens)
+        if not has_flagged:
+            comment.is_approved = True
+            comment.approved_at = datetime.utcnow()
+            comment.requires_approval = False
+
+    @staticmethod
+    def filter_comments_query(query, viewer_role, viewer_user_id):
+        if viewer_role in {"admin", "school_admin", "super_admin", "super_manager", "teacher"}:
+            return query.filter(LessonComment.is_deleted == False)
+        return query.filter(
+            LessonComment.is_deleted == False,
+            LessonComment.is_approved == True,
+        )
+
+
+def _serialize_lesson_comment(comment: LessonComment, viewer_role: str | None = None) -> dict:
+    author = getattr(comment, "author", None)
+    author_name = None
+    if author:
+        author_name = (
+            getattr(author, "full_name", None)
+            or f"{getattr(author, 'first_name', '')} {getattr(author, 'last_name', '')}".strip()
+            or getattr(author, "email", None)
+        )
+    payload = {
+        "id": comment.id,
+        "lesson_id": comment.lesson_id,
+        "author_id": comment.author_id,
+        "author_name": author_name,
+        "content": comment.content,
+        "visibility": comment.visibility,
+        "is_approved": comment.is_approved,
+        "requires_approval": comment.requires_approval,
+        "parent_comment_id": comment.parent_comment_id,
+        "edit_count": comment.edit_count,
+        "edited_at": comment.edited_at.isoformat() if comment.edited_at else None,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+        "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
+    }
+    if viewer_role in {"admin", "school_admin", "super_admin", "super_manager", "teacher"}:
+        payload["is_deleted"] = comment.is_deleted
+        if comment.is_deleted:
+            payload["deleted_at"] = comment.deleted_at.isoformat() if comment.deleted_at else None
+            payload["deleted_by_id"] = comment.deleted_by_id
+        if comment.approved_by_id:
+            payload["approved_by_id"] = comment.approved_by_id
+            payload["approved_at"] = comment.approved_at.isoformat() if comment.approved_at else None
+    return payload
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/comments", methods=["POST"])
+@jwt_required()
+@tenant_required
+def create_lesson_comment(lesson_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    content = (payload.get("content") or "").strip()
+    if not content:
+        return jsonify({"success": False, "message": "Content is required"}), 400
+
+    user_id = int(get_jwt_identity())
+    user = db.session.query(User).filter(User.id == user_id).first()
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    tenant_id = getattr(g, "tenant_id", None) or getattr(lesson, "tenant_id", None)
+    visibility = payload.get("visibility") or "class"
+    parent_comment_id = payload.get("parent_comment_id")
+
+    comment = LessonComment(
+        lesson_id=lesson_id,
+        author_id=user_id,
+        tenant_id=tenant_id,
+        content=content,
+        visibility=visibility,
+        parent_comment_id=int(parent_comment_id) if parent_comment_id else None,
+        requires_approval=True,
+        is_approved=False,
+    )
+    LessonModerationService.auto_approve_comment(comment)
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Comment posted",
+        "comment": _serialize_lesson_comment(comment, viewer_role=getattr(user, "role")),
+    }), 201
+
+
+@classes_bp.route("/lessons/<int:lesson_id>/comments", methods=["GET"])
+@jwt_required()
+@tenant_required
+def get_lesson_comments(lesson_id):
+    lesson = LessonModel.query.get(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "message": "Lesson not found"}), 404
+
+    user_id = int(get_jwt_identity())
+    user = db.session.query(User).filter(User.id == user_id).first()
+    role = getattr(user, "role", None) if user else None
+
+    query = LessonComment.query.filter_by(lesson_id=lesson_id)
+    query = LessonModerationService.filter_comments_query(query, role, user_id)
+
+    comments = query.order_by(LessonComment.created_at.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "comments": [_serialize_lesson_comment(c, viewer_role=role) for c in comments],
+    }), 200
+
+
+@classes_bp.route("/comments/<int:comment_id>/approve", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def approve_lesson_comment(comment_id):
+    comment = LessonComment.query.get(comment_id)
+    if not comment:
+        return jsonify({"success": False, "message": "Comment not found"}), 404
+    if comment.is_deleted:
+        return jsonify({"success": False, "message": "Comment is deleted"}), 400
+
+    lesson = LessonModel.query.get(comment.lesson_id)
+    if lesson:
+        _classes_ensure_teacher_or_admin_by_lesson(lesson, "lesson.update")
+
+    user_id = int(get_jwt_identity())
+    now = datetime.utcnow()
+    comment.is_approved = True
+    comment.requires_approval = False
+    comment.approved_by_id = user_id
+    comment.approved_at = now
+    db.session.commit()
+
+    user = db.session.query(User).filter(User.id == user_id).first()
+    return jsonify({
+        "success": True,
+        "message": "Comment approved",
+        "comment": _serialize_lesson_comment(comment, viewer_role=getattr(user, "role")),
+    }), 200
+
+
+@classes_bp.route("/comments/<int:comment_id>/delete", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["teacher", "admin", "school_admin", "super_admin", "super_manager"])
+def soft_delete_lesson_comment(comment_id):
+    comment = LessonComment.query.get(comment_id)
+    if not comment:
+        return jsonify({"success": False, "message": "Comment not found"}), 404
+    if comment.is_deleted:
+        return jsonify({"success": False, "message": "Comment already deleted"}), 400
+
+    lesson = LessonModel.query.get(comment.lesson_id)
+    if lesson:
+        _classes_ensure_teacher_or_admin_by_lesson(lesson, "lesson.update")
+
+    user_id = int(get_jwt_identity())
+    now = datetime.utcnow()
+    comment.is_deleted = True
+    comment.deleted_by_id = user_id
+    comment.deleted_at = now
+    db.session.commit()
+
+    user = db.session.query(User).filter(User.id == user_id).first()
+    return jsonify({
+        "success": True,
+        "message": "Comment deleted (soft)",
+        "comment": _serialize_lesson_comment(comment, viewer_role=getattr(user, "role")),
+    }), 200
+
+
+# =============================================================================
+# Admin Lesson Monitoring KPIs
+# =============================================================================
+
+from sqlalchemy import func
+
+
+@classes_bp.route("/lesson-monitoring/kpis", methods=["GET"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "super_manager"])
+def get_lesson_monitoring_kpis():
+    tenant_id = getattr(g, "tenant_id", None)
+    today = datetime.utcnow().date()
+
+    classes_query = Class.query
+    lessons_query = LessonModel.query.join(Class, LessonModel.class_id == Class.id)
+    broadcasts_query = LessonBroadcast.query
+
+    if tenant_id is not None:
+        classes_query = classes_query.filter(Class.tenant_id == tenant_id)
+        lessons_query = lessons_query.filter(Class.tenant_id == tenant_id)
+        broadcasts_query = broadcasts_query.filter(LessonBroadcast.tenant_id == tenant_id)
+
+    total_classes = classes_query.count()
+    total_lessons_today = lessons_query.filter(LessonModel.date == today).count()
+    classes_with_lessons_today = (
+        lessons_query.filter(LessonModel.date == today)
+        .with_entities(func.distinct(LessonModel.class_id))
+        .count()
+    )
+    coverage_pct = 0.0
+    if total_classes:
+        coverage_pct = round((classes_with_lessons_today / total_classes) * 100, 2)
+
+    ack_lessons = lessons_query.filter(LessonModel.date == today).all()
+    total_possible_acks = 0
+    total_actual_acks = 0
+    for l in ack_lessons:
+        ack_count = (
+            LessonAcknowledgement.query.filter_by(
+                lesson_id=l.id, is_acknowledged=True
+            ).count()
+        )
+        if l.class_id:
+            from app.models.student import Student
+            cls_students = Student.query.filter_by(class_id=l.class_id).count()
+            total_possible_acks += max(cls_students, 1)
+        total_actual_acks += ack_count or int(l.engagement_ack_count or 0)
+    ack_rate = 0.0
+    if total_possible_acks:
+        ack_rate = round((total_actual_acks / total_possible_acks) * 100, 2)
+
+    live_count = broadcasts_query.filter(LessonBroadcast.status == "live").count()
+
+    broadcast_stats = {
+        "total_broadcasts_today": broadcasts_query.filter(
+            func.date(LessonBroadcast.created_at) == today
+        ).count(),
+        "live_now": live_count,
+        "ended_today": broadcasts_query.filter(
+            LessonBroadcast.status == "ended",
+            func.date(LessonBroadcast.ended_at) == today,
+        ).count(),
+        "total_peak_viewers_today": int(
+            broadcasts_query.filter(
+                func.date(LessonBroadcast.created_at) == today
+            ).with_entities(func.coalesce(func.sum(LessonBroadcast.peak_viewers), 0)).scalar() or 0
+        ),
+    }
+
+    kpis = {
+        "coverage": coverage_pct,
+        "coverage_classes_with_lessons": classes_with_lessons_today,
+        "coverage_total_classes": total_classes,
+        "ack_rate": ack_rate,
+        "ack_actual": total_actual_acks,
+        "ack_expected": total_possible_acks,
+        "live_count": live_count,
+        "lessons_today": total_lessons_today,
+        "broadcast_stats": broadcast_stats,
+        "generated_at": datetime.utcnow().isoformat(),
+    }
+
+    return jsonify({"success": True, "kpis": kpis}), 200
+
+
+# =============================================================================
+# Register lesson-level routes directly on api_v1_bp for canonical URLs
+# (/api/v1/lessons/* and /api/v1/comments/*) without /classes prefix.
+# =============================================================================
+try:
+    from app.api.v1 import api_v1_bp as _api_v1_bp
+
+    def _mk_view(fn):
+        from functools import wraps
+        @wraps(fn)
+        def wrapper(*a, **kw):
+            return fn(*a, **kw)
+        return wrapper
+
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/attachments",
+        endpoint="v1_lesson_attachments_upload",
+        view_func=_mk_view(upload_lesson_attachment),
+        methods=["POST"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/attachments/<int:attachment_id>/signed-url",
+        endpoint="v1_lesson_attachment_signed_url",
+        view_func=_mk_view(get_lesson_attachment_signed_url),
+        methods=["GET"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/acknowledge",
+        endpoint="v1_lesson_acknowledge",
+        view_func=_mk_view(acknowledge_lesson),
+        methods=["POST"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/acknowledgements",
+        endpoint="v1_lesson_acknowledgements",
+        view_func=_mk_view(get_lesson_acknowledgements),
+        methods=["GET"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/comments",
+        endpoint="v1_lesson_comments_create",
+        view_func=_mk_view(create_lesson_comment),
+        methods=["POST"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/lessons/<int:lesson_id>/comments",
+        endpoint="v1_lesson_comments_list",
+        view_func=_mk_view(get_lesson_comments),
+        methods=["GET"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/comments/<int:comment_id>/approve",
+        endpoint="v1_comment_approve",
+        view_func=_mk_view(approve_lesson_comment),
+        methods=["POST"],
+    )
+    _api_v1_bp.add_url_rule(
+        "/comments/<int:comment_id>/delete",
+        endpoint="v1_comment_delete",
+        view_func=_mk_view(soft_delete_lesson_comment),
+        methods=["POST"],
+    )
+except Exception as _reg_err:
+    current_app.logger.warning(f"Could not register canonical lesson routes: {_reg_err}")
