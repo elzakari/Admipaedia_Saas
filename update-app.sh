@@ -39,12 +39,17 @@ echo "🏗️  Evaluating build configuration and compiling images..."
 docker-compose -f "$DOCKER_COMPOSE_FILE" build --no-cache
 
 # Run container updates
-echo "🚀 Deploying split backend architecture (backend-api & backend-socket)..."
+#
+# Unified service topology matches the fleet running on sms-prod
+# (service names: backend, frontend, worker, postgres, redis).
+# The single `backend` container serves both REST API and Socket.IO traffic
+# with a single gunicorn worker so Engine.IO sid state is preserved.
+echo "🚀 Deploying unified backend architecture (backend + frontend + worker)..."
 docker-compose -f "$DOCKER_COMPOSE_FILE" up -d
 
 # Execute database migrations (which includes the bfa_apc permanent fixes)
 echo "🗄️  Enforcing migrations on active production backend..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend-api flask db upgrade
+docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend flask db upgrade
 
 # Grace period for service startup
 echo "⏱️  Waiting for service stabilization..."

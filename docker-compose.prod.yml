@@ -1,31 +1,108 @@
 version: '3.8'
 
 services:
-  # Frontend Service
+  # Frontend Service (nginx reverse proxy + SPA assets)
+  # Container name convention matches the update-app.sh production fleet:
+  #   <project>-frontend, <project>-backend, <project>-worker, <project>-postgres.
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
-      - backend-api
-      - backend-socket
+      - backend
     environment:
       - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
     networks:
       - admipaedia-network
 
-  # Backend API Service
-  backend-api:
+  # Unified Backend Service (API + Socket.IO on one gthread worker).
+  #
+  # Rationale: several production deployments (including sms-prod host
+  # admipaedia.easymsdigit.com) only start a single backend service.
+  # Engine.IO sid state is stored IN-PROCESS, so we must pin GUNICORN_WORKERS
+  # to 1 here.  Raising workers above 1 will cause sid 400 polling loops
+  # unless you also enable SOCKETIO_USE_REDIS=1 with a reachable REDIS_URL to
+  # install the python-socketio KombuManager (see backend/app/core/extensions.py).
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    command: ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "gthread", "--threads", "4", "--timeout", "120", "--keepalive", "2", "--max-requests", "1000", "--max-requests-jitter", "100", "wsgi_api:app"]
+    command:
+      - "gunicorn"
+      - "--bind"
+      - "0.0.0.0:5000"
+      - "--workers"
+      - "${GUNICORN_WORKERS:-1}"
+      - "--worker-class"
+      - "gthread"
+      - "--threads"
+      - "${GUNICORN_THREADS:-8}"
+      - "--timeout"
+      - "${GUNICORN_TIMEOUT:-120}"
+      - "--graceful-timeout"
+      - "30"
+      - "--keepalive"
+      - "15"
+      # wsgi.py loads the full Flask app (both API routes and socketio
+      # namespaces).  Because workers=1, the same in-process sid table sees
+      # every polling XHR and every websocket frame for a given session.
+      - "wsgi:app"
     ports:
-      - "5000:5000"
+      - "${BACKEND_API_PORT:-5000}:5000"
     depends_on:
+      - postgres
+      - redis
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://admipaedia:${DB_PASSWORD}@postgres:5432/admipaedia
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      # Always enable Socket.IO threading async_mode on the unified backend.
+      # Worker count above is pinned to 1 for sid consistency; if you later
+      # raise workers, set SOCKETIO_USE_REDIS=1 at the same time.
+      - SOCKETIO_ASYNC_MODE=${SOCKETIO_ASYNC_MODE:-threading}
+      - SOCKETIO_USE_REDIS=${SOCKETIO_USE_REDIS:-0}
+      - FRONTEND_URL=https://admipaedia.easymsdigit.com
+      - CORS_ORIGINS=https://admipaedia.easymsdigit.com
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-8}
+      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - admipaedia-network
+
+  # Celery / background-worker service.  Runs the same backend image with a
+  # celery command (fallback: sleep loop) — intentionally separate from the
+  # HTTP/socket worker so long-running async jobs never block HTTP threads.
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "sleep 5 && (celery -A app.core.celery_app.celery worker --loglevel=info --concurrency=2 || celery -A make_celery worker --loglevel=info --concurrency=2 || sleep infinity)"
+    depends_on:
+      - backend
       - postgres
       - redis
     environment:
@@ -41,67 +118,11 @@ services:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
+      test: ["CMD-SHELL", "pgrep -f 'celery|sleep infinity' || exit 1"]
+      interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - admipaedia-network
-
-  # Backend Socket.IO Service (single gthread worker required for in-process
-  # Socket.IO state; future horizontal scaling must use multiple instances
-  # behind sticky sessions + a Redis message queue)
-  backend-socket:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
-    command:
-      - "gunicorn"
-      - "--bind"
-      - "0.0.0.0:5001"
-      - "--workers"
-      - "${GUNICORN_WORKERS:-1}"
-      - "--worker-class"
-      - "gthread"
-      - "--threads"
-      - "${GUNICORN_THREADS:-16}"
-      - "--timeout"
-      - "${GUNICORN_TIMEOUT:-120}"
-      - "--graceful-timeout"
-      - "30"
-      - "--keepalive"
-      - "15"
-      - "--max-requests"
-      - "0"
-      - "--max-requests-jitter"
-      - "0"
-      - "wsgi_socket:app"
-    depends_on:
-      - postgres
-      - redis
-    environment:
-      - FLASK_ENV=production
-      - DATABASE_URL=postgresql://admipaedia:${DB_PASSWORD}@postgres:5432/admipaedia
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - SOCKETIO_ASYNC_MODE=${SOCKETIO_ASYNC_MODE:-threading}
-      - FRONTEND_URL=https://admipaedia.easymsdigit.com
-      - CORS_ORIGINS=https://admipaedia.easymsdigit.com
-      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
-      - GUNICORN_THREADS=${GUNICORN_THREADS:-16}
-      - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-120}
-    volumes:
-      - ./backend/uploads:/app/uploads
-      - ./backend/logs:/app/logs
-    healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 5001))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      start_period: 30s
     restart: unless-stopped
     networks:
       - admipaedia-network
@@ -118,11 +139,16 @@ services:
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admipaedia -d admipaedia || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     networks:
       - admipaedia-network
 
-  # Redis Cache
+  # Redis Cache / task broker
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
@@ -130,11 +156,20 @@ services:
       - redis_data:/data
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
     networks:
       - admipaedia-network
 
-  # Nginx Load Balancer (Optional)
+  # Standalone TLS-terminating nginx (optional).  Cloudflared +
+  # nginx-proxy-manager handle 443 on sms-prod today, so this service is
+  # kept minimal for operators who want an in-stack 443 endpoint.  Mounts
+  # the repository's nginx/nginx.conf plus the ssl/ directory (add your
+  # fullchain.pem + privkey.pem there before bringing this service up).
   nginx:
     image: nginx:alpine
     ports:
@@ -144,7 +179,7 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - frontend
-    restart: unless-stopped
+    restart: "no"
     networks:
       - admipaedia-network
 
