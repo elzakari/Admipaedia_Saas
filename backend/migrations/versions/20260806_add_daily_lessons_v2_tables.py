@@ -200,19 +200,39 @@ def upgrade():
                     )
                 )
 
-        try:
-            if is_pg:
-                conn.execute(
-                    sa.text(
-                        "UPDATE lessons l "
-                        "SET subject_id = COALESCE(l.subject_id, cs.subject_id) "
-                        "FROM class_subjects cs "
-                        "WHERE l.class_id = cs.class_id AND l.subject_id IS NULL "
-                        "LIMIT 1"
-                    )
+        # Backfill lessons.subject_id for historical lessons where we can
+        # make a DETERMINISTIC choice: a class has EXACTLY one distinct
+        # subject assignment in class_subjects.  We intentionally avoid any
+        # "pick one subject" behaviour when multiple mappings exist because
+        # that would silently mis-attribute historical lessons to a
+        # guessed subject.
+        #
+        # PostgreSQL-only (class_subjects is the join table name used by
+        # the Postgres deployment) and guarded behind a table_exists check
+        # so tenants that disabled class-subject mapping never error.
+        if (
+            is_pg
+            and _table_exists(conn, "lessons")
+            and _table_exists(conn, "class_subjects")
+            and _column_exists(conn, "lessons", "subject_id")
+            and _column_exists(conn, "lessons", "class_id")
+        ):
+            conn.execute(
+                sa.text(
+                    "UPDATE lessons AS l "
+                    "SET subject_id = single_subject.subject_id "
+                    "FROM ( "
+                    "    SELECT "
+                    "        class_id, "
+                    "        MIN(subject_id) AS subject_id "
+                    "    FROM class_subjects "
+                    "    GROUP BY class_id "
+                    "    HAVING COUNT(DISTINCT subject_id) = 1 "
+                    ") AS single_subject "
+                    "WHERE l.class_id = single_subject.class_id "
+                    "  AND l.subject_id IS NULL"
                 )
-        except Exception:
-            pass
+            )
 
     # ------------------------------------------------------------------
     # 2. Create lesson_broadcasts table
@@ -542,4 +562,93 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    """Reverse the upgrade: drop tables in creation order, then the
+    additive-only columns/indexes/fks on the lessons table.
+
+    All objects are wrapped in table_exists/column_exists/index_exists
+    guards so a partial upgrade (e.g. upgrade() failed after creating
+    only the lessons_attachments table) can be safely rolled back to
+    the pre-migration state without crashing on missing objects.
+    """
+    conn = op.get_bind()
+    is_pg = conn.dialect.name == "postgresql"
+
+    # Drop tables in REVERSE creation order (because of circular FK refs
+    # lesson_comments -> lesson_comments parent; lesson_broadcasts ->
+    # lesson_broadcasts parent; etc.)
+    for tbl in (
+        "lesson_comments",
+        "lesson_acknowledgements",
+        "lesson_attachments",
+        "lesson_broadcasts",
+    ):
+        if _table_exists(conn, tbl):
+            op.drop_table(tbl)
+
+    # Reverse: remove fks first, then indexes, then columns
+    if _table_exists(conn, "lessons"):
+        if is_pg:
+            for fk in (
+                "fk_lessons_tenant_id",
+                "fk_lessons_subject_id",
+            ):
+                if _fk_exists(conn, fk):
+                    op.drop_constraint(fk, "lessons", type_="foreignkey")
+
+            if _index_exists(conn, "ix_lessons_tenant_id"):
+                op.drop_index("ix_lessons_tenant_id", table_name="lessons")
+
+        if is_pg:
+            for jcol in (
+                "assessment",
+                "homework",
+                "classwork",
+                "objectives",
+                "strand",
+            ):
+                if _column_exists(conn, "lessons", jcol):
+                    op.drop_column("lessons", jcol)
+            for col_info in reversed(
+                [
+                    ("engagement_ack_count",),
+                    ("engagement_seen_count",),
+                    ("homework_due_date",),
+                    ("visibility",),
+                    ("end_time",),
+                    ("start_time",),
+                    ("period_number",),
+                    ("subject_id",),
+                    ("tenant_id",),
+                ]
+            ):
+                col_name = col_info[0]
+                if _column_exists(conn, "lessons", col_name):
+                    op.drop_column("lessons", col_name)
+        else:
+            for jcol in (
+                "assessment",
+                "homework",
+                "classwork",
+                "objectives",
+                "strand",
+            ):
+                if _column_exists(conn, "lessons", jcol):
+                    with op.batch_alter_table("lessons", schema=None) as batch_op:
+                        batch_op.drop_column(jcol)
+            for col_info in reversed(
+                [
+                    ("engagement_ack_count",),
+                    ("engagement_seen_count",),
+                    ("homework_due_date",),
+                    ("visibility",),
+                    ("end_time",),
+                    ("start_time",),
+                    ("period_number",),
+                    ("subject_id",),
+                    ("tenant_id",),
+                ]
+            ):
+                col_name = col_info[0]
+                if _column_exists(conn, "lessons", col_name):
+                    with op.batch_alter_table("lessons", schema=None) as batch_op:
+                        batch_op.drop_column(col_name)
