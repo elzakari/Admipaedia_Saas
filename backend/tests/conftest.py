@@ -35,27 +35,39 @@ def app():
             # Wipe entire schema cleanly (CASCADE handles FK dependencies)
             with _db.engine.connect() as conn:
                 conn.execute(sa.text('DROP SCHEMA public CASCADE; CREATE SCHEMA public;'))
+                # Pre-create the Postgres ENUM types with authoritative values
+                # BEFORE `db.create_all()` runs.
+                #
+                # Background: SQLAlchemy creates native Postgres enums using
+                # the values from the Python Enum class at first use, but the
+                # test service container sometimes has stale type definitions
+                # created earlier by migrations or prior fixtures.  This
+                # produces:
+                #   DataError: invalid input value for enum
+                #   academic_structure_type: "discipline"
+                # when the departments table DEFAULT 'discipline'::... hits a
+                # stale enum type that doesn't actually have "discipline" as
+                # a member.
+                #
+                # Postgres 14 (used by CI) does NOT support `CREATE TYPE IF
+                # NOT EXISTS`, so wrap the creation in a DO block that checks
+                # pg_type first.
+                conn.execute(sa.text(r"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_type t
+                            JOIN pg_namespace n ON n.oid = t.typnamespace
+                            WHERE n.nspname = 'public'
+                              AND t.typname = 'academic_structure_type'
+                        ) THEN
+                            CREATE TYPE academic_structure_type
+                            AS ENUM ('discipline', 'cycle', 'operational');
+                        END IF;
+                    END $$;
+                """))
                 conn.commit()
 
-        # NOTE: Always use SQLAlchemy metadata create_all() instead of
-        # `alembic upgrade head` for tests.  The project has a large
-        # number of historical branch migrations that were never fully
-        # merged into a single DAG head.  Running them against a fresh
-        # empty Postgres service container produces:
-        #   * "Multiple head revisions" errors (still unmerged heads)
-        #   * ProgrammingError: UndefinedColumn errors from legacy
-        #     backfill UPDATEs referencing columns before the
-        #     corresponding create_table/add_column steps in the
-        #     arbitrary head ordering
-        #   * InternalError: InFailedSqlTransaction because defensive
-        #     try/except wrappers inside the legacy migrations swallow
-        #     dialect errors but leave the Postgres session's
-        #     transaction aborted, causing Alembic's own
-        #     `UPDATE alembic_version` to fail
-        #
-        # create_all uses current model metadata (the source of truth),
-        # so behavior is identical between the SQLite fast-path in
-        # ci.yml backend-tests (proven GREEN) and Enhanced CI postgres.
         _db.drop_all()
         _db.create_all()
 
