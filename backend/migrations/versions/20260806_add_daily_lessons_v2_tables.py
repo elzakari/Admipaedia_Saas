@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision = "20260806_daily_lessons_v2"
-down_revision = None
+down_revision = "20260728_sync_rbac_detail_schema"
 branch_labels = None
 depends_on = None
 
@@ -120,32 +120,26 @@ def upgrade():
             op.create_index(
                 "ix_lessons_tenant_id", "lessons", ["tenant_id"]
             )
-        if _column_exists(conn, "lessons", "subject_id") and is_pg:
-            try:
-                op.create_foreign_key(
-                    "fk_lessons_subject_id",
-                    "lessons",
-                    "subjects",
-                    ["subject_id"],
-                    ["id"],
-                    ondelete="SET NULL",
-                )
-            except Exception:
-                pass
-        if _column_exists(conn, "lessons", "tenant_id") and is_pg:
-            try:
-                op.create_foreign_key(
-                    "fk_lessons_tenant_id",
-                    "lessons",
-                    "tenants",
-                    ["tenant_id"],
-                    ["id"],
-                    ondelete="CASCADE",
-                )
-            except Exception:
-                pass
+        if _column_exists(conn, "lessons", "subject_id") and _table_exists(conn, "subjects") and is_pg:
+            op.create_foreign_key(
+                "fk_lessons_subject_id",
+                "lessons",
+                "subjects",
+                ["subject_id"],
+                ["id"],
+                ondelete="SET NULL",
+            )
+        if _column_exists(conn, "lessons", "tenant_id") and _table_exists(conn, "tenants") and is_pg:
+            op.create_foreign_key(
+                "fk_lessons_tenant_id",
+                "lessons",
+                "tenants",
+                ["tenant_id"],
+                ["id"],
+                ondelete="CASCADE",
+            )
 
-        try:
+        if _table_exists(conn, "classes") and _table_exists(conn, "lessons"):
             if is_pg:
                 conn.execute(
                     sa.text(
@@ -162,8 +156,6 @@ def upgrade():
                         "WHERE tenant_id IS NULL AND class_id IS NOT NULL"
                     )
                 )
-        except Exception:
-            pass
 
         try:
             if is_pg:
