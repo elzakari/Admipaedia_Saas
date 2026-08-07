@@ -46,7 +46,10 @@ def app():
             alembic_cfg = Config()
             alembic_cfg.set_main_option('script_location', migrations_dir)
             alembic_cfg.set_main_option('sqlalchemy.url', test_db_url)
-            command.upgrade(alembic_cfg, 'head')
+            try:
+                command.upgrade(alembic_cfg, 'head')
+            except Exception:
+                command.upgrade(alembic_cfg, 'heads')
         else:
             _db.drop_all()
             _db.create_all()

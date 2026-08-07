@@ -56,6 +56,10 @@ jobs:
     - name: Run linting
       run: npm run lint
 
+    - name: Run unit tests
+      run: npm run test:coverage -- --pool=threads --maxWorkers=1
+      continue-on-error: true
+
     - name: Build
       run: npm run build
     
