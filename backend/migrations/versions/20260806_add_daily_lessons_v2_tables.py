@@ -44,10 +44,18 @@ def _column_exists(conn, table, column):
     return result is not None
 
 
-def _index_exists(conn, index_name):
-    """Return True if a pg index with *index_name* already exists."""
-    if conn.dialect.name != "postgresql":
-        return False  # SQLite has no information_schema for indexes; let Alembic handle it
+def _index_exists(conn, table, index_name):
+    """Return True if *index_name* already exists on *table*.
+
+    SQLite: PRAGMA index_list(table).  PostgreSQL: pg_indexes lookup by
+    schemaname+indexname.  We keep the 3-argument form (matching the P2
+    migration and common dialect-safe patterns used in the rest of the
+    migrations directory) so that call sites are unambiguous.
+    """
+    if conn.dialect.name == "sqlite":
+        result = conn.execute(sa.text(f"PRAGMA index_list('{table}')"))
+        indexes = [row[1] for row in result.fetchall()]
+        return index_name in indexes
     result = conn.execute(
         sa.text(
             "SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = :n"
@@ -57,10 +65,12 @@ def _index_exists(conn, index_name):
     return result is not None
 
 
-def _fk_exists(conn, fk_name):
-    """Return True if a pg foreign-key constraint with *fk_name* already exists."""
-    if conn.dialect.name != "postgresql":
-        return False
+def _fk_exists(conn, table, fk_name):
+    """Return True if a pg foreign-key constraint with *fk_name* exists on *table*."""
+    if conn.dialect.name == "sqlite":
+        result = conn.execute(sa.text(f"PRAGMA foreign_key_list('{table}')"))
+        names = [row[3] for row in result.fetchall()]
+        return fk_name in names
     result = conn.execute(
         sa.text(
             "SELECT 1 FROM information_schema.table_constraints "
@@ -71,10 +81,12 @@ def _fk_exists(conn, fk_name):
     return result is not None
 
 
-def _uq_exists(conn, constraint_name):
-    """Return True if a unique constraint with *constraint_name* already exists."""
-    if conn.dialect.name != "postgresql":
-        return False
+def _uq_exists(conn, table, constraint_name):
+    """Return True if a unique constraint named *constraint_name* exists on *table*."""
+    if conn.dialect.name == "sqlite":
+        result = conn.execute(sa.text(f"PRAGMA index_list('{table}')"))
+        names = [row[1] for row in result.fetchall() if row[2] == 1]
+        return constraint_name in names
     result = conn.execute(
         sa.text(
             "SELECT 1 FROM information_schema.table_constraints "
@@ -157,12 +169,12 @@ def upgrade():
                 else:
                     op.add_column("lessons", sa.Column(jcol, col_type, nullable=True))
 
-        if _column_exists(conn, "lessons", "tenant_id") and not _index_exists(conn, "ix_lessons_tenant_id"):
+        if _column_exists(conn, "lessons", "tenant_id") and not _index_exists(conn, "lessons", "ix_lessons_tenant_id"):
             op.create_index(
                 "ix_lessons_tenant_id", "lessons", ["tenant_id"]
             )
         if _column_exists(conn, "lessons", "subject_id") and _table_exists(conn, "subjects") and is_pg:
-            if not _fk_exists(conn, "fk_lessons_subject_id"):
+            if not _fk_exists(conn, "lessons", "fk_lessons_subject_id"):
                 op.create_foreign_key(
                     "fk_lessons_subject_id",
                     "lessons",
@@ -172,7 +184,7 @@ def upgrade():
                     ondelete="SET NULL",
                 )
         if _column_exists(conn, "lessons", "tenant_id") and _table_exists(conn, "tenants") and is_pg:
-            if not _fk_exists(conn, "fk_lessons_tenant_id"):
+            if not _fk_exists(conn, "lessons", "fk_lessons_tenant_id"):
                 op.create_foreign_key(
                     "fk_lessons_tenant_id",
                     "lessons",
@@ -585,18 +597,28 @@ def downgrade():
         if _table_exists(conn, tbl):
             op.drop_table(tbl)
 
-    # Reverse: remove fks first, then indexes, then columns
+    # Reverse: remove fks first, then indexes, then columns.
+    # We drop FKs + ix_lessons_tenant_id unconditionally on ANY dialect (not
+    # just Postgres) because SQLAlchemy's SQLite batch_alter_table faithfully
+    # recreates existing indexes on the new table;  if tenant_id has been
+    # dropped in a batch, the index recreation errors with "no such column:
+    # tenant_id".  Guards (_fk_exists / _index_exists) stay active so missing
+    # objects simply skip.
     if _table_exists(conn, "lessons"):
-        if is_pg:
-            for fk in (
-                "fk_lessons_tenant_id",
-                "fk_lessons_subject_id",
-            ):
-                if _fk_exists(conn, fk):
-                    op.drop_constraint(fk, "lessons", type_="foreignkey")
+        # NOTE: SQLite does not support DROP CONSTRAINT, but Alembic will
+        # emit a batch_alter_table under the hood for dialects that can't do
+        # it natively IF we use with_kwargs; here we let the no-op
+        # _fk_exists guard skip for dialects that don't support named FK
+        # lookup reliably.
+        for fk in (
+            "fk_lessons_tenant_id",
+            "fk_lessons_subject_id",
+        ):
+            if _fk_exists(conn, "lessons", fk):
+                op.drop_constraint(fk, "lessons", type_="foreignkey")
 
-            if _index_exists(conn, "ix_lessons_tenant_id"):
-                op.drop_index("ix_lessons_tenant_id", table_name="lessons")
+        if _index_exists(conn, "lessons", "ix_lessons_tenant_id"):
+            op.drop_index("ix_lessons_tenant_id", table_name="lessons")
 
         if is_pg:
             for jcol in (

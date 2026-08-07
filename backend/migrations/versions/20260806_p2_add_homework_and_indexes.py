@@ -30,6 +30,30 @@ def _table_exists(conn, table):
     return result is not None
 
 
+def _column_exists(conn, table, column):
+    if conn.dialect.name == "sqlite":
+        result = conn.execute(sa.text(f"PRAGMA table_info('{table}')"))
+        columns = [row[1] for row in result.fetchall()]
+        return column in columns
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' "
+            "  AND table_name   = :t "
+            "  AND column_name  = :c"
+        ),
+        {"t": table, "c": column},
+    ).fetchone()
+    return result is not None
+
+
+def _all_columns_exist(conn, table, columns):
+    for c in columns:
+        if not _column_exists(conn, table, c):
+            return False
+    return True
+
+
 def _index_exists(conn, table, index):
     if conn.dialect.name == "sqlite":
         result = conn.execute(sa.text(f"PRAGMA index_list('{table}')"))
@@ -96,7 +120,7 @@ def upgrade():
                 sa.ForeignKey("users.id", ondelete="SET NULL"),
                 nullable=True,
             ),
-            sa.Column(sa.Numeric(precision=10, scale=2, name="grade_number"), nullable=True),
+            sa.Column("grade_number", sa.Numeric(precision=10, scale=2), nullable=True),
             sa.Column("feedback", sa.Text(), nullable=True),
             sa.Column(
                 "created_at",
@@ -144,119 +168,110 @@ def upgrade():
     # ------------------------------------------------------------------
     if _table_exists(conn, "lessons"):
         lesson_composite_idx = "ix_lessons_date_status_class_subject_teacher"
-        if not _index_exists(conn, "lessons", lesson_composite_idx):
-            try:
-                op.create_index(
-                    lesson_composite_idx,
-                    "lessons",
-                    ["date", "status", "class_id", "subject_id", "teacher_id"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lessons", lesson_composite_idx)
+            and _all_columns_exist(conn, "lessons", ["date", "status", "class_id", "subject_id", "teacher_id"])
+        ):
+            op.create_index(
+                lesson_composite_idx,
+                "lessons",
+                ["date", "status", "class_id", "subject_id", "teacher_id"],
+            )
 
         lesson_class_date_idx = "ix_lessons_class_id_date"
-        if not _index_exists(conn, "lessons", lesson_class_date_idx):
-            try:
-                op.create_index(
-                    lesson_class_date_idx,
-                    "lessons",
-                    ["class_id", "date"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lessons", lesson_class_date_idx)
+            and _all_columns_exist(conn, "lessons", ["class_id", "date"])
+        ):
+            op.create_index(
+                lesson_class_date_idx,
+                "lessons",
+                ["class_id", "date"],
+            )
 
         lesson_teacher_date_idx = "ix_lessons_teacher_id_date"
-        if not _index_exists(conn, "lessons", lesson_teacher_date_idx):
-            try:
-                op.create_index(
-                    lesson_teacher_date_idx,
-                    "lessons",
-                    ["teacher_id", "date"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lessons", lesson_teacher_date_idx)
+            and _all_columns_exist(conn, "lessons", ["teacher_id", "date"])
+        ):
+            op.create_index(
+                lesson_teacher_date_idx,
+                "lessons",
+                ["teacher_id", "date"],
+            )
 
     # ------------------------------------------------------------------
     # 3. Performance indexes: lesson_broadcasts (status, lesson_id, started_at)
     # ------------------------------------------------------------------
     if _table_exists(conn, "lesson_broadcasts"):
         broadcast_composite_idx = "ix_broadcasts_status_lesson_started"
-        if not _index_exists(conn, "lesson_broadcasts", broadcast_composite_idx):
-            try:
-                op.create_index(
-                    broadcast_composite_idx,
-                    "lesson_broadcasts",
-                    ["status", "lesson_id", "started_at"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lesson_broadcasts", broadcast_composite_idx)
+            and _all_columns_exist(conn, "lesson_broadcasts", ["status", "lesson_id", "started_at"])
+        ):
+            op.create_index(
+                broadcast_composite_idx,
+                "lesson_broadcasts",
+                ["status", "lesson_id", "started_at"],
+            )
 
         broadcast_lesson_started_idx = "ix_broadcasts_lesson_id_started_at"
-        if not _index_exists(conn, "lesson_broadcasts", broadcast_lesson_started_idx):
-            try:
-                op.create_index(
-                    broadcast_lesson_started_idx,
-                    "lesson_broadcasts",
-                    ["lesson_id", "started_at"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lesson_broadcasts", broadcast_lesson_started_idx)
+            and _all_columns_exist(conn, "lesson_broadcasts", ["lesson_id", "started_at"])
+        ):
+            op.create_index(
+                broadcast_lesson_started_idx,
+                "lesson_broadcasts",
+                ["lesson_id", "started_at"],
+            )
 
     # ------------------------------------------------------------------
     # 4. Performance indexes: lesson_comments (lesson_id, requires_approval, is_deleted, visibility)
     # ------------------------------------------------------------------
     if _table_exists(conn, "lesson_comments"):
         comment_composite_idx = "ix_comments_lesson_approval_deleted_visibility"
-        if not _index_exists(conn, "lesson_comments", comment_composite_idx):
-            try:
-                op.create_index(
-                    comment_composite_idx,
-                    "lesson_comments",
-                    ["lesson_id", "requires_approval", "is_deleted", "visibility"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lesson_comments", comment_composite_idx)
+            and _all_columns_exist(conn, "lesson_comments", ["lesson_id", "requires_approval", "is_deleted", "visibility"])
+        ):
+            op.create_index(
+                comment_composite_idx,
+                "lesson_comments",
+                ["lesson_id", "requires_approval", "is_deleted", "visibility"],
+            )
 
         comment_lesson_created_idx = "ix_comments_lesson_id_created_at"
-        if not _index_exists(conn, "lesson_comments", comment_lesson_created_idx):
-            try:
-                op.create_index(
-                    comment_lesson_created_idx,
-                    "lesson_comments",
-                    ["lesson_id", "created_at"],
-                )
-            except Exception:
-                pass
+        if (
+            not _index_exists(conn, "lesson_comments", comment_lesson_created_idx)
+            and _all_columns_exist(conn, "lesson_comments", ["lesson_id", "created_at"])
+        ):
+            op.create_index(
+                comment_lesson_created_idx,
+                "lesson_comments",
+                ["lesson_id", "created_at"],
+            )
 
 
 def downgrade():
     conn = op.get_bind()
 
-    # Drop indexes on lesson_comments
     if _table_exists(conn, "lesson_comments"):
         for idx in [
             "ix_comments_lesson_approval_deleted_visibility",
             "ix_comments_lesson_id_created_at",
         ]:
             if _index_exists(conn, "lesson_comments", idx):
-                try:
-                    op.drop_index(idx, table_name="lesson_comments")
-                except Exception:
-                    pass
+                op.drop_index(idx, table_name="lesson_comments")
 
-    # Drop indexes on lesson_broadcasts
     if _table_exists(conn, "lesson_broadcasts"):
         for idx in [
             "ix_broadcasts_status_lesson_started",
             "ix_broadcasts_lesson_id_started_at",
         ]:
             if _index_exists(conn, "lesson_broadcasts", idx):
-                try:
-                    op.drop_index(idx, table_name="lesson_broadcasts")
-                except Exception:
-                    pass
+                op.drop_index(idx, table_name="lesson_broadcasts")
 
-    # Drop indexes on lessons
     if _table_exists(conn, "lessons"):
         for idx in [
             "ix_lessons_date_status_class_subject_teacher",
@@ -264,12 +279,8 @@ def downgrade():
             "ix_lessons_teacher_id_date",
         ]:
             if _index_exists(conn, "lessons", idx):
-                try:
-                    op.drop_index(idx, table_name="lessons")
-                except Exception:
-                    pass
+                op.drop_index(idx, table_name="lessons")
 
-    # Drop homework_submissions indexes and table
     if _table_exists(conn, "homework_submissions"):
         for idx in [
             "ix_homework_submissions_lesson_student",
@@ -279,11 +290,5 @@ def downgrade():
             "ix_homework_submissions_lesson_id",
         ]:
             if _index_exists(conn, "homework_submissions", idx):
-                try:
-                    op.drop_index(idx, table_name="homework_submissions")
-                except Exception:
-                    pass
-        try:
-            op.drop_table("homework_submissions")
-        except Exception:
-            pass
+                op.drop_index(idx, table_name="homework_submissions")
+        op.drop_table("homework_submissions")
