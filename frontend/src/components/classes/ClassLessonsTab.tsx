@@ -266,19 +266,19 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Today&apos;s Lessons</div>
+            <div className="text-sm text-muted-foreground">Leçons d'aujourd'hui</div>
             <div className="mt-2 text-2xl font-semibold">{todayCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Completed Logs</div>
+            <div className="text-sm text-muted-foreground">Journaux terminés</div>
             <div className="mt-2 text-2xl font-semibold">{completedCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-muted-foreground">Class Coverage</div>
+            <div className="text-sm text-muted-foreground">Couverture du programme</div>
             <div className="mt-2 text-2xl font-semibold">{lessonsData.length}</div>
           </CardContent>
         </Card>
@@ -286,7 +286,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Radio className="h-3.5 w-3.5 text-red-500" />
-              Live Now
+              En direct
             </div>
             <div className="mt-2 text-2xl font-semibold flex items-center gap-2">
               {liveCount}
@@ -306,9 +306,9 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
               <Clock className="h-4 w-4 text-indigo-500" />
-              Period Timeline
+              Planning des séances
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : ''}
+                {selectedDate ? format(selectedDate, 'EEEE d MMMM yyyy') : ''}
               </span>
             </div>
             {editable && (
@@ -318,7 +318,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                 onClick={() => handleOpenStudioForLesson()}
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Quick Add
+                Ajout rapide
               </Button>
             )}
           </div>
@@ -363,7 +363,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
                         </span>
-                        LIVE
+                        EN DIRECT
                       </Badge>
                     )}
                   </div>
@@ -376,7 +376,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                     {slot.lesson?.title || slot.timetableEntry?.subject_name || (
                       <span className="text-slate-400 dark:text-slate-500 italic flex items-center gap-1">
                         <Plus className="h-3 w-3" />
-                        Empty
+                        Libre
                       </span>
                     )}
                   </div>
@@ -387,7 +387,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                         variant={slot.lesson.status === 'completed' ? 'success' : slot.lesson.status === 'in-progress' ? 'default' : 'outline'}
                         className="text-[10px]"
                       >
-                        {slot.lesson.status}
+                        {slot.lesson.status === 'completed' ? 'Terminé' : slot.lesson.status === 'in-progress' ? 'En cours' : 'Planifié'}
                       </Badge>
                       {isLive && stats && (
                         <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
@@ -401,7 +401,7 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
                   {!slot.lesson && slot.timetableEntry && (
                     <div className="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                       <ChevronRight className="h-3 w-3" />
-                      Tap to create
+                      Cliquer pour créer
                     </div>
                   )}
                 </button>
@@ -421,13 +421,13 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
           
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
+              <SelectValue placeholder="Filtrer par statut" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Lessons</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="planned">Planned</SelectItem>
+              <SelectItem value="all">Toutes les leçons</SelectItem>
+              <SelectItem value="completed">Terminées</SelectItem>
+              <SelectItem value="in-progress">En cours</SelectItem>
+              <SelectItem value="planned">Planifiées</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -435,21 +435,21 @@ export function ClassLessonsTab({ classId, editable = true }: ClassLessonsTabPro
         {editable && (
           <Button onClick={() => handleOpenStudioForLesson()}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Lesson
+            Ajouter une leçon
           </Button>
         )}
       </div>
       
       {isLoading ? (
-        <div className="text-center py-4">Loading lessons...</div>
+        <div className="text-center py-4">Chargement des leçons...</div>
       ) : lessons.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No lesson logs match the current filters.
+          Aucun journal de leçon ne correspond aux filtres actuels.
           <div className="mt-3">
             {editable && (
               <Button variant="outline" size="sm" onClick={() => handleOpenStudioForLesson()}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Create first lesson
+                Créer la première leçon
               </Button>
             )}
           </div>

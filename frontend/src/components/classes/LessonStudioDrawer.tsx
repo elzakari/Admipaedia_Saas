@@ -783,26 +783,26 @@ export function LessonStudioDrawer({
             <div className="pr-8">
               <DrawerTitle className="text-xl flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-indigo-600" />
-                {lesson ? 'Edit Lesson Studio' : 'New Lesson Studio'}
+                {lesson ? 'Modifier le studio de leçon' : 'Nouveau studio de leçon'}
               </DrawerTitle>
               <DrawerDescription className="mt-1">
-                Plan objectives, classwork timeline, resources, assessment, homework, and go live.
+                Planifiez les objectifs, le déroulement de la séance, les ressources, l'évaluation, les devoirs et lancez le direct.
               </DrawerDescription>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 pt-2">
             <div className="space-y-1.5">
-              <Label htmlFor="ls-title">Lesson Title</Label>
+              <Label htmlFor="ls-title">Titre de la leçon</Label>
               <Input
                 id="ls-title"
-                placeholder="e.g., Fractions on the number line"
+                placeholder="ex. Les fractions sur la droite numérique"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Subject</Label>
+              <Label>Matière</Label>
               <Select
                 value={form.subject_id ? String(form.subject_id) : ''}
                 onValueChange={(v) =>
@@ -810,7 +810,7 @@ export function LessonStudioDrawer({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
+                  <SelectValue placeholder="Sélectionner une matière" />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
@@ -832,7 +832,7 @@ export function LessonStudioDrawer({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label>Statut</Label>
               <Select
                 value={form.status}
                 onValueChange={(v) => setForm({ ...form, status: v as any })}
@@ -841,19 +841,19 @@ export function LessonStudioDrawer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="planned">Planned</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="planned">Planifiée</SelectItem>
+                  <SelectItem value="in-progress">En cours</SelectItem>
+                  <SelectItem value="completed">Terminée</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="space-y-1.5 pt-2">
-            <Label htmlFor="ls-description">Lesson Summary</Label>
+            <Label htmlFor="ls-description">Résumé de la leçon</Label>
             <Textarea
               id="ls-description"
-              placeholder="Summarize today's coverage"
+              placeholder="Résumez le contenu abordé aujourd'hui"
               value={form.description || ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="min-h-[60px]"
@@ -870,9 +870,9 @@ export function LessonStudioDrawer({
                     <Target className="h-4 w-4" />
                   </span>
                   <div className="text-left">
-                    <div className="font-semibold">Objectives</div>
+                    <div className="font-semibold">Objectifs</div>
                     <div className="text-xs text-muted-foreground font-normal">
-                      {objectives.length} learning outcome{objectives.length === 1 ? '' : 's'}
+                      {objectives.length} objectif{objectives.length === 1 ? '' : 's'} d'apprentissage
                     </div>
                   </div>
                 </div>
@@ -888,11 +888,11 @@ export function LessonStudioDrawer({
                     className="w-full gap-2 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40"
                   >
                     <Sparkles className="h-4 w-4 mr-1" />
-                    {generateObjectivesMutation.isPending ? 'Generating…' : '✦ Generate Objectives'}
+                    {generateObjectivesMutation.isPending ? 'Génération…' : '✦ Générer les objectifs'}
                   </Button>
                   {objectives.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">
-                      No objectives yet. Click ✦ above or add measurable learning outcomes below.
+                      Aucun objectif pour le moment. Cliquez sur ✦ ci-dessus ou ajoutez des objectifs ci-dessous.
                     </p>
                   )}
                   {objectives.map((obj, i) => (
@@ -906,7 +906,7 @@ export function LessonStudioDrawer({
                             {i + 1}
                           </Badge>
                           <Input
-                            placeholder="By the end of this lesson, students will be able to..."
+                            placeholder="À la fin de cette leçon, les élèves seront capables de..."
                             value={obj.text}
                             onChange={(e) => updateObjective(obj.id, e.target.value)}
                           />
@@ -931,7 +931,7 @@ export function LessonStudioDrawer({
                     className="w-full"
                   >
                     <Plus className="h-4 w-4 mr-1.5" />
-                    Add Objective
+                    Ajouter un objectif
                   </Button>
                 </div>
               </AccordionContent>
@@ -944,9 +944,9 @@ export function LessonStudioDrawer({
                     <ClipboardList className="h-4 w-4" />
                   </span>
                   <div className="text-left">
-                    <div className="font-semibold">Classwork Timeline</div>
+                    <div className="font-semibold">Déroulement de la séance</div>
                     <div className="text-xs text-muted-foreground font-normal">
-                      {classworkSteps.length} step{classworkSteps.length === 1 ? '' : 's'} · {totalClassworkMinutes} min
+                      {classworkSteps.length} étape{classworkSteps.length === 1 ? '' : 's'} · {totalClassworkMinutes} min
                     </div>
                   </div>
                 </div>
@@ -962,40 +962,46 @@ export function LessonStudioDrawer({
                     className="w-full gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40"
                   >
                     <Sparkles className="h-4 w-4 mr-1" />
-                    {generateClassworkMutation.isPending ? 'Generating…' : '✦ Fill with activities'}
+                    {generateClassworkMutation.isPending ? 'Génération…' : '✦ Générer les activités de classe'}
                   </Button>
                   {classworkSteps.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">
-                      Build the flow of the lesson with timed activities, or click ✦ above to auto-fill.
+                      Aucune étape dans le déroulement. Cliquez sur ✦ ci-dessus ou ajoutez des étapes chronométrées ci-dessous.
                     </p>
                   )}
                   {classworkSteps.map((step, i) => (
-                    <div key={step.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-900/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <GripVertical className="h-4 w-4 text-slate-400 shrink-0" />
-                        <Badge variant="secondary" className="shrink-0">
-                          Step {i + 1}
+                    <div
+                      key={step.id}
+                      className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2 bg-slate-50/50 dark:bg-slate-900/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="h-6 shrink-0">
+                          Étape {i + 1}
                         </Badge>
                         <Input
-                          placeholder="Activity title"
+                          placeholder="Nom de l'étape (ex. Échauffement)"
                           value={step.title}
                           onChange={(e) =>
                             updateClassworkStep(step.id, 'title', e.target.value)
                           }
-                          className="h-8 text-sm"
+                          className="flex-1 font-medium"
                         />
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Clock className="h-3.5 w-3.5 text-slate-500" />
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <Input
                             type="number"
                             min={1}
+                            max={180}
                             value={step.duration}
                             onChange={(e) =>
-                              updateClassworkStep(step.id, 'duration', Number(e.target.value))
+                              updateClassworkStep(
+                                step.id,
+                                'duration',
+                                parseInt(e.target.value) || 5
+                              )
                             }
-                            className="h-8 w-16 text-sm px-2"
+                            className="w-16 h-9 text-center"
                           />
-                          <span className="text-xs text-slate-500">min</span>
+                          <span className="text-xs text-muted-foreground font-medium">min</span>
                         </div>
                         <div className="flex shrink-0">
                           <Button
@@ -1030,7 +1036,7 @@ export function LessonStudioDrawer({
                         </Button>
                       </div>
                       <Textarea
-                        placeholder="Describe what learners do during this step..."
+                        placeholder="Décrivez les activités des élèves durant cette étape..."
                         value={step.description}
                         onChange={(e) =>
                           updateClassworkStep(step.id, 'description', e.target.value)
@@ -1047,7 +1053,7 @@ export function LessonStudioDrawer({
                     className="w-full"
                   >
                     <Plus className="h-4 w-4 mr-1.5" />
-                    Add Timeline Step
+                    Ajouter une étape au déroulement
                   </Button>
                 </div>
               </AccordionContent>
@@ -1868,7 +1874,7 @@ export function LessonStudioDrawer({
             variant="outline"
             onClick={onClose}
           >
-            Cancel
+            Annuler
           </Button>
           <Button
             type="button"
@@ -1876,7 +1882,7 @@ export function LessonStudioDrawer({
             disabled={saveLessonMutation.isPending}
           >
             <Save className="h-4 w-4 mr-1.5" />
-            {saveLessonMutation.isPending ? 'Saving...' : lesson ? 'Update Lesson' : 'Save Lesson'}
+            {saveLessonMutation.isPending ? 'Enregistrement...' : lesson ? 'Mettre à jour la leçon' : 'Enregistrer la leçon'}
           </Button>
         </DrawerFooter>
       </DrawerContent>
