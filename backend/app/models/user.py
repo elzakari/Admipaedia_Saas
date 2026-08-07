@@ -24,7 +24,7 @@ class User(db.Model):
     invitation_token_hash: Optional[str] = db.Column(db.String(255), nullable=True)
     invitation_expires_at = db.Column(db.DateTime, nullable=True)
     role = db.Column(db.String(20), default="user")  # Keep for backward compatibility
-    status = db.Column(db.String(20), default="active")
+    status = db.Column(db.String(50), default="active")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
