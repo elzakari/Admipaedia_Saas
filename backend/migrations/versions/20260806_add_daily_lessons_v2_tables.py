@@ -44,6 +44,47 @@ def _column_exists(conn, table, column):
     return result is not None
 
 
+def _index_exists(conn, index_name):
+    """Return True if a pg index with *index_name* already exists."""
+    if conn.dialect.name != "postgresql":
+        return False  # SQLite has no information_schema for indexes; let Alembic handle it
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = :n"
+        ),
+        {"n": index_name},
+    ).fetchone()
+    return result is not None
+
+
+def _fk_exists(conn, fk_name):
+    """Return True if a pg foreign-key constraint with *fk_name* already exists."""
+    if conn.dialect.name != "postgresql":
+        return False
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.table_constraints "
+            "WHERE constraint_type = 'FOREIGN KEY' AND constraint_name = :n"
+        ),
+        {"n": fk_name},
+    ).fetchone()
+    return result is not None
+
+
+def _uq_exists(conn, constraint_name):
+    """Return True if a unique constraint with *constraint_name* already exists."""
+    if conn.dialect.name != "postgresql":
+        return False
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.table_constraints "
+            "WHERE constraint_type = 'UNIQUE' AND constraint_name = :n"
+        ),
+        {"n": constraint_name},
+    ).fetchone()
+    return result is not None
+
+
 def _uuid_type(conn):
     if conn.dialect.name == "postgresql":
         return postgresql.UUID(as_uuid=True)
@@ -116,28 +157,30 @@ def upgrade():
                 else:
                     op.add_column("lessons", sa.Column(jcol, col_type, nullable=True))
 
-        if _column_exists(conn, "lessons", "tenant_id"):
+        if _column_exists(conn, "lessons", "tenant_id") and not _index_exists(conn, "ix_lessons_tenant_id"):
             op.create_index(
                 "ix_lessons_tenant_id", "lessons", ["tenant_id"]
             )
         if _column_exists(conn, "lessons", "subject_id") and _table_exists(conn, "subjects") and is_pg:
-            op.create_foreign_key(
-                "fk_lessons_subject_id",
-                "lessons",
-                "subjects",
-                ["subject_id"],
-                ["id"],
-                ondelete="SET NULL",
-            )
+            if not _fk_exists(conn, "fk_lessons_subject_id"):
+                op.create_foreign_key(
+                    "fk_lessons_subject_id",
+                    "lessons",
+                    "subjects",
+                    ["subject_id"],
+                    ["id"],
+                    ondelete="SET NULL",
+                )
         if _column_exists(conn, "lessons", "tenant_id") and _table_exists(conn, "tenants") and is_pg:
-            op.create_foreign_key(
-                "fk_lessons_tenant_id",
-                "lessons",
-                "tenants",
-                ["tenant_id"],
-                ["id"],
-                ondelete="CASCADE",
-            )
+            if not _fk_exists(conn, "fk_lessons_tenant_id"):
+                op.create_foreign_key(
+                    "fk_lessons_tenant_id",
+                    "lessons",
+                    "tenants",
+                    ["tenant_id"],
+                    ["id"],
+                    ondelete="CASCADE",
+                )
 
         if _table_exists(conn, "classes") and _table_exists(conn, "lessons"):
             if is_pg:
