@@ -75,7 +75,6 @@ class AcademicStructure(db.Model):
         db.Enum(AcademicStructureType, name="academic_structure_type"),
         nullable=False,
         default=AcademicStructureType.DISCIPLINE,
-        server_default=AcademicStructureType.DISCIPLINE.value,
         index=True,
     )
 
