@@ -37,23 +37,28 @@ def app():
                 conn.execute(sa.text('DROP SCHEMA public CASCADE; CREATE SCHEMA public;'))
                 conn.commit()
 
-            # Rebuild via Alembic so that raw-SQL DDL (e.g. custom enum types
-            # like academic_structure_type) is created exactly as migrations define it.
-            from alembic.config import Config
-            from alembic import command
-            import os as _os
-            migrations_dir = _os.path.join(_os.path.dirname(__file__), '..', 'migrations')
-            alembic_cfg = Config()
-            alembic_cfg.set_main_option('script_location', migrations_dir)
-            alembic_cfg.set_main_option('sqlalchemy.url', test_db_url)
-            try:
-                command.upgrade(alembic_cfg, 'head')
-            except Exception:
-                command.upgrade(alembic_cfg, 'heads')
-        else:
-            _db.drop_all()
-            _db.create_all()
-        
+        # NOTE: Always use SQLAlchemy metadata create_all() instead of
+        # `alembic upgrade head` for tests.  The project has a large
+        # number of historical branch migrations that were never fully
+        # merged into a single DAG head.  Running them against a fresh
+        # empty Postgres service container produces:
+        #   * "Multiple head revisions" errors (still unmerged heads)
+        #   * ProgrammingError: UndefinedColumn errors from legacy
+        #     backfill UPDATEs referencing columns before the
+        #     corresponding create_table/add_column steps in the
+        #     arbitrary head ordering
+        #   * InternalError: InFailedSqlTransaction because defensive
+        #     try/except wrappers inside the legacy migrations swallow
+        #     dialect errors but leave the Postgres session's
+        #     transaction aborted, causing Alembic's own
+        #     `UPDATE alembic_version` to fail
+        #
+        # create_all uses current model metadata (the source of truth),
+        # so behavior is identical between the SQLite fast-path in
+        # ci.yml backend-tests (proven GREEN) and Enhanced CI postgres.
+        _db.drop_all()
+        _db.create_all()
+
         yield app
         
         _db.session.remove()  # Clean up session
