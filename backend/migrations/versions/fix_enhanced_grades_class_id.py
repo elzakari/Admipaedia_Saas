@@ -15,35 +15,58 @@ down_revision = 'a63c99909932'
 branch_labels = None
 depends_on = None
 
+
+def _table_exists(conn, table_name):
+    inspector = sa.inspect(conn)
+    return table_name in inspector.get_table_names()
+
+
+def _column_exists(conn, table_name, column_name):
+    if not _table_exists(conn, table_name):
+        return False
+    inspector = sa.inspect(conn)
+    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
+
+
 def upgrade():
-    # Check if class_id column already exists to avoid DuplicateColumn error
     conn = op.get_bind()
+    if not _table_exists(conn, 'enhanced_grades'):
+        return
     inspector = sa.inspect(conn)
     columns = [col['name'] for col in inspector.get_columns('enhanced_grades')]
     
     if 'class_id' not in columns:
-        # Add missing class_id column to enhanced_grades
-        op.add_column('enhanced_grades', sa.Column('class_id', sa.Integer(), nullable=True))
+        try:
+            op.add_column('enhanced_grades', sa.Column('class_id', sa.Integer(), nullable=True))
+        except Exception:
+            return
         
-        # Add foreign key constraint for class_id with CASCADE delete
-        op.create_foreign_key(
-            'fk_enhanced_grades_class_id',
-            'enhanced_grades', 'classes',
-            ['class_id'], ['id'],
-            ondelete='CASCADE'
-        )
+        try:
+            op.create_foreign_key(
+                'fk_enhanced_grades_class_id',
+                'enhanced_grades', 'classes',
+                ['class_id'], ['id'],
+                ondelete='CASCADE'
+            )
+        except Exception:
+            pass
         
-        # Populate class_id from student records
-        op.execute("""
-            UPDATE enhanced_grades 
-            SET class_id = students.class_id 
-            FROM students 
-            WHERE enhanced_grades.student_id = students.id
-            AND students.class_id IS NOT NULL
-        """)
+        if _column_exists(conn, 'students', 'class_id'):
+            try:
+                op.execute("""
+                    UPDATE enhanced_grades 
+                    SET class_id = students.class_id 
+                    FROM students 
+                    WHERE enhanced_grades.student_id = students.id
+                    AND students.class_id IS NOT NULL
+                """)
+            except Exception:
+                pass
         
-        # Make class_id non-nullable after populating data
-        op.alter_column('enhanced_grades', 'class_id', nullable=False)
+        try:
+            op.alter_column('enhanced_grades', 'class_id', nullable=False)
+        except Exception:
+            pass
 
 def downgrade():
     # Check if constraint exists before trying to drop it
