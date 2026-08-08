@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { cn } from "../../lib/utils";
@@ -42,6 +42,7 @@ import financialService, {
   FeeRecord,
   FinancialSummary
 } from '../../services/financialService';
+import academicService from '../../services/academicService';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { useToast } from '../../components/ui/use-toast';
@@ -85,11 +86,28 @@ const FinancialManagement: React.FC = () => {
   const [budgetForm, setBudgetForm] = useState({ category: '', allocated_amount: '', academic_year: '2024', description: '' });
   const [transactionForm, setTransactionForm] = useState({ type: 'income' as 'income' | 'expense', amount: '', category: '', description: '', date: '' });
   const [paymentForm, setPaymentForm] = useState({ fee_record_id: 0, amount: '', payment_method: 'cash' as 'cash' | 'bank_transfer' | 'card' | 'mobile_money', reference_number: '', payment_date: '' });
+  const [currentAcademicYear, setCurrentAcademicYear] = useState<string | undefined>(undefined);
+  const [academicYearLoaded, setAcademicYearLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const current = await academicService.getCurrentAcademicYear();
+        if (!cancelled) setCurrentAcademicYear(current?.name || undefined);
+      } catch {
+        if (!cancelled) setCurrentAcademicYear(undefined);
+      } finally {
+        if (!cancelled) setAcademicYearLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load data based on active tab
   useEffect(() => {
-    loadData();
-  }, [activeTab, budgetPagination, transactionPagination, feePagination]);
+    if (academicYearLoaded) loadData();
+  }, [activeTab, budgetPagination, transactionPagination, feePagination, academicYearLoaded]);
 
   const loadData = async () => {
     setLoading(true);
@@ -153,13 +171,19 @@ const FinancialManagement: React.FC = () => {
     setFeeRecords((response as any).data ?? (response as any).fee_records ?? []);
   };
 
-  const loadFinancialSummary = async () => {
+  const loadFinancialSummary = useCallback(async () => {
     // Pass filters correctly: (dateFrom, dateTo, academicYear)
-    const summaryResponse = await financialService.getFinancialSummary(undefined, undefined, new Date().getFullYear().toString());
+    // Use the tenant's current academic year (e.g. "2025/2026") instead of JS
+    // calendar year, so the backend FeeStructure.academic_year filter actually matches.
+    const summaryResponse = await financialService.getFinancialSummary(
+      undefined,
+      undefined,
+      currentAcademicYear
+    );
     // Unwrap nested backend shape if present
     const normalized = (summaryResponse as any)?.financial_summary ?? summaryResponse;
     setFinancialSummary(normalized as any);
-  };
+  }, [currentAcademicYear]);
 
   const handleExportData = (section: 'budget' | 'transactions' | 'fees') => {
     toast({ title: 'Export started', description: `Preparing ${section} data for export`, variant: 'default' });

@@ -1,11 +1,13 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 import structlog
 from sqlalchemy import func, or_
 
 from app.extensions import db
 from app.models.academic_calendar import AcademicYear, Term
+from app.models.administration import Transaction, TransactionType
 from app.models.finance import (FeeCategory, FeeDiscount, FeeStructure,
                                 Payment, PaymentAllocation, StudentFee)
 from app.models.student import Student
@@ -261,6 +263,47 @@ class FeeService:
                     student_id=data["student_id"],
                 )
                 # TODO: Add logic for wallet/credit
+
+            try:
+                student_id_val = data.get("student_id")
+                student_obj = Student.query.get(int(student_id_val)) if student_id_val else None
+                student_label = (
+                    f"{getattr(student_obj, 'first_name', '')} {getattr(student_obj, 'last_name', '')}".strip()
+                    if student_obj else f"student#{student_id_val}"
+                )
+                raw_ref = getattr(payment, "transaction_id", None) or str(uuid.uuid4())
+                tx_ref = str(raw_ref)[:50]
+                if Transaction.query.filter_by(reference_number=tx_ref).first():
+                    tx_ref = f"TX-{str(raw_ref)[:47]}"
+                paid_at_val = getattr(payment, "paid_at", None) or datetime.utcnow()
+                tx_date = paid_at_val.date() if hasattr(paid_at_val, "date") else date.today()
+                pay_method = str(data.get("payment_method") or "manual")[:50]
+                tx_category = "fee_collection"
+                tx_description = f"Fee payment - {student_label} - legacy allocation"[:255]
+                amount_decimal = (
+                    Decimal(str(data["amount"]))
+                    if not isinstance(data.get("amount"), Decimal)
+                    else data["amount"]
+                )
+                tx_creator = int(user_id) if (user_id is not None and str(user_id).isdigit()) else 1
+                mirror_tx = Transaction(
+                    transaction_type=getattr(TransactionType, "INCOME", "income"),
+                    category=tx_category,
+                    description=tx_description,
+                    amount=amount_decimal,
+                    transaction_date=tx_date,
+                    reference_number=tx_ref,
+                    payment_method=pay_method,
+                    created_by=tx_creator,
+                    approved_by=tx_creator,
+                )
+                db.session.add(mirror_tx)
+            except Exception as _tx_err:
+                logger.warning(
+                    "Could not create mirror Transaction for legacy fee payment",
+                    error=str(_tx_err),
+                    payment_id=getattr(payment, "id", None),
+                )
 
             db.session.commit()
             return payment, None

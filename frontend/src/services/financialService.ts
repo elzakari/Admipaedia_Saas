@@ -208,14 +208,49 @@ const normalizeFeeRecord = (record: any): FeeRecord => ({
   } : null,
 });
 
-const normalizeFinancialSummary = (payload: any): FinancialSummary => ({
-  total_revenue: Number(payload?.total_revenue ?? payload?.total_income ?? payload?.total_fee_collections ?? 0),
-  total_expenses: Number(payload?.total_expenses ?? 0),
-  net_income: Number(payload?.net_income ?? payload?.net_balance ?? 0),
-  outstanding_fees: Number(payload?.outstanding_fees ?? 0),
-  collection_rate: Number(payload?.collection_rate ?? 0),
-  monthly_trends: Array.isArray(payload?.monthly_trends) ? payload.monthly_trends : [],
-});
+const normalizeFinancialSummary = (payload: any): FinancialSummary => {
+  const pickPositive = (candidates: any[]): number => {
+    for (const v of candidates) {
+      if (v === null || v === undefined) continue;
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return 0;
+  };
+
+  const revenue = pickPositive([
+    payload?.total_revenue,
+    payload?.total_collected_payments,
+    payload?.total_fee_collections,
+    (typeof payload?.total_income === 'number' && payload.total_income !== 0) ? payload.total_income : undefined,
+    payload?.total_income,
+  ]);
+
+  const outstanding = pickPositive([
+    payload?.outstanding_fees,
+    payload?.total_overdue_balance,
+  ]);
+
+  const billed = pickPositive([payload?.total_billed]);
+
+  let collectionRate = Number(payload?.collection_rate ?? NaN);
+  if (!Number.isFinite(collectionRate) || collectionRate <= 0) {
+    if (billed > 0) {
+      collectionRate = Math.round((revenue / billed) * 100);
+    } else {
+      collectionRate = 0;
+    }
+  }
+
+  return {
+    total_revenue: revenue,
+    total_expenses: Number(payload?.total_expenses ?? 0),
+    net_income: Number(payload?.net_income ?? payload?.net_balance ?? 0),
+    outstanding_fees: outstanding,
+    collection_rate: collectionRate,
+    monthly_trends: Array.isArray(payload?.monthly_trends) ? payload.monthly_trends : [],
+  };
+};
 
 // Financial Service
 const financialService = {

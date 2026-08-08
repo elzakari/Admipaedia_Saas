@@ -1,14 +1,20 @@
 import uuid
+from datetime import date, datetime
 from decimal import Decimal
 
+import structlog
 from sqlalchemy import func
 
 from app.extensions import db
+from app.models.administration import Transaction, TransactionType
 from app.models.billing import BillingInvoice, SchoolPlanSubscription
+from app.models.class_ import Class
 from app.models.finance import Payment as StudentPayment
 from app.models.finance import StudentFee
 from app.models.student import Student
 from app.models.tenant import Branch
+
+logger = structlog.get_logger()
 
 
 class FinancialLedgerService:
@@ -254,3 +260,148 @@ class FinancialLedgerService:
                 "next_due_date": saas_next_due_date,
             },
         }
+
+    @staticmethod
+    def reconcile_student_fee_branch_ids(tenant_id=None, dry_run=False) -> dict:
+        """
+        Idempotent backfill of StudentFee.branch_id from Student.branch_id
+        → Student.class_.branch_id chain.  Only updates rows where branch_id
+        is currently NULL.
+
+        Additive only: no row deletion, no UPDATE of already-assigned values.
+        """
+        try:
+            query = StudentFee.query.filter(StudentFee.branch_id.is_(None))
+            if tenant_id:
+                t_id = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
+                query = query.join(Student, Student.id == StudentFee.student_id).filter(
+                    Student.tenant_id == t_id
+                )
+
+            null_rows = query.all()
+            updated_count = 0
+            report = []
+            for fee in null_rows:
+                student = Student.query.get(int(fee.student_id)) if fee.student_id else None
+                resolved = None
+                if student:
+                    if getattr(student, "branch_id", None):
+                        resolved = student.branch_id
+                    elif getattr(student, "class_", None):
+                        resolved = getattr(student.class_, "branch_id", None)
+                    elif getattr(student, "class_id", None):
+                        cls = Class.query.get(int(student.class_id))
+                        resolved = getattr(cls, "branch_id", None) if cls else None
+                if resolved is None:
+                    continue
+                if not dry_run:
+                    fee.branch_id = resolved
+                updated_count += 1
+                report.append({"fee_id": fee.id, "student_id": fee.student_id, "branch_id": str(resolved)})
+
+            if not dry_run and updated_count:
+                db.session.commit()
+
+            return {
+                "success": True,
+                "dry_run": dry_run,
+                "examined": len(null_rows),
+                "updated": updated_count,
+                "sample": report[:20],
+            }
+        except Exception as e:
+            db.session.rollback()
+            logger.error("reconcile_student_fee_branch_ids failed", error=str(e))
+            return {"success": False, "error": str(e), "updated": 0}
+
+    @staticmethod
+    def reconcile_fee_payment_transactions(tenant_id=None, dry_run=False) -> dict:
+        """
+        Idempotent backfill: for each completed student Payment that does NOT
+        have a matching Transaction(income) row referencing its transaction_id,
+        create a mirror Transaction row (category="fee_collection").
+
+        Idempotency is guaranteed by checking Transaction.reference_number
+        existence before INSERT.
+        """
+        zero = Decimal("0")
+        try:
+            payments_query = StudentPayment.query.filter(StudentPayment.status == "completed")
+            if tenant_id:
+                t_id = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
+                payments_query = payments_query.join(
+                    Student, Student.id == StudentPayment.student_id
+                ).filter(Student.tenant_id == t_id)
+
+            payments = payments_query.order_by(StudentPayment.id.asc()).all()
+
+            inserted_count = 0
+            skipped_existing = 0
+            errors = 0
+            for pay in payments:
+                ref_candidates = [str(getattr(pay, "transaction_id", "") or "")[:50]]
+                if ref_candidates[0]:
+                    ref_candidates.append(f"TX-{ref_candidates[0][:47]}")
+                exists = any(
+                    bool(Transaction.query.filter_by(reference_number=r).first())
+                    for r in ref_candidates if r
+                )
+                if exists:
+                    skipped_existing += 1
+                    continue
+
+                try:
+                    student = Student.query.get(int(pay.student_id)) if pay.student_id else None
+                    student_label = (
+                        f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
+                        if student else f"student#{pay.student_id}"
+                    )
+                    pay_amount = getattr(pay, "amount", zero)
+                    amount_decimal = (
+                        pay_amount if isinstance(pay_amount, Decimal) else Decimal(str(pay_amount or "0"))
+                    )
+                    paid_at_val = getattr(pay, "paid_at", None) or getattr(pay, "created_at", None) or datetime.utcnow()
+                    tx_date = paid_at_val.date() if hasattr(paid_at_val, "date") else date.today()
+                    pay_method = str(getattr(pay, "payment_method", None) or "manual")[:50]
+                    creator = int(getattr(pay, "recorded_by", None) or 1)
+                    raw_ref = str(getattr(pay, "transaction_id", None) or f"PAY-{pay.id}")[:50]
+                    final_ref = raw_ref
+                    while Transaction.query.filter_by(reference_number=final_ref).first():
+                        final_ref = f"TX-{raw_ref[:47]}"
+                    tx = Transaction(
+                        transaction_type=getattr(TransactionType, "INCOME", "income"),
+                        category="fee_collection",
+                        description=f"Fee payment - {student_label} - reconciliation"[:255],
+                        amount=amount_decimal,
+                        transaction_date=tx_date,
+                        reference_number=final_ref,
+                        payment_method=pay_method,
+                        created_by=creator,
+                        approved_by=creator,
+                    )
+                    if not dry_run:
+                        db.session.add(tx)
+                    inserted_count += 1
+                except Exception as _row_err:
+                    logger.warning(
+                        "reconcile_fee_payment_transactions: skipping one payment",
+                        payment_id=getattr(pay, "id", None),
+                        error=str(_row_err),
+                    )
+                    errors += 1
+
+            if not dry_run and inserted_count:
+                db.session.commit()
+
+            return {
+                "success": True,
+                "dry_run": dry_run,
+                "examined": len(payments),
+                "inserted": inserted_count,
+                "skipped_existing": skipped_existing,
+                "errors": errors,
+            }
+        except Exception as e:
+            db.session.rollback()
+            logger.error("reconcile_fee_payment_transactions failed", error=str(e))
+            return {"success": False, "error": str(e), "inserted": 0}

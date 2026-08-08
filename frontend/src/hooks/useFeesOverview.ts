@@ -2,9 +2,23 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { feesService } from '../services/feesService';
 import financialService from '../services/financialService';
+import academicService from '../services/academicService';
 
 export function useFeesOverview() {
-  const currentYear = new Date().getFullYear().toString();
+  const currentAcademicYearQuery = useQuery({
+    queryKey: ['academic-years', 'current'],
+    queryFn: async () => {
+      try {
+        const year = await academicService.getCurrentAcademicYear();
+        return year?.name || undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    staleTime: 10 * 60_000,
+    retry: false
+  });
+  const currentAcademicYear = currentAcademicYearQuery.data;
 
   const paymentsQuery = useQuery({
     queryKey: ['fees', 'payments', 'overview'],
@@ -13,21 +27,22 @@ export function useFeesOverview() {
   });
 
   const feeRecordsQuery = useQuery({
-    queryKey: ['fees', 'records', 'overview'],
-    queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 100 }),
+    queryKey: ['fees', 'records', 'overview', currentAcademicYear],
+    queryFn: () => feesService.getFeeRecords({ page: 1, per_page: 100, academic_year: currentAcademicYear }),
     staleTime: 60_000
   });
 
   const overdueQuery = useQuery({
-    queryKey: ['fees', 'overdue', 'overview'],
-    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 20 }),
+    queryKey: ['fees', 'overdue', 'overview', currentAcademicYear],
+    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 50, academic_year: currentAcademicYear }),
     staleTime: 60_000
   });
 
   const summaryQuery = useQuery({
-    queryKey: ['fees', 'summary', 'overview', currentYear],
-    queryFn: () => financialService.getFinancialSummary(undefined, undefined, currentYear),
-    staleTime: 60_000
+    queryKey: ['fees', 'summary', 'overview', currentAcademicYear],
+    queryFn: () => financialService.getFinancialSummary(undefined, undefined, currentAcademicYear),
+    staleTime: 60_000,
+    enabled: currentAcademicYearQuery.status !== 'loading'
   });
 
   const recentPayments = useMemo(
@@ -44,7 +59,7 @@ export function useFeesOverview() {
   );
 
   const metrics = useMemo(() => {
-    const totalExpected = feeRecords.reduce(
+    const totalExpectedFromRecords = feeRecords.reduce(
       (sum, record) => sum + Number(record.total_amount ?? record.final_amount ?? 0),
       0
     );
@@ -56,8 +71,22 @@ export function useFeesOverview() {
       (sum, record) => sum + Number(record.balance ?? 0),
       0
     );
-    const totalCollected = Number(summaryQuery.data?.total_revenue ?? totalPaidFromRecords);
-    const outstandingFees = Number(summaryQuery.data?.outstanding_fees ?? outstandingBalanceFromRecords);
+
+    const totalExpected = Number(
+      (summaryQuery.data && typeof (summaryQuery.data as any).total_billed === 'number')
+        ? (summaryQuery.data as any).total_billed
+        : totalExpectedFromRecords
+    );
+    const totalCollected = Number(
+      (summaryQuery.data && typeof summaryQuery.data?.total_revenue === 'number')
+        ? summaryQuery.data.total_revenue
+        : totalPaidFromRecords
+    );
+    const outstandingFees = Number(
+      (summaryQuery.data && typeof summaryQuery.data?.outstanding_fees === 'number')
+        ? summaryQuery.data.outstanding_fees
+        : outstandingBalanceFromRecords
+    );
 
     const paymentMethodCounts = recentPayments.reduce<Record<string, number>>((acc, payment) => {
       const key = String(payment.payment_method || 'other');
@@ -72,9 +101,21 @@ export function useFeesOverview() {
       return sum + Number(payment.amount || 0);
     }, 0);
 
-    const collectionRate = totalExpected > 0
-      ? Math.round((totalCollected / totalExpected) * 100)
-      : Number(summaryQuery.data?.collection_rate ?? 0);
+    const serverCollectionRate = summaryQuery.data?.collection_rate;
+    const collectionRate =
+      (typeof serverCollectionRate === 'number' && Number.isFinite(serverCollectionRate) && serverCollectionRate > 0)
+        ? Math.round(serverCollectionRate)
+        : (totalExpected > 0
+            ? Math.round((totalCollected / totalExpected) * 100)
+            : 0);
+
+    const serverOverdue =
+      summaryQuery.data && typeof (summaryQuery.data as any).overdue_count === 'number'
+        ? (summaryQuery.data as any).overdue_count
+        : null;
+    const paginatedOverdue = overdueQuery.data?.pagination?.total ?? overdueFees.length;
+    const overdueCount =
+      typeof serverOverdue === 'number' ? Math.max(serverOverdue, paginatedOverdue) : paginatedOverdue;
 
     return {
       totalExpected,
@@ -83,9 +124,9 @@ export function useFeesOverview() {
       collectionRate,
       paymentMethodCounts,
       paymentsLast7Days,
-      overdueCount: overdueFees.length
+      overdueCount
     };
-  }, [feeRecords, overdueFees.length, recentPayments, summaryQuery.data]);
+  }, [feeRecords, overdueFees.length, overdueQuery.data?.pagination?.total, recentPayments, summaryQuery.data]);
 
   return {
     recentPayments,
