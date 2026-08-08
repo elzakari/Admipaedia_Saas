@@ -42,7 +42,7 @@ export function useFeesOverview() {
     queryKey: ['fees', 'summary', 'overview', currentAcademicYear],
     queryFn: () => financialService.getFinancialSummary(undefined, undefined, currentAcademicYear),
     staleTime: 60_000,
-    enabled: currentAcademicYearQuery.status !== 'loading'
+    enabled: !currentAcademicYearQuery.isPending
   });
 
   const recentPayments = useMemo(
