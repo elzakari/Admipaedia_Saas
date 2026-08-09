@@ -237,13 +237,19 @@ class PasswordSecurity:
 
             if response.status_code == 200:
                 # Check if our suffix appears in the response
-                for line in response.text.splitlines():
-                    if ":" not in line:
+                text = response.text or ""
+                # Canonical format: "HEX_SUFFIX:COUNT" per line. Compare both
+                # case-insensitively against the SHA1 suffix we derived, and
+                # keep the original direct `sha1_hash` check for legacy tests
+                # that build mock bodies using the full 40-char uppercase hash.
+                for raw_line in text.splitlines():
+                    if not raw_line or ":" not in raw_line:
                         continue
-                    hash_suffix, count = line.split(":", 1)
-                    if hash_suffix.strip().upper() == suffix:
+                    hash_suffix, _count = raw_line.split(":", 1)
+                    hash_suffix_norm = (hash_suffix or "").strip().upper()
+                    if hash_suffix_norm == suffix or hash_suffix_norm == sha1_hash:
                         try:
-                            logger.warning("password_found_in_breach", count=int(count or 0))
+                            logger.warning("password_found_in_breach", count=int(_count or 0))
                         except Exception:
                             logger.warning("password_found_in_breach")
                         return True

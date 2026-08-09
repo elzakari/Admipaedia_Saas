@@ -90,10 +90,18 @@ api.interceptors.response.use(
     if (status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
       originalRequest._retry = true;
 
+      // Note: declare refreshToken OUTSIDE the try/catch so the catch branch
+      // can use it to decide whether to drop the local session (TS2304 fix).
+      let refreshToken: string | null = null;
       try {
-        const refreshToken =
+        refreshToken =
           localStorage.getItem('refreshToken') ||
-          localStorage.getItem('refresh_token');
+          localStorage.getItem('refresh_token') || null;
+      } catch {
+        refreshToken = null;
+      }
+
+      try {
         if (refreshToken) {
           // Use direct axios call with proper headers
           const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {}, {
@@ -105,8 +113,10 @@ api.interceptors.response.use(
           });
 
           const { access_token } = response.data;
-          localStorage.setItem('token', access_token);
-          localStorage.setItem('access_token', access_token);
+          try {
+            localStorage.setItem('token', access_token);
+            localStorage.setItem('access_token', access_token);
+          } catch {}
 
           // Update the original request with new token
           originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
@@ -114,10 +124,14 @@ api.interceptors.response.use(
         } else {
           // Only drop session if there's no refresh token and the token signature itself is explicitly rejected
           console.warn("🔒 Explicit session expiration encountered.");
-          localStorage.removeItem('token');
-          localStorage.removeItem('access_token');
-          if (!isLoginPage) {
-            window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+          try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
+          } catch {}
+          if (!isLoginPage && typeof window !== 'undefined') {
+            try {
+              window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+            } catch {}
           }
         }
       } catch (refreshError: any) {
