@@ -41,13 +41,28 @@ const SmartReminderPanel = () => {
 
   const { data: overdueResp } = useQuery({
     queryKey: ['fees', 'overdue', 'reminders'],
-    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 50 })
+    queryFn: () => feesService.getOverdueFees({ page: 1, per_page: 100 })
   })
 
   const overdueFees = Array.isArray(overdueResp?.overdue_fees) ? overdueResp.overdue_fees : []
-  const overdueCount = overdueFees.length
-  const totalOverdueBalance = overdueFees.reduce((sum, fee) => sum + Number(fee.balance || 0), 0)
-  const longestOverdueDays = overdueFees.reduce((max, fee) => Math.max(max, Number(fee.days_overdue || 0)), 0)
+  const overdueCount = typeof overdueResp?.pagination?.total === 'number'
+    ? overdueResp.pagination.total
+    : overdueFees.length;
+  const totalOverdueFromResponse =
+    overdueResp?.pagination && typeof overdueResp.pagination.total_overdue_balance === 'number'
+      ? Number(overdueResp.pagination.total_overdue_balance)
+      : null;
+  const totalOverdueBalance = totalOverdueFromResponse !== null
+    ? totalOverdueFromResponse
+    : overdueFees.reduce((sum, fee) => sum + Number(fee.balance || 0), 0);
+  const reminderCurrency =
+    (overdueResp?.pagination?.currency as string | undefined) ||
+    (overdueFees.length ? (overdueFees[0] as any).currency : undefined) ||
+    'USD';
+  const longestOverdueDays = overdueFees.reduce(
+    (max, fee) => Math.max(max, Number(fee.days_overdue || 0)),
+    0
+  );
   const topOverdueAccounts = useMemo(
     () => overdueFees
       .slice()
@@ -112,7 +127,7 @@ const SmartReminderPanel = () => {
             </div>
             <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">
               <div className="text-sm font-medium text-gray-900 dark:text-white">{t('admin_fees.outstanding_balance', 'Solde impayé')}</div>
-              <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(totalOverdueBalance, 'USD')}</div>
+              <div className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{formatCurrency(totalOverdueBalance, reminderCurrency)}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin_fees.reminder_channels', 'Canaux')}: {reminderChannels.join(', ') || '—'}</div>
             </div>
             <div className="rounded-lg border bg-gray-50 dark:bg-slate-800 p-4">

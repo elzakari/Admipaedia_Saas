@@ -616,6 +616,7 @@ class FinancialSummarySchema(Schema):
     outstanding_fees = fields.Decimal(places=2)
     collection_rate = fields.Decimal(places=2)
     overdue_count = fields.Integer()
+    defaulters_count = fields.Integer()
     total_overdue_balance = fields.Decimal(places=2)
     budget_utilization = fields.Decimal(places=2)
 

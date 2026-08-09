@@ -1004,6 +1004,19 @@ def get_overdue_fees_v2():
 
         today = date.today()
 
+        # Security: add tenant + branch scoping (back-compat with NULL branch_id for
+        # historical rows written before the create_fee_record branch_id fix). Without
+        # this filter, the reminders tab and overdue-fees API leak cross-branch /
+        # cross-tenant student PII (names, classes, balances).
+        try:
+            from flask import g as _g
+
+            _tenant_id = getattr(_g, "tenant_id", None)
+            _branch_id = getattr(_g, "branch_id", None)
+        except Exception:
+            _tenant_id = None
+            _branch_id = None
+
         query = (
             StudentFee.query.join(FeeStructure)
             .join(Student)
@@ -1013,6 +1026,14 @@ def get_overdue_fees_v2():
                 FeeStructure.due_date < today,
             )
         )
+        if _tenant_id is not None:
+            query = query.filter(
+                (StudentFee.tenant_id == _tenant_id) | (StudentFee.tenant_id.is_(None))
+            )
+        if _branch_id is not None:
+            query = query.filter(
+                (StudentFee.branch_id == _branch_id) | (StudentFee.branch_id.is_(None))
+            )
         if class_id:
             query = query.filter(Student.class_id == class_id)
         if academic_year:
@@ -1023,10 +1044,18 @@ def get_overdue_fees_v2():
         ).paginate(page=page, per_page=per_page, error_out=False)
 
         overdue_items = []
+        total_overdue_balance = Decimal("0")
         for r in paginated.items:
             due = getattr(r.structure, "due_date", None)
             s = r.student
             cls = getattr(s, "class_", None) if s else None
+            bal = r.balance or Decimal("0")
+            try:
+                total_overdue_balance += (
+                    bal if isinstance(bal, Decimal) else Decimal(str(bal))
+                )
+            except Exception:
+                pass
             overdue_items.append(
                 {
                     "id": r.id,
@@ -1046,7 +1075,7 @@ def get_overdue_fees_v2():
                     ),
                     "total_amount": float(r.final_amount or 0),
                     "paid_amount": float(r.paid_amount or 0),
-                    "balance": float(r.balance or 0),
+                    "balance": float(bal),
                     "currency": _get_school_currency(
                         getattr(getattr(r, "structure", None), "currency", None)
                         or "USD"
@@ -1069,6 +1098,11 @@ def get_overdue_fees_v2():
                         "per_page": paginated.per_page,
                         "next": paginated.next_num,
                         "prev": paginated.prev_num,
+                        "total_overdue_balance": float(total_overdue_balance),
+                        "currency": _get_school_currency(
+                            (overdue_items[0].get("currency") if overdue_items else None)
+                            or "USD"
+                        ),
                     },
                 }
             ),
@@ -1101,6 +1135,19 @@ def send_fee_reminders():
             return jsonify({"success": False, "message": "Unsupported audience"}), 400
 
         today = date.today()
+
+        # Security: scope to current tenant/branch (back-compat with NULL branch_id for
+        # pre-20260809 rows). Without this, a branch-scoped admin sending reminders can
+        # trigger SMS/email to students belonging to OTHER branches.
+        try:
+            from flask import g as _g
+
+            _tenant_id = getattr(_g, "tenant_id", None)
+            _branch_id = getattr(_g, "branch_id", None)
+        except Exception:
+            _tenant_id = None
+            _branch_id = None
+
         q = (
             StudentFee.query.join(FeeStructure)
             .join(Student)
@@ -1110,6 +1157,14 @@ def send_fee_reminders():
                 FeeStructure.due_date < today,
             )
         )
+        if _tenant_id is not None:
+            q = q.filter(
+                (StudentFee.tenant_id == _tenant_id) | (StudentFee.tenant_id.is_(None))
+            )
+        if _branch_id is not None:
+            q = q.filter(
+                (StudentFee.branch_id == _branch_id) | (StudentFee.branch_id.is_(None))
+            )
 
         overdue_records = (
             q.order_by(FeeStructure.due_date.asc(), StudentFee.balance.desc())

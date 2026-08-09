@@ -186,6 +186,10 @@ export function useFeesOverview() {
       paymentsQuery.isLoading ||
       feeRecordsQuery.isLoading ||
       overdueQuery.isLoading ||
-      summaryQuery.isLoading
+      summaryQuery.isLoading,
+    summaryQuery,
+    overdueQuery,
+    paymentsQuery,
+    feeRecordsQuery
   };
 }

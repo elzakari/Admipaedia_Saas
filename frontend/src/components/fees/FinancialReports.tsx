@@ -10,16 +10,25 @@ import { formatCurrency } from '../../lib/utils';
 const FinancialReports = () => {
   const { t } = useTranslation();
   const [reportPeriod, setReportPeriod] = useState('current-term');
-  const { recentPayments, overdueFees, metrics, isLoadingOverview } = useFeesOverview();
+  const { recentPayments, overdueFees, metrics, isLoadingOverview, summaryQuery } = useFeesOverview();
   const totalRevenue = Number(metrics.totalCollected ?? 0);
   const outstanding = Number(metrics.outstandingFees ?? 0);
   const collectionRate = Number(metrics.collectionRate ?? 0);
-  const defaulterCount = overdueFees.length;
-  const recentPaymentsCount = recentPayments.length;
-  const reportCurrency = useMemo(
-    () => overdueFees[0]?.currency || recentPayments[0]?.currency || 'USD',
-    [overdueFees, recentPayments]
+  const serverDefaulters = Number((summaryQuery.data as any)?.defaulters_count ?? NaN);
+  const defaulterCount = Number.isFinite(serverDefaulters) && serverDefaulters > 0
+    ? serverDefaulters
+    : (metrics.overdueCount && metrics.overdueCount > 0 ? metrics.overdueCount : overdueFees.length);
+  const recentPaymentsCount = Number(
+    Number.isFinite(Number((summaryQuery.data as any)?.recent_payments_tracked))
+      ? Number((summaryQuery.data as any).recent_payments_tracked)
+      : recentPayments.length
   );
+  const reportCurrency = useMemo(() => {
+    const fromResp =
+      ((overdueFees as any[])?.[0]?.currency as string | undefined) ||
+      ((recentPayments as any[])?.[0]?.currency as string | undefined);
+    return fromResp || 'XOF';
+  }, [overdueFees, recentPayments]);
 
   const paymentMethodRows = useMemo(
     () => Object.entries(metrics.paymentMethodCounts || {})
