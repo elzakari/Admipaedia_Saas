@@ -121,19 +121,74 @@ api.interceptors.response.use(
           }
         }
       } catch (refreshError: any) {
-        // Only clear tokens if the refresh endpoint explicitly returns 401 or 403
+        // Normalize: refresh failures should never be thrown as an unhandled
+        // promise rejection from the response interceptor, because the caller
+        // may not be awaiting the original axios promise.
         const refreshStatus = refreshError.response ? refreshError.response.status : null;
-        if (refreshStatus === 401 || refreshStatus === 403) {
-          console.warn("🔒 Refresh token explicitly rejected/expired.");
-          localStorage.removeItem('token');
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('refresh_token');
-          if (!isLoginPage) {
-            window.location.href = window.location.pathname.startsWith('/super-admin') ? '/super-admin/login' : '/login';
+        const refreshMsg =
+          (typeof refreshError?.response?.data?.message === 'string'
+            && refreshError.response.data.message.trim())
+          ? refreshError.response.data.message
+          : (typeof refreshError?.response?.data?.error === 'string'
+             && refreshError.response.data.error.trim())
+          ? refreshError.response.data.error
+          : (typeof refreshError?.message === 'string' ? refreshError.message : null);
+        const shouldDrop = (
+          refreshStatus === 401
+          || refreshStatus === 403
+          || (refreshStatus === 400
+              && (refreshMsg === 'Invalid token'
+                  || refreshMsg === 'Token has expired'
+                  || refreshMsg === 'Token has been revoked'))
+          || !refreshToken
+        );
+
+        if (shouldDrop) {
+          console.warn(
+            `🔒 Refresh token rejected/expired (HTTP ${refreshStatus ?? 'N/A'}). Dropping session.`
+            + (refreshMsg ? ` Details: ${refreshMsg}` : '')
+          );
+          try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('csrf_token');
+            localStorage.removeItem('user');
+          } catch {}
+          if (!isLoginPage && typeof window !== 'undefined') {
+            try {
+              window.location.href = window.location.pathname.startsWith('/super-admin')
+                ? '/super-admin/login'
+                : '/login';
+            } catch {}
           }
+        } else {
+          // Network error, 404, 5xx, rate-limit, or transient refresh failure.
+          // Don't drop the local session; surface the original 401 to the caller
+          // so the page can retry or show a toast instead of hard-logging-out.
+          console.warn(
+            `⚠️  Token refresh skipped (HTTP ${refreshStatus ?? 'network'}). `
+            + 'Preserving local session; surface original 401 to caller.',
+            refreshError
+          );
         }
-        return Promise.reject(refreshError);
+
+        // Never throw an unhandled promise rejection out of the refresh
+        // interceptor. Reject with the original error but always with a
+        // try/finally fallback, because the caller chain is often composed
+        // with react-query callbacks that may swallow but should not throw
+        // globally.
+        try {
+          Object.defineProperty(error, 'message', {
+            writable: true, configurable: true, enumerable: false,
+            value: refreshMsg
+              || (typeof error.message === 'string' ? error.message : 'Session refresh failed')
+          });
+        } catch {}
+
+        return Promise.reject(error);
       }
     }
 

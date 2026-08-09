@@ -259,21 +259,57 @@ def _configure_jwt(app):
     def expired_token_callback(jwt_header, jwt_payload):
         """Handle expired tokens"""
         log_security_event("expired_token_access", {"jti": jwt_payload.get("jti")})
-        return jsonify({"error": "Token has expired"}), 401
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Token has expired",
+                    "message": "Your session has expired. Please log in again.",
+                }
+            ),
+            401,
+        )
 
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
         """Handle invalid tokens"""
         log_security_event("invalid_token_access", {"error": str(error)})
-        return jsonify({"error": "Invalid token"}), 401
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Invalid token",
+                    "message": "Your session token is invalid. Please log in again.",
+                }
+            ),
+            401,
+        )
 
     @jwt.unauthorized_loader
     def missing_token_callback(error):
         """Handle missing tokens"""
-        return jsonify({"error": "Authorization token is required"}), 401
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Authorization token is required",
+                    "message": "Authorization token is required. Please log in.",
+                }
+            ),
+            401,
+        )
 
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
         """Handle revoked tokens"""
         log_security_event("revoked_token_access", {"jti": jwt_payload.get("jti")})
-        return jsonify({"error": "Token has been revoked"}), 401
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Token has been revoked",
+                    "message": "Your session has been revoked. Please log in again.",
+                }
+            ),
+            401,
+        )

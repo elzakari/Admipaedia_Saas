@@ -227,15 +227,25 @@ class PasswordSecurity:
             suffix = sha1_hash[5:]
 
             # Query HaveIBeenPwned API
+            #
+            # Timeout is (connect_timeout, read_timeout) — we keep both aggressively
+            # low (1.5s + 1.5s) so that a firewall egress drop or slow TLS handshake
+            # cannot push a login/register/change-password call past the reverse-proxy
+            # 60s gateway timeout (which would surface to the browser as HTTP 504).
             url = f"https://api.pwnedpasswords.com/range/{prefix}"
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=(1.5, 1.5))
 
             if response.status_code == 200:
                 # Check if our suffix appears in the response
                 for line in response.text.splitlines():
-                    hash_suffix, count = line.split(":")
-                    if hash_suffix == suffix or hash_suffix == sha1_hash:
-                        logger.warning("password_found_in_breach", count=int(count))
+                    if ":" not in line:
+                        continue
+                    hash_suffix, count = line.split(":", 1)
+                    if hash_suffix.strip().upper() == suffix:
+                        try:
+                            logger.warning("password_found_in_breach", count=int(count or 0))
+                        except Exception:
+                            logger.warning("password_found_in_breach")
                         return True
 
             return False
