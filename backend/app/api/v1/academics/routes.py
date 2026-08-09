@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
 
 from app.api.v1.academics import academics_bp
-from app.extensions import logger
+from app.extensions import db, logger
+from app.models.academic_calendar import AcademicYear, Term
 from app.models.educational_level import CoreCompetency, EducationalLevel
 from app.schemas.curriculum import (CurriculumCreateSchema,
                                     CurriculumListSchema, CurriculumSchema,
@@ -32,6 +33,86 @@ educational_level_schema = EducationalLevelSchema()
 educational_levels_schema = EducationalLevelSchema(many=True)
 core_competency_schema = CoreCompetencySchema()
 core_competencies_schema = CoreCompetencySchema(many=True)
+
+
+def _serialize_academic_year(y: AcademicYear) -> dict:
+    return {
+        "id": int(y.id),
+        "name": y.name,
+        "start_date": y.start_date.isoformat() if y.start_date else None,
+        "end_date": y.end_date.isoformat() if y.end_date else None,
+        "is_current": bool(y.is_current),
+        "created_at": y.created_at.isoformat() if y.created_at else None,
+        "updated_at": y.updated_at.isoformat() if y.updated_at else None,
+    }
+
+
+def _serialize_term(t: Term) -> dict:
+    return {
+        "id": int(t.id),
+        "name": t.name,
+        "academic_year_id": int(t.academic_year_id),
+        "start_date": t.start_date.isoformat() if t.start_date else None,
+        "end_date": t.end_date.isoformat() if t.end_date else None,
+        "is_current": bool(t.is_current),
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+
+
+@academics_bp.route("/academic-years", methods=["GET"])
+@jwt_required()
+def list_academic_years():
+    """Return all AcademicYear rows ordered by start_date desc."""
+    try:
+        rows = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+        return (
+            jsonify({"success": True, "data": [_serialize_academic_year(y) for y in rows]}),
+            200,
+        )
+    except Exception as e:
+        logger.error("Error listing academic years", error=str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/academic-years/current", methods=["GET"])
+@jwt_required()
+def get_current_academic_year():
+    """Return the AcademicYear marked is_current=True, or the most recent one."""
+    try:
+        current = AcademicYear.query.filter_by(is_current=True).order_by(
+            AcademicYear.start_date.desc()
+        ).first()
+        if current is None:
+            current = AcademicYear.query.order_by(AcademicYear.start_date.desc()).first()
+        if current is None:
+            return (
+                jsonify({"success": False, "message": "No academic years configured"}),
+                404,
+            )
+        return jsonify({"success": True, "data": _serialize_academic_year(current)}), 200
+    except Exception as e:
+        logger.error("Error fetching current academic year", error=str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/terms/current", methods=["GET"])
+@jwt_required()
+def get_current_term():
+    """Return the Term marked is_current=True, or the most recent."""
+    try:
+        current = Term.query.filter_by(is_current=True).order_by(Term.start_date.desc()).first()
+        if current is None:
+            current = Term.query.order_by(Term.start_date.desc()).first()
+        if current is None:
+            return (
+                jsonify({"success": False, "message": "No terms configured"}),
+                404,
+            )
+        return jsonify({"success": True, "data": _serialize_term(current)}), 200
+    except Exception as e:
+        logger.error("Error fetching current term", error=str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 @academics_bp.route("/educational-levels", methods=["GET"])

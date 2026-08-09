@@ -174,6 +174,29 @@ api_v1_bp.add_url_rule(
     methods=["GET"],
 )
 
+from app.api.v1.academics.routes import (get_current_academic_year,
+                                         get_current_term,
+                                         list_academic_years)
+
+api_v1_bp.add_url_rule(
+    "/academic-years",
+    "list_academic_years_alias",
+    list_academic_years,
+    methods=["GET"],
+)
+api_v1_bp.add_url_rule(
+    "/academic-years/current",
+    "get_current_academic_year_alias",
+    get_current_academic_year,
+    methods=["GET"],
+)
+api_v1_bp.add_url_rule(
+    "/terms/current",
+    "get_current_term_alias",
+    get_current_term,
+    methods=["GET"],
+)
+
 from app.api.v1.dashboard.routes import (get_admin_dashboard_analytics,
                                          get_admin_dashboard_metrics)
 

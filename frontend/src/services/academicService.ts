@@ -209,26 +209,37 @@ const academicService = {
   getAcademicYears: async (): Promise<AcademicYear[]> => {
     try {
       const response = await api.get('/academic-years');
-      return response.data;
-    } catch (error) {
+      const list: any = response?.data?.data;
+      if (Array.isArray(list)) return list;
+      if (Array.isArray(response?.data)) return response.data;
+      return [];
+    } catch (error: any) {
       console.error('Error fetching academic years:', error);
-      throw error;
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) throw error;
+      return [];
     }
   },
 
-  getCurrentAcademicYear: async (): Promise<AcademicYear> => {
+  getCurrentAcademicYear: async (): Promise<AcademicYear | undefined> => {
     try {
       const response = await api.get('/academic-years/current');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching current academic year:', error);
-      throw error;
+      const data: any = response?.data?.data;
+      if (data && typeof data === 'object') return data;
+      return undefined;
+    } catch (error: any) {
+      console.warn('Error fetching current academic year:', error?.message || error);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) throw error;
+      return undefined;
     }
   },
 
   createAcademicYear: async (yearData: Omit<AcademicYear, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicYear> => {
     try {
       const response = await api.post('/academic-years', yearData);
+      const data: any = response?.data?.data;
+      if (data && typeof data === 'object') return data;
       return response.data;
     } catch (error) {
       console.error('Error creating academic year:', error);
@@ -241,20 +252,29 @@ const academicService = {
     try {
       const params = academicYearId ? { academic_year_id: academicYearId } : {};
       const response = await api.get('/terms', { params });
-      return response.data;
+      const data: any = response?.data?.data;
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(response?.data)) return response.data;
+      return [];
     } catch (error) {
       console.error('Error fetching terms:', error);
-      throw error;
+      const status = (error as any)?.response?.status;
+      if (status === 401 || status === 403) throw error;
+      return [];
     }
   },
 
-  getCurrentTerm: async (): Promise<Term> => {
+  getCurrentTerm: async (): Promise<Term | undefined> => {
     try {
       const response = await api.get('/terms/current');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching current term:', error);
-      throw error;
+      const data: any = response?.data?.data;
+      if (data && typeof data === 'object') return data;
+      return undefined;
+    } catch (error: any) {
+      console.warn('Error fetching current term:', error?.message || error);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) throw error;
+      return undefined;
     }
   },
 
