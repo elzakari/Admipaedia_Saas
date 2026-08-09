@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, BookOpen, Clipboard, CreditCard, MessageSquare } from 'lucide-react';
+import { BarChart3, BookOpen, Clipboard, CreditCard, FileText, MessageSquare } from 'lucide-react';
 
 interface StudentTelemetryTabsProps {
   currentStudentId: string;
@@ -30,6 +30,7 @@ export const StudentTelemetryTabs: React.FC<StudentTelemetryTabsProps> = ({ curr
     { id: 'academics', label: t('parent_portal.my_children.tabs.academics', 'Academics'), icon: BookOpen },
     { id: 'attendance', label: t('parent_portal.my_children.tabs.attendance', 'Attendance'), icon: Clipboard },
     { id: 'fees', label: t('parent_portal.my_children.tabs.fees', 'Pending Fees'), icon: CreditCard },
+    { id: 'lessons', label: t('parent_portal.my_children.tabs.lessons', 'Daily Lessons'), icon: FileText },
     { id: 'messages', label: t('parent_portal.my_children.tabs.messages', 'Messages'), icon: MessageSquare },
   ];
 

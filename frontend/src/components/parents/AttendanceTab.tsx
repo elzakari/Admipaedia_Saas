@@ -60,7 +60,7 @@ const AttendanceTab = ({ currentAttendanceData }: AttendanceTabProps) => {
                       </div>
                     </div>
                     <Badge variant={record.status === "Excused" ? "secondary" : "destructive"}>
-                      {t(`parent_portal.my_children.status_${record.status.toLowerCase()}`, record.status)}
+                      {String(t(`parent_portal.my_children.status_${record.status.toLowerCase()}`, record.status))}
                     </Badge>
                   </div>
                 ))}

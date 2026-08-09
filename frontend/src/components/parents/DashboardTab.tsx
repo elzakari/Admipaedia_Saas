@@ -13,6 +13,7 @@ import parentService from '../../services/parentService';
 import { useWebSocket } from '../../services/websocketService';
 import { useCallback } from 'react';
 import { useTranslation } from "react-i18next";
+import { formatCurrency } from "../../lib/utils";
 
 interface DashboardTabProps {
   currentChild: any;
@@ -199,10 +200,22 @@ function DashboardTab({
     ...(dashboardData?.feeData ?? {})
   };
   const homeworkData = dashboardData?.homeworkData ?? initialHomeworkData;
+  const unifiedFeeCurrency = String(feeData?.currency || currency || 'USD').toUpperCase();
+  const unifiedFeeAmount = Number(feeData?.balance ?? feeData?.due ?? feeData?.pending_amount ?? feeData?.amount ?? 0);
+  const hasAttendanceTelemetry =
+    Number(attendanceData?.present ?? 0) > 0 ||
+    Number(attendanceData?.absent ?? 0) > 0 ||
+    (Array.isArray(attendanceData?.monthlyAttendance) && attendanceData.monthlyAttendance.length > 0) ||
+    Number(attendanceData?.percentage ?? attendanceData?.attendancePercentage ?? 0) > 0;
+  const hasFeeTelemetry = unifiedFeeAmount !== 0 || Number(feeData?.total_fees ?? feeData?.totalFee ?? 0) > 0;
+  const hasAcademicTelemetry =
+    Number(academicData?.overallPercentage ?? 0) > 0 ||
+    (Array.isArray(academicData?.subjects) && academicData.subjects.length > 0);
   const pendingHomeworkCount = Array.isArray(homeworkData)
     ? homeworkData.filter((item: any) => item.status === 'pending').length
     : 0;
-  
+  const hasHomework = (homeworkData?.length ?? 0) > 0;
+
   return (
     <>
       {/* Quick stats */}
@@ -220,6 +233,11 @@ function DashboardTab({
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{academicData?.overallPercentage || 0}%</h3>
               <p className="text-sm text-indigo-700">{t('parent_portal.my_children.academic_average', 'Academic Average')}</p>
+              {!hasAcademicTelemetry && (
+                <p className="text-[11px] text-gray-400 italic mt-1">
+                  {t('parent_portal.my_children.no_grades_yet', 'No graded assessments yet this term')}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -237,6 +255,11 @@ function DashboardTab({
             <div className="mt-3">
               <h3 className="text-2xl font-bold text-indigo-900">{attendanceData?.percentage || 0}%</h3>
               <p className="text-sm text-indigo-700">{t('parent_portal.my_children.attendance_rate', 'Attendance Rate')}</p>
+              {!hasAttendanceTelemetry && (
+                <p className="text-[11px] text-gray-400 italic mt-1">
+                  {t('parent_portal.my_children.no_attendance_yet', 'No attendance marks yet this term')}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -248,17 +271,20 @@ function DashboardTab({
                 <CreditCard className="h-5 w-5 text-yellow-600" />
               </div>
               <Badge variant={
+                !hasFeeTelemetry ? 'outline' :
                 feeData?.status === 'paid' ? 'success' :
                 feeData?.status === 'partial' || feeData?.status === 'pending' ? 'warning' :
                 feeData?.status === 'overdue' ? 'destructive' : 'outline'
               } className="text-xs">
-                {feeData?.status 
-                  ? (t(`parent_portal.my_children.fee_status_${feeData.status}`, String(feeData.status)) as string)
-                  : (t('parent_portal.my_children.fee_status_unknown', 'Unknown') as string)}
+                {!hasFeeTelemetry
+                  ? t('parent_portal.my_children.no_fee_data', 'No data')
+                  : feeData?.status
+                    ? (t(`parent_portal.my_children.fee_status_${feeData.status}`, String(feeData.status)) as string)
+                    : (t('parent_portal.my_children.fee_status_unknown', 'Unknown') as string)}
               </Badge>
             </div>
             <div className="mt-3">
-              <h3 className="text-2xl font-bold text-indigo-900">{currency} {feeData?.amount || 0}</h3>
+              <h3 className="text-2xl font-bold text-indigo-900">{formatCurrency(unifiedFeeAmount, unifiedFeeCurrency)}</h3>
               <p className="text-sm text-indigo-700">{t('parent_portal.my_children.fee_status_label', 'Fee Status')}</p>
             </div>
           </CardContent>
@@ -271,9 +297,11 @@ function DashboardTab({
                 <FileText className="h-5 w-5 text-purple-600" />
               </div>
               <Badge variant="outline" className="text-xs">
-                {pendingHomeworkCount > 0
-                  ? `${pendingHomeworkCount} ${t('parent_portal.my_children.pending_label', 'Pending')}`
-                  : t('parent_portal.my_children.assignments_label', 'Assignments')}
+                {!hasHomework
+                  ? t('parent_portal.my_children.no_homework_yet', 'None yet')
+                  : pendingHomeworkCount > 0
+                    ? `${pendingHomeworkCount} ${t('parent_portal.my_children.pending_label', 'Pending')}`
+                    : t('parent_portal.my_children.assignments_label', 'Assignments')}
               </Badge>
             </div>
             <div className="mt-3">
@@ -317,7 +345,7 @@ function DashboardTab({
                       }
                       className="capitalize"
                     >
-                      {t(`parent_portal.my_children.status_${assignment.status}`, assignment.status)}
+                      {String(t(`parent_portal.my_children.status_${assignment.status}`, assignment.status))}
                     </Badge>
                   </div>
                   {assignment.score != null ? (
@@ -330,7 +358,15 @@ function DashboardTab({
               ))}
             </div>
           ) : (
-            <div className="text-sm text-indigo-700">{t('parent_portal.my_children.no_assignments', 'No assignments available for this child yet.')}</div>
+            <div className="rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 py-10 text-center">
+              <FileText className="mx-auto h-10 w-10 text-indigo-400/70 mb-3" />
+              <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                {t('parent_portal.my_children.no_assignments_title', 'No homework yet')}
+              </p>
+              <p className="text-xs text-indigo-500 mt-1 max-w-xs mx-auto">
+                {t('parent_portal.my_children.no_assignments_desc', 'Assignments will appear here once the teacher publishes homework for this class.')}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

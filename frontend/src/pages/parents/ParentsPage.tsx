@@ -513,7 +513,7 @@ export default function ParentsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="flex-1 flex flex-col min-h-0 p-4 sm:p-6 space-y-6 w-full">
       {/* Breadcrumb navigation */}
       <div className="flex items-center text-sm text-indigo-700 mb-2">
         <Link to="/parent/dashboard" className="flex items-center hover:text-indigo-900">
@@ -614,18 +614,32 @@ export default function ParentsPage() {
 
           {/* Main content area */}
           <div className="lg:w-3/4">
-            <StudentTelemetryTabs currentStudentId={currentChild?.id || ""} />
             <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-2">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="academics">Academics</TabsTrigger>
-                <TabsTrigger value="attendance">Attendance</TabsTrigger>
-                <TabsTrigger value="fees">Fees</TabsTrigger>
+                <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Dashboard
+                </TabsTrigger>
+                <TabsTrigger value="academics" className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Academics
+                </TabsTrigger>
+                <TabsTrigger value="attendance" className="flex items-center gap-2">
+                  <Clipboard className="h-4 w-4" />
+                  Attendance
+                </TabsTrigger>
+                <TabsTrigger value="fees" className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Fees
+                </TabsTrigger>
                 <TabsTrigger value="lessons" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Daily Lessons
                 </TabsTrigger>
-                <TabsTrigger value="messages">Messages</TabsTrigger>
+                <TabsTrigger value="messages" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Messages
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="dashboard">

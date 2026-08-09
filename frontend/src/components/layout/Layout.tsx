@@ -402,12 +402,14 @@ export function Layout({ children, hideHeader }: LayoutProps) {
 
             {/* Main content area with dynamic padding */}
             <main className={cn(
-              "flex-1 overflow-y-auto",
+              "flex-1 min-h-0 flex flex-col overflow-y-auto",
               !effectiveHideHeader && "px-3 py-4 sm:p-4 lg:p-6",
               sidebarCollapsed ? 'md:pl-4' : 'md:pl-6',
               isCasaos && "bg-transparent"
             )}>
-              {children}
+              <div className="flex-1 flex flex-col min-w-0 w-full">
+                {children}
+              </div>
             </main>
 
             {/* Footer */}
