@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.auth_service import AuthService
@@ -40,6 +40,9 @@ def get_comprehensive_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = (
             EnhancedAcademicAnalyticsService.get_comprehensive_dashboard_analytics(
                 user_id=user_id,
@@ -48,6 +51,8 @@ def get_comprehensive_analytics():
                 date_to=date_to,
                 class_id=class_id,
                 subject_id=subject_id,
+                tenant_id=tenant_id,
+                branch_id=branch_id,
             )
         )
 
@@ -75,11 +80,16 @@ def get_admin_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = EnhancedAcademicAnalyticsService._get_admin_analytics(
             date_from=datetime.strptime(date_from, "%Y-%m-%d"),
             date_to=datetime.strptime(date_to, "%Y-%m-%d"),
             class_id=class_id,
             subject_id=subject_id,
+            tenant_id=tenant_id,
+            branch_id=branch_id,
         )
 
         return jsonify(analytics)
@@ -115,12 +125,17 @@ def get_teacher_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = EnhancedAcademicAnalyticsService._get_teacher_analytics(
             user_id=target_user_id,
             date_from=datetime.strptime(date_from, "%Y-%m-%d"),
             date_to=datetime.strptime(date_to, "%Y-%m-%d"),
             class_id=class_id,
             subject_id=subject_id,
+            tenant_id=tenant_id,
+            branch_id=branch_id,
         )
 
         return jsonify(analytics)
@@ -150,10 +165,15 @@ def get_student_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = EnhancedAcademicAnalyticsService._get_student_analytics(
             user_id=target_user_id,
             date_from=datetime.strptime(date_from, "%Y-%m-%d"),
             date_to=datetime.strptime(date_to, "%Y-%m-%d"),
+            tenant_id=tenant_id,
+            branch_id=branch_id,
         )
 
         return jsonify(analytics)
@@ -179,10 +199,15 @@ def get_parent_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = EnhancedAcademicAnalyticsService._get_parent_analytics(
             user_id=user_id,
             date_from=datetime.strptime(date_from, "%Y-%m-%d"),
             date_to=datetime.strptime(date_to, "%Y-%m-%d"),
+            tenant_id=tenant_id,
+            branch_id=branch_id,
         )
 
         return jsonify(analytics)
@@ -213,6 +238,9 @@ def get_performance_trends():
             date_to = datetime.now().strftime("%Y-%m-%d")
 
         # Get comprehensive analytics and extract trend data
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = (
             EnhancedAcademicAnalyticsService.get_comprehensive_dashboard_analytics(
                 user_id=user_id,
@@ -221,6 +249,8 @@ def get_performance_trends():
                 date_to=date_to,
                 class_id=class_id,
                 subject_id=subject_id,
+                tenant_id=tenant_id,
+                branch_id=branch_id,
             )
         )
 
@@ -284,12 +314,17 @@ def export_analytics():
         if not date_to:
             date_to = datetime.now().strftime("%Y-%m-%d")
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics = (
             EnhancedAcademicAnalyticsService.get_comprehensive_dashboard_analytics(
                 user_id=user_id,
                 user_role=user_role,
                 date_from=date_from,
                 date_to=date_to,
+                tenant_id=tenant_id,
+                branch_id=branch_id,
             )
         )
 

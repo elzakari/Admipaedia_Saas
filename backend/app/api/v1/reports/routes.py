@@ -186,8 +186,8 @@ def _get_transcript_year_subject_results(student_id, academic_year):
     )
 
 
-def _get_class_subject_performance(class_id, term, academic_year):
-    final_grades = (
+def _get_class_subject_performance(class_id, term, academic_year, tenant_id=None, branch_id=None):
+    final_grades_query = (
         db.session.query(
             Subject.name.label("subject_name"),
             func.avg(FinalGrade.final_percentage).label("class_average"),
@@ -201,14 +201,34 @@ def _get_class_subject_performance(class_id, term, academic_year):
             FinalGrade.term == term,
             FinalGrade.academic_year == academic_year,
         )
-        .group_by(Subject.id, Subject.name)
-        .all()
     )
+
+    if tenant_id is not None:
+        if hasattr(FinalGrade, "tenant_id"):
+            final_grades_query = final_grades_query.filter(
+                (FinalGrade.tenant_id == tenant_id) | (FinalGrade.tenant_id.is_(None))
+            )
+        else:
+            if "Student" not in [m.class_.__name__ for m in final_grades_query.column_descriptions if hasattr(m, 'class_')]:
+                final_grades_query = final_grades_query.join(Student, FinalGrade.student_id == Student.id)
+            final_grades_query = final_grades_query.filter(Student.tenant_id == tenant_id)
+    if branch_id is not None:
+        if hasattr(FinalGrade, "branch_id"):
+            final_grades_query = final_grades_query.filter(
+                (FinalGrade.branch_id == branch_id) | (FinalGrade.branch_id.is_(None))
+            )
+        elif "Student" in [m.class_.__name__ for m in final_grades_query.column_descriptions if hasattr(m, 'class_')] or tenant_id is not None:
+            final_grades_query = final_grades_query.filter(
+                (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+            )
+
+    final_grades_query = final_grades_query.group_by(Subject.id, Subject.name)
+    final_grades = final_grades_query.all()
 
     if final_grades:
         return final_grades
 
-    return (
+    enhanced_query = (
         db.session.query(
             Subject.name.label("subject_name"),
             func.avg(EnhancedGrade.raw_score).label("class_average"),
@@ -223,13 +243,22 @@ def _get_class_subject_performance(class_id, term, academic_year):
             EnhancedGrade.term == term,
             EnhancedGrade.academic_year == academic_year,
         )
-        .group_by(Subject.id, Subject.name)
-        .all()
     )
+
+    if tenant_id is not None:
+        enhanced_query = enhanced_query.filter(Student.tenant_id == tenant_id)
+    if branch_id is not None:
+        enhanced_query = enhanced_query.filter(
+            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+        )
+
+    enhanced_query = enhanced_query.group_by(Subject.id, Subject.name)
+    return enhanced_query.all()
 
 
 @reports_bp.route("/academic-years", methods=["GET"])
 @jwt_required()
+@tenant_required
 @teacher_required
 def get_academic_years():
     years = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
@@ -281,6 +310,7 @@ def send_student_report_email(student_id):
 
 @reports_bp.route("/administrative", methods=["GET"])
 @jwt_required()
+@tenant_required
 @admin_required
 def get_administrative_report():
     """Generates administrative report data."""
@@ -296,7 +326,11 @@ def get_administrative_report():
         if date_to_str:
             date_to = datetime.fromisoformat(date_to_str.split("T")[0]).date()
 
-        data = ReportService.get_administrative_report_data(date_from, date_to)
+        data = ReportService.get_administrative_report_data(
+            date_from, date_to,
+            tenant_id=g.tenant_id,
+            branch_id=getattr(g, "branch_id", None)
+        )
 
         return (
             jsonify(
@@ -320,6 +354,7 @@ def get_administrative_report():
 
 @reports_bp.route("/financial", methods=["GET"])
 @jwt_required()
+@tenant_required
 @admin_required
 def get_financial_report():
     """Generates financial report data."""
@@ -335,7 +370,11 @@ def get_financial_report():
         if date_to_str:
             date_to = datetime.fromisoformat(date_to_str.split("T")[0]).date()
 
-        data = ReportService.get_financial_report_data(date_from, date_to)
+        data = ReportService.get_financial_report_data(
+            date_from, date_to,
+            tenant_id=g.tenant_id,
+            branch_id=getattr(g, "branch_id", None)
+        )
 
         return (
             jsonify(
@@ -357,6 +396,7 @@ def get_financial_report():
 
 @reports_bp.route("/custom", methods=["POST"])
 @jwt_required()
+@tenant_required
 def generate_custom_report():
     """Generate a custom report based on JSON configuration."""
     try:
@@ -367,7 +407,11 @@ def generate_custom_report():
                 400,
             )
 
-        report_data = ReportService.generate_custom_report_data(config)
+        report_data = ReportService.generate_custom_report_data(
+            config,
+            tenant_id=g.tenant_id,
+            branch_id=getattr(g, "branch_id", None)
+        )
 
         # Save report configuration/results if needed (placeholder for now)
         # In a real app, we might store this in a 'generated_reports' table
@@ -817,14 +861,23 @@ def generate_student_transcript(student_id):
 
 @reports_bp.route("/class/<int:class_id>/performance-summary", methods=["GET"])
 @jwt_required()
+@tenant_required
 def generate_class_performance_summary(class_id):
     """Generate class performance summary report"""
     try:
         term = request.args.get("term", "Term 1")
         academic_year = request.args.get("academic_year", "2024/2025")
+        tenant_id = g.tenant_id
+        branch_id = getattr(g, "branch_id", None)
 
-        # Get class students
-        students = Student.query.filter_by(class_id=class_id).all()
+        # Get class students (scoped)
+        student_query = Student.query.filter(Student.class_id == class_id)
+        student_query = student_query.filter(Student.tenant_id == tenant_id)
+        if branch_id is not None:
+            student_query = student_query.filter(
+                (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+            )
+        students = student_query.all()
 
         if not students:
             return (
@@ -834,11 +887,14 @@ def generate_class_performance_summary(class_id):
                 404,
             )
 
-        # Get class performance data
-        class_grades = _get_class_subject_performance(class_id, term, academic_year)
+        # Get class performance data (scoped)
+        class_grades = _get_class_subject_performance(
+            class_id, term, academic_year,
+            tenant_id=tenant_id, branch_id=branch_id
+        )
 
-        # Get attendance summary
-        attendance_summary = (
+        # Get attendance summary (scoped)
+        attendance_query = (
             db.session.query(
                 func.avg(
                     func.cast(Attendance.status == "present", db.Integer) * 100
@@ -846,8 +902,17 @@ def generate_class_performance_summary(class_id):
             )
             .join(Student, Attendance.student_id == Student.id)
             .filter(Student.class_id == class_id)
-            .first()
+            .filter(Student.tenant_id == tenant_id)
         )
+        if branch_id is not None:
+            attendance_query = attendance_query.filter(
+                (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+            )
+            if hasattr(Attendance, "branch_id"):
+                attendance_query = attendance_query.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+        attendance_summary = attendance_query.first()
 
         summary_data = {
             "class_info": {

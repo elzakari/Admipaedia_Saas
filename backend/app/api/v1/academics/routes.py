@@ -65,7 +65,14 @@ def _serialize_term(t: Term) -> dict:
 def list_academic_years():
     """Return all AcademicYear rows ordered by start_date desc."""
     try:
-        rows = AcademicYear.query.order_by(AcademicYear.start_date.desc()).all()
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        query = AcademicYear.query
+        if tenant_id is not None and hasattr(AcademicYear, 'tenant_id'):
+            query = query.filter((AcademicYear.tenant_id == tenant_id) | (AcademicYear.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(AcademicYear, 'branch_id'):
+            query = query.filter((AcademicYear.branch_id == branch_id) | (AcademicYear.branch_id.is_(None)))
+        rows = query.order_by(AcademicYear.start_date.desc()).all()
         return (
             jsonify({"success": True, "data": [_serialize_academic_year(y) for y in rows]}),
             200,
@@ -80,11 +87,21 @@ def list_academic_years():
 def get_current_academic_year():
     """Return the AcademicYear marked is_current=True, or the most recent one."""
     try:
-        current = AcademicYear.query.filter_by(is_current=True).order_by(
-            AcademicYear.start_date.desc()
-        ).first()
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        query = AcademicYear.query.filter_by(is_current=True)
+        if tenant_id is not None and hasattr(AcademicYear, 'tenant_id'):
+            query = query.filter((AcademicYear.tenant_id == tenant_id) | (AcademicYear.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(AcademicYear, 'branch_id'):
+            query = query.filter((AcademicYear.branch_id == branch_id) | (AcademicYear.branch_id.is_(None)))
+        current = query.order_by(AcademicYear.start_date.desc()).first()
         if current is None:
-            current = AcademicYear.query.order_by(AcademicYear.start_date.desc()).first()
+            fallback_query = AcademicYear.query
+            if tenant_id is not None and hasattr(AcademicYear, 'tenant_id'):
+                fallback_query = fallback_query.filter((AcademicYear.tenant_id == tenant_id) | (AcademicYear.tenant_id.is_(None)))
+            if branch_id is not None and hasattr(AcademicYear, 'branch_id'):
+                fallback_query = fallback_query.filter((AcademicYear.branch_id == branch_id) | (AcademicYear.branch_id.is_(None)))
+            current = fallback_query.order_by(AcademicYear.start_date.desc()).first()
         if current is None:
             return (
                 jsonify({"success": False, "message": "No academic years configured"}),
@@ -101,9 +118,21 @@ def get_current_academic_year():
 def get_current_term():
     """Return the Term marked is_current=True, or the most recent."""
     try:
-        current = Term.query.filter_by(is_current=True).order_by(Term.start_date.desc()).first()
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        query = Term.query.filter_by(is_current=True)
+        if tenant_id is not None and hasattr(Term, 'tenant_id'):
+            query = query.filter((Term.tenant_id == tenant_id) | (Term.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Term, 'branch_id'):
+            query = query.filter((Term.branch_id == branch_id) | (Term.branch_id.is_(None)))
+        current = query.order_by(Term.start_date.desc()).first()
         if current is None:
-            current = Term.query.order_by(Term.start_date.desc()).first()
+            fallback_query = Term.query
+            if tenant_id is not None and hasattr(Term, 'tenant_id'):
+                fallback_query = fallback_query.filter((Term.tenant_id == tenant_id) | (Term.tenant_id.is_(None)))
+            if branch_id is not None and hasattr(Term, 'branch_id'):
+                fallback_query = fallback_query.filter((Term.branch_id == branch_id) | (Term.branch_id.is_(None)))
+            current = fallback_query.order_by(Term.start_date.desc()).first()
         if current is None:
             return (
                 jsonify({"success": False, "message": "No terms configured"}),
@@ -120,7 +149,11 @@ def get_current_term():
 def get_educational_levels():
     """Get all educational levels."""
     try:
-        levels = EducationalLevel.query.filter_by(is_active=True).all()
+        tenant_id = getattr(g, "tenant_id", None)
+        query = EducationalLevel.query.filter_by(is_active=True)
+        if tenant_id is not None and hasattr(EducationalLevel, 'tenant_id'):
+            query = query.filter(EducationalLevel.tenant_id == tenant_id)
+        levels = query.all()
         return (
             jsonify(
                 {"success": True, "levels": educational_levels_schema.dump(levels)}
@@ -191,7 +224,11 @@ def get_standard_grade_levels():
 def get_core_competencies():
     """Get all core competencies."""
     try:
-        competencies = CoreCompetency.query.filter_by(is_active=True).all()
+        tenant_id = getattr(g, "tenant_id", None)
+        query = CoreCompetency.query.filter_by(is_active=True)
+        if tenant_id is not None and hasattr(CoreCompetency, 'tenant_id'):
+            query = query.filter(CoreCompetency.tenant_id == tenant_id)
+        competencies = query.all()
         return (
             jsonify(
                 {
@@ -1167,3 +1204,330 @@ def get_academics_subjects():
         ),
         200,
     )
+
+
+@academics_bp.route("/class-performance", methods=["GET"])
+@jwt_required()
+@tenant_required
+def academics_class_performance():
+    """Proxy to EnhancedAcademicAnalyticsService comprehensive dashboard analytics."""
+    try:
+        from flask_jwt_extended import get_jwt_identity
+
+        from app.models.user import User
+        from app.services.enhanced_academic_analytics_service import \
+            EnhancedAcademicAnalyticsService
+
+        user_id = get_jwt_identity()
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
+        if user_id is not None and hasattr(User, 'tenant_id'):
+            user_obj = (
+                User.query
+                .filter(User.id == user_id)
+                .filter(
+                    (User.tenant_id == tenant_id) | (User.tenant_id.is_(None))
+                    if tenant_id is not None else True
+                )
+                .first()
+            ) if tenant_id is not None else User.query.filter(User.id == user_id).first()
+        else:
+            user_obj = User.query.filter(User.id == user_id).first() if user_id else None
+
+        if not user_obj:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        user_role = (
+            user_obj.roles[0].name
+            if getattr(user_obj, "roles", None) and len(user_obj.roles) > 0
+            else (getattr(user_obj, "role", None) or "admin")
+        )
+
+        date_from = request.args.get("date_from")
+        date_to = request.args.get("date_to")
+        class_id = request.args.get("class_id", type=int)
+        subject_id = request.args.get("subject_id", type=int)
+
+        result = EnhancedAcademicAnalyticsService.get_comprehensive_dashboard_analytics(
+            user_id=user_id,
+            user_role=user_role,
+            date_from=date_from,
+            date_to=date_to,
+            class_id=class_id,
+            subject_id=subject_id,
+            tenant_id=tenant_id,
+            branch_id=branch_id,
+        )
+        return jsonify({"success": True, "data": result}), 200
+    except Exception as e:
+        logger.error(f"Error in academics class-performance route: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/performance-trends", methods=["GET"])
+@jwt_required()
+@tenant_required
+def academics_performance_trends():
+    """Proxy to EnhancedAcademicAnalyticsService performance trends calculation."""
+    try:
+        from datetime import datetime, timedelta
+
+        from app.models.grade import Grade
+        from app.services.enhanced_academic_analytics_service import \
+            EnhancedAcademicAnalyticsService
+
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
+        date_from_str = request.args.get("date_from")
+        date_to_str = request.args.get("date_to")
+        class_id = request.args.get("class_id", type=int)
+        student_id = request.args.get("student_id", type=int)
+
+        if date_from_str:
+            date_from = datetime.fromisoformat(date_from_str.replace("Z", "+00:00"))
+        else:
+            date_from = datetime.now() - timedelta(days=90)
+        if date_to_str:
+            date_to = datetime.fromisoformat(date_to_str.replace("Z", "+00:00"))
+        else:
+            date_to = datetime.now()
+
+        query = db.session.query(Grade).filter(
+            Grade.created_at.between(date_from, date_to)
+        )
+        if tenant_id is not None and hasattr(Grade, 'tenant_id'):
+            query = query.filter((Grade.tenant_id == tenant_id) | (Grade.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Grade, 'branch_id'):
+            query = query.filter((Grade.branch_id == branch_id) | (Grade.branch_id.is_(None)))
+        if class_id:
+            query = query.filter(Grade.class_id == class_id)
+        if student_id:
+            query = query.filter(Grade.student_id == student_id)
+
+        grades = query.all()
+        trends = EnhancedAcademicAnalyticsService._calculate_performance_trends(
+            grades, date_from, date_to
+        )
+        return jsonify({"success": True, "data": trends}), 200
+    except Exception as e:
+        logger.error(f"Error in academics performance-trends route: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/ai-insights", methods=["GET"])
+@jwt_required()
+@tenant_required
+def academics_ai_insights():
+    """Generate rule-based AI insights from class performance data."""
+    try:
+        from datetime import datetime, timedelta
+
+        from app.models.grade import Grade
+
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        class_id = request.args.get("class_id", type=int)
+
+        date_to = datetime.now()
+        date_from = date_to - timedelta(days=90)
+
+        query = db.session.query(Grade).filter(
+            Grade.created_at.between(date_from, date_to)
+        )
+        if tenant_id is not None and hasattr(Grade, 'tenant_id'):
+            query = query.filter((Grade.tenant_id == tenant_id) | (Grade.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Grade, 'branch_id'):
+            query = query.filter((Grade.branch_id == branch_id) | (Grade.branch_id.is_(None)))
+        if class_id:
+            query = query.filter(Grade.class_id == class_id)
+
+        grades = query.all()
+        insights = []
+
+        if not grades:
+            insights.append({
+                "id": 1,
+                "type": "info",
+                "severity": "low",
+                "title": "Insufficient Data",
+                "message": "No performance data available for the selected period and class.",
+                "category": "data_availability",
+                "actionable": False,
+                "created_at": datetime.now().isoformat(),
+            })
+        else:
+            scores = []
+            for g_ in grades:
+                s = getattr(g_, "score", None)
+                if s is None:
+                    s = getattr(g_, "marks_obtained", None)
+                if s is None:
+                    s = getattr(g_, "percentage", None)
+                if s is not None:
+                    scores.append(s)
+
+            if scores:
+                avg_score = sum(scores) / len(scores)
+                pass_count = len([s for s in scores if s >= 40])
+                pass_rate = (pass_count / len(scores) * 100) if scores else 0
+
+                if pass_rate < 50:
+                    insights.append({
+                        "id": len(insights) + 1,
+                        "type": "warning",
+                        "severity": "high",
+                        "title": "Low Class Pass Rate",
+                        "message": f"Class pass rate is {pass_rate:.1f}% which is below the 50% threshold. Consider remedial interventions.",
+                        "category": "performance",
+                        "actionable": True,
+                        "suggestion": "Schedule remedial classes and review teaching methods for underperforming topics.",
+                        "created_at": datetime.now().isoformat(),
+                    })
+
+                if avg_score < 50:
+                    insights.append({
+                        "id": len(insights) + 1,
+                        "type": "warning",
+                        "severity": "medium",
+                        "title": "Below Average Performance",
+                        "message": f"Average score of {avg_score:.1f}% is below the satisfactory threshold.",
+                        "category": "performance",
+                        "actionable": True,
+                        "suggestion": "Break down performance by subject to identify weak areas and targeted support.",
+                        "created_at": datetime.now().isoformat(),
+                    })
+
+                fail_count = len([s for s in scores if s < 40])
+                fail_rate = (fail_count / len(scores) * 100) if scores else 0
+                if fail_rate > 20:
+                    insights.append({
+                        "id": len(insights) + 1,
+                        "type": "alert",
+                        "severity": "high",
+                        "title": "High Failure Rate",
+                        "message": f"{fail_rate:.1f}% of assessments resulted in failing grades (below 40%).",
+                        "category": "risk",
+                        "actionable": True,
+                        "suggestion": "Identify at-risk students and implement one-on-one support or tutoring.",
+                        "created_at": datetime.now().isoformat(),
+                    })
+
+                excellent_count = len([s for s in scores if s >= 80])
+                excellent_rate = (excellent_count / len(scores) * 100) if scores else 0
+                if excellent_rate >= 30:
+                    insights.append({
+                        "id": len(insights) + 1,
+                        "type": "positive",
+                        "severity": "low",
+                        "title": "Strong Excellence Rate",
+                        "message": f"{excellent_rate:.1f}% of assessments scored 80% or above - excellent performance!",
+                        "category": "achievement",
+                        "actionable": False,
+                        "created_at": datetime.now().isoformat(),
+                    })
+
+                total_students = len(set(g_.student_id for g_ in grades))
+                insights.append({
+                    "id": len(insights) + 1,
+                    "type": "info",
+                    "severity": "low",
+                    "title": "Performance Summary",
+                    "message": f"Analyzed {len(grades)} assessments across {total_students} students. Average: {avg_score:.1f}%, Pass rate: {pass_rate:.1f}%.",
+                    "category": "summary",
+                    "actionable": False,
+                    "created_at": datetime.now().isoformat(),
+                })
+
+        return jsonify({"success": True, "data": insights}), 200
+    except Exception as e:
+        logger.error(f"Error in academics ai-insights route: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/subject-comparison/<int:student_id>", methods=["GET"])
+@jwt_required()
+@tenant_required
+def academics_subject_comparison(student_id):
+    """Get subject comparison data for a student with averages, pass rates, and trends."""
+    try:
+        from datetime import datetime, timedelta
+
+        from app.models.grade import Grade
+        from app.models.subject import Subject
+
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
+        date_to = datetime.now()
+        date_from = date_to - timedelta(days=180)
+
+        query = db.session.query(Grade).filter(Grade.student_id == student_id)
+        if tenant_id is not None and hasattr(Grade, 'tenant_id'):
+            query = query.filter((Grade.tenant_id == tenant_id) | (Grade.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Grade, 'branch_id'):
+            query = query.filter((Grade.branch_id == branch_id) | (Grade.branch_id.is_(None)))
+
+        grades = query.order_by(Grade.created_at.asc()).all()
+
+        subject_grades = {}
+        for g_ in grades:
+            sid = g_.subject_id
+            if sid is None:
+                continue
+            if sid not in subject_grades:
+                subject_grades[sid] = []
+            subject_grades[sid].append(g_)
+
+        result = []
+        for subject_id, s_grades in subject_grades.items():
+            scores = []
+            for sg in s_grades:
+                s = getattr(sg, "score", None)
+                if s is None:
+                    s = getattr(sg, "marks_obtained", None)
+                if s is None:
+                    s = getattr(sg, "percentage", None)
+                if s is not None:
+                    scores.append(s)
+
+            if not scores:
+                continue
+
+            avg_score = round(sum(scores) / len(scores), 2)
+            pass_count = len([s for s in scores if s >= 40])
+            pass_rate = round((pass_count / len(scores) * 100) if scores else 0, 2)
+
+            trend = "stable"
+            if len(scores) >= 3:
+                first_half = scores[:len(scores) // 2]
+                second_half = scores[len(scores) // 2:]
+                if first_half and second_half:
+                    first_avg = sum(first_half) / len(first_half)
+                    second_avg = sum(second_half) / len(second_half)
+                    diff = second_avg - first_avg
+                    if diff >= 5:
+                        trend = "improving"
+                    elif diff <= -5:
+                        trend = "declining"
+
+            subject_q = db.session.query(Subject).filter(Subject.id == subject_id)
+            if tenant_id is not None and hasattr(Subject, 'tenant_id'):
+                subject_q = subject_q.filter((Subject.tenant_id == tenant_id) | (Subject.tenant_id.is_(None)))
+            subject = subject_q.first()
+            subject_name = subject.name if subject else f"Subject {subject_id}"
+
+            result.append({
+                "subject_id": subject_id,
+                "subject": subject_name,
+                "avg_score": avg_score,
+                "pass_rate": pass_rate,
+                "trend": trend,
+                "total_assessments": len(scores),
+            })
+
+        return jsonify({"success": True, "data": result}), 200
+    except Exception as e:
+        logger.error(f"Error in academics subject-comparison route: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500

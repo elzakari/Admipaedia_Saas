@@ -354,11 +354,24 @@ class AttendanceService:
 
     @staticmethod
     def get_student_attendance_report(
-        student_id, date_from=None, date_to=None, class_id=None, subject_id=None
+        student_id, date_from=None, date_to=None, class_id=None, subject_id=None,
+        tenant_id=None, branch_id=None
     ):
         """Generate a detailed attendance report for a student."""
         try:
-            query = Attendance.query.filter(Attendance.student_id == student_id)
+            query = Attendance.query.join(Student)
+
+            if tenant_id is not None:
+                query = query.filter(
+                    (Student.tenant_id == tenant_id)
+                )
+
+            if branch_id is not None:
+                query = query.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+
+            query = query.filter(Attendance.student_id == student_id)
 
             if date_from:
                 query = query.filter(Attendance.date >= date_from)
@@ -458,7 +471,7 @@ class AttendanceService:
             return None, f"Failed to generate attendance report: {str(e)}"
 
     @staticmethod
-    def bulk_mark_attendance(class_id, date, attendances, recorded_by=None):
+    def bulk_mark_attendance(class_id, date, attendances, recorded_by=None, tenant_id=None, branch_id=None):
         """Mark attendance for multiple students in a class at once."""
         try:
             # Validate inputs
@@ -478,6 +491,21 @@ class AttendanceService:
                 except ValueError:
                     return None, "Invalid date format. Use YYYY-MM-DD"
 
+            # Scope-tolerance: ensure class_id is within tenant scope before writing
+            from app.models.class_ import Class as ClassModel
+            if tenant_id is not None and hasattr(ClassModel, 'tenant_id'):
+                class_q = db.session.query(ClassModel).filter(ClassModel.id == class_id)
+                class_q = class_q.filter(
+                    (ClassModel.tenant_id == tenant_id) | (ClassModel.tenant_id.is_(None))
+                )
+                if branch_id is not None and hasattr(ClassModel, 'branch_id'):
+                    class_q = class_q.filter(
+                        (ClassModel.branch_id == branch_id) | (ClassModel.branch_id.is_(None))
+                    )
+                scoped_class = class_q.first()
+                if not scoped_class:
+                    return None, "Class not found in current tenant/branch scope"
+
             # Begin transaction
             created_records = []
             updated_records = []
@@ -490,6 +518,18 @@ class AttendanceService:
 
                 if not student_id or not status:
                     continue  # Skip invalid entries
+
+                # Scope-tolerance: ensure student_id is within tenant scope
+                if tenant_id is not None:
+                    from app.models.student import Student as StudentModel
+                    student_q = db.session.query(StudentModel).filter(StudentModel.id == student_id)
+                    student_q = student_q.filter(StudentModel.tenant_id == tenant_id)
+                    if branch_id is not None and hasattr(StudentModel, 'branch_id'):
+                        student_q = student_q.filter(
+                            (StudentModel.branch_id == branch_id) | (StudentModel.branch_id.is_(None))
+                        )
+                    if not student_q.first():
+                        continue  # Skip students outside scope silently
 
                 # Daily attendance is canonical per student + class + date.
                 existing = Attendance.query.filter(
@@ -518,6 +558,8 @@ class AttendanceService:
                         remarks=remarks,
                         recorded_by=recorded_by,
                     )
+                    if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                        new_attendance.branch_id = branch_id
                     db.session.add(new_attendance)
                     created_records.append(new_attendance)
 
@@ -535,7 +577,7 @@ class AttendanceService:
             return None, f"Failed to mark attendance: {str(e)}"
 
     @staticmethod
-    def get_advanced_attendance_analytics(class_id=None, date_from=None, date_to=None):
+    def get_advanced_attendance_analytics(class_id=None, date_from=None, date_to=None, tenant_id=None, branch_id=None):
         """Generate advanced attendance analytics for a class."""
         try:
             from datetime import datetime, timedelta
@@ -545,7 +587,15 @@ class AttendanceService:
             # Build base query
             query = db.session.query(
                 Attendance.student_id, Attendance.date, Attendance.status
-            )
+            ).join(Student)
+
+            if tenant_id is not None:
+                query = query.filter(Student.tenant_id == tenant_id)
+
+            if branch_id is not None:
+                query = query.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
 
             if class_id:
                 query = query.filter(Attendance.class_id == class_id)
@@ -619,8 +669,11 @@ class AttendanceService:
                 late_days = len(student_df[student_df["status"] == "late"])
                 excused_days = len(student_df[student_df["status"] == "excused"])
 
-                # Get student details
-                student = Student.query.get(student_id)
+                # Get student details (scoped to avoid cross-tenant PII leak)
+                student_q = db.session.query(Student).filter(Student.id == student_id)
+                if tenant_id is not None:
+                    student_q = student_q.filter(Student.tenant_id == tenant_id)
+                student = student_q.first()
                 student_name = (
                     f"{student.first_name} {student.last_name}"
                     if student

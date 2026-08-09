@@ -35,8 +35,10 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def get_comprehensive_dashboard_analytics(
-        user_id: int,
-        user_role: str,
+        tenant_id: Optional[int] = None,
+        branch_id: Optional[int] = None,
+        user_id: int = None,
+        user_role: str = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         class_id: Optional[int] = None,
@@ -61,23 +63,23 @@ class EnhancedAcademicAnalyticsService:
 
             if user_role == "admin":
                 analytics_data = EnhancedAcademicAnalyticsService._get_admin_analytics(
-                    date_from, date_to, class_id, subject_id
+                    tenant_id, branch_id, date_from, date_to, class_id, subject_id
                 )
             elif user_role == "teacher":
                 analytics_data = (
                     EnhancedAcademicAnalyticsService._get_teacher_analytics(
-                        user_id, date_from, date_to, class_id, subject_id
+                        tenant_id, branch_id, user_id, date_from, date_to, class_id, subject_id
                     )
                 )
             elif user_role == "student":
                 analytics_data = (
                     EnhancedAcademicAnalyticsService._get_student_analytics(
-                        user_id, date_from, date_to
+                        tenant_id, branch_id, user_id, date_from, date_to
                     )
                 )
             elif user_role == "parent":
                 analytics_data = EnhancedAcademicAnalyticsService._get_parent_analytics(
-                    user_id, date_from, date_to
+                    tenant_id, branch_id, user_id, date_from, date_to
                 )
 
             # Add common analytics
@@ -100,6 +102,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_admin_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime,
         date_to: datetime,
         class_id: Optional[int],
@@ -110,47 +114,47 @@ class EnhancedAcademicAnalyticsService:
             # School-wide performance overview
             performance_overview = (
                 EnhancedAcademicAnalyticsService._get_school_performance_overview(
-                    date_from, date_to, class_id, subject_id
+                    tenant_id, branch_id, date_from, date_to, class_id, subject_id
                 )
             )
 
             # Attendance analytics
             attendance_analytics = (
                 EnhancedAcademicAnalyticsService._get_attendance_analytics(
-                    date_from, date_to, class_id
+                    tenant_id, branch_id, date_from, date_to, class_id
                 )
             )
 
             # Grade distribution analytics
             grade_distribution = (
                 EnhancedAcademicAnalyticsService._get_grade_distribution_analytics(
-                    date_from, date_to, class_id, subject_id
+                    tenant_id, branch_id, date_from, date_to, class_id, subject_id
                 )
             )
 
             # Teacher performance analytics
             teacher_performance = (
                 EnhancedAcademicAnalyticsService._get_teacher_performance_analytics(
-                    date_from, date_to, class_id, subject_id
+                    tenant_id, branch_id, date_from, date_to, class_id, subject_id
                 )
             )
 
             # Class comparison analytics
             class_comparison = (
                 EnhancedAcademicAnalyticsService._get_class_comparison_analytics(
-                    date_from, date_to, subject_id
+                    tenant_id, branch_id, date_from, date_to, subject_id
                 )
             )
 
             # Risk assessment
             risk_assessment = EnhancedAcademicAnalyticsService._get_risk_assessment(
-                date_from, date_to, class_id
+                tenant_id, branch_id, date_from, date_to, class_id
             )
 
             # Predictive insights
             predictive_insights = (
                 EnhancedAcademicAnalyticsService._get_predictive_insights(
-                    date_from, date_to, class_id, subject_id
+                    tenant_id, branch_id, date_from, date_to, class_id, subject_id
                 )
             )
 
@@ -174,6 +178,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_school_performance_overview(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime,
         date_to: datetime,
         class_id: Optional[int],
@@ -182,9 +188,20 @@ class EnhancedAcademicAnalyticsService:
         """Get comprehensive school performance overview."""
         try:
             # Base query for grades
-            grade_query = db.session.query(Grade).filter(
+            grade_query = db.session.query(Grade).join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.created_at.between(date_from, date_to)
             )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if class_id:
                 grade_query = grade_query.filter(Grade.class_id == class_id)
@@ -239,7 +256,12 @@ class EnhancedAcademicAnalyticsService:
                 subject_grades[grade.subject_id].append(grade.score)
 
             for subject_id, subject_scores in subject_grades.items():
-                subject = Subject.query.get(subject_id)
+                subject_q = Subject.query.filter(Subject.id == subject_id)
+                if hasattr(Subject, 'tenant_id') and tenant_id is not None:
+                    subject_q = subject_q.filter(
+                        (Subject.tenant_id == tenant_id) | (Subject.tenant_id.is_(None))
+                    )
+                subject = subject_q.first()
                 if subject and subject_scores:
                     avg_score = sum(s for s in subject_scores if s is not None) / len(
                         [s for s in subject_scores if s is not None]
@@ -296,14 +318,31 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_attendance_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime, date_to: datetime, class_id: Optional[int]
     ) -> Dict[str, Any]:
         """Get comprehensive attendance analytics."""
         try:
             # Base query for attendance
-            attendance_query = db.session.query(Attendance).filter(
+            attendance_query = db.session.query(Attendance).join(
+                Student, Attendance.student_id == Student.id
+            ).filter(
                 Attendance.date.between(date_from.date(), date_to.date())
             )
+
+            if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                attendance_query = attendance_query.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                attendance_query = attendance_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                attendance_query = attendance_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if class_id:
                 attendance_query = attendance_query.filter(
@@ -368,7 +407,16 @@ class EnhancedAcademicAnalyticsService:
                         class_attendance[record.class_id]["present"] += 1
 
                 for class_id_key, data in class_attendance.items():
-                    class_obj = Class.query.get(class_id_key)
+                    class_q = Class.query.filter(Class.id == class_id_key)
+                    if hasattr(Class, 'tenant_id') and tenant_id is not None:
+                        class_q = class_q.filter(
+                            (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
+                        )
+                    if hasattr(Class, 'branch_id') and branch_id is not None:
+                        class_q = class_q.filter(
+                            (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
+                        )
+                    class_obj = class_q.first()
                     if class_obj:
                         rate = (
                             (data["present"] / data["total"] * 100)
@@ -400,7 +448,16 @@ class EnhancedAcademicAnalyticsService:
                     (data["present"] / data["total"] * 100) if data["total"] > 0 else 0
                 )
                 if rate < 75:  # Below 75% attendance threshold
-                    student = Student.query.get(student_id)
+                    student_q = Student.query.filter(Student.id == student_id)
+                    if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                        student_q = student_q.filter(
+                            (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                        )
+                    if hasattr(Student, 'branch_id') and branch_id is not None:
+                        student_q = student_q.filter(
+                            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                        )
+                    student = student_q.first()
                     if student:
                         risk_students.append(
                             {
@@ -443,6 +500,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_grade_distribution_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime,
         date_to: datetime,
         class_id: Optional[int],
@@ -451,9 +510,20 @@ class EnhancedAcademicAnalyticsService:
         """Get detailed grade distribution analytics with GES compliance."""
         try:
             # Base query for grades
-            grade_query = db.session.query(Grade).filter(
+            grade_query = db.session.query(Grade).join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.created_at.between(date_from, date_to)
             )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if class_id:
                 grade_query = grade_query.filter(Grade.class_id == class_id)
@@ -667,6 +737,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_teacher_performance_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime,
         date_to: datetime,
         class_id: Optional[int],
@@ -677,6 +749,15 @@ class EnhancedAcademicAnalyticsService:
             # Get teachers and their performance metrics
             teacher_query = db.session.query(Teacher)
 
+            if hasattr(Teacher, 'tenant_id') and tenant_id is not None:
+                teacher_query = teacher_query.filter(
+                    (Teacher.tenant_id == tenant_id) | (Teacher.tenant_id.is_(None))
+                )
+            if hasattr(Teacher, 'branch_id') and branch_id is not None:
+                teacher_query = teacher_query.filter(
+                    (Teacher.branch_id == branch_id) | (Teacher.branch_id.is_(None))
+                )
+
             if class_id:
                 teacher_query = teacher_query.join(Class).filter(Class.id == class_id)
 
@@ -685,19 +766,39 @@ class EnhancedAcademicAnalyticsService:
 
             for teacher in teachers:
                 # Get classes taught by teacher
-                teacher_classes = Class.query.filter(
+                teacher_class_q = Class.query.filter(
                     Class.teacher_id == teacher.id
-                ).all()
+                )
+                if hasattr(Class, 'tenant_id') and tenant_id is not None:
+                    teacher_class_q = teacher_class_q.filter(
+                        (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
+                    )
+                if hasattr(Class, 'branch_id') and branch_id is not None:
+                    teacher_class_q = teacher_class_q.filter(
+                        (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
+                    )
+                teacher_classes = teacher_class_q.all()
                 class_ids = [c.id for c in teacher_classes]
 
                 if not class_ids:
                     continue
 
                 # Get grades for teacher's classes
-                grade_query = db.session.query(Grade).filter(
+                grade_query = db.session.query(Grade).join(
+                    Student, Grade.student_id == Student.id
+                ).filter(
                     Grade.class_id.in_(class_ids),
                     Grade.created_at.between(date_from, date_to),
                 )
+
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
 
                 if subject_id:
                     grade_query = grade_query.filter(Grade.subject_id == subject_id)
@@ -710,10 +811,27 @@ class EnhancedAcademicAnalyticsService:
                     pass_rate = len([s for s in scores if s >= 40]) / len(scores) * 100
 
                     # Get attendance for teacher's classes
-                    attendance_records = Attendance.query.filter(
+                    attendance_q = Attendance.query.join(
+                        Student, Attendance.student_id == Student.id
+                    ).filter(
                         Attendance.class_id.in_(class_ids),
                         Attendance.date.between(date_from.date(), date_to.date()),
-                    ).all()
+                    )
+
+                    if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                        )
+                    if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                        )
+                    if hasattr(Student, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                        )
+
+                    attendance_records = attendance_q.all()
 
                     present_count = len(
                         [a for a in attendance_records if a.status == "present"]
@@ -799,19 +917,41 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_class_comparison_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime, date_to: datetime, subject_id: Optional[int]
     ) -> Dict[str, Any]:
         """Get class comparison analytics."""
         try:
-            classes = Class.query.all()
+            class_q = Class.query
+            if hasattr(Class, 'tenant_id') and tenant_id is not None:
+                class_q = class_q.filter(
+                    (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
+                )
+            if hasattr(Class, 'branch_id') and branch_id is not None:
+                class_q = class_q.filter(
+                    (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
+                )
+            classes = class_q.all()
             class_performance = []
 
             for class_obj in classes:
                 # Get grades for this class
-                grade_query = db.session.query(Grade).filter(
+                grade_query = db.session.query(Grade).join(
+                    Student, Grade.student_id == Student.id
+                ).filter(
                     Grade.class_id == class_obj.id,
                     Grade.created_at.between(date_from, date_to),
                 )
+
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
 
                 if subject_id:
                     grade_query = grade_query.filter(Grade.subject_id == subject_id)
@@ -824,10 +964,27 @@ class EnhancedAcademicAnalyticsService:
                     pass_rate = len([s for s in scores if s >= 40]) / len(scores) * 100
 
                     # Get attendance for this class
-                    attendance_records = Attendance.query.filter(
+                    attendance_q = Attendance.query.join(
+                        Student, Attendance.student_id == Student.id
+                    ).filter(
                         Attendance.class_id == class_obj.id,
                         Attendance.date.between(date_from.date(), date_to.date()),
-                    ).all()
+                    )
+
+                    if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                        )
+                    if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                        )
+                    if hasattr(Student, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                        )
+
+                    attendance_records = attendance_q.all()
 
                     present_count = len(
                         [a for a in attendance_records if a.status == "present"]
@@ -900,12 +1057,23 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_risk_assessment(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime, date_to: datetime, class_id: Optional[int]
     ) -> Dict[str, Any]:
         """Get comprehensive risk assessment for students."""
         try:
             # Base query for students
             student_query = db.session.query(Student).filter(Student.is_active == True)
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                student_query = student_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                student_query = student_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if class_id:
                 student_query = student_query.filter(Student.class_id == class_id)
@@ -915,19 +1083,49 @@ class EnhancedAcademicAnalyticsService:
 
             for student in students:
                 # Get student's grades
-                grades = Grade.query.filter(
+                grade_q = Grade.query.join(
+                    Student, Grade.student_id == Student.id
+                ).filter(
                     Grade.student_id == student.id,
                     Grade.created_at.between(date_from, date_to),
-                ).all()
+                )
+
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    grade_q = grade_q.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    grade_q = grade_q.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
+
+                grades = grade_q.all()
 
                 scores = [g.score for g in grades if g.score is not None]
                 avg_score = sum(scores) / len(scores) if scores else 0
 
                 # Get student's attendance
-                attendance_records = Attendance.query.filter(
+                attendance_q = Attendance.query.join(
+                    Student, Attendance.student_id == Student.id
+                ).filter(
                     Attendance.student_id == student.id,
                     Attendance.date.between(date_from.date(), date_to.date()),
-                ).all()
+                )
+
+                if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                    )
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
+
+                attendance_records = attendance_q.all()
 
                 present_count = len(
                     [a for a in attendance_records if a.status == "present"]
@@ -1099,6 +1297,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_predictive_insights(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         date_from: datetime,
         date_to: datetime,
         class_id: Optional[int],
@@ -1110,9 +1310,20 @@ class EnhancedAcademicAnalyticsService:
             # In a real implementation, you would use machine learning algorithms
 
             # Get historical performance data
-            grade_query = db.session.query(Grade).filter(
+            grade_query = db.session.query(Grade).join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.created_at.between(date_from, date_to)
             )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if class_id:
                 grade_query = grade_query.filter(Grade.class_id == class_id)
@@ -1290,6 +1501,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_teacher_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         user_id: int,
         date_from: datetime,
         date_to: datetime,
@@ -1299,12 +1512,30 @@ class EnhancedAcademicAnalyticsService:
         """Generate analytics for teacher dashboard."""
         try:
             # Get teacher record
-            teacher = Teacher.query.filter_by(user_id=user_id).first()
+            teacher_q = Teacher.query.filter_by(user_id=user_id)
+            if hasattr(Teacher, 'tenant_id') and tenant_id is not None:
+                teacher_q = teacher_q.filter(
+                    (Teacher.tenant_id == tenant_id) | (Teacher.tenant_id.is_(None))
+                )
+            if hasattr(Teacher, 'branch_id') and branch_id is not None:
+                teacher_q = teacher_q.filter(
+                    (Teacher.branch_id == branch_id) | (Teacher.branch_id.is_(None))
+                )
+            teacher = teacher_q.first()
             if not teacher:
                 return {"error": "Teacher profile not found"}
 
             # Get teacher's classes
-            teacher_classes = Class.query.filter(Class.teacher_id == teacher.id).all()
+            teacher_classes_q = Class.query.filter(Class.teacher_id == teacher.id)
+            if hasattr(Class, 'tenant_id') and tenant_id is not None:
+                teacher_classes_q = teacher_classes_q.filter(
+                    (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
+                )
+            if hasattr(Class, 'branch_id') and branch_id is not None:
+                teacher_classes_q = teacher_classes_q.filter(
+                    (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
+                )
+            teacher_classes = teacher_classes_q.all()
             if class_id:
                 teacher_classes = [c for c in teacher_classes if c.id == class_id]
 
@@ -1322,14 +1553,14 @@ class EnhancedAcademicAnalyticsService:
             # Get performance data for teacher's classes
             performance_summary = (
                 EnhancedAcademicAnalyticsService._get_teacher_class_performance(
-                    class_ids, date_from, date_to, subject_id
+                    tenant_id, branch_id, class_ids, date_from, date_to, subject_id
                 )
             )
 
             # Get student progress data
             student_progress = (
                 EnhancedAcademicAnalyticsService._get_teacher_student_progress(
-                    class_ids, date_from, date_to, subject_id
+                    tenant_id, branch_id, class_ids, date_from, date_to, subject_id
                 )
             )
 
@@ -1338,7 +1569,7 @@ class EnhancedAcademicAnalyticsService:
             for class_obj in teacher_classes:
                 class_data = (
                     EnhancedAcademicAnalyticsService._get_single_class_analytics(
-                        class_obj.id, date_from, date_to, subject_id
+                        tenant_id, branch_id, class_obj.id, date_from, date_to, subject_id
                     )
                 )
                 class_data["class_name"] = class_obj.name
@@ -1362,6 +1593,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_teacher_class_performance(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         class_ids: List[int],
         date_from: datetime,
         date_to: datetime,
@@ -1370,10 +1603,21 @@ class EnhancedAcademicAnalyticsService:
         """Get performance summary for teacher's classes."""
         try:
             # Get grades for teacher's classes
-            grade_query = db.session.query(Grade).filter(
+            grade_query = db.session.query(Grade).join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.class_id.in_(class_ids),
                 Grade.created_at.between(date_from, date_to),
             )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if subject_id:
                 grade_query = grade_query.filter(Grade.subject_id == subject_id)
@@ -1413,6 +1657,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_teacher_student_progress(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         class_ids: List[int],
         date_from: datetime,
         date_to: datetime,
@@ -1421,18 +1667,38 @@ class EnhancedAcademicAnalyticsService:
         """Get individual student progress for teacher's classes."""
         try:
             # Get students in teacher's classes
-            students = Student.query.filter(
+            student_q = Student.query.filter(
                 Student.class_id.in_(class_ids), Student.is_active == True
-            ).all()
+            )
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                student_q = student_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                student_q = student_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+            students = student_q.all()
 
             student_progress = []
 
             for student in students:
                 # Get student's grades
-                grade_query = db.session.query(Grade).filter(
+                grade_query = db.session.query(Grade).join(
+                    Student, Grade.student_id == Student.id
+                ).filter(
                     Grade.student_id == student.id,
                     Grade.created_at.between(date_from, date_to),
                 )
+
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    grade_query = grade_query.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
 
                 if subject_id:
                     grade_query = grade_query.filter(Grade.subject_id == subject_id)
@@ -1455,10 +1721,27 @@ class EnhancedAcademicAnalyticsService:
                             trend = "declining"
 
                     # Get attendance
-                    attendance_records = Attendance.query.filter(
+                    attendance_q = Attendance.query.join(
+                        Student, Attendance.student_id == Student.id
+                    ).filter(
                         Attendance.student_id == student.id,
                         Attendance.date.between(date_from.date(), date_to.date()),
-                    ).all()
+                    )
+
+                    if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                        )
+                    if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                        )
+                    if hasattr(Student, 'branch_id') and branch_id is not None:
+                        attendance_q = attendance_q.filter(
+                            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                        )
+
+                    attendance_records = attendance_q.all()
 
                     present_count = len(
                         [a for a in attendance_records if a.status == "present"]
@@ -1497,14 +1780,27 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_single_class_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         class_id: int, date_from: datetime, date_to: datetime, subject_id: Optional[int]
     ) -> Dict[str, Any]:
         """Get analytics for a single class."""
         try:
             # Get class grades
-            grade_query = db.session.query(Grade).filter(
+            grade_query = db.session.query(Grade).join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.class_id == class_id, Grade.created_at.between(date_from, date_to)
             )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_query = grade_query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
 
             if subject_id:
                 grade_query = grade_query.filter(Grade.subject_id == subject_id)
@@ -1513,10 +1809,27 @@ class EnhancedAcademicAnalyticsService:
             scores = [g.score for g in grades if g.score is not None]
 
             # Get class attendance
-            attendance_records = Attendance.query.filter(
+            attendance_q = Attendance.query.join(
+                Student, Attendance.student_id == Student.id
+            ).filter(
                 Attendance.class_id == class_id,
                 Attendance.date.between(date_from.date(), date_to.date()),
-            ).all()
+            )
+
+            if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+
+            attendance_records = attendance_q.all()
 
             present_count = len(
                 [a for a in attendance_records if a.status == "present"]
@@ -1554,7 +1867,16 @@ class EnhancedAcademicAnalyticsService:
             for student_id, student_grade_scores in student_scores.items():
                 valid_scores = [s for s in student_grade_scores if s is not None]
                 if valid_scores:
-                    student = Student.query.get(student_id)
+                    student_q = Student.query.filter(Student.id == student_id)
+                    if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                        student_q = student_q.filter(
+                            (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                        )
+                    if hasattr(Student, 'branch_id') and branch_id is not None:
+                        student_q = student_q.filter(
+                            (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                        )
+                    student = student_q.first()
                     if student:
                         avg = sum(valid_scores) / len(valid_scores)
                         student_averages.append(
@@ -1635,28 +1957,69 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_student_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         user_id: int, date_from: datetime, date_to: datetime
     ) -> Dict[str, Any]:
         """Generate analytics for student dashboard."""
         try:
             # Get student record
-            student = Student.query.filter_by(user_id=user_id).first()
+            student_q = Student.query.filter_by(user_id=user_id)
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                student_q = student_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                student_q = student_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+            student = student_q.first()
             if not student:
                 return {"error": "Student profile not found"}
 
             # Get student's grades
-            grades = Grade.query.filter(
+            grade_q = Grade.query.join(
+                Student, Grade.student_id == Student.id
+            ).filter(
                 Grade.student_id == student.id,
                 Grade.created_at.between(date_from, date_to),
-            ).all()
+            )
+
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                grade_q = grade_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                grade_q = grade_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+
+            grades = grade_q.all()
 
             scores = [g.score for g in grades if g.score is not None]
 
             # Get student's attendance
-            attendance_records = Attendance.query.filter(
+            attendance_q = Attendance.query.join(
+                Student, Attendance.student_id == Student.id
+            ).filter(
                 Attendance.student_id == student.id,
                 Attendance.date.between(date_from.date(), date_to.date()),
-            ).all()
+            )
+
+            if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                attendance_q = attendance_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+
+            attendance_records = attendance_q.all()
 
             present_count = len(
                 [a for a in attendance_records if a.status == "present"]
@@ -1683,7 +2046,12 @@ class EnhancedAcademicAnalyticsService:
 
                 subjects = []
                 for subject_id, subject_scores in subject_performance.items():
-                    subject = Subject.query.get(subject_id)
+                    subject_q2 = Subject.query.filter(Subject.id == subject_id)
+                    if hasattr(Subject, 'tenant_id') and tenant_id is not None:
+                        subject_q2 = subject_q2.filter(
+                            (Subject.tenant_id == tenant_id) | (Subject.tenant_id.is_(None))
+                        )
+                    subject = subject_q2.first()
                     if subject:
                         valid_scores = [s for s in subject_scores if s is not None]
                         if valid_scores:
@@ -1750,6 +2118,8 @@ class EnhancedAcademicAnalyticsService:
 
     @staticmethod
     def _get_parent_analytics(
+        tenant_id: Optional[int],
+        branch_id: Optional[int],
         user_id: int, date_from: datetime, date_to: datetime
     ) -> Dict[str, Any]:
         """Generate analytics for parent dashboard."""
@@ -1763,7 +2133,16 @@ class EnhancedAcademicAnalyticsService:
 
             # Assuming parent-student relationship exists in the database
             # This would need to be implemented based on your specific model structure
-            children = Student.query.filter_by(parent_id=user_id).all()
+            children_q = Student.query.filter_by(parent_id=user_id)
+            if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                children_q = children_q.filter(
+                    (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                )
+            if hasattr(Student, 'branch_id') and branch_id is not None:
+                children_q = children_q.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+            children = children_q.all()
 
             if not children:
                 return {
@@ -1784,15 +2163,45 @@ class EnhancedAcademicAnalyticsService:
 
             for child in children:
                 # Get child's performance
-                grades = Grade.query.filter(
+                grade_q = Grade.query.join(
+                    Student, Grade.student_id == Student.id
+                ).filter(
                     Grade.student_id == child.id,
                     Grade.created_at.between(date_from, date_to),
-                ).all()
+                )
 
-                attendance_records = Attendance.query.filter(
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    grade_q = grade_q.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    grade_q = grade_q.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
+
+                grades = grade_q.all()
+
+                attendance_q = Attendance.query.join(
+                    Student, Attendance.student_id == Student.id
+                ).filter(
                     Attendance.student_id == child.id,
                     Attendance.date.between(date_from.date(), date_to.date()),
-                ).all()
+                )
+
+                if hasattr(Attendance, 'branch_id') and branch_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                    )
+                if hasattr(Student, 'tenant_id') and tenant_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Student.tenant_id == tenant_id) | (Student.tenant_id.is_(None))
+                    )
+                if hasattr(Student, 'branch_id') and branch_id is not None:
+                    attendance_q = attendance_q.filter(
+                        (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                    )
+
+                attendance_records = attendance_q.all()
 
                 scores = [g.score for g in grades if g.score is not None]
                 avg_score = sum(scores) / len(scores) if scores else 0

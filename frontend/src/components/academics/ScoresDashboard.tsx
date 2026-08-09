@@ -454,13 +454,15 @@ const ScoresDashboard = () => {
   // Fetch students for selection
   const { data: students = [], isLoading: studentsLoading, error: studentsError } = useQuery<Student[]>({
     queryKey: ['students'],
-    queryFn: studentScoresService.getStudents
+    queryFn: studentScoresService.getStudents,
+    retry: false,
   });
   
   // Fetch classes for class names
   const { data: classes = [] } = useQuery<any[]>({
     queryKey: ['classes'],
-    queryFn: studentScoresService.getClasses
+    queryFn: studentScoresService.getClasses,
+    retry: false,
   });
   
   // Set default student
@@ -482,7 +484,8 @@ const ScoresDashboard = () => {
     queryFn: () => selectedStudentId ? 
       studentScoresService.getStudentAnalytics(selectedStudentId, dateRange.from, dateRange.to) : 
       Promise.resolve(null),
-    enabled: !!selectedStudentId
+    enabled: !!selectedStudentId,
+    retry: false,
   });
   React.useEffect(() => {
     if (analyticsError) {
@@ -520,7 +523,8 @@ const ScoresDashboard = () => {
     error: summaryError
   } = useQuery({
     queryKey: ['summary', selectedClassId, dateRange.from, dateRange.to],
-    queryFn: () => studentScoresService.getAnalyticsSummary(selectedClassId || undefined, dateRange.from, dateRange.to)
+    queryFn: () => studentScoresService.getAnalyticsSummary(selectedClassId || undefined, dateRange.from, dateRange.to),
+    retry: false,
   });
   
   // Handle summary error
@@ -798,8 +802,13 @@ const ScoresDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(summary?.class_performance?.reduce((acc: number, curr: any) => acc + curr.average_score, 0) / 
-                (summary?.class_performance?.length || 1)).toFixed(1)}%
+              {(() => {
+                const perfData = summary?.class_performance;
+                if (!Array.isArray(perfData) || perfData.length === 0) return '0.0%';
+                const total = perfData.reduce((acc: number, curr: any) => acc + (Number(curr.average_score) || 0), 0);
+                const avg = total / perfData.length;
+                return `${(isFinite(avg) ? avg : 0).toFixed(1)}%`;
+              })()}
             </div>
             <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_avg_score_desc', 'Overall performance')}</p>
           </CardContent>
@@ -810,8 +819,32 @@ const ScoresDashboard = () => {
             <Award className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-700">92.4%</div>
-            <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_top_performer_desc', 'Basic 5 - ADM2001')}</p>
+            {(() => {
+              let topScore: any = null;
+              const cp = summary?.class_performance;
+              if (Array.isArray(cp) && cp.length > 0) {
+                for (const c of cp) {
+                  const tps = c?.top_performers;
+                  if (Array.isArray(tps) && tps.length > 0) {
+                    const sorted = [...tps].sort((a: any, b: any) => Number(b.average_score) - Number(a.average_score));
+                    topScore = sorted[0];
+                    break;
+                  }
+                }
+              }
+              if (!topScore && Array.isArray((summary as any)?.top_performers)) {
+                const sorted = [...((summary as any).top_performers)].sort((a: any, b: any) => Number(b.average_score) - Number(a.average_score));
+                if (sorted.length > 0) topScore = sorted[0];
+              }
+              const scoreText = topScore?.average_score != null ? `${Number(topScore.average_score).toFixed(1)}%` : '—';
+              const studentInfo = topScore?.student_name || t('scores_dashboard.stat_top_performer_desc', 'No data yet');
+              return (
+                <>
+                  <div className="text-2xl font-bold text-yellow-700">{scoreText}</div>
+                  <p className="text-xs text-gray-400 mt-1 truncate" title={studentInfo}>{studentInfo}</p>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>

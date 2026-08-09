@@ -126,7 +126,7 @@ class ReportService:
         return themes.get(theme_name, themes["navy"])
 
     @staticmethod
-    def generate_custom_report_data(config: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_custom_report_data(config: Dict[str, Any], tenant_id=None, branch_id=None) -> Dict[str, Any]:
         """Aggregates data based on the provided configuration."""
         report_type = config.get("type", "custom")
         date_range = config.get("dateRange", {})
@@ -149,32 +149,82 @@ class ReportService:
 
         if report_type == "academic":
             report_data["sections"] = ReportService._get_academic_data(
-                filters, start_date, end_date, visualizations
+                filters, start_date, end_date, visualizations,
+                tenant_id=tenant_id, branch_id=branch_id
             )
         elif report_type == "attendance":
             report_data["sections"] = ReportService._get_attendance_data(
-                filters, start_date, end_date, visualizations
+                filters, start_date, end_date, visualizations,
+                tenant_id=tenant_id, branch_id=branch_id
             )
         elif report_type == "financial":
             report_data["data"] = ReportService.get_financial_report_data(
-                start_date, end_date
+                start_date, end_date,
+                tenant_id=tenant_id, branch_id=branch_id
             )
         elif report_type == "administrative":
             report_data["data"] = ReportService.get_administrative_report_data(
-                start_date, end_date
+                start_date, end_date,
+                tenant_id=tenant_id, branch_id=branch_id
             )
 
         return report_data
 
     @staticmethod
     def get_administrative_report_data(
-        start_date: Optional[date] = None, end_date: Optional[date] = None
+        start_date: Optional[date] = None, end_date: Optional[date] = None,
+        tenant_id=None, branch_id=None
     ) -> Dict[str, Any]:
         """Fetches administrative data for reports."""
+
+        def _student_scope(query):
+            if tenant_id is not None and hasattr(Student, "tenant_id"):
+                query = query.filter(
+                    (Student.tenant_id == tenant_id)
+                )
+            if branch_id is not None and hasattr(Student, "branch_id"):
+                query = query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+            return query
+
+        def _user_scope(query):
+            if tenant_id is not None and hasattr(User, "tenant_id"):
+                query = query.filter(
+                    (User.tenant_id == tenant_id) | (User.tenant_id.is_(None))
+                )
+            if branch_id is not None and hasattr(User, "branch_id"):
+                query = query.filter(
+                    (User.branch_id == branch_id) | (User.branch_id.is_(None))
+                )
+            return query
+
+        def _facility_scope(query):
+            if tenant_id is not None and hasattr(Facility, "tenant_id"):
+                query = query.filter(
+                    (Facility.tenant_id == tenant_id) | (Facility.tenant_id.is_(None))
+                )
+            if branch_id is not None and hasattr(Facility, "branch_id"):
+                query = query.filter(
+                    (Facility.branch_id == branch_id) | (Facility.branch_id.is_(None))
+                )
+            return query
+
+        def _maintenance_scope(query):
+            if tenant_id is not None and hasattr(MaintenanceRequest, "tenant_id"):
+                query = query.filter(
+                    (MaintenanceRequest.tenant_id == tenant_id) | (MaintenanceRequest.tenant_id.is_(None))
+                )
+            if branch_id is not None and hasattr(MaintenanceRequest, "branch_id"):
+                query = query.filter(
+                    (MaintenanceRequest.branch_id == branch_id) | (MaintenanceRequest.branch_id.is_(None))
+                )
+            return query
+
         # Enrollment Stats
-        total_students = db.session.query(func.count(Student.id)).scalar() or 0
+        total_students = _student_scope(db.session.query(func.count(Student.id))).scalar() or 0
         active_students = (
-            db.session.query(func.count(Student.id))
+            _student_scope(db.session.query(func.count(Student.id)))
             .filter(Student.status == "active")
             .scalar()
             or 0
@@ -182,7 +232,7 @@ class ReportService:
         new_enrollments = 0
         if start_date:
             new_enrollments = (
-                db.session.query(func.count(Student.id))
+                _student_scope(db.session.query(func.count(Student.id)))
                 .filter(Student.created_at >= start_date)
                 .scalar()
                 or 0
@@ -190,13 +240,13 @@ class ReportService:
 
         # Staff Stats
         total_staff = (
-            db.session.query(func.count(User.id))
+            _user_scope(db.session.query(func.count(User.id)))
             .filter(User.role.in_(["admin", "teacher", "staff"]))
             .scalar()
             or 0
         )
         active_staff = (
-            db.session.query(func.count(User.id))
+            _user_scope(db.session.query(func.count(User.id)))
             .filter(
                 User.role.in_(["admin", "teacher", "staff"]), User.status == "active"
             )
@@ -205,9 +255,9 @@ class ReportService:
         )
 
         # Facilities Stats
-        total_facilities = db.session.query(func.count(Facility.id)).scalar() or 0
+        total_facilities = _facility_scope(db.session.query(func.count(Facility.id))).scalar() or 0
         facilities_under_maintenance = (
-            db.session.query(func.count(Facility.id))
+            _facility_scope(db.session.query(func.count(Facility.id)))
             .filter(Facility.status == FacilityStatus.UNDER_MAINTENANCE)
             .scalar()
             or 0
@@ -215,7 +265,7 @@ class ReportService:
 
         # Maintenance Stats
         pending_maintenance = (
-            db.session.query(func.count(MaintenanceRequest.id))
+            _maintenance_scope(db.session.query(func.count(MaintenanceRequest.id)))
             .filter(MaintenanceRequest.status == MaintenanceStatus.PENDING)
             .scalar()
             or 0
@@ -223,7 +273,7 @@ class ReportService:
         completed_maintenance = 0
         if start_date:
             completed_maintenance = (
-                db.session.query(func.count(MaintenanceRequest.id))
+                _maintenance_scope(db.session.query(func.count(MaintenanceRequest.id)))
                 .filter(
                     MaintenanceRequest.status == MaintenanceStatus.COMPLETED,
                     MaintenanceRequest.completed_date >= start_date,
@@ -254,11 +304,11 @@ class ReportService:
             "staff": {
                 "total": total_staff,
                 "active": active_staff,
-                "teachers": db.session.query(func.count(User.id))
+                "teachers": _user_scope(db.session.query(func.count(User.id)))
                 .filter(User.role == "teacher")
                 .scalar()
                 or 0,
-                "admin": db.session.query(func.count(User.id))
+                "admin": _user_scope(db.session.query(func.count(User.id)))
                 .filter(User.role == "admin")
                 .scalar()
                 or 0,
@@ -274,20 +324,69 @@ class ReportService:
 
     @staticmethod
     def get_financial_report_data(
-        start_date: Optional[date] = None, end_date: Optional[date] = None
+        start_date: Optional[date] = None, end_date: Optional[date] = None,
+        tenant_id=None, branch_id=None
     ) -> Dict[str, Any]:
         """Fetches financial data for reports."""
+
+        def _studentfee_scope(query):
+            if tenant_id is not None:
+                if hasattr(StudentFee, "tenant_id"):
+                    query = query.filter(
+                        (StudentFee.tenant_id == tenant_id) | (StudentFee.tenant_id.is_(None))
+                    )
+                else:
+                    if "Student" not in [m.class_.__name__ for m in query.column_descriptions if hasattr(m, 'class_')]:
+                        query = query.join(Student, StudentFee.student_id == Student.id)
+                    query = query.filter(Student.tenant_id == tenant_id)
+            if branch_id is not None and hasattr(StudentFee, "branch_id"):
+                query = query.filter(
+                    (StudentFee.branch_id == branch_id) | (StudentFee.branch_id.is_(None))
+                )
+            return query
+
+        def _student_scope(query):
+            if tenant_id is not None and hasattr(Student, "tenant_id"):
+                query = query.filter(Student.tenant_id == tenant_id)
+            if branch_id is not None and hasattr(Student, "branch_id"):
+                query = query.filter(
+                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+                )
+            return query
+
+        def _payment_scope(query):
+            if tenant_id is not None and hasattr(Payment, "tenant_id"):
+                query = query.filter(
+                    (Payment.tenant_id == tenant_id) | (Payment.tenant_id.is_(None))
+                )
+            if branch_id is not None and hasattr(Payment, "branch_id"):
+                query = query.filter(
+                    (Payment.branch_id == branch_id) | (Payment.branch_id.is_(None))
+                )
+            return query
+
+        def _class_scope(query):
+            if tenant_id is not None and hasattr(Class, "tenant_id"):
+                query = query.filter(
+                    (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
+                )
+            if branch_id is not None and hasattr(Class, "branch_id"):
+                query = query.filter(
+                    (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
+                )
+            return query
+
         # Total Fees Collection
-        total_fees = db.session.query(func.sum(StudentFee.final_amount)).scalar() or 0
+        total_fees = _studentfee_scope(db.session.query(func.sum(StudentFee.final_amount))).scalar() or 0
         collected_fees = (
-            db.session.query(func.sum(StudentFee.paid_amount)).scalar() or 0
+            _studentfee_scope(db.session.query(func.sum(StudentFee.paid_amount))).scalar() or 0
         )
         pending_fees = total_fees - collected_fees
 
         # Overdue Fees (Simplified: balance > 0 and past due date)
         today = date.today()
         overdue_fees = (
-            db.session.query(func.sum(StudentFee.balance))
+            _studentfee_scope(db.session.query(func.sum(StudentFee.balance)))
             .join(StudentFee.structure)
             .filter(StudentFee.balance > 0, FeeStructure.due_date < today)
             .scalar()
@@ -302,7 +401,7 @@ class ReportService:
             month_name = month_start.strftime("%b")
 
             monthly_collected = (
-                db.session.query(func.sum(Payment.amount))
+                _payment_scope(db.session.query(func.sum(Payment.amount)))
                 .filter(
                     func.extract("month", Payment.paid_at) == month_start.month,
                     func.extract("year", Payment.paid_at) == month_start.year,
@@ -323,22 +422,23 @@ class ReportService:
 
         # Class Breakdown
         class_breakdown = []
-        classes = Class.query.all()
+        classes = _class_scope(Class.query).all()
         for cls in classes:
-            cls_total = (
+            cls_total_q = (
                 db.session.query(func.sum(StudentFee.final_amount))
                 .join(Student, StudentFee.student_id == Student.id)
                 .filter(Student.class_id == cls.id)
-                .scalar()
-                or 0
             )
-            cls_collected = (
+            cls_total_q = _student_scope(cls_total_q)
+            cls_total = cls_total_q.scalar() or 0
+
+            cls_collected_q = (
                 db.session.query(func.sum(StudentFee.paid_amount))
                 .join(Student, StudentFee.student_id == Student.id)
                 .filter(Student.class_id == cls.id)
-                .scalar()
-                or 0
             )
+            cls_collected_q = _student_scope(cls_collected_q)
+            cls_collected = cls_collected_q.scalar() or 0
 
             if cls_total > 0:
                 class_breakdown.append(
@@ -362,10 +462,29 @@ class ReportService:
         }
 
     @staticmethod
-    def _get_academic_data(filters, start_date, end_date, visualizations):
+    def _get_academic_data(filters, start_date, end_date, visualizations, tenant_id=None, branch_id=None):
         sections = []
         class_ids = filters.get("classes", [])
         query = db.session.query(Grade).join(Student)
+
+        if tenant_id is not None:
+            if hasattr(Grade, "tenant_id"):
+                query = query.filter(
+                    (Grade.tenant_id == tenant_id) | (Grade.tenant_id.is_(None))
+                )
+            query = query.filter(
+                (Student.tenant_id == tenant_id)
+            )
+
+        if branch_id is not None:
+            if hasattr(Grade, "branch_id"):
+                query = query.filter(
+                    (Grade.branch_id == branch_id) | (Grade.branch_id.is_(None))
+                )
+            query = query.filter(
+                (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+            )
+
         if class_ids:
             query = query.filter(Student.class_id.in_(class_ids))
         if start_date:
@@ -406,10 +525,25 @@ class ReportService:
         return sections
 
     @staticmethod
-    def _get_attendance_data(filters, start_date, end_date, visualizations):
+    def _get_attendance_data(filters, start_date, end_date, visualizations, tenant_id=None, branch_id=None):
         sections = []
         class_ids = filters.get("classes", [])
         query = db.session.query(Attendance).join(Student)
+
+        if tenant_id is not None:
+            query = query.filter(
+                (Student.tenant_id == tenant_id)
+            )
+
+        if branch_id is not None:
+            if hasattr(Attendance, "branch_id"):
+                query = query.filter(
+                    (Attendance.branch_id == branch_id) | (Attendance.branch_id.is_(None))
+                )
+            query = query.filter(
+                (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
+            )
+
         if class_ids:
             query = query.filter(Student.class_id.in_(class_ids))
         if start_date:

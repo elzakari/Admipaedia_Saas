@@ -53,6 +53,8 @@ class ExamService:
         date_from=None,
         date_to=None,
         status=None,
+        tenant_id=None,
+        branch_id=None,
     ):
         """Get all exams with optional filtering."""
         from sqlalchemy.orm import joinedload
@@ -60,6 +62,11 @@ class ExamService:
         query = Exam.query.options(
             joinedload(Exam.class_), joinedload(Exam.subject), joinedload(Exam.creator)
         )
+
+        if tenant_id is not None and hasattr(Exam, 'tenant_id'):
+            query = query.filter((Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Exam, 'branch_id'):
+            query = query.filter((Exam.branch_id == branch_id) | (Exam.branch_id.is_(None)))
 
         # Apply filters if provided
         if class_id:
@@ -82,9 +89,26 @@ class ExamService:
     @staticmethod
     def get_exam_by_id(exam_id):
         """Get a specific exam by ID."""
+        from flask import g
+
         exam = ExamService._load_exam_model(exam_id)
         if not exam:
             return None
+
+        current_tenant_id = getattr(g, "tenant_id", None)
+        current_branch_id = getattr(g, "branch_id", None)
+
+        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
+            exam_tenant_id = getattr(exam, 'tenant_id', None)
+            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
+            if not tenant_ok:
+                return None
+
+        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
+            exam_branch_id = getattr(exam, 'branch_id', None)
+            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
+            if not branch_ok:
+                return None
 
         cache_key = f"exam:dto:{exam_id}"
         cached_exam = cache_service.get(cache_key)
@@ -98,6 +122,8 @@ class ExamService:
     @staticmethod
     def create_exam(data):
         """Create a new exam."""
+        from flask import g
+
         try:
             db.session.rollback()
         except Exception:
@@ -130,6 +156,11 @@ class ExamService:
             assessment_type=data.get("assessment_type"),
         )
 
+        if hasattr(Exam, 'tenant_id') and getattr(g, 'tenant_id', None):
+            exam.tenant_id = g.tenant_id
+        if hasattr(Exam, 'branch_id') and getattr(g, 'branch_id', None):
+            exam.branch_id = g.branch_id
+
         try:
             db.session.add(exam)
             db.session.commit()
@@ -142,12 +173,28 @@ class ExamService:
     @staticmethod
     def update_exam(exam_id, data):
         """Update an existing exam."""
+        from flask import g
+
         exam = Exam.query.get(exam_id)
 
         if not exam:
             return None, "Exam not found"
 
-        # Don't allow updates to completed exams
+        current_tenant_id = getattr(g, "tenant_id", None)
+        current_branch_id = getattr(g, "branch_id", None)
+
+        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
+            exam_tenant_id = getattr(exam, 'tenant_id', None)
+            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
+            if not tenant_ok:
+                return None, "Exam not found"
+
+        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
+            exam_branch_id = getattr(exam, 'branch_id', None)
+            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
+            if not branch_ok:
+                return None, "Exam not found"
+
         if exam.status == "completed":
             return None, "Cannot update a completed exam"
 
@@ -180,12 +227,28 @@ class ExamService:
     @staticmethod
     def delete_exam(exam_id, force=False):
         """Delete an exam."""
+        from flask import g
+
         exam = Exam.query.get(exam_id)
 
         if not exam:
             return False, "Exam not found"
 
-        # Check for grades associated with this exam
+        current_tenant_id = getattr(g, "tenant_id", None)
+        current_branch_id = getattr(g, "branch_id", None)
+
+        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
+            exam_tenant_id = getattr(exam, 'tenant_id', None)
+            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
+            if not tenant_ok:
+                return False, "Exam not found"
+
+        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
+            exam_branch_id = getattr(exam, 'branch_id', None)
+            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
+            if not branch_ok:
+                return False, "Exam not found"
+
         from app.models.grade import Grade
 
         grade_count = Grade.query.filter_by(exam_id=exam_id).count()
@@ -211,14 +274,13 @@ class ExamService:
             return False, str(e)
 
     @staticmethod
-    def get_upcoming_exams(class_id=None, days=7):
+    def get_upcoming_exams(class_id=None, days=7, tenant_id=None, branch_id=None):
         """Get upcoming exams within the specified number of days."""
         from datetime import timedelta
 
         from sqlalchemy.orm import joinedload
 
-        # Create cache key based on parameters
-        cache_key = f"upcoming_exams:dto:class_{class_id}:days_{days}"
+        cache_key = f"upcoming_exams:dto:t{tenant_id}:b{branch_id}:class_{class_id}:days_{days}"
         cached_exams = cache_service.get(cache_key)
         if cached_exams:
             return cached_exams
@@ -228,7 +290,14 @@ class ExamService:
 
         query = Exam.query.options(
             joinedload(Exam.class_), joinedload(Exam.subject), joinedload(Exam.creator)
-        ).filter(
+        )
+
+        if tenant_id is not None and hasattr(Exam, 'tenant_id'):
+            query = query.filter((Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None)))
+        if branch_id is not None and hasattr(Exam, 'branch_id'):
+            query = query.filter((Exam.branch_id == branch_id) | (Exam.branch_id.is_(None)))
+
+        query = query.filter(
             and_(
                 Exam.exam_date >= now,
                 Exam.exam_date <= end_date,

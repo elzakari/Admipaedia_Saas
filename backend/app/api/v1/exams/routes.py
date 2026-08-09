@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.models.user import User
@@ -98,7 +98,9 @@ def get_exams():
 
         # Get paginated exams
         paginated_exams = ExamService.get_all_exams(
-            page, per_page, class_id, subject_id, date_from, date_to, status
+            page, per_page, class_id, subject_id, date_from, date_to, status,
+            tenant_id=getattr(g, "tenant_id", None),
+            branch_id=getattr(g, "branch_id", None),
         )
 
         # Serialize exams
@@ -418,7 +420,7 @@ def get_upcoming_exams():
         class_id = request.args.get("class_id", type=int)
         days = request.args.get("days", 7, type=int)
 
-        upcoming_exams = ExamService.get_upcoming_exams(class_id, days)
+        upcoming_exams = ExamService.get_upcoming_exams(class_id, days, tenant_id=getattr(g, "tenant_id", None), branch_id=getattr(g, "branch_id", None))
 
         return (
             jsonify({"success": True, "exams": exams_schema.dump(upcoming_exams)}),
@@ -470,7 +472,7 @@ def get_exam_grades(exam_id):
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
 
-    paginated_grades = GradeService.get_exam_grades(exam_id, page, per_page)
+    paginated_grades = GradeService.get_exam_grades(exam_id, page, per_page, tenant_id=getattr(g, "tenant_id", None), branch_id=getattr(g, "branch_id", None))
 
     return (
         jsonify(

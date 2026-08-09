@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from flask import jsonify, request
+from flask import g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.decorators.auth import role_required
@@ -22,6 +22,8 @@ def get_student_attendance_report(student_id):
         date_to = request.args.get("date_to")
         class_id = request.args.get("class_id", type=int)
         subject_id = request.args.get("subject_id", type=int)
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
 
         # Convert date strings to date objects if provided
         if date_from:
@@ -53,7 +55,8 @@ def get_student_attendance_report(student_id):
                 )
 
         report, error = AttendanceService.get_student_attendance_report(
-            student_id, date_from, date_to, class_id, subject_id
+            student_id, date_from, date_to, class_id, subject_id,
+            tenant_id=tenant_id, branch_id=branch_id,
         )
 
         if error:
@@ -91,9 +94,12 @@ def bulk_mark_attendance():
 
         # Get current user ID for recording
         current_user_id = get_jwt_identity()
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
 
         result, error = AttendanceService.bulk_mark_attendance(
-            class_id, date, attendances, recorded_by=current_user_id
+            class_id, date, attendances, recorded_by=current_user_id,
+            tenant_id=tenant_id, branch_id=branch_id,
         )
 
         if error:
@@ -162,8 +168,12 @@ def get_attendance_analytics():
                     400,
                 )
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
         analytics, error = AttendanceService.get_advanced_attendance_analytics(
-            class_id=class_id, date_from=date_from, date_to=date_to
+            class_id=class_id, date_from=date_from, date_to=date_to,
+            tenant_id=tenant_id, branch_id=branch_id,
         )
 
         if error:
