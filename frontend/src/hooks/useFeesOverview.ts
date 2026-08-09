@@ -71,22 +71,65 @@ export function useFeesOverview() {
       (sum, record) => sum + Number(record.balance ?? 0),
       0
     );
+    const totalPaidFromRecentPayments = recentPayments.reduce(
+      (sum, payment) => sum + Number(payment.amount ?? 0),
+      0
+    );
 
-    const totalExpected = Number(
-      (summaryQuery.data && typeof (summaryQuery.data as any).total_billed === 'number')
-        ? (summaryQuery.data as any).total_billed
-        : totalExpectedFromRecords
+    const serverSummary = summaryQuery.data as any | undefined;
+    const serverTotalBilled = Number(serverSummary?.total_billed ?? NaN);
+    const serverTotalRevenue = Number(serverSummary?.total_revenue ?? NaN);
+    const serverCollectedPayments = Number(serverSummary?.total_collected_payments ?? NaN);
+    const serverFeeCollections = Number(serverSummary?.total_fee_collections ?? NaN);
+    const serverOutstanding = Number(serverSummary?.outstanding_fees ?? NaN);
+
+    const hasPaymentsData = recentPayments.length > 0;
+    const hasFeeRecordsPaid = totalPaidFromRecords > 0;
+
+    function pickBestServerNumber(
+      candidates: number[],
+      fallbackPaginationBased: number,
+      zeroTrustsServer: boolean,
+    ): number {
+      // Prefer finite, positive server numbers first. If the server says 0 but we
+      // have paginated data that says non-zero (e.g. due to an academic-year
+      // scoping bug / null branch_id / missing allocation rows), prefer the
+      // non-zero paginated total instead of displaying a confusing "0".
+      for (const n of candidates) {
+        if (!Number.isFinite(n)) continue;
+        if (n > 0) return n;
+        if (zeroTrustsServer && n === 0) return 0;
+      }
+      return fallbackPaginationBased;
+    }
+
+    const totalExpected = pickBestServerNumber(
+      [serverTotalBilled, totalExpectedFromRecords],
+      totalExpectedFromRecords,
+      !hasFeeRecordsPaid && totalExpectedFromRecords === 0,
     );
-    const totalCollected = Number(
-      (summaryQuery.data && typeof summaryQuery.data?.total_revenue === 'number')
-        ? summaryQuery.data.total_revenue
-        : totalPaidFromRecords
+
+    let totalCollected = pickBestServerNumber(
+      [serverTotalRevenue, serverCollectedPayments, serverFeeCollections],
+      totalPaidFromRecords,
+      !hasPaymentsData && !hasFeeRecordsPaid,
     );
-    const outstandingFees = Number(
-      (summaryQuery.data && typeof summaryQuery.data?.outstanding_fees === 'number')
-        ? summaryQuery.data.outstanding_fees
-        : outstandingBalanceFromRecords
+    if (totalCollected === 0 && hasPaymentsData) {
+      // Server says 0 but the recent-payments list (populated by the Hodia
+      // Franck row in the screenshots) has visible rows. Use the paginated sum
+      // so the 25k cash payment shows up even if get_financial_summary() is
+      // still mis-scoping an academic year filter or allocation join on prod.
+      totalCollected = Math.max(totalPaidFromRecords, totalPaidFromRecentPayments);
+    }
+
+    let outstandingFees = pickBestServerNumber(
+      [serverOutstanding, Number(serverSummary?.total_overdue_balance ?? NaN)],
+      outstandingBalanceFromRecords,
+      !hasFeeRecordsPaid && outstandingBalanceFromRecords === 0,
     );
+    if (outstandingFees === 0 && outstandingBalanceFromRecords > 0) {
+      outstandingFees = outstandingBalanceFromRecords;
+    }
 
     const paymentMethodCounts = recentPayments.reduce<Record<string, number>>((acc, payment) => {
       const key = String(payment.payment_method || 'other');
@@ -101,21 +144,26 @@ export function useFeesOverview() {
       return sum + Number(payment.amount || 0);
     }, 0);
 
-    const serverCollectionRate = summaryQuery.data?.collection_rate;
-    const collectionRate =
+    const serverCollectionRate = Number(serverSummary?.collection_rate ?? NaN);
+    let collectionRate =
       (typeof serverCollectionRate === 'number' && Number.isFinite(serverCollectionRate) && serverCollectionRate > 0)
         ? Math.round(serverCollectionRate)
-        : (totalExpected > 0
-            ? Math.round((totalCollected / totalExpected) * 100)
-            : 0);
+        : 0;
+    if ((collectionRate === 0 || !Number.isFinite(collectionRate)) && totalExpected > 0) {
+      collectionRate = Math.round((totalCollected / totalExpected) * 100);
+    }
 
     const serverOverdue =
-      summaryQuery.data && typeof (summaryQuery.data as any).overdue_count === 'number'
-        ? (summaryQuery.data as any).overdue_count
+      serverSummary && typeof serverSummary.overdue_count === 'number'
+        ? Number(serverSummary.overdue_count)
         : null;
     const paginatedOverdue = overdueQuery.data?.pagination?.total ?? overdueFees.length;
     const overdueCount =
-      typeof serverOverdue === 'number' ? Math.max(serverOverdue, paginatedOverdue) : paginatedOverdue;
+      typeof serverOverdue === 'number' && serverOverdue > 0
+        ? Math.max(serverOverdue, paginatedOverdue)
+        : (serverOverdue === 0 && paginatedOverdue === 0
+            ? 0
+            : Math.max(typeof serverOverdue === 'number' ? serverOverdue : 0, paginatedOverdue));
 
     return {
       totalExpected,

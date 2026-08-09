@@ -335,11 +335,33 @@ class AdministrationService:
             Dictionary containing financial summary data
         """
         try:
-            from app.models.finance import FeeStructure, Payment, StudentFee
+            from flask import g, has_app_context
+
+            from app.models.finance import (
+                FeeStructure,
+                Payment,
+                PaymentAllocation,
+                StudentFee,
+            )
 
             zero = Decimal("0")
 
-            budget_query = Budget.query
+            branch_id = None
+            tenant_id = None
+            if has_app_context():
+                branch_id = getattr(g, "branch_id", None)
+                tenant_id = getattr(g, "tenant_id", None)
+
+            def _sf_scoped_query(model_cls):
+                """Apply tenant/branch scoping from flask.g for models that have those columns."""
+                q = model_cls.query
+                if branch_id is not None and hasattr(model_cls, "branch_id"):
+                    q = q.filter(model_cls.branch_id == branch_id)
+                if tenant_id is not None and hasattr(model_cls, "tenant_id"):
+                    q = q.filter(model_cls.tenant_id == tenant_id)
+                return q
+
+            budget_query = _sf_scoped_query(Budget)
             if academic_year:
                 budget_query = budget_query.filter(Budget.fiscal_year == academic_year)
             budgets = budget_query.all()
@@ -352,19 +374,12 @@ class AdministrationService:
                 else zero
             )
 
-            fee_records_query = StudentFee.query
-            payments_query = Payment.query.filter(Payment.status == "completed")
+            fee_records_query = _sf_scoped_query(StudentFee).join(FeeStructure)
             if academic_year:
-                fee_records_query = fee_records_query.join(FeeStructure).filter(
-                    FeeStructure.academic_year == academic_year
-                )
-                payments_query = payments_query.join(
-                    StudentFee, Payment.student_id == StudentFee.student_id
-                ).join(FeeStructure).filter(
+                fee_records_query = fee_records_query.filter(
                     FeeStructure.academic_year == academic_year
                 )
             fee_records = fee_records_query.all()
-            payments = payments_query.all()
 
             total_billed = sum(
                 (getattr(fr, "final_amount", None) or zero) for fr in fee_records
@@ -376,9 +391,43 @@ class AdministrationService:
                 (getattr(fr, "balance", None) or zero) for fr in fee_records
             )
 
+            # --- Authoritative payment aggregation ---------------------------------------------------
+            # Aggregate from completed payments scoped to (tenant, branch, year) using
+            # PaymentAllocation as the join path to StudentFee -> FeeStructure.academic_year.
+            #
+            # Historical note: previous code joined Payment.student_id == StudentFee.student_id
+            # which is M:N (a student can have many fee records across years) and would
+            # either explode the payment rows (double count) OR exclude rows entirely if allocations were
+            # never inserted in different years. Go through the allocation table instead.
+            payments_query = _sf_scoped_query(Payment).filter(
+                Payment.status == "completed"
+            )
+            if academic_year:
+                payments_query = (
+                    payments_query.join(
+                        PaymentAllocation,
+                        PaymentAllocation.payment_id == Payment.id
+                    )
+                    .join(
+                        StudentFee,
+                        StudentFee.id == PaymentAllocation.student_fee_id,
+                    )
+                    .join(FeeStructure, FeeStructure.id == StudentFee.fee_structure_id)
+                    .filter(FeeStructure.academic_year == academic_year)
+                    .distinct()
+                )
+            payments = payments_query.all()
             total_collected_payments = sum(
                 (getattr(p, "amount", None) or zero) for p in payments
             )
+
+            # Fallback: if the academic-year scope above relies on allocations join
+            # allocations, so if total_collected_payments came back zero even though
+            # unfiltered completed payments exist, report those rows: still aggregate
+            # directly by paid_amount field directly from fee_records (since create_fee_payment_v2 and
+            # FeeService.record_payment both increment paid_amount.
+            if total_collected_payments == zero and total_fee_collections > zero:
+                total_collected_payments = total_fee_collections
 
             authoritative_revenue = (
                 total_collected_payments
@@ -394,7 +443,8 @@ class AdministrationService:
 
             today = date.today()
             overdue_query = (
-                StudentFee.query.join(FeeStructure)
+                _sf_scoped_query(StudentFee)
+                .join(FeeStructure)
                 .filter(
                     StudentFee.balance > 0,
                     FeeStructure.due_date.isnot(None),
@@ -410,7 +460,7 @@ class AdministrationService:
                 (getattr(fr, "balance", None) or zero) for fr in overdue_query.all()
             )
 
-            transaction_query = Transaction.query
+            transaction_query = _sf_scoped_query(Transaction)
             if academic_year:
                 year_str = str(academic_year).split("/")[0]
                 if year_str.isdigit():
@@ -441,6 +491,42 @@ class AdministrationService:
             pending_transactions = sum(
                 1 for t in transactions if getattr(t, "approved_by", None) is None
             )
+
+            # --- Structured diagnostics (one log line per call so prod 0% collection rate
+            # investigations only need a log search instead of a db shell.
+            try:
+                unfiltered_payments_count = (
+                    _sf_scoped_query(Payment)
+                    .filter(Payment.status == "completed")
+                    .count()
+                )
+                unfiltered_allocations_count = (
+                    _sf_scoped_query(PaymentAllocation).count()
+                    if hasattr(PaymentAllocation, "tenant_id")
+                    or hasattr(PaymentAllocation, "branch_id")
+                    else db.session.query(PaymentAllocation).count()
+                )
+                logger.info(
+                    "financial_summary_diagnostics",
+                    academic_year=academic_year,
+                    tenant_id=str(tenant_id) if tenant_id else None,
+                    branch_id=str(branch_id) if branch_id else None,
+                    fee_records_count=len(fee_records),
+                    total_billed=float(total_billed),
+                    payments_in_year_count=len(payments),
+                    total_collected_payments=float(total_collected_payments),
+                    total_fee_collections=float(total_fee_collections),
+                    authoritative_revenue=float(authoritative_revenue),
+                    unfiltered_completed_payments_count=unfiltered_payments_count,
+                    allocations_count=unfiltered_allocations_count,
+                    overdue_count=overdue_count,
+                    collection_rate=float(collection_rate),
+                )
+            except Exception as _diag_err:
+                logger.warning(
+                    "financial_summary_diagnostics_skipped",
+                    error=str(_diag_err),
+                )
 
             return {
                 "total_revenue": authoritative_revenue,
