@@ -34,7 +34,6 @@ import AcademicsTab from "../../components/parents/AcademicsTab";
 import AttendanceTab from "../../components/parents/AttendanceTab";
 import ConnectedFeesTab from "../../components/parents/ConnectedFeesTab";
 import MessagesTab from "../../components/parents/MessagesTab";
-import StudentTelemetryTabs from "../../components/parents/StudentTelemetryTabs";
 import DailyLessonsTab from "../../components/parents/DailyLessonsTab";
 
 // Import modal components
