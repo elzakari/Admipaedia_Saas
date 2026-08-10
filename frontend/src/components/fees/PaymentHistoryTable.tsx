@@ -220,17 +220,17 @@ const PaymentHistoryTable: React.FC = () => {
         <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>{t('admin_fees.record_payment', 'Record payment')}</DialogTitle>
-              <DialogDescription>{t('admin_fees.record_payment_desc', 'Attach a payment to a specific fee record.')}</DialogDescription>
+              <DialogTitle>{t('admin_fees.record_payment', 'Enregistrer un paiement')}</DialogTitle>
+              <DialogDescription>{t('admin_fees.record_payment_desc', 'Associez un paiement à un enregistrement de frais spécifique.')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>{t('admin_fees.fee_record', 'Fee record')}</Label>
+                <Label>{t('admin_fees.fee_record', 'Frais concerné')}</Label>
                 <Select value={form.fee_record_id} onValueChange={(v) => setForm((p) => ({ ...p, fee_record_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder={t('admin_fees.select_fee_record', 'Select fee record')} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('admin_fees.select_fee_record', 'Sélectionner le frais')} /></SelectTrigger>
                   <SelectContent>
                     {records.map((r: any) => {
-                      const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `${t('admin_fees.student', 'Student')} ${r.student_id}`
+                      const name = `${r.student?.first_name || ''} ${r.student?.last_name || ''}`.trim() || `${t('admin_fees.student', 'Étudiant')} ${r.student_id}`
                       const label = `#${r.id} • ${name} • ${r.structure?.fee_category || ''} • Bal ${r.balance}`
                       return (
                         <SelectItem key={r.id} value={String(r.id)}>{label}</SelectItem>
@@ -242,7 +242,7 @@ const PaymentHistoryTable: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('admin_fees.amount', 'Amount')}</Label>
+                  <Label>{t('admin_fees.amount', 'Montant')}</Label>
                   <Input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
@@ -253,27 +253,27 @@ const PaymentHistoryTable: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('admin_fees.method', 'Method')}</Label>
+                  <Label>{t('admin_fees.method', 'Mode de paiement')}</Label>
                   <Select value={form.payment_method} onValueChange={(v) => setForm((p) => ({ ...p, payment_method: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">cash</SelectItem>
-                      <SelectItem value="bank_transfer">bank_transfer</SelectItem>
-                      <SelectItem value="card">card</SelectItem>
-                      <SelectItem value="mobile_money">mobile_money</SelectItem>
+                      <SelectItem value="cash">Espèces (cash)</SelectItem>
+                      <SelectItem value="bank_transfer">Virement bancaire</SelectItem>
+                      <SelectItem value="card">Carte bancaire</SelectItem>
+                      <SelectItem value="mobile_money">Mobile Money</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('admin_fees.reference', 'Reference')}</Label>
-                  <Input value={form.reference_number} onChange={(e) => setForm((p) => ({ ...p, reference_number: e.target.value }))} placeholder={t('common.optional', 'Optional')} />
+                  <Label>{t('admin_fees.reference', 'Référence')}</Label>
+                  <Input value={form.reference_number} onChange={(e) => setForm((p) => ({ ...p, reference_number: e.target.value }))} placeholder={t('common.optional', 'Optionnel')} />
                 </div>
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setRecordOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
+              <Button variant="outline" onClick={() => setRecordOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
               <Button className="bg-indigo-600 hover:bg-indigo-700" disabled={recordMutation.isPending} onClick={() => recordMutation.mutate()}>
-                {t('common.save', 'Save')}
+                {t('common.save', 'Enregistrer')}
               </Button>
             </DialogFooter>
           </DialogContent>

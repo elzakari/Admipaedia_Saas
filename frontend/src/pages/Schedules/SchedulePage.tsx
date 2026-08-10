@@ -44,7 +44,7 @@ type SubjectItem = {
   teachers?: Array<{ id: number; name?: string }>
 }
 
-const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']
 
 const toCsv = (rows: Array<Record<string, any>>) => {
   const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))))
@@ -436,7 +436,7 @@ const SchedulePage: React.FC = () => {
                       <table className="w-full border-collapse">
                         <thead>
                           <tr>
-                            <th className="p-3 text-left text-indigo-900 dark:text-white font-medium">Time</th>
+                            <th className="p-3 text-left text-indigo-900 dark:text-white font-medium">Heure</th>
                             {days.map((d) => (
                               <th key={d} className="p-3 text-left text-indigo-900 dark:text-white font-medium">{d}</th>
                             ))}
@@ -454,7 +454,7 @@ const SchedulePage: React.FC = () => {
                                       <div className="bg-indigo-50 dark:bg-slate-700 p-3 rounded-lg border border-indigo-100 dark:border-slate-600">
                                         <div className="font-medium text-indigo-900 dark:text-white">{cell.subject}</div>
                                         <div className="text-sm text-indigo-600 dark:text-indigo-400 mt-1">{cell.teacher}</div>
-                                        <div className="text-xs text-indigo-500 dark:text-indigo-300 mt-1">{cell.room ? `Room: ${cell.room}` : ''}</div>
+                                        <div className="text-xs text-indigo-500 dark:text-indigo-300 mt-1">{cell.room ? `Salle : ${cell.room}` : ''}</div>
                                       </div>
                                     ) : (
                                       <div className="h-14 rounded-lg border border-dashed border-indigo-200 dark:border-slate-600" />
@@ -472,18 +472,18 @@ const SchedulePage: React.FC = () => {
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={exportTimetable}>
                       <Download className="h-4 w-4 mr-2" />
-                      Export
+                      Exporter
                     </Button>
                     <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openLesson}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Lesson
+                      Ajouter un cours
                     </Button>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="exams" className="mt-0 space-y-4">
                   {exams.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">No exams scheduled for this class.</div>
+                    <div className="text-sm text-muted-foreground">Aucun examen planifié pour cette classe.</div>
                   ) : (
                     <div className="space-y-3">
                       {exams.map((x: any) => (
@@ -506,7 +506,7 @@ const SchedulePage: React.FC = () => {
                   <div className="flex justify-end">
                     <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openExam}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Schedule Exam
+                      Planifier un examen
                     </Button>
                   </div>
                 </TabsContent>
@@ -540,7 +540,7 @@ const SchedulePage: React.FC = () => {
                         </CardHeader>
                         <CardContent>
                           <div className="grid grid-cols-7 gap-1">
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                            {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map((d) => (
                               <div key={d} className="text-center text-sm font-medium text-indigo-900 dark:text-white py-2">{d}</div>
                             ))}
                             {calendarCells.map((c, idx) => {
@@ -574,21 +574,21 @@ const SchedulePage: React.FC = () => {
                       <Card className="bg-white dark:bg-slate-800 border border-indigo-100 dark:border-slate-700">
                         <CardHeader>
                           <div className="flex items-center justify-between">
-                            <CardTitle className="text-indigo-900 dark:text-white">Events</CardTitle>
+                            <CardTitle className="text-indigo-900 dark:text-white">Événements</CardTitle>
                             <Button
                               size="sm"
                               className="bg-indigo-600 hover:bg-indigo-700 text-white"
                               onClick={() => openEvent(selectedDay)}
                             >
                               <Plus className="h-4 w-4 mr-2" />
-                              Add
+                              Ajouter
                             </Button>
                           </div>
                           <CardDescription className="text-indigo-600 dark:text-indigo-400">{selectedDayKey}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           {selectedDayEvents.length === 0 ? (
-                            <div className="text-sm text-muted-foreground">No events for this day.</div>
+                            <div className="text-sm text-muted-foreground">Aucun événement pour ce jour.</div>
                           ) : (
                             selectedDayEvents.map((e: any) => (
                               <div key={e.id} className="rounded-lg border p-4 bg-indigo-50 dark:bg-slate-700">
