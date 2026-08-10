@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 const Footer: React.FC = () => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
   
   return (
@@ -8,18 +10,18 @@ const Footer: React.FC = () => {
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
         <div className="text-center md:text-left">
           <p className="text-sm text-gray-600">
-            &copy; {currentYear} ADMIPAEDIA. All rights reserved.
+            &copy; {currentYear} ADMIPAEDIA. {t('common.all_rights_reserved', 'Tous droits réservés.')}
           </p>
         </div>
         <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2">
           <a href="/terms" className="text-sm text-indigo-600 hover:text-indigo-800">
-            Terms of Service
+            {t('footer.terms', "Conditions d'utilisation")}
           </a>
           <a href="/privacy" className="text-sm text-indigo-600 hover:text-indigo-800">
-            Privacy Policy
+            {t('footer.privacy', 'Politique de confidentialité')}
           </a>
           <a href="/help" className="text-sm text-indigo-600 hover:text-indigo-800">
-            Help Center
+            {t('footer.help', "Centre d'aide")}
           </a>
         </div>
       </div>

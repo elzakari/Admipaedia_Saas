@@ -66,7 +66,7 @@ const downloadBlob = (filename: string, data: Blob) => {
   URL.revokeObjectURL(url)
 }
 
-const monthLabel = (d: Date) => d.toLocaleString(undefined, { month: 'long', year: 'numeric' })
+const monthLabel = (d: Date) => d.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
