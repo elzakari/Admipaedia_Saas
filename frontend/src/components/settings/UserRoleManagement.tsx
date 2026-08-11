@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -7,18 +7,35 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Checkbox } from '../ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Switch } from '../ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useToast } from '../ui/use-toast';
 import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Download,
   Edit,
   Loader2,
   Plus,
   Search,
   Shield,
+  ShieldPlus,
   Trash2,
-  UserCheck
+  UserCheck,
+  XCircle
 } from 'lucide-react';
 import { rbacApi } from '../../services/rbacApi';
 
@@ -28,6 +45,10 @@ interface RolePermissionRef {
   display_name?: string;
   description?: string;
   category?: string;
+  resource_type?: string;
+  permission_type?: string;
+  is_system?: boolean;
+  is_active?: boolean;
 }
 
 interface Role {
@@ -48,18 +69,39 @@ interface Permission {
   displayName: string;
   description: string;
   category: string;
+  resourceType: string;
+  permissionType: string;
   isSystem: boolean;
+  isActive: boolean;
 }
+
+type PermissionCategoryFilter = 'all' | string;
+type PermissionTypeFilter = 'all' | 'create' | 'read' | 'update' | 'delete' | 'manage' | 'approve' | 'execute' | 'admin';
 
 const CATEGORY_LABELS: Record<string, string> = {
   user_management: 'User Management',
   academic: 'Academic Management',
+  admissions: 'Admissions',
   administration: 'Administration',
   finance: 'Financial Management',
   financial: 'Financial Management',
   reports: 'Reports & Analytics',
   dashboard: 'Dashboards',
-  system: 'System Settings'
+  system: 'System Settings',
+  library: 'Library',
+  operations: 'Operations',
+  communications: 'Communications'
+};
+
+const PERMISSION_TYPE_LABELS: Record<string, string> = {
+  create: 'Create',
+  read: 'Read',
+  update: 'Update',
+  delete: 'Delete',
+  manage: 'Manage',
+  approve: 'Approve',
+  execute: 'Execute',
+  admin: 'Admin'
 };
 
 const emptyRoleDraft = {
@@ -67,6 +109,38 @@ const emptyRoleDraft = {
   description: '',
   permissions: [] as string[]
 };
+
+const emptyPermissionDraft = {
+  name: '',
+  display_name: '',
+  description: '',
+  category: 'user_management',
+  resource_type: 'USER' as 'USER' | 'STUDENT' | 'TEACHER' | 'PARENT' | 'CLASS' | 'SUBJECT' | 'GRADE' | 'ATTENDANCE' | 'EXAM' | 'ASSIGNMENT' | 'REPORT' | 'FINANCE' | 'SYSTEM' | 'DASHBOARD' | 'TEACHER_ANALYTICS' | 'ANNOUNCEMENT',
+  permission_type: 'READ' as 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'EXECUTE' | 'APPROVE' | 'MANAGE' | 'ADMIN'
+};
+
+const RESOURCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'USER', label: 'User' },
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'TEACHER', label: 'Teacher' },
+  { value: 'PARENT', label: 'Parent / Guardian' },
+  { value: 'CLASS', label: 'Class' },
+  { value: 'SUBJECT', label: 'Subject' },
+  { value: 'GRADE', label: 'Grade' },
+  { value: 'ATTENDANCE', label: 'Attendance' },
+  { value: 'EXAM', label: 'Exam' },
+  { value: 'ASSIGNMENT', label: 'Assignment' },
+  { value: 'REPORT', label: 'Report' },
+  { value: 'FINANCE', label: 'Finance' },
+  { value: 'SYSTEM', label: 'System' },
+  { value: 'DASHBOARD', label: 'Dashboard' },
+  { value: 'TEACHER_ANALYTICS', label: 'Teacher Analytics' },
+  { value: 'ANNOUNCEMENT', label: 'Announcement / Communications' }
+];
+
+const PERMISSION_TYPE_OPTIONS: Array<{ value: string; label: string }> = Object.entries(PERMISSION_TYPE_LABELS).map(
+  ([value, label]) => ({ value: value.toUpperCase(), label })
+);
 
 const UserRoleManagement = () => {
   const { t } = useTranslation();
@@ -79,6 +153,17 @@ const UserRoleManagement = () => {
   const [newRoleData, setNewRoleData] = useState(emptyRoleDraft);
   const [roleSearchTerm, setRoleSearchTerm] = useState('');
   const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
+  const [permissionCategoryFilter, setPermissionCategoryFilter] = useState<PermissionCategoryFilter>('all');
+  const [permissionTypeFilter, setPermissionTypeFilter] = useState<PermissionTypeFilter>('all');
+  const [showSystemPermissions, setShowSystemPermissions] = useState(true);
+  const [showInactivePermissions, setShowInactivePermissions] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [isCreatePermissionDialogOpen, setIsCreatePermissionDialogOpen] = useState(false);
+  const [isEditPermissionDialogOpen, setIsEditPermissionDialogOpen] = useState(false);
+  const [newPermissionData, setNewPermissionData] = useState(emptyPermissionDraft);
+  const [editPermissionId, setEditPermissionId] = useState<number | null>(null);
+  const [editPermissionData, setEditPermissionData] = useState<Partial<typeof emptyPermissionDraft> & { is_active?: boolean }>({});
+  const [bulkSelectByCategory, setBulkSelectByCategory] = useState<Record<string, boolean>>({});
 
   const getCategoryName = (category: string) =>
     t(`admin_settings.rbac.category_${category}`, CATEGORY_LABELS[category] || category.replace(/_/g, ' '));
@@ -113,50 +198,58 @@ const UserRoleManagement = () => {
       return list.map((permission) => ({
         id: permission.id,
         name: permission.name,
-        displayName: permission.display_name || permission.name,
-        description: permission.description || '',
-        category: permission.category || 'system',
-        isSystem: !!permission.is_system
+        displayName: (permission as any).display_name || permission.name,
+        description: (permission as any).description || '',
+        category: (permission as any).category || 'system',
+        resourceType: ((permission as any).resource_type || 'SYSTEM') as string,
+        permissionType: ((permission as any).permission_type || 'READ') as string,
+        isSystem: !!(permission as any).is_system,
+        isActive: !('is_active' in (permission as any)) ? true : !!(permission as any).is_active
       })) as Permission[];
     },
     staleTime: 5 * 60 * 1000
   });
 
-  const filteredRoles = useMemo(() => {
-    const query = roleSearchTerm.trim().toLowerCase();
-    if (!query) return roles;
+  const permissionCategories = useMemo(() => {
+    const set = new Set<string>();
+    permissions.forEach((permission) => set.add(permission.category));
+    return ['all', ...Array.from(set)] as string[];
+  }, [permissions]);
 
-    return roles.filter((role) => {
-      const haystack = [
-        role.name,
-        role.displayName,
-        role.description,
-        role.permissions.join(' ')
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(query);
-    });
-  }, [roleSearchTerm, roles]);
+  const availablePermissionTypes = useMemo(() => {
+    const set = new Set<string>();
+    permissions.forEach((permission) => set.add(permission.permissionType.toLowerCase()));
+    return ['all', ...Array.from(set)].map((value) => ({
+      value,
+      label: value === 'all' ? 'All types' : PERMISSION_TYPE_LABELS[value] || value.toUpperCase()
+    }));
+  }, [permissions]);
 
   const filteredPermissions = useMemo(() => {
     const query = permissionSearchTerm.trim().toLowerCase();
-    if (!query) return permissions;
-
     return permissions.filter((permission) => {
-      const haystack = [
-        permission.name,
-        permission.displayName,
-        permission.description,
-        permission.category
-      ]
+      if (!showSystemPermissions && permission.isSystem) return false;
+      if (!showInactivePermissions && !permission.isActive) return false;
+      if (permissionCategoryFilter !== 'all' && permission.category !== permissionCategoryFilter) return false;
+      if (permissionTypeFilter !== 'all') {
+        if (permission.permissionType.toLowerCase() !== permissionTypeFilter.toLowerCase()) return false;
+      }
+      if (!query) return true;
+
+      const haystack = [permission.name, permission.displayName, permission.description, permission.category]
         .join(' ')
         .toLowerCase();
 
       return haystack.includes(query);
     });
-  }, [permissionSearchTerm, permissions]);
+  }, [
+    permissions,
+    permissionSearchTerm,
+    permissionCategoryFilter,
+    permissionTypeFilter,
+    showSystemPermissions,
+    showInactivePermissions
+  ]);
 
   const permissionsByCategory = useMemo(() => {
     return filteredPermissions.reduce<Record<string, Permission[]>>((accumulator, permission) => {
@@ -169,18 +262,293 @@ const UserRoleManagement = () => {
     }, {});
   }, [filteredPermissions]);
 
-  const roleStats = useMemo(() => {
-    const totalUsersAssigned = roles.reduce((sum, role) => sum + role.userCount, 0);
-    return {
-      totalRoles: roles.length,
-      systemRoles: roles.filter((role) => role.isSystem).length,
-      customRoles: roles.filter((role) => !role.isSystem).length,
-      totalPermissions: permissions.length,
-      totalUsersAssigned
-    };
-  }, [permissions.length, roles]);
+  const toggleCategoryCollapse = (category: string) =>
+    setCollapsedCategories((previous) => ({ ...previous, [category]: !previous[category] }));
+
+  const copyPermissionName = useCallback(async (name: string) => {
+    try {
+      await navigator.clipboard.writeText(name);
+      toast({
+        title: t('common.copied', 'Copied'),
+        description: t('admin_settings.permission_copied', `Permission code copied: {{name}}`, { name }),
+        duration: 1800
+      });
+    } catch {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin_settings.copy_failed', 'Unable to copy permission code to clipboard.'),
+        variant: 'destructive',
+        duration: 2200
+      });
+    }
+  }, [t, toast]);
+
+  const exportPermissions = useCallback(() => {
+    try {
+      const rows = filteredPermissions.map((permission) => [
+        permission.name,
+        permission.displayName,
+        permission.description,
+        permission.category,
+        permission.resourceType,
+        permission.permissionType,
+        permission.isSystem ? 'System' : 'Custom',
+        permission.isActive ? 'Active' : 'Inactive'
+      ]);
+      const header = [
+        'Code',
+        'Name',
+        'Description',
+        'Category',
+        'Resource',
+        'Action',
+        'Origin',
+        'Status'
+      ];
+      const csv = [header, ...rows]
+        .map((row) =>
+          row
+            .map((cell) => {
+              const value = String(cell ?? '').replace(/"/g, '""');
+              return /[",\n]/.test(value) ? `"${value}"` : value;
+            })
+            .join(',')
+        )
+        .join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `admipaedia-permissions-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast({
+        title: t('admin_settings.permissions_exported', 'Permissions exported'),
+        description: t('admin_settings.permissions_exported_desc', '{{count}} permissions exported as CSV.', {
+          count: rows.length
+        })
+      });
+    } catch {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin_settings.export_failed', 'Unable to export permissions CSV.'),
+        variant: 'destructive'
+      });
+    }
+  }, [filteredPermissions, t, toast]);
+
+  const filteredRoles = useMemo(() => {
+    const query = roleSearchTerm.trim().toLowerCase();
+    if (!query) return roles;
+
+    return roles.filter((role) => {
+      const haystack = [role.name, role.displayName, role.description, role.permissions.join(' ')]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [roleSearchTerm, roles]);
 
   const resetCreateDialog = () => {
+    setIsCreateDialogOpen(false);
+    setNewRoleData(emptyRoleDraft);
+  };
+
+  const resetCreatePermissionDialog = () => {
+    setIsCreatePermissionDialogOpen(false);
+    setNewPermissionData(emptyPermissionDraft);
+  };
+
+  const openEditPermission = (permission: Permission) => {
+    setEditPermissionId(permission.id);
+    setEditPermissionData({
+      category: permission.category,
+      description: permission.description,
+      display_name: permission.displayName,
+      is_active: permission.isActive
+    });
+    setIsEditPermissionDialogOpen(true);
+  };
+
+  const closeEditPermission = () => {
+    setIsEditPermissionDialogOpen(false);
+    setEditPermissionId(null);
+    setEditPermissionData({});
+  };
+
+  const createPermissionMutation = useMutation({
+    mutationFn: async (payload: Partial<typeof emptyPermissionDraft>) => {
+      const res = await rbacApi.createPermission({
+        name: (payload.name || '').trim(),
+        display_name: (payload.display_name || payload.name || '').trim(),
+        description: (payload.description || '').trim(),
+        category: (payload.category || 'user_management').trim(),
+        resource_type: (payload.resource_type || emptyPermissionDraft.resource_type) as any,
+        permission_type: (payload.permission_type || emptyPermissionDraft.permission_type) as any
+      });
+      if (!res.success) throw new Error(res.message || 'Failed to create custom permission');
+      return res;
+    },
+    onSuccess: () => {
+      toast({
+        title: t('admin_settings.custom_permission_created', 'Custom permission created'),
+        description: t(
+          'admin_settings.custom_permission_created_desc',
+          'The new permission has been added to the system and is ready to attach to roles.'
+        )
+      });
+      resetCreatePermissionDialog();
+      queryClient.invalidateQueries({ queryKey: ['settings-rbac-permissions'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.create_custom_permission_failed', 'Failed to create custom permission'),
+        variant: 'destructive',
+        duration: 9000
+      });
+    }
+  });
+
+  const updatePermissionMutation = useMutation({
+    mutationFn: async (payload: { permissionId: number; patch: Partial<typeof emptyPermissionDraft> & { is_active?: boolean } }) => {
+      const res = await rbacApi.updatePermission(payload.permissionId, {
+        display_name: payload.patch.display_name,
+        description: payload.patch.description,
+        category: payload.patch.category,
+        is_active: payload.patch.is_active
+      } as any);
+      if (!res.success) throw new Error(res.message || 'Failed to update permission');
+      return res;
+    },
+    onSuccess: () => {
+      toast({
+        title: t('admin_settings.permission_updated', 'Permission updated'),
+        description: t('admin_settings.permission_updated_desc', 'Permission metadata saved.')
+      });
+      closeEditPermission();
+      queryClient.invalidateQueries({ queryKey: ['settings-rbac-permissions'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('admin_settings.update_permission_failed', 'Failed to update permission'),
+        variant: 'destructive',
+        duration: 9000
+      });
+    }
+  });
+
+  const deletePermissionMutation = useMutation({
+    mutationFn: async (permissionId: number) => {
+      const res = await rbacApi.deletePermission(permissionId);
+      if (!res.success) throw new Error(res.message || 'Failed to delete permission');
+      return res;
+    },
+    onSuccess: () => {
+      toast({
+        title: t('admin_settings.permission_deleted', 'Permission deleted'),
+        description: t('admin_settings.permission_deleted_desc', 'Custom permission has been removed from the system.')
+      });
+      queryClient.invalidateQueries({ queryKey: ['settings-rbac-permissions'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description:
+          error.message ||
+          t(
+            'admin_settings.delete_permission_failed',
+            'Failed to delete permission. It may still be attached to existing roles.'
+          ),
+        variant: 'destructive',
+        duration: 10000
+      });
+    }
+  });
+
+  const handleCreatePermission = () => {
+    if (!newPermissionData.name.trim()) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin_settings.permission_name_required', 'Permission code (e.g. "library.manage_circulation") is required.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    if (!newPermissionData.display_name.trim()) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin_settings.permission_display_name_required', 'Permission display name is required.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    createPermissionMutation.mutate(newPermissionData);
+  };
+
+  const handleUpdatePermission = () => {
+    if (!editPermissionId) return;
+    if (!editPermissionData.display_name?.trim()) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('admin_settings.permission_display_name_required', 'Permission display name is required.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    updatePermissionMutation.mutate({
+      permissionId: editPermissionId,
+      patch: editPermissionData
+    });
+  };
+
+  const handleDeletePermission = (permission: Permission) => {
+    if (permission.isSystem) {
+      toast({
+        title: t('admin_settings.system_permission_delete_blocked', 'System permissions cannot be deleted'),
+        description: t(
+          'admin_settings.system_permission_delete_blocked_desc',
+          'Deactivate the permission or create a custom replacement instead.'
+        ),
+        variant: 'destructive',
+        duration: 8000
+      });
+      return;
+    }
+    const confirmText = t(
+      'admin_settings.confirm_delete_permission',
+      `Delete custom permission "{{name}}"? This action cannot be undone and any role depending on it will lose the capability.`,
+      { name: permission.displayName || permission.name }
+    );
+    if (!window.confirm(confirmText)) return;
+    deletePermissionMutation.mutate(permission.id);
+  };
+
+  const toggleCategoryAll = (category: string, selectedPermissions: string[], isCreateFlow: boolean) => {
+    const rows = permissionsByCategory[category] || [];
+    const names = rows.filter((row) => !row.isSystem || showSystemPermissions).map((row) => row.name);
+    const allSelected = names.every((name) => selectedPermissions.includes(name));
+
+    const applyTo = (previous: typeof emptyRoleDraft.permissions) => {
+      if (allSelected) return previous.filter((name) => !names.includes(name));
+      const merged = new Set(previous);
+      names.forEach((name) => merged.add(name));
+      return Array.from(merged);
+    };
+
+    if (isCreateFlow) {
+      setNewRoleData((previous) => ({ ...previous, permissions: applyTo(previous.permissions) }));
+    } else {
+      setSelectedRole((previous) => (previous ? { ...previous, permissions: applyTo(previous.permissions) } : previous));
+    }
+    setBulkSelectByCategory((previous) => ({ ...previous, [category]: !allSelected }));
+  };
+
+  const resetCreateDialogRole = () => {
     setIsCreateDialogOpen(false);
     setNewRoleData(emptyRoleDraft);
   };
@@ -357,50 +725,161 @@ const UserRoleManagement = () => {
     if (categoryEntries.length === 0) {
       return (
         <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          {permissionSearchTerm.trim()
-            ? t('admin_settings.no_matching_permissions', 'No permissions matched your search.')
+          {permissionSearchTerm.trim() ||
+          permissionCategoryFilter !== 'all' ||
+          permissionTypeFilter !== 'all' ||
+          !showSystemPermissions ||
+          showInactivePermissions
+            ? t(
+                'admin_settings.no_matching_permissions',
+                'No permissions matched your search. Adjust the filters or clear the search box.'
+              )
             : t('admin_settings.no_permissions_available', 'No permissions are available right now.')}
         </div>
       );
     }
 
-    return categoryEntries.map(([category, categoryPermissions]) => (
-      <div key={category} className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
-            {getCategoryName(category)}
-          </h4>
-          <Badge variant="outline">{categoryPermissions.length}</Badge>
-        </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {categoryPermissions.map((permission) => (
-            <label
-              key={permission.name}
-              htmlFor={`${isCreateFlow ? 'create' : 'edit'}-${permission.name}`}
-              className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
-                isReadOnly ? 'cursor-default bg-slate-50/60' : 'cursor-pointer hover:bg-slate-50'
-              }`}
-            >
-              <Checkbox
-                id={`${isCreateFlow ? 'create' : 'edit'}-${permission.name}`}
-                checked={selectedPermissions.includes(permission.name)}
-                disabled={isReadOnly}
-                onCheckedChange={() => togglePermission(permission.name, isCreateFlow)}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <div className="text-sm font-medium">
-                  {permission.displayName}
+    return (
+      <TooltipProvider delayDuration={120}>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3 rounded-md border bg-slate-50/60 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+            <div>
+              {selectedPermissions.length}{' '}
+              {t('admin_settings.permissions_selected_lower', 'permissions selected')}
+            </div>
+            <div>·</div>
+            <div>
+              {filteredPermissions.length}{' '}
+              {t('admin_settings.permissions_visible', 'visible across')} {categoryEntries.length}{' '}
+              {t('admin_settings.categories_lower', 'categories')}
+            </div>
+          </div>
+          {categoryEntries.map(([category, categoryPermissions]) => {
+            const isCollapsed = !!collapsedCategories[category];
+            const names = categoryPermissions.map((row) => row.name);
+            const allSelected = names.every((name) => selectedPermissions.includes(name));
+            return (
+              <div key={category} className="space-y-3 rounded-md border">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-50/70 border-b">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategoryCollapse(category)}
+                    className="flex items-center gap-2 text-left"
+                  >
+                    {isCollapsed ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                      {getCategoryName(category)}
+                    </h4>
+                    <Badge variant="outline">{categoryPermissions.length}</Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {names.filter((name) => selectedPermissions.includes(name)).length}/
+                      {categoryPermissions.length}{' '}
+                      {t('admin_settings.selected_lower', 'selected')}
+                    </span>
+                  </button>
+                  {!isReadOnly && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => toggleCategoryAll(category, selectedPermissions, isCreateFlow)}
+                    >
+                      {allSelected
+                        ? t('admin_settings.clear_category', 'Clear category')
+                        : t('admin_settings.select_all_category', 'Select all in category')}
+                    </Button>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {permission.description || permission.name}
-                </p>
-                <div className="text-[11px] text-muted-foreground">{permission.name}</div>
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+                    {categoryPermissions.map((permission) => {
+                      const permissionTypeLabel =
+                        PERMISSION_TYPE_LABELS[permission.permissionType.toLowerCase()] ||
+                        permission.permissionType;
+                      return (
+                        <label
+                          key={permission.name}
+                          htmlFor={`${isCreateFlow ? 'create' : 'edit'}-${permission.name}`}
+                          className={`group flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                            isReadOnly
+                              ? 'cursor-default bg-slate-50/60'
+                              : 'cursor-pointer hover:bg-slate-50'
+                          } ${!permission.isActive ? 'opacity-60' : ''}`}
+                        >
+                          <Checkbox
+                            id={`${isCreateFlow ? 'create' : 'edit'}-${permission.name}`}
+                            checked={selectedPermissions.includes(permission.name)}
+                            disabled={isReadOnly}
+                            onCheckedChange={() => togglePermission(permission.name, isCreateFlow)}
+                          />
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-sm font-medium">{permission.displayName}</div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Badge variant="outline" className="text-[10px]">
+                                  {permissionTypeLabel}
+                                </Badge>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void copyPermissionName(permission.name);
+                                      }}
+                                      tabIndex={-1}
+                                    >
+                                      <Copy className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {t('admin_settings.copy_permission_code', 'Copy permission code')}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                              {permission.description || permission.name}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="font-mono">{permission.name}</span>
+                              <span>· {permission.resourceType}</span>
+                              {permission.isSystem ? (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {t('admin_settings.system', 'System')}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 border-blue-100">
+                                  {t('admin_settings.custom', 'Custom')}
+                                </Badge>
+                              )}
+                              {!permission.isActive && (
+                                <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700 bg-amber-50">
+                                  {t('admin_settings.inactive', 'Inactive')}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </label>
-          ))}
+            );
+          })}
         </div>
-      </div>
-    ));
+      </TooltipProvider>
+    );
   };
 
   return (
@@ -646,17 +1125,295 @@ const UserRoleManagement = () => {
                     {t('admin_settings.system_permissions', 'Permissions système')}
                   </CardTitle>
                   <CardDescription>
-                    {t('admin_settings.system_permissions_desc', 'Aperçu de toutes les autorisations disponibles dans le système')}
+                    {t(
+                      'admin_settings.system_permissions_desc_full',
+                      'All system capabilities plus any custom permissions your organisation has added. Create new custom permissions to gate features you extend or plug in.'
+                    )}
                   </CardDescription>
                 </div>
-                <div className="relative w-full lg:w-80">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={permissionSearchTerm}
-                    onChange={(event) => setPermissionSearchTerm(event.target.value)}
-                    className="pl-9"
-                    placeholder={t('admin_settings.search_permissions', 'Rechercher des autorisations')}
-                  />
+                <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+                  <div className="relative flex-1 sm:w-80">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={permissionSearchTerm}
+                      onChange={(event) => setPermissionSearchTerm(event.target.value)}
+                      className="pl-9"
+                      placeholder={t(
+                        'admin_settings.search_permissions_full',
+                        'Search by code, name, description or category…'
+                      )}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <TooltipProvider delayDuration={120}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-2"
+                            onClick={() => exportPermissions()}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t('admin_settings.export_permissions_csv', 'Export filtered list to CSV')}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Dialog
+                      open={isCreatePermissionDialogOpen}
+                      onOpenChange={(open) =>
+                        open ? setIsCreatePermissionDialogOpen(true) : resetCreatePermissionDialog()
+                      }
+                    >
+                      <DialogTrigger asChild>
+                        <Button type="button" className="h-9 items-center gap-2">
+                          <ShieldPlus className="h-4 w-4" />
+                          {t('admin_settings.new_custom_permission', 'New custom permission')}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-xl">
+                        <DialogHeader>
+                          <DialogTitle>
+                            {t('admin_settings.create_custom_permission', 'Create a custom permission')}
+                          </DialogTitle>
+                          <DialogDescription>
+                            {t(
+                              'admin_settings.create_custom_permission_desc',
+                              'Add a new permission that you can attach to roles. Use this for custom modules or granular gating that is not part of the shipped ADMIPAEDIA system.'
+                            )}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="perm-name">
+                              {t('admin_settings.permission_code', 'Permission code')}{' '}
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="perm-name"
+                              value={newPermissionData.name}
+                              onChange={(event) =>
+                                setNewPermissionData((previous) => ({
+                                  ...previous,
+                                  name: event.target.value
+                                }))
+                              }
+                              placeholder="custom_module.action — e.g. hr_contracts.approve"
+                              className="font-mono text-sm"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              {t(
+                                'admin_settings.permission_code_help',
+                                'Use lowercase with a dot separator. Prefer <resource>.<verb> or <module>.<capability>. This value cannot be changed later.'
+                              )}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="perm-display-name">
+                              {t('admin_settings.display_name', 'Display name')}{' '}
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="perm-display-name"
+                              value={newPermissionData.display_name}
+                              onChange={(event) =>
+                                setNewPermissionData((previous) => ({
+                                  ...previous,
+                                  display_name: event.target.value
+                                }))
+                              }
+                              placeholder="e.g. Approve HR contracts"
+                            />
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="perm-resource">
+                                {t('admin_settings.resource_type', 'Resource type')}
+                              </Label>
+                              <Select
+                                value={newPermissionData.resource_type}
+                                onValueChange={(value) =>
+                                  setNewPermissionData((previous) => ({
+                                    ...previous,
+                                    resource_type: value
+                                  }))
+                                }
+                              >
+                                <SelectTrigger id="perm-resource">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {RESOURCE_TYPE_OPTIONS.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="perm-action">
+                                {t('admin_settings.permission_action_type', 'Action type')}
+                              </Label>
+                              <Select
+                                value={newPermissionData.permission_type}
+                                onValueChange={(value) =>
+                                  setNewPermissionData((previous) => ({
+                                    ...previous,
+                                    permission_type: value
+                                  }))
+                                }
+                              >
+                                <SelectTrigger id="perm-action">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PERMISSION_TYPE_OPTIONS.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="perm-category">
+                              {t('admin_settings.category', 'Category')}
+                            </Label>
+                            <Select
+                              value={newPermissionData.category}
+                              onValueChange={(value) =>
+                                setNewPermissionData((previous) => ({
+                                  ...previous,
+                                  category: value
+                                }))
+                              }
+                            >
+                              <SelectTrigger id="perm-category">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {permissionCategories
+                                  .filter((cat) => cat !== 'all')
+                                  .map((option) => (
+                                    <SelectItem key={option} value={option}>
+                                      {getCategoryName(option)}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="perm-description">
+                              {t('common.description', 'Description')}
+                            </Label>
+                            <textarea
+                              id="perm-description"
+                              rows={3}
+                              value={newPermissionData.description}
+                              onChange={(event) =>
+                                setNewPermissionData((previous) => ({
+                                  ...previous,
+                                  description: event.target.value
+                                }))
+                              }
+                              placeholder="Who gets this permission and what can they do?"
+                              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={resetCreatePermissionDialog}>
+                            {t('common.cancel', 'Cancel')}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleCreatePermission}
+                            disabled={createPermissionMutation.isPending}
+                          >
+                            {createPermissionMutation.isPending && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {createPermissionMutation.isPending
+                              ? t('common.saving', 'Saving…')
+                              : t('admin_settings.create_permission', 'Create permission')}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-3 rounded-md border bg-slate-50/60 p-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="w-full lg:w-64">
+                    <Label className="text-xs" htmlFor="perm-cat-filter">
+                      {t('admin_settings.category', 'Category')}
+                    </Label>
+                    <Select
+                      value={permissionCategoryFilter}
+                      onValueChange={(value) => setPermissionCategoryFilter(value)}
+                    >
+                      <SelectTrigger id="perm-cat-filter" className="mt-1 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {permissionCategories.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {getCategoryName(option)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-full lg:w-64">
+                    <Label className="text-xs" htmlFor="perm-type-filter">
+                      {t('admin_settings.action_type', 'Action type')}
+                    </Label>
+                    <Select
+                      value={permissionTypeFilter}
+                      onValueChange={(value) => setPermissionTypeFilter(value)}
+                    >
+                      <SelectTrigger id="perm-type-filter" className="mt-1 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePermissionTypes.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {PERMISSION_TYPE_OPTIONS.find((row) => row.value === option)?.label ||
+                              option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="show-system-perm"
+                      checked={showSystemPermissions}
+                      onCheckedChange={(value) => setShowSystemPermissions(Boolean(value))}
+                    />
+                    <Label htmlFor="show-system-perm" className="text-xs">
+                      {t('admin_settings.show_system_permissions', 'Show system permissions')}
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="show-inactive-perm"
+                      checked={showInactivePermissions}
+                      onCheckedChange={(value) => setShowInactivePermissions(Boolean(value))}
+                    />
+                    <Label htmlFor="show-inactive-perm" className="text-xs">
+                      {t('admin_settings.show_inactive_permissions', 'Show inactive')}
+                    </Label>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -666,46 +1423,363 @@ const UserRoleManagement = () => {
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
-                ) : (
-                  Object.entries(permissionsByCategory).map(([category, categoryPermissions]) => (
-                    <div key={category} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {getCategoryName(category)}
-                        </h3>
-                        <Badge variant="outline">{categoryPermissions.length}</Badge>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {categoryPermissions.map((permission) => (
-                          <Card key={permission.name} className="p-4">
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between gap-3">
-                                <h4 className="font-medium text-sm">{permission.displayName}</h4>
-                                {permission.isSystem && <Badge variant="secondary">{t('admin_settings.system', 'Système')}</Badge>}
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {permission.description || permission.name}
-                              </p>
-                              <Badge variant="outline" className="text-xs">
-                                {permission.name}
-                              </Badge>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-                {!permissionsLoading && filteredPermissions.length === 0 && (
+                ) : filteredPermissions.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {t('admin_settings.no_matching_permissions', 'No permissions matched your search.')}
+                    {t(
+                      'admin_settings.no_matching_permissions',
+                      'No permissions matched your search. Adjust the filters or clear the search box.'
+                    )}
                   </div>
+                ) : (
+                  Object.entries(permissionsByCategory).map(([category, categoryPermissions]) => {
+                    const isCollapsed = !!collapsedCategories[category];
+                    return (
+                      <div key={category} className="space-y-3 rounded-md border">
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-50/70 border-b">
+                          <button
+                            type="button"
+                            onClick={() => toggleCategoryCollapse(category)}
+                            className="flex items-center gap-2 text-left"
+                          >
+                            {isCollapsed ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                              {getCategoryName(category)}
+                            </h3>
+                            <Badge variant="outline">{categoryPermissions.length}</Badge>
+                          </button>
+                        </div>
+                        {!isCollapsed && (
+                          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+                            {categoryPermissions.map((permission) => {
+                              const permissionTypeLabel =
+                                PERMISSION_TYPE_LABELS[permission.permissionType.toLowerCase()] ||
+                                permission.permissionType;
+                              return (
+                                <Card
+                                  key={permission.name}
+                                  className={`p-4 ${
+                                    !permission.isActive ? 'opacity-60' : ''
+                                  }`}
+                                >
+                                  <div className="space-y-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0 space-y-1">
+                                        <h4 className="font-medium text-sm leading-tight">
+                                          {permission.displayName}
+                                        </h4>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <Badge variant="outline" className="text-[10px]">
+                                            {permissionTypeLabel}
+                                          </Badge>
+                                          {permission.isSystem ? (
+                                            <Badge variant="secondary" className="text-[10px]">
+                                              {t('admin_settings.system', 'System')}
+                                            </Badge>
+                                          ) : (
+                                            <Badge
+                                              variant="secondary"
+                                              className="text-[10px] bg-blue-50 text-blue-700 border-blue-100"
+                                            >
+                                              {t('admin_settings.custom', 'Custom')}
+                                            </Badge>
+                                          )}
+                                          {!permission.isActive && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[10px] border-amber-200 text-amber-700 bg-amber-50"
+                                            >
+                                              {t('admin_settings.inactive', 'Inactive')}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <TooltipProvider delayDuration={100}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7 shrink-0"
+                                              onClick={() =>
+                                                void copyPermissionName(permission.name)
+                                              }
+                                            >
+                                              <Copy className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {t(
+                                              'admin_settings.copy_permission_code',
+                                              'Copy permission code'
+                                            )}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug min-h-[2.5rem]">
+                                      {permission.description || permission.name}
+                                    </p>
+                                    <div className="flex items-center justify-between gap-2 border-t pt-2">
+                                      <code className="text-[11px] text-muted-foreground truncate">
+                                        {permission.name}
+                                      </code>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {permission.isSystem ? (
+                                          <TooltipProvider delayDuration={100}>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7"
+                                                  onClick={() => openEditPermission(permission)}
+                                                  title={t(
+                                                    'admin_settings.system_permission_edit_tooltip',
+                                                    'Rename, recategorise or toggle active status (code is locked)'
+                                                  )}
+                                                >
+                                                  <Edit className="h-3.5 w-3.5" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                {t(
+                                                  'admin_settings.system_permission_edit_tooltip',
+                                                  'Edit metadata (name is locked for system permissions)'
+                                                )}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        ) : (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => openEditPermission(permission)}
+                                            title={t('common.edit', 'Edit')}
+                                          >
+                                            <Edit className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                        <TooltipProvider delayDuration={100}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={() => handleDeletePermission(permission)}
+                                                disabled={permission.isSystem}
+                                                title={
+                                                  permission.isSystem
+                                                    ? t(
+                                                        'admin_settings.system_permission_delete_disabled',
+                                                        'System permissions cannot be deleted'
+                                                      )
+                                                    : t('common.delete', 'Delete')
+                                                }
+                                              >
+                                                {permission.isSystem ? (
+                                                  <XCircle className="h-3.5 w-3.5 text-slate-400" />
+                                                ) : (
+                                                  <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                                )}
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              {permission.isSystem
+                                                ? t(
+                                                    'admin_settings.system_permission_delete_disabled',
+                                                    'System permissions cannot be deleted'
+                                                  )
+                                                : t('common.delete', 'Delete')}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={isEditPermissionDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditPermissionDialogOpen(open);
+          if (!open) closeEditPermission();
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t('admin_settings.edit_permission', 'Edit permission')}
+              {editPermissionId ? ` #${editPermissionId}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              {editPermissionId &&
+              permissions.find((p) => p.id === editPermissionId)?.isSystem ? (
+                <span className="text-amber-700">
+                  {t(
+                    'admin_settings.system_permission_edit_locked_banner',
+                    'System permission — code, resource type and action are frozen. You can only change the display name, description, category and active status.'
+                  )}
+                </span>
+              ) : (
+                t(
+                  'admin_settings.edit_permission_desc',
+                  'Update metadata and active status. Changes apply to every role that already references this permission.'
+                )
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {editPermissionId &&
+            (() => {
+              const permission = permissions.find((p) => p.id === editPermissionId);
+              if (!permission) return null;
+              return (
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>{t('admin_settings.permission_code', 'Permission code')}</Label>
+                    <div className="flex items-center gap-2 rounded-md border bg-slate-50 px-3 py-2">
+                      <code className="text-sm flex-1 truncate">{permission.name}</code>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => void copyPermissionName(permission.name)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-perm-display">
+                      {t('admin_settings.display_name', 'Display name')}{' '}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="edit-perm-display"
+                      value={editPermissionData.display_name || ''}
+                      onChange={(event) =>
+                        setEditPermissionData((previous) => ({
+                          ...previous,
+                          display_name: event.target.value
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-perm-category">
+                      {t('admin_settings.category', 'Category')}
+                    </Label>
+                    <Select
+                      value={editPermissionData.category || permission.category}
+                      onValueChange={(value) =>
+                        setEditPermissionData((previous) => ({
+                          ...previous,
+                          category: value
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="edit-perm-category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {permissionCategories
+                          .filter((cat) => cat !== 'all')
+                          .map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {getCategoryName(option)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-perm-description">
+                      {t('common.description', 'Description')}
+                    </Label>
+                    <textarea
+                      id="edit-perm-description"
+                      rows={3}
+                      value={editPermissionData.description || ''}
+                      onChange={(event) =>
+                        setEditPermissionData((previous) => ({
+                          ...previous,
+                          description: event.target.value
+                        }))
+                      }
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border bg-slate-50/60 px-3 py-2">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs">
+                        {t('admin_settings.permission_active', 'Active')}
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground">
+                        {t(
+                          'admin_settings.permission_active_help',
+                          'Inactive permissions remain attached to roles but are no longer enforced by the backend.'
+                        )}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editPermissionData.is_active ?? permission.isActive}
+                      onCheckedChange={(value) =>
+                        setEditPermissionData((previous) => ({
+                          ...previous,
+                          is_active: Boolean(value)
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEditPermission}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpdatePermission}
+              disabled={
+                updatePermissionMutation.isPending ||
+                !editPermissionId ||
+                !editPermissionData.display_name?.trim()
+              }
+            >
+              {updatePermissionMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {updatePermissionMutation.isPending
+                ? t('common.saving', 'Saving…')
+                : t('admin_settings.save_changes', 'Save changes')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isEditDialogOpen}

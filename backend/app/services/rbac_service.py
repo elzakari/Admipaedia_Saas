@@ -503,8 +503,333 @@ class RBACService:
                     "permission_type": PermissionType.EXECUTE,
                     "category": "reports",
                 },
+                # ===== ADMIPAEDIA EXPANDED MAJOR PERMISSION SET =========================
+                # These rows are idempotently inserted (name-guarded) so existing tenants
+                # get every new capability automatically on the next RBAC initialization,
+                # and custom/admin-created permissions remain untouched.
+
+                # Parents / guardians ------------------------------------------------
+                {
+                    "name": "parent.create",
+                    "display_name": "Create Parents",
+                    "description": "Register new parent/guardian accounts and link them to students.",
+                    "resource_type": ResourceType.PARENT,
+                    "permission_type": PermissionType.CREATE,
+                    "category": "admissions",
+                },
+                {
+                    "name": "parent.read",
+                    "display_name": "View Parents",
+                    "description": "Browse parent profiles, contact details and linked students.",
+                    "resource_type": ResourceType.PARENT,
+                    "permission_type": PermissionType.READ,
+                    "category": "admissions",
+                },
+                {
+                    "name": "parent.update",
+                    "display_name": "Update Parents",
+                    "description": "Edit parent profiles, contact information, and emergency contacts.",
+                    "resource_type": ResourceType.PARENT,
+                    "permission_type": PermissionType.UPDATE,
+                    "category": "admissions",
+                },
+                {
+                    "name": "parent.delete",
+                    "display_name": "Delete Parents",
+                    "description": "Remove parent/guardian accounts. Students linked to the parent remain.",
+                    "resource_type": ResourceType.PARENT,
+                    "permission_type": PermissionType.DELETE,
+                    "category": "admissions",
+                },
+
+                # Admissions ----------------------------------------------------------
+                {
+                    "name": "admission.create",
+                    "display_name": "Create Admission Applications",
+                    "description": "Submit and register new admission applications / enrollment enquiries.",
+                    "resource_type": ResourceType.USER,
+                    "permission_type": PermissionType.CREATE,
+                    "category": "admissions",
+                },
+                {
+                    "name": "admission.read",
+                    "display_name": "View Admissions",
+                    "description": "View application statuses, submitted documents and applicant profiles.",
+                    "resource_type": ResourceType.USER,
+                    "permission_type": PermissionType.READ,
+                    "category": "admissions",
+                },
+                {
+                    "name": "admission.update",
+                    "display_name": "Process Applications",
+                    "description": "Update application stage, review notes, and move applicants through the pipeline.",
+                    "resource_type": ResourceType.USER,
+                    "permission_type": PermissionType.UPDATE,
+                    "category": "admissions",
+                },
+                {
+                    "name": "admission.approve",
+                    "display_name": "Approve / Reject Admissions",
+                    "description": "Final decision authority: approve enrollment or reject/withdraw applications.",
+                    "resource_type": ResourceType.USER,
+                    "permission_type": PermissionType.APPROVE,
+                    "category": "admissions",
+                },
+
+                # Finance expanded ---------------------------------------------------
+                {
+                    "name": "finance.create",
+                    "display_name": "Create Financial Records",
+                    "description": "Create invoices, bills, fees, and manual finance journal entries.",
+                    "resource_type": ResourceType.FINANCE,
+                    "permission_type": PermissionType.CREATE,
+                    "category": "finance",
+                },
+                {
+                    "name": "finance.update",
+                    "display_name": "Update Financial Records",
+                    "description": "Edit invoices, fees, payment allocations and adjust ledger records.",
+                    "resource_type": ResourceType.FINANCE,
+                    "permission_type": PermissionType.UPDATE,
+                    "category": "finance",
+                },
+                {
+                    "name": "finance.delete",
+                    "display_name": "Delete Financial Records",
+                    "description": "Delete invoices, bills, or payment records. Usually restricted to Finance Admin.",
+                    "resource_type": ResourceType.FINANCE,
+                    "permission_type": PermissionType.DELETE,
+                    "category": "finance",
+                },
+                {
+                    "name": "finance.approve",
+                    "display_name": "Approve Payments / Refunds",
+                    "description": "Approve outgoing payments, refunds, reversals and manual journal approvals.",
+                    "resource_type": ResourceType.FINANCE,
+                    "permission_type": PermissionType.APPROVE,
+                    "category": "finance",
+                },
+                {
+                    "name": "finance.collections",
+                    "display_name": "Manage Fee Collections",
+                    "description": "Record payments, send payment reminders, and view arrears collections workbench.",
+                    "resource_type": ResourceType.FINANCE,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "finance",
+                },
+
+                # Library ------------------------------------------------------------
+                {
+                    "name": "library.read",
+                    "display_name": "View Library",
+                    "description": "Browse the catalogue, view book details and availability.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.READ,
+                    "category": "library",
+                },
+                {
+                    "name": "library.manage",
+                    "display_name": "Manage Library",
+                    "description": "Add books, check out / check in items, manage holds and inventory.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "library",
+                },
+
+                # Timetable / schedule -----------------------------------------------
+                {
+                    "name": "timetable.read",
+                    "display_name": "View Timetables",
+                    "description": "View class, teacher, room and examination timetables.",
+                    "resource_type": ResourceType.EXAM,
+                    "permission_type": PermissionType.READ,
+                    "category": "academic",
+                },
+                {
+                    "name": "timetable.manage",
+                    "display_name": "Manage Timetables",
+                    "description": "Create, edit and publish class, room, substitute and exam timetables.",
+                    "resource_type": ResourceType.EXAM,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "academic",
+                },
+
+                # Calendar / events --------------------------------------------------
+                {
+                    "name": "calendar.read",
+                    "display_name": "View Calendar",
+                    "description": "View school events, holidays, exam periods and meetings.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.READ,
+                    "category": "operations",
+                },
+                {
+                    "name": "calendar.manage",
+                    "display_name": "Manage Calendar",
+                    "description": "Create school-wide events, term dates, exam windows and closures.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "operations",
+                },
+
+                # Notifications / messaging -----------------------------------------
+                {
+                    "name": "notification.read",
+                    "display_name": "View Notifications",
+                    "description": "View in-app notifications, SMS/email delivery logs and statuses.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.READ,
+                    "category": "communications",
+                },
+                {
+                    "name": "notification.send",
+                    "display_name": "Send Notifications",
+                    "description": "Compose and send bulk email, SMS or in-app broadcast notifications.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.EXECUTE,
+                    "category": "communications",
+                },
+                {
+                    "name": "messages.read",
+                    "display_name": "View Messages",
+                    "description": "Read internal messages with parents, staff and students.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.READ,
+                    "category": "communications",
+                },
+                {
+                    "name": "messages.send",
+                    "display_name": "Send Messages",
+                    "description": "Compose and reply to internal / two-way messages.",
+                    "resource_type": ResourceType.ANNOUNCEMENT,
+                    "permission_type": PermissionType.CREATE,
+                    "category": "communications",
+                },
+
+                # Integrations / AI / Analytics -------------------------------------
+                {
+                    "name": "analytics.read",
+                    "display_name": "View Analytics Dashboards",
+                    "description": "Access attendance, academic, behavioral and financial analytics dashboards.",
+                    "resource_type": ResourceType.TEACHER_ANALYTICS,
+                    "permission_type": PermissionType.READ,
+                    "category": "reports",
+                },
+                {
+                    "name": "analytics.export",
+                    "display_name": "Export Analytics",
+                    "description": "Export charts, CSVs and scheduled analytics reports.",
+                    "resource_type": ResourceType.TEACHER_ANALYTICS,
+                    "permission_type": PermissionType.EXECUTE,
+                    "category": "reports",
+                },
+                {
+                    "name": "teacher_analytics.read",
+                    "display_name": "Teacher Analytics Dashboard",
+                    "description": "View teacher performance, class coverage, grading and attendance analytics.",
+                    "resource_type": ResourceType.TEACHER_ANALYTICS,
+                    "permission_type": PermissionType.READ,
+                    "category": "reports",
+                },
+                {
+                    "name": "ai.use",
+                    "display_name": "Use AI Assistants",
+                    "description": "Use AI drafting, adaptive quizzes, tutoring and analytics features.",
+                    "resource_type": ResourceType.TEACHER_ANALYTICS,
+                    "permission_type": PermissionType.EXECUTE,
+                    "category": "system",
+                },
+                {
+                    "name": "integrations.manage",
+                    "display_name": "Manage Integrations",
+                    "description": "Configure SMS, email, SSO, payment and third-party integrations.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "system",
+                },
+
+                # Security, backup, audit -------------------------------------------
+                {
+                    "name": "security.manage",
+                    "display_name": "Manage Security",
+                    "description": "Manage 2FA, passwords policies, sessions, API keys and login audit.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "system",
+                },
+                {
+                    "name": "audit.read",
+                    "display_name": "View Audit Logs",
+                    "description": "Read administration, permission and data change audit trails.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.READ,
+                    "category": "system",
+                },
+
+                # Attendance approval ------------------------------------------------
+                {
+                    "name": "attendance.approve",
+                    "display_name": "Approve Attendance",
+                    "description": "Approve submitted attendance registers, correct attendance and resolve disputes.",
+                    "resource_type": ResourceType.ATTENDANCE,
+                    "permission_type": PermissionType.APPROVE,
+                    "category": "academic",
+                },
+
+                # Data import / export ----------------------------------------------
+                {
+                    "name": "data.import",
+                    "display_name": "Import Data",
+                    "description": "Bulk-import students, teachers, classes and subjects via CSV / Excel.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.EXECUTE,
+                    "category": "system",
+                },
+                {
+                    "name": "data.export",
+                    "display_name": "Export Data",
+                    "description": "Bulk-export students, rosters, attendance, grades and finance data.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.EXECUTE,
+                    "category": "system",
+                },
+
+                # Tenant / branch ops -----------------------------------------------
+                {
+                    "name": "branch.manage",
+                    "display_name": "Manage Branches / Campuses",
+                    "description": "Create, edit and switch between branches, campuses and active academic years.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "administration",
+                },
+                {
+                    "name": "tenancy.settings",
+                    "display_name": "Manage Tenant Settings",
+                    "description": "Manage branding, academic calendar, school-wide features and tenant configuration.",
+                    "resource_type": ResourceType.SYSTEM,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "system",
+                },
+
+                # Custom / tenant-defined permissions capability flag --------------
+                # Grants the holder the ability to create NEW permissions from the UI
+                # (beyond this baked-in list).  Admins already have this via the
+                # user.manage_roles + system.admin combination but a dedicated flag
+                # lets us delegate it to a "Permissions Steward" role without
+                # handing over the full user management / system admin keys.
+                {
+                    "name": "permissions.create_custom",
+                    "display_name": "Create Custom Permissions",
+                    "description": "Allows defining new tenant-specific permissions beyond the standard system list so you can attach them to custom roles.",
+                    "resource_type": ResourceType.USER,
+                    "permission_type": PermissionType.MANAGE,
+                    "category": "user_management",
+                },
             ]
 
+            # Pass description along so rows inserted for the first time have the
+            # human-readable text from the declarations above rather than NULL.
             for perm_data in default_permissions:
                 existing = RBACPermission.query.filter_by(
                     name=perm_data["name"]
@@ -513,12 +838,38 @@ class RBACService:
                     permission = RBACPermission(
                         name=perm_data["name"],
                         display_name=perm_data["display_name"],
+                        description=perm_data.get("description") or None,
                         resource_type=perm_data["resource_type"],
                         permission_type=perm_data["permission_type"],
                         category=perm_data["category"],
+                        priority=perm_data.get("priority") or 0,
                         is_system=True,
                     )
                     db.session.add(permission)
+                else:
+                    # Keep existing permission rows up-to-date across deployments
+                    # without touching any custom tenant-created permissions
+                    # (is_system distinguishes them on the source side).  We only
+                    # overwrite display/description/category/priority for existing
+                    # system rows so new ship metadata propagates on the next init.
+                    if existing.is_system:
+                        changed = False
+                        if existing.display_name != perm_data["display_name"]:
+                            existing.display_name = perm_data["display_name"]
+                            changed = True
+                        next_desc = perm_data.get("description") or None
+                        if (existing.description or None) != next_desc:
+                            existing.description = next_desc
+                            changed = True
+                        if existing.category != perm_data["category"]:
+                            existing.category = perm_data["category"]
+                            changed = True
+                        next_prio = perm_data.get("priority") or 0
+                        if existing.priority != next_prio:
+                            existing.priority = next_prio
+                            changed = True
+                        if changed:
+                            db.session.add(existing)
 
             db.session.commit()
             logger.info(

@@ -399,11 +399,20 @@ def update_standard_grade_level(level_id):
 @admin_required
 @tenant_required
 def delete_standard_grade_level(level_id):
-    """Delete a custom Grade Level created inline."""
+    """Delete a custom Grade Level created inline.
+
+    If the row is still referenced by any Class, Student, GradeBoundary,
+    GradeTrack, GradeLevel.next_level_id FK, or similar, the delete will be
+    rejected with a 409 so the admin can reassign those rows first.  We
+    never silently cascade user data out of caution.
+    """
     try:
+        import sqlalchemy.exc
         import uuid as _uuid
 
         from app.models.educational_system import GradeLevel
+        from app.models.grading_system import GradeBoundary, GradeTrack
+        from app.models.student import Student as StudentModel
 
         try:
             level_uuid = _uuid.UUID(str(level_id).strip())
@@ -414,9 +423,143 @@ def delete_standard_grade_level(level_id):
         if not level:
             return jsonify({"success": False, "message": "Grade level not found"}), 404
 
+        # ----- Usage / FK guard ---------------------------------------------------
+        # Classes reference grade_level as a VARCHAR(20) string.  The dropdown
+        # stores UUID strings there, so count any matches.
+        class_count = 0
+        student_count = 0
+        boundary_count = 0
+        track_count = 0
+        next_ref_count = 0
+
+        try:
+            from app.models.class_ import Class as ClassModel
+
+            class_filters = [db.cast(ClassModel.grade_level, db.String) == str(level.id)]
+            tenant_attr = getattr(ClassModel, "tenant_id", None)
+            if tenant_attr is not None and getattr(level, "tenant_id", None) is not None:
+                class_filters.append(tenant_attr == level.tenant_id)
+            class_count = (
+                db.session.query(db.func.count())
+                .select_from(ClassModel)
+                .filter(*class_filters)
+                .scalar()
+            ) or 0
+        except Exception:
+            class_count = 0
+
+        try:
+            student_grade_attr = getattr(StudentModel, "grade_level_id", None)
+            if student_grade_attr is not None:
+                student_filters = [db.cast(student_grade_attr, db.String) == str(level.id)]
+                student_tenant = getattr(StudentModel, "tenant_id", None)
+                if student_tenant is not None and getattr(level, "tenant_id", None) is not None:
+                    student_filters.append(student_tenant == level.tenant_id)
+                student_count = (
+                    db.session.query(db.func.count())
+                    .select_from(StudentModel)
+                    .filter(*student_filters)
+                    .scalar()
+                ) or 0
+        except Exception:
+            student_count = 0
+
+        try:
+            boundary_grade_attr = getattr(GradeBoundary, "grade_level_id", None)
+            if boundary_grade_attr is not None:
+                boundary_count = (
+                    db.session.query(db.func.count())
+                    .select_from(GradeBoundary)
+                    .filter(db.cast(boundary_grade_attr, db.String) == str(level.id))
+                    .scalar()
+                ) or 0
+        except Exception:
+            boundary_count = 0
+
+        try:
+            if hasattr(GradeTrack, "grade_levels"):
+                # GradeLevel may have no grade_track relationship at all on
+                # older schema revisions.  Count indirectly via GradeTrack.id.
+                try:
+                    track_gs_attr = getattr(GradeTrack, "grade_levels", None)
+                    if track_gs_attr is not None:
+                        track_rows = (
+                            GradeTrack.query.join(track_gs_attr)
+                            .filter(GradeLevel.id == level.id)
+                            .all()
+                        )
+                        track_count = len(track_rows or [])
+                except Exception:
+                    track_count = 0
+        except Exception:
+            track_count = 0
+
+        try:
+            next_level_attr = getattr(GradeLevel, "next_level_id", None)
+            if next_level_attr is not None:
+                next_ref_count = (
+                    db.session.query(db.func.count())
+                    .select_from(GradeLevel)
+                    .filter(next_level_attr == level.id)
+                    .scalar()
+                ) or 0
+        except Exception:
+            next_ref_count = 0
+
+        total_refs = int(class_count) + int(student_count) + int(boundary_count) + int(track_count) + int(next_ref_count)
+        if total_refs > 0:
+            parts: list[str] = []
+            if class_count:
+                parts.append(f"{class_count} classe(s)")
+            if student_count:
+                parts.append(f"{student_count} student(s)")
+            if boundary_count:
+                parts.append(f"{boundary_count} grading boundar(y/ies)")
+            if track_count:
+                parts.append(f"{track_count} track(s)")
+            if next_ref_count:
+                parts.append(f"{next_ref_count} progression link(s)")
+            usage = ", ".join(parts) or f"{total_refs} related record(s)"
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": (
+                            "Cannot delete grade level because it is still in use: "
+                            f"{usage}. Reassign those records first, then retry."
+                        ),
+                        "usage": {
+                            "classes": int(class_count),
+                            "students": int(student_count),
+                            "boundaries": int(boundary_count),
+                            "tracks": int(track_count),
+                            "next_level_refs": int(next_ref_count),
+                            "total": int(total_refs),
+                        },
+                    }
+                ),
+                409,
+            )
+        # ----- End usage guard ---------------------------------------------------
+
         db.session.delete(level)
         db.session.commit()
         return jsonify({"success": True, "message": "Grade level deleted successfully"}), 200
+    except sqlalchemy.exc.IntegrityError as integ_err:
+        logger.error(f"Integrity error deleting grade level: {str(integ_err)}")
+        db.session.rollback()
+        detail = "Cannot delete grade level because other records still reference it. Reassign those records first, then retry."
+        lower = str(integ_err.orig or integ_err).lower()
+        if "grade_level" in lower and "class" in lower:
+            detail = "Cannot delete grade level: one or more classes are still assigned to it. Reassign those classes first, then retry."
+        elif "student" in lower:
+            detail = "Cannot delete grade level: one or more students are still assigned to it. Reassign those students first, then retry."
+        elif "grade_boundary" in lower or "grading" in lower:
+            detail = "Cannot delete grade level: grading boundaries are configured against it. Remove or reassign them first, then retry."
+        return (
+            jsonify({"success": False, "message": detail}),
+            409,
+        )
     except Exception as e:
         logger.error(f"Error deleting grade level: {str(e)}")
         db.session.rollback()

@@ -68,7 +68,6 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [gradeCreateOrder, setGradeCreateOrder] = useState('');
   const [gradeCreateSubmitting, setGradeCreateSubmitting] = useState(false);
   const [gradeCreateErrors, setGradeCreateErrors] = useState<{ name?: string }>({});
-
   const [gradeManageOpen, setGradeManageOpen] = useState(false);
   const [gradeEditId, setGradeEditId] = useState<string | null>(null);
   const [gradeEditName, setGradeEditName] = useState('');
@@ -76,6 +75,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [gradeEditOrder, setGradeEditOrder] = useState('');
   const [gradeEditSubmitting, setGradeEditSubmitting] = useState(false);
   const [gradeEditErrors, setGradeEditErrors] = useState<{ name?: string }>({});
+  const [gradeDeleteId, setGradeDeleteId] = useState<string | null>(null);
+  const [gradeDeleteSubmitting, setGradeDeleteSubmitting] = useState(false);
+  const [gradePendingId, setGradePendingId] = useState<string | null>(null);
 
   // Fetch current user for role-based access control
   const {
@@ -124,21 +126,25 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
         const baseName = (lvl.display_name || lvl.name || `Grade ${lvl.numeric_value || lvl.order_index || ''}`).toString().trim();
         const code = (lvl.code || '').toString().trim();
         const display = baseName + (code ? ` · ${code}` : '');
+        const serverNoteRaw = (lvl.note || '').toString().trim();
+        const isDupServer = !!serverNoteRaw || /\(#\d+\)$/.test(baseName);
         // Secondary dedupe on the frontend as a safety net against any duplicates from the backend
         const prev = seen.get(baseName) || { cnt: 0, display_name: '' };
         const nextCnt = prev.cnt + 1;
         let finalDisplay = display;
-        if (nextCnt > 1) {
-          finalDisplay = baseName.includes('(') ? display : `${baseName} (#${nextCnt})${code ? ` · ${code}` : ''}`;
+        if (nextCnt > 1 && !baseName.includes('(')) {
+          finalDisplay = `${baseName} (#${nextCnt})${code ? ` · ${code}` : ''}`;
         }
         seen.set(baseName, { cnt: nextCnt, display_name: finalDisplay });
+        const isDuplicate = isDupServer || nextCnt > 1;
         return {
           id: String(lvl.id),
           display_name: finalDisplay,
           name: baseName,
           code,
           order_index: typeof lvl.order_index === 'number' ? lvl.order_index : 0,
-          note: lvl.note || null,
+          note: serverNoteRaw || (nextCnt > 1 ? `Shared name — ${nextCnt} grade-level rows exist with this label` : null),
+          isDuplicate,
         };
       })
       .sort((a, b) => {
@@ -222,10 +228,11 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   };
 
   const openManageGrade = (existingId?: string) => {
+    const list = normalizedGradeLevels;
     if (existingId) {
-      const found = normalizedGradeLevels.find(g => g.id === existingId);
+      const found = list.find(g => g.id === existingId);
       setGradeEditId(existingId);
-      setGradeEditName(found?.name || '');
+      setGradeEditName(found?.name ? found.name.replace(/\s*\(#\d+\)$/, '').trim() : '');
       setGradeEditCode(found?.code || '');
       setGradeEditOrder((found && typeof found.order_index === 'number' && found.order_index > 0) ? String(found.order_index) : '');
     } else {
@@ -235,13 +242,27 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       setGradeEditOrder('');
     }
     setGradeEditErrors({});
+    setGradeDeleteId(null);
     setGradeManageOpen(true);
   };
 
   const closeManageGrade = () => {
-    if (gradeEditSubmitting) return;
+    if (gradeEditSubmitting || gradeDeleteSubmitting) return;
     setGradeManageOpen(false);
     setGradeEditId(null);
+    setGradeDeleteId(null);
+  };
+
+  const openDeleteGrade = (levelId: string) => {
+    if (gradeEditSubmitting || gradeDeleteSubmitting) return;
+    const found = normalizedGradeLevels.find(g => g.id === levelId);
+    if (!found) return;
+    setGradeDeleteId(levelId);
+  };
+
+  const closeDeleteGrade = () => {
+    if (gradeDeleteSubmitting) return;
+    setGradeDeleteId(null);
   };
 
   const submitManageGrade = async () => {
@@ -292,27 +313,43 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
   const deleteGradeById = async (levelId: string) => {
     try {
-      setGradeEditSubmitting(true);
+      setGradeDeleteSubmitting(true);
+      setGradePendingId(levelId);
       await academicService.deleteGradeLevel(levelId);
       await queryClient.invalidateQueries({ queryKey: ['standardGradeLevels'] });
       if (String(formData.grade_level) === String(levelId)) {
         setFormData(prev => ({ ...prev, grade_level: '' }));
+        if (errors.grade_level) setErrors(prev => ({ ...prev, grade_level: '' }));
       }
+      if (String(gradeEditId) === String(levelId)) {
+        setGradeEditId(null);
+      }
+      const deletedDisplay = normalizedGradeLevels.find(g => g.id === levelId)?.display_name || null;
       toast({
         title: t('common.success', 'Success'),
-        description: t('classes_page.form.grade_deleted', 'Grade level deleted'),
+        description: deletedDisplay
+          ? t('classes_page.form.grade_deleted_named', `Deleted grade level "{{name}}"`, { name: deletedDisplay })
+          : t('classes_page.form.grade_deleted', 'Grade level deleted'),
         variant: 'default',
       });
-      setGradeManageOpen(false);
+      setGradeDeleteId(null);
     } catch (err: any) {
-      const msg = err?.message || t('classes_page.form.grade_delete_failed', 'Failed to delete grade level (it may still be in use)');
+      const base = err?.message || t('classes_page.form.grade_delete_failed', 'Failed to delete grade level (it may still be in use)');
+      const msg = base && typeof base === 'string' && /^cannot delete/i.test(base.trim())
+        ? base
+        : t(
+            'classes_page.form.grade_delete_failed_detail',
+            'Failed to delete grade level — it may still be assigned to classes, students, or grading boundaries. Reassign those records first, then retry.'
+          );
       toast({
         title: t('common.error', 'Error'),
         description: msg,
         variant: 'destructive',
+        duration: 12000,
       });
     } finally {
-      setGradeEditSubmitting(false);
+      setGradePendingId(null);
+      setGradeDeleteSubmitting(false);
     }
   };
 
@@ -1098,54 +1135,82 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <div className="max-h-56 overflow-auto border rounded-md p-2 space-y-1">
+          <div className="max-h-64 overflow-auto border rounded-md p-2 space-y-2">
             {normalizedGradeLevels.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-6">
                 {t('classes_page.form.no_grade_levels', 'No grade levels available')}
               </p>
             ) : (
-              normalizedGradeLevels.map((g) => (
-                <div
-                  key={g.id}
-                  className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${gradeEditId === g.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate">{g.display_name}</span>
-                      {g.note && <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Duplicate name</span>}
+              normalizedGradeLevels.map((g) => {
+                const isDeleting = gradePendingId === g.id;
+                const isRowEditing = gradeEditId === g.id;
+                return (
+                  <div
+                    key={g.id}
+                    className={`flex items-start justify-between gap-2 rounded border px-3 py-2 transition ${isRowEditing ? 'border-blue-500 bg-blue-50/70' : 'border-gray-200 bg-white'} ${isDeleting ? 'opacity-60' : ''}`}
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate">{g.display_name}</span>
+                        {g.isDuplicate && (
+                          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                            Duplicate name
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-wrap text-[11px] text-gray-500">
+                        <span>
+                          {t('classes_page.form.order_index', 'Order')}:{' '}
+                          <span className="font-medium text-gray-700 tabular-nums">
+                            {typeof g.order_index === 'number' && g.order_index > 0 ? g.order_index : '—'}
+                          </span>
+                        </span>
+                        {g.code && (
+                          <span>
+                            {t('classes_page.form.grade_level_code', 'Short Code')}:{' '}
+                            <span className="font-medium text-gray-700">{g.code}</span>
+                          </span>
+                        )}
+                      </div>
+                      {g.note && <p className="text-[11px] text-amber-700/90">{g.note}</p>}
                     </div>
-                    <div className="text-[11px] text-gray-500">
-                      {t('classes_page.form.order_index', 'Order')}: {g.order_index ?? '—'}
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        disabled={gradeEditSubmitting || gradeDeleteSubmitting || isDeleting}
+                        onClick={() => openManageGrade(g.id)}
+                      >
+                        {isRowEditing
+                          ? t('classes_page.form.editing', 'Editing')
+                          : t('common.edit', 'Edit')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                        disabled={gradeEditSubmitting || gradeDeleteSubmitting || isDeleting}
+                        onClick={() => openDeleteGrade(g.id)}
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            {t('classes_page.form.deleting', 'Deleting…')}
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            {t('common.delete', 'Delete')}
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-xs"
-                      disabled={gradeEditSubmitting}
-                      onClick={() => openManageGrade(g.id)}
-                    >
-                      {t('common.edit', 'Edit')}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                      disabled={gradeEditSubmitting}
-                      onClick={async () => {
-                        if (!window.confirm(t('classes_page.form.confirm_delete_grade', 'Delete this grade level? This cannot be undone.'))) return;
-                        await deleteGradeById(g.id);
-                      }}
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" />
-                      {t('common.delete', 'Delete')}
-                    </Button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -1171,6 +1236,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                     if (gradeEditErrors.name) setGradeEditErrors({});
                   }}
                   className={gradeEditErrors.name ? 'border-red-500' : ''}
+                  maxLength={255}
                 />
                 {gradeEditErrors.name && (
                   <p className="text-sm text-red-500">{gradeEditErrors.name}</p>
@@ -1183,46 +1249,135 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                     id="grade_edit_code"
                     value={gradeEditCode}
                     onChange={(e) => setGradeEditCode(e.target.value)}
-                    maxLength={20}
+                    maxLength={50}
+                    placeholder={t('classes_page.form.grade_level_code_placeholder', 'e.g. PS1, CP2, 6ème')}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grade_edit_order">{t('classes_page.form.grade_level_order', 'Order (optional)')}</Label>
-                  <Input
-                    id="grade_edit_order"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={gradeEditOrder}
-                    onChange={(e) => setGradeEditOrder(e.target.value)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="grade_edit_order"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={gradeEditOrder}
+                      onChange={(e) => setGradeEditOrder(e.target.value)}
+                      placeholder={t('classes_page.form.grade_level_order_placeholder', 'Append to end')}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 px-2 shrink-0"
+                      disabled={gradeEditSubmitting}
+                      onClick={() => setGradeEditOrder('')}
+                      title={t('classes_page.form.grade_level_order_reset', 'Reset — append to end of the list')}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                      {t('classes_page.form.grade_level_order_reset_label', 'End')}
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={closeManageGrade} disabled={gradeEditSubmitting}>
-                  {t('common.cancel', 'Cancel')}
-                </Button>
-                <Button type="button" size="sm" onClick={submitManageGrade} disabled={gradeEditSubmitting}>
-                  {gradeEditSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      {t('common.saving', 'Saving...')}
-                    </>
-                  ) : (
-                    t('common.save', 'Save changes')
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <p className="text-[11px] text-gray-500">
+                  {t(
+                    'classes_page.form.edit_grade_help',
+                    'Tip: for duplicates shown above, rename each row and reorder to distinguish them.'
                   )}
-                </Button>
+                </p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => setGradeEditId(null)} disabled={gradeEditSubmitting}>
+                    {t('common.close', 'Close')}
+                  </Button>
+                  <Button type="button" size="sm" onClick={submitManageGrade} disabled={gradeEditSubmitting}>
+                    {gradeEditSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        {t('common.saving', 'Saving...')}
+                      </>
+                    ) : (
+                      t('common.save', 'Save changes')
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={openCreateGrade} disabled={gradeCreateSubmitting || gradeEditSubmitting}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('classes_page.form.create_grade_level', 'Create Grade Level')}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3">
+            <p className="text-[11px] text-gray-500">
+              {t(
+                'classes_page.form.manage_grade_levels_footer',
+                'Need a clean slate? Rename or reorder duplicate rows first; delete is blocked while the grade is still assigned to classes, students, or grading boundaries.'
+              )}
+            </p>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={openCreateGrade} disabled={gradeCreateSubmitting || gradeEditSubmitting || gradeDeleteSubmitting}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('classes_page.form.create_grade_level', 'Create Grade Level')}
+              </Button>
+              <Button type="button" onClick={closeManageGrade} disabled={gradeEditSubmitting || gradeDeleteSubmitting}>
+                {t('common.done', 'Done')}
+              </Button>
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Confirm Grade Level Delete Dialog */}
+    <Dialog open={!!gradeDeleteId} onOpenChange={(open) => { if (!open) closeDeleteGrade(); }}>
+      <DialogContent className="sm:max-w-[460px]">
+        <DialogHeader>
+          <DialogTitle>{t('classes_page.form.delete_grade_title', 'Delete Grade Level')}</DialogTitle>
+          <DialogDescription>
+            {gradeDeleteId && normalizedGradeLevels.find(g => g.id === gradeDeleteId) ? (
+              <>
+                {t(
+                  'classes_page.form.delete_grade_intro',
+                  'You are about to permanently delete the grade level:'
+                )}
+                <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  {normalizedGradeLevels.find(g => g.id === gradeDeleteId)?.display_name || gradeDeleteId}
+                </div>
+                <p className="mt-2 text-sm text-gray-600">
+                  {t(
+                    'classes_page.form.delete_grade_desc',
+                    'This cannot be undone. If any class, student, grading boundary, or progression link still points to this grade level, the delete will be blocked automatically so no data is lost.'
+                  )}
+                </p>
+              </>
+            ) : null}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={closeDeleteGrade} disabled={gradeDeleteSubmitting}>
+            {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={closeManageGrade} disabled={gradeEditSubmitting}>
-            {t('common.done', 'Done')}
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={gradeDeleteSubmitting || !gradeDeleteId}
+            onClick={async () => {
+              if (!gradeDeleteId) return;
+              const currentId = gradeDeleteId;
+              await deleteGradeById(currentId);
+            }}
+          >
+            {gradeDeleteSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                {t('classes_page.form.deleting_grade', 'Deleting...')}
+              </>
+            ) : (
+              <>
+                <X className="h-4 w-4 mr-2" />
+                {t('classes_page.form.confirm_delete_grade_label', 'Delete this grade level')}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -53,6 +53,13 @@ class UpdateRoleSchema(Schema):
     is_active = fields.Bool()
 
 
+class UpdatePermissionSchema(Schema):
+    display_name = fields.Str(required=False, validate=validate.Length(min=1, max=150))
+    description = fields.Str(allow_none=True)
+    category = fields.Str(required=False, validate=validate.Length(min=1, max=50))
+    is_active = fields.Bool()
+
+
 class RoleCreateSchema(Schema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=50))
     description = fields.Str(load_default="")
@@ -304,12 +311,37 @@ def get_permissions():
 @require_permission("system.admin")
 @audit_access("create_permission")
 def create_permission():
-    """Create a new permission"""
+    """Create a new permission
+
+    This entrypoint requires system.admin by default.  The dedicated and
+    more-delegatable permission ``permissions.create_custom`` also permits
+    the same action so administrators can delegate "permission steward"
+    capability without handing over full system admin control.
+    """
     try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        from app.utils.rbac_decorators import has_permission
+
+        is_admin = bool(has_permission(current_user, "system.admin")) if current_user else False
+        is_custom_creator = bool(has_permission(current_user, "permissions.create_custom")) if current_user else False
+        if not is_admin and not is_custom_creator:
+            return error_response(
+                "You are not allowed to create custom permissions. Ask an administrator for 'Create Custom Permissions' authority.",
+                403,
+            )
+
         schema = CreatePermissionSchema()
         data = schema.load(request.json)
 
-        permission, message = RBACService.create_permission(**data)
+        permission, message = RBACService.create_permission(
+            is_system=False,
+            **{
+                k: v
+                for k, v in data.items()
+                if k not in ("metadata",)
+            },
+        )
 
         if permission:
             permission_data = {
@@ -320,6 +352,8 @@ def create_permission():
                 "resource_type": permission.resource_type.value,
                 "permission_type": permission.permission_type.value,
                 "category": permission.category,
+                "is_system": permission.is_system,
+                "is_active": permission.is_active,
                 "created_at": permission.created_at.isoformat(),
             }
             return success_response(data=permission_data, message=message)
@@ -331,6 +365,98 @@ def create_permission():
     except Exception as e:
         logger.error("failed_to_create_permission", error=str(e))
         return error_response("Failed to create permission", 500)
+
+
+@rbac_bp.route("/permissions/<int:permission_id>", methods=["PUT"])
+@jwt_required()
+@require_permission("user.manage_roles")
+@audit_access("update_permission")
+def update_permission(permission_id: int):
+    """Update a (non-system) permission row.
+
+    Custom permissions can be edited freely.  System-shipped permissions
+    only allow cosmetic display/description/category adjustments so the
+    internal code contract used by decorators and route guards is never
+    changed under running code.
+    """
+    try:
+        permission = RBACPermission.query.get_or_404(permission_id)
+        schema = UpdatePermissionSchema()
+        data = schema.load(request.json or {})
+
+        editable = {"display_name", "description", "category", "is_active"}
+        if permission.is_system:
+            # System rows keep their name/resource_type/permission_type frozen.
+            allowed = {k: v for k, v in data.items() if k in {"display_name", "description", "category", "is_active"}}
+        else:
+            allowed = {k: v for k, v in data.items() if k in editable}
+
+        for field, value in allowed.items():
+            setattr(permission, field, value)
+
+        db.session.commit()
+
+        return success_response(
+            data={
+                "id": permission.id,
+                "name": permission.name,
+                "display_name": permission.display_name,
+                "description": permission.description,
+                "resource_type": permission.resource_type.value,
+                "permission_type": permission.permission_type.value,
+                "category": permission.category,
+                "is_system": permission.is_system,
+                "is_active": permission.is_active,
+            },
+            message="Permission updated successfully",
+        )
+    except ValidationError as e:
+        return error_response("Validation error", 400, errors=e.messages)
+    except Exception as e:
+        logger.error("failed_to_update_permission", permission_id=permission_id, error=str(e))
+        db.session.rollback()
+        return error_response("Failed to update permission", 500)
+
+
+@rbac_bp.route("/permissions/<int:permission_id>", methods=["DELETE"])
+@jwt_required()
+@require_permission("system.admin")
+@audit_access("delete_permission")
+def delete_permission(permission_id: int):
+    """Delete a custom permission.
+
+    System permissions cannot be deleted; they ship with the application
+    and are expected by route guards and domain services.  Any custom
+    permission can be deleted, but the operation is rejected if any role
+    still has the permission attached so role assignments don't silently
+    drop capability.
+    """
+    try:
+        permission = RBACPermission.query.get_or_404(permission_id)
+        if permission.is_system:
+            return error_response("Cannot delete a system permission. Deactivate it instead, or create a custom permission to replace it.", 400)
+
+        used_roles = (
+            db.session.query(RBACRole.id, RBACRole.display_name)
+            .join(RBACRole.permissions)
+            .filter(RBACPermission.id == permission.id)
+            .all()
+        ) or []
+        if used_roles:
+            names = ", ".join([row[1] for row in used_roles[:6]])
+            extra = f" (+{len(used_roles) - 6} more)" if len(used_roles) > 6 else ""
+            return error_response(
+                f"Cannot delete permission '{permission.display_name}' because it is still used by roles: {names}{extra}. Remove it from those roles first, then retry.",
+                409,
+            )
+
+        db.session.delete(permission)
+        db.session.commit()
+        return success_response(message="Permission deleted successfully")
+    except Exception as e:
+        logger.error("failed_to_delete_permission", permission_id=permission_id, error=str(e))
+        db.session.rollback()
+        return error_response("Failed to delete permission", 500)
 
 
 # User Role Assignment Endpoints
