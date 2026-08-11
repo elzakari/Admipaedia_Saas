@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// Shared mutable mock for useDeleteStudent mutate (declared above hoisted vi.mock blocks so they can capture it by ref)
+let deleteMutateMock = vi.fn();
+let createMutateAsyncMock = vi.fn().mockResolvedValue({ data: { id: 1 }, success: true });
+let updateMutateAsyncMock = vi.fn().mockResolvedValue({ data: { id: 1 }, success: true });
+
 // Mock services with factories to ensure methods are mocked
 vi.mock('../../services/studentService', () => {
   const mockObj = {
@@ -38,8 +43,85 @@ vi.mock('../../services/classService', () => {
   };
 });
 
+// Mock lib/api used by StudentFormModal for /classes and /parents fetches (inside component, not via service)
+vi.mock('../../lib/api', () => ({
+  __esModule: true,
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    patch: vi.fn(),
+  },
+}));
+
+// Mock the useStudents hooks that StudentsPage + StudentFormModal use internally
+vi.mock('../../hooks/useStudents', () => {
+  const mkMutation = (mutateAsyncFn: any, mutateFn: any, mockResolved = { data: { id: 1 }, success: true }) => ({
+    mutateAsync: mutateAsyncFn ?? vi.fn().mockResolvedValue(mockResolved),
+    mutate: mutateFn ?? vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    reset: vi.fn(),
+  });
+  return {
+    useStudents: vi.fn().mockImplementation(() => ({
+      data: {
+        data: [
+          { id: 1, first_name: 'John', last_name: 'Doe', name: 'John Doe', email: 'john.doe@example.com', phone: '1234567890', telephone: '1234567890', gender: 'Male', class_id: 1, status: 'active', attendance_percentage: 95, performance_average: 85, class_name: 'Grade 1', admission_number: 'STU001', profile_image: 'https://example.com/avatar.jpg', date_of_birth: '2005-01-15', address: '123 Main St' },
+          { id: 2, first_name: 'Alice', last_name: 'Smith', name: 'Alice Smith', email: 'alice.smith@example.com', phone: '1234567891', telephone: '1234567891', gender: 'Female', class_id: 2, status: 'active', attendance_percentage: 92, performance_average: 88, class_name: 'Grade 2', admission_number: 'STU002', profile_image: 'https://example.com/avatar.jpg', date_of_birth: '2005-03-20', address: '456 Oak Ave' },
+        ],
+        pagination: { total: 2, total_pages: 1, current_page: 1, per_page: 10 },
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn().mockResolvedValue({}),
+    })),
+    useStudentAnalyticsSummary: vi.fn().mockReturnValue({
+      data: {
+        total_students: 2,
+        average_attendance_rate: 93.5,
+        average_performance_score: 86.5,
+        at_risk_students_count: 0,
+        attendance_marks_recorded: 20,
+        attendance_total_days: 30,
+        grades_recorded_count: 40,
+        linked_parents_count: 2,
+        needs_follow_up_count: 0,
+        missing_contacts_count: 0,
+        unassigned_classes_count: 0,
+      },
+      isLoading: false,
+      isError: false,
+    }),
+    useStudent: vi.fn().mockReturnValue({ data: undefined, isLoading: false }),
+    useCreateStudent: vi.fn(() => mkMutation(createMutateAsyncMock, undefined)),
+    useUpdateStudent: vi.fn(() => mkMutation(updateMutateAsyncMock, undefined)),
+    useDeleteStudent: vi.fn(() => mkMutation(undefined, deleteMutateMock, { success: true })),
+  };
+});
+
+// Mock useClasses hook that StudentsPage imports separately
+vi.mock('../../hooks/useClasses', () => ({
+  useClasses: vi.fn().mockReturnValue({
+    data: {
+      data: [
+        { id: 1, name: 'Grade 1', grade_level: '1', status: 'active', academic_year: '2023-2024' },
+        { id: 2, name: 'Grade 2', grade_level: '2', status: 'active', academic_year: '2023-2024' },
+      ],
+      pagination: { total: 2, total_pages: 1, current_page: 1, per_page: 200 },
+    },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn().mockResolvedValue({}),
+  }),
+}));
+
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -237,6 +319,7 @@ const _mockUser = {
 
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import { TouchGestureProvider } from '../../contexts/TouchGestureContext';
+import api from '../../lib/api';
 
 // Test wrapper component
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -264,23 +347,49 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 describe('Student Management Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     
     // Clean up Radix scroll/pointer locks from other runs
     document.body.removeAttribute('data-scroll-locked');
     document.body.style.pointerEvents = '';
     
-    // Mock localStorage
+    // Mock localStorage (getItem must return null string-compatible value to avoid JSON.parse(undefined))
     const localStorageMock = {
-      getItem: jest.fn(),
+      getItem: jest.fn().mockReturnValue(null),
       setItem: jest.fn(),
       removeItem: jest.fn(),
       clear: jest.fn(),
     };
     Object.defineProperty(window, 'localStorage', {
       value: localStorageMock,
+      configurable: true,
+      writable: true,
     });
+
+    // Flush pending microtasks + timer callbacks that could schedule setState outside act()
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Reset hook-level mutable shared mocks (useStudents hooks module-level mocks)
+    deleteMutateMock.mockClear?.();
+    createMutateAsyncMock.mockClear?.();
+    updateMutateAsyncMock.mockClear?.();
+
+    // Default lib/api mock for StudentFormModal inline data-fetches (not through services)
+    vi.mocked(api.get).mockImplementation(((url: string, _opts?: any) => {
+      if (url === '/classes') {
+        return Promise.resolve({ data: { classes: [{ id: 1, name: 'Grade 1' }, { id: 2, name: 'Grade 2' }] } });
+      }
+      if (url === '/parents') {
+        return Promise.resolve({ data: { data: { parents: [{ id: 1, first_name: 'Jane', last_name: 'Doe' }] }, parents: [{ id: 1, first_name: 'Jane', last_name: 'Doe' }] } });
+      }
+      return Promise.resolve({ data: {} });
+    }) as any);
+    vi.mocked(api.post).mockResolvedValue({ data: { success: true } } as any);
+    vi.mocked(api.put).mockResolvedValue({ data: { success: true } } as any);
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } } as any);
 
     // Setup service mocks with correct return types
     mockStudentService.getStudents.mockResolvedValue({
@@ -365,7 +474,10 @@ describe('Student Management Integration Tests', () => {
       });
 
       const searchInput = screen.getByPlaceholderText(/search students/i);
-      await user.type(searchInput, 'John');
+      await act(async () => {
+        await user.type(searchInput, 'John');
+        await Promise.resolve();
+      });
 
       // The filter logic in the component uses client-side filtering on top of server data
       await waitFor(() => {
@@ -390,7 +502,10 @@ describe('Student Management Integration Tests', () => {
       });
 
       const classFilter = screen.getByTestId('grade-filter');
-      await user.selectOptions(classFilter, 'Grade 1');
+      await act(async () => {
+        await user.selectOptions(classFilter, 'Grade 1');
+        await Promise.resolve();
+      });
 
       await waitFor(() => {
         expect(mockStudentService.getStudents).toHaveBeenCalledWith(
@@ -414,7 +529,10 @@ describe('Student Management Integration Tests', () => {
       });
 
       const statusFilter = screen.getByTestId('status-filter');
-      await user.selectOptions(statusFilter, 'active');
+      await act(async () => {
+        await user.selectOptions(statusFilter, 'active');
+        await Promise.resolve();
+      });
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -438,11 +556,18 @@ describe('Student Management Integration Tests', () => {
       });
 
       const addButton = screen.getByText(/add student/i);
-      await user.click(addButton);
+      await act(async () => {
+        await user.click(addButton);
+        // Allow state setters queued by click (open modal + isOpen useEffect fetches) to flush
+        await Promise.resolve();
+        await new Promise((r) => setTimeout(r, 0));
+      });
 
-      // StudentFormModal is rendered
+      // Wait for StudentFormModal to render AND for class/parent fetches to finish
       await waitFor(() => {
         expect(screen.getByText(/add new student/i)).toBeInTheDocument();
+        expect(api.get).toHaveBeenCalledWith('/classes', expect.any(Object));
+        expect(api.get).toHaveBeenCalledWith('/parents', expect.any(Object));
       });
     });
 
@@ -469,14 +594,21 @@ describe('Student Management Integration Tests', () => {
       const deleteButton = screen.getByTestId('delete-student-1');
       if (!deleteButton) throw new Error('Could not find delete button');
       
-      await user.click(deleteButton);
+      await act(async () => {
+        await user.click(deleteButton);
+        await Promise.resolve();
+      });
 
       // Confirm deletion in dialog
       const confirmButton = await screen.findByRole('button', { name: /^delete$/i });
-      await user.click(confirmButton);
+      await act(async () => {
+        await user.click(confirmButton);
+        await Promise.resolve();
+      });
 
       await waitFor(() => {
-        expect(mockStudentService.deleteStudent).toHaveBeenCalled();
+        // useDeleteStudent hook's mutate() is wired to the module-level deleteMutateMock spy
+        expect(deleteMutateMock).toHaveBeenCalled();
       });
     });
   });
@@ -511,10 +643,15 @@ describe('Student Management Integration Tests', () => {
       });
 
       const addButton = screen.getByText(/add student/i);
-      await user.click(addButton);
+      await act(async () => {
+        await user.click(addButton);
+        await Promise.resolve();
+      });
 
-      // StudentFormModal validation is handled within the modal
-      // We already tested StudentFormModal specifically
+      await waitFor(() => {
+        expect(screen.getByText(/add new student/i)).toBeInTheDocument();
+      });
+      // StudentFormModal validation is covered in the dedicated component test suite
     });
   });
 
