@@ -11,7 +11,6 @@ def student_service(app):
         return StudentService(db_session=mock_db_session)
 
 def test_get_all_students(app, student_service):
-    # Mock the query result
     mock_students = [MagicMock(spec=Student) for _ in range(3)]
     mock_pagination = MagicMock()
     mock_pagination.items = mock_students
@@ -19,6 +18,8 @@ def test_get_all_students(app, student_service):
     with app.app_context():
         with patch('app.models.student.Student.query') as mock_query:
             mock_query.options.return_value = mock_query
+            mock_query.filter.return_value = mock_query
+            mock_query.join.return_value = mock_query
             mock_query.order_by.return_value = mock_query
             mock_query.paginate.return_value = mock_pagination
             
@@ -30,7 +31,6 @@ def test_get_all_students(app, student_service):
             mock_query.paginate.assert_called_once()
 
 def test_get_student_by_id(app, student_service):
-    # Mock the query result
     mock_student = MagicMock(spec=Student)
     mock_student.id = 1
     
@@ -39,10 +39,14 @@ def test_get_student_by_id(app, student_service):
             with patch('app.services.student_service.cache_service') as mock_cache:
                 with patch('app.services.student_service.student_schema.dump') as mock_dump:
                     mock_query.options.return_value = mock_query
-                    mock_query.get.return_value = mock_student
+                    mock_query.filter.return_value = mock_query
+                    mock_query.first.return_value = mock_student
                     mock_dump.return_value = {'id': 1}
                     result = student_service.get_student_by_id(1)
                 
                 assert result == mock_student
                 mock_query.options.assert_called_once()
-                mock_query.get.assert_called_once_with(1)
+                mock_query.filter.assert_called()
+                mock_query.first.assert_called_once()
+                mock_cache.set.assert_called_once()
+                mock_dump.assert_called_once_with(mock_student)
