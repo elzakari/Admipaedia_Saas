@@ -38,6 +38,7 @@ class StudentService:
         page: int = 1,
         per_page: int = 20,
         tenant_id=None,
+        branch_id=None,
         class_id: Optional[int] = None,
         status: Optional[str] = None,
         search: Optional[str] = None,
@@ -56,32 +57,43 @@ class StudentService:
 
         from app.models.user import User
 
-        query = Student.query.options(
+        base_query = Student.query.options(
             joinedload(Student.user),
             joinedload(Student.attendances),
             joinedload(Student.grades),
             joinedload(Student.parent),
             joinedload(Student.class_),
         )
+        from flask import has_app_context
+        if has_app_context():
+            from flask import g
+            ctx_tenant = tenant_id if tenant_id is not None else getattr(g, "tenant_id", None)
+            ctx_branch = branch_id if branch_id is not None else getattr(g, "branch_id", None)
+        else:
+            ctx_tenant = tenant_id
+            ctx_branch = branch_id
 
-        if tenant_id is not None and hasattr(Student, "tenant_id"):
-            resolved_tenant_id = tenant_id
-            if isinstance(tenant_id, str):
-                import uuid
-
+        if ctx_tenant is not None and hasattr(Student, "tenant_id"):
+            import uuid
+            resolved_tenant_id = ctx_tenant
+            if isinstance(ctx_tenant, str):
                 try:
-                    resolved_tenant_id = uuid.UUID(tenant_id)
+                    resolved_tenant_id = uuid.UUID(ctx_tenant)
                 except ValueError:
-                    # Look up Tenant by slug
                     from app.models.tenant import Tenant
-
-                    t = Tenant.query.filter_by(slug=tenant_id).first()
+                    t = Tenant.query.filter_by(slug=ctx_tenant).first()
                     if t:
                         resolved_tenant_id = t.id
                     else:
-                        # Fallback to a dummy UUID so that query executes successfully but returns zero results
                         resolved_tenant_id = uuid.uuid4()
-            query = query.filter(Student.tenant_id == resolved_tenant_id)
+            base_query = base_query.filter(
+                (Student.tenant_id == resolved_tenant_id) | (Student.tenant_id.is_(None))
+            )
+        if ctx_branch is not None and hasattr(Student, "branch_id"):
+            base_query = base_query.filter(
+                (Student.branch_id == ctx_branch) | (Student.branch_id.is_(None))
+            )
+        query = base_query
 
         if class_id:
             query = query.filter(Student.class_id == class_id)
@@ -102,26 +114,42 @@ class StudentService:
             page=page, per_page=per_page, error_out=False
         )
 
-    def get_student_by_id(self, student_id: int) -> Optional[Any]:
-        """Get a student by ID. Always returns a Student model instance."""
+    def get_student_by_id(
+        self, student_id: int, tenant_id=None, branch_id=None
+    ) -> Optional[Any]:
+        """Get a student by ID, strictly scoped to tenant/branch context."""
         from sqlalchemy.orm import joinedload
+        from flask import has_app_context
 
-        # Query database
-        student = Student.query.options(
+        if has_app_context():
+            from flask import g
+            ctx_tenant = tenant_id if tenant_id is not None else getattr(g, "tenant_id", None)
+            ctx_branch = branch_id if branch_id is not None else getattr(g, "branch_id", None)
+        else:
+            ctx_tenant = tenant_id
+            ctx_branch = branch_id
+
+        base_query = Student.query.options(
             joinedload(Student.user),
             joinedload(Student.class_),
             joinedload(Student.parent),
             joinedload(Student.attendances),
             joinedload(Student.grades),
-        ).get(student_id)
-
-        # Cache the result if found (as DTO)
+        ).filter(Student.id == int(student_id))
+        if ctx_tenant is not None and hasattr(Student, "tenant_id"):
+            base_query = base_query.filter(
+                (Student.tenant_id == ctx_tenant) | (Student.tenant_id.is_(None))
+            )
+        if ctx_branch is not None and hasattr(Student, "branch_id"):
+            base_query = base_query.filter(
+                (Student.branch_id == ctx_branch) | (Student.branch_id.is_(None))
+            )
+        student = base_query.first()
         if student:
             cache_key = f"student:dto:{student_id}"
             cache_service.set(
                 cache_key, student_schema.dump(student), ttl=cache_service.SHORT_TTL
             )
-
         return student
 
     def get_student_dto(self, student_id: int) -> Optional[Dict[str, Any]]:
@@ -136,7 +164,7 @@ class StudentService:
             return student_schema.dump(student)
         return None
 
-    def get_student_by_user_id(self, user_id: int) -> Optional[Student]:
+    def get_student_by_user_id(self, user_id: int, tenant_id=None, branch_id=None) -> Optional[Student]:
         """Get a student by user ID.
 
         Args:
@@ -146,18 +174,33 @@ class StudentService:
             Student object if found, None otherwise
         """
         from sqlalchemy.orm import joinedload
+        from flask import has_app_context
 
-        return (
-            Student.query.options(
-                joinedload(Student.user),
-                joinedload(Student.class_),
-                joinedload(Student.parent),
-                joinedload(Student.attendances),
-                joinedload(Student.grades),
-            )
-            .filter_by(user_id=user_id)
-            .first()
+        if has_app_context():
+            from flask import g
+            ctx_tenant = tenant_id if tenant_id is not None else getattr(g, "tenant_id", None)
+            ctx_branch = branch_id if branch_id is not None else getattr(g, "branch_id", None)
+        else:
+            ctx_tenant = tenant_id
+            ctx_branch = branch_id
+
+        base = Student.query.options(
+            joinedload(Student.user),
+            joinedload(Student.class_),
+            joinedload(Student.parent),
+            joinedload(Student.attendances),
+            joinedload(Student.grades),
         )
+        if ctx_tenant is not None and hasattr(Student, "tenant_id"):
+            base = base.filter(
+                (Student.tenant_id == ctx_tenant) | (Student.tenant_id.is_(None))
+            )
+        if ctx_branch is not None and hasattr(Student, "branch_id"):
+            base = base.filter(
+                (Student.branch_id == ctx_branch) | (Student.branch_id.is_(None))
+            )
+        base = base.filter_by(user_id=user_id)
+        return base.first()
 
     @staticmethod
     def _update_admission_snapshot(student: Optional[Student]) -> None:
@@ -316,6 +359,14 @@ class StudentService:
             ):
                 payload["tenant_id"] = tenant_id
             new_student = Student(**payload)
+            from flask import g, has_app_context
+            if has_app_context():
+                t = getattr(g, "tenant_id", None)
+                b = getattr(g, "branch_id", None)
+                if t is not None and hasattr(new_student, "tenant_id"):
+                    new_student.tenant_id = t
+                if b is not None and hasattr(new_student, "branch_id"):
+                    new_student.branch_id = b
             self.db_session.add(new_student)
             try:
                 from app.models.tenant import TenantMembership
@@ -375,7 +426,7 @@ class StudentService:
             return None, f"Unexpected error: {error_msg}"
 
     def update_student(
-        self, student_id: int, student_data: Dict[str, Any], tenant_id=None
+        self, student_id: int, student_data: Dict[str, Any], tenant_id=None, branch_id=None
     ) -> Tuple[Optional[Student], Optional[str]]:
         """Update a student.
 
@@ -389,15 +440,13 @@ class StudentService:
                 - Error message if there was an error, None otherwise
         """
         try:
-            # Log the incoming data for debugging
             logger.debug(
                 "Updating student",
                 student_id=student_id,
                 data_keys=list(student_data.keys()),
             )
 
-            # Find the student
-            student = Student.query.get(student_id)
+            student = self.get_student_by_id(student_id, tenant_id=tenant_id, branch_id=branch_id)
             if not student:
                 logger.warning(
                     "Attempted to update non-existent student", student_id=student_id
@@ -494,7 +543,7 @@ class StudentService:
             )
             return None, f"Unexpected error: {error_msg}"
 
-    def delete_student(self, student_id: int) -> Tuple[bool, Optional[str]]:
+    def delete_student(self, student_id: int, tenant_id=None, branch_id=None) -> Tuple[bool, Optional[str]]:
         """Delete a student.
 
         Args:
@@ -506,7 +555,7 @@ class StudentService:
                 - Error message if there was an error, None otherwise
         """
         try:
-            student = Student.query.get(student_id)
+            student = self.get_student_by_id(student_id, tenant_id=tenant_id, branch_id=branch_id)
             if not student:
                 logger.warning(
                     "Attempted to delete non-existent student", student_id=student_id

@@ -233,33 +233,91 @@ export function StudentsPage() {
   }, [classesResponse?.data]);
 
   const studentManagementSummary = useMemo(() => {
-    const linkedParents = students.filter((student) => student.parentLinked).length;
-    const urgentAttention = students.filter((student) => student.riskLevel === 'urgent').length;
-    const missingContacts = students.filter(
-      (student) => student.email === "No email provided" || student.phone === "No phone provided"
+    const fallbackFullPopulation = (
+      analyticsSummary?.total_students ??
+      studentsData?.pagination?.total ??
+      Number(studentsData?.data?.length ?? 0)
+    );
+    const serverLinked = Number(
+      analyticsSummary?.linked_parents_count ??
+      (analyticsSummary as any)?.linked_parents ??
+      NaN
+    );
+    const serverNeedsFollowUp = Number(
+      (analyticsSummary as any)?.needs_follow_up_count ??
+      (analyticsSummary as any)?.follow_up ??
+      NaN
+    );
+    const serverMissingContacts = Number(
+      (analyticsSummary as any)?.missing_contacts_count ??
+      (analyticsSummary as any)?.missing_contact ??
+      NaN
+    );
+    const serverUnassignedClasses = Number(
+      (analyticsSummary as any)?.unassigned_classes_count ??
+      (analyticsSummary as any)?.unassigned ??
+      NaN
+    );
+
+    const pagedSample = students;
+    const sampleTotal = pagedSample.length;
+    const linkedFromSample = pagedSample.filter(s => s.parentLinked).length;
+    const missingFromSample = pagedSample.filter(
+      s => s.email === "No email provided" || s.phone === "No phone provided"
     ).length;
-    const unassignedClasses = students.filter((student) => !student.classId).length;
+    const urgentFromSample = pagedSample.filter(s => s.riskLevel === 'urgent').length;
+    const unassignedFromSample = pagedSample.filter(s => !s.classId).length;
+
+    const finalLinkedParents = Number.isFinite(serverLinked)
+      ? serverLinked
+      : sampleTotal > 0 && sampleTotal >= fallbackFullPopulation
+        ? linkedFromSample
+        : linkedFromSample;
+    const finalUrgentAttention = Number.isFinite(serverNeedsFollowUp)
+      ? serverNeedsFollowUp
+      : urgentFromSample;
+    const finalMissingContacts = Number.isFinite(serverMissingContacts)
+      ? serverMissingContacts
+      : missingFromSample;
+    const finalUnassignedClasses = Number.isFinite(serverUnassignedClasses)
+      ? serverUnassignedClasses
+      : unassignedFromSample;
 
     return {
-      linkedParents,
-      urgentAttention,
-      missingContacts,
-      unassignedClasses
+      linkedParents: finalLinkedParents,
+      urgentAttention: finalUrgentAttention,
+      missingContacts: finalMissingContacts,
+      unassignedClasses: finalUnassignedClasses,
+      derivedFromSample: !(Number.isFinite(serverLinked) && Number.isFinite(serverMissingContacts)),
+      populationTotal: fallbackFullPopulation,
     };
-  }, [students]);
+  }, [students, analyticsSummary, studentsData?.pagination?.total, studentsData?.data?.length]);
   
   // Calculate student statistics
   const calculateStudentStats = () => {
-    const totalStudents = analyticsSummary?.total_students ?? studentsData?.pagination?.total ?? studentsData?.data?.length ?? 0;
+    const totalStudentsForCard = analyticsSummary?.total_students ?? studentsData?.pagination?.total ?? studentsData?.data?.length ?? 0;
     const avgAttendance = analyticsSummary?.average_attendance_rate;
     const avgPerformance = analyticsSummary?.average_performance_score;
     const atRiskCount = analyticsSummary?.at_risk_students_count;
+    const anyAttendanceMarks = Number(analyticsSummary?.attendance_marks_recorded ?? (analyticsSummary as any)?.attendance_total_days ?? 0) > 0;
+    const anyGradesRecorded = Number((analyticsSummary as any)?.grades_recorded_count ?? (analyticsSummary as any)?.graded_assessments ?? 0) > 0;
+    const attendanceDisplay = typeof avgAttendance === 'number' && (anyAttendanceMarks || avgAttendance > 0)
+      ? `${Math.round(avgAttendance)}%`
+      : typeof avgAttendance === 'number' && avgAttendance === 0 && !anyAttendanceMarks
+        ? "—"
+        : "—";
+    const performanceDisplay = typeof avgPerformance === 'number' && (anyGradesRecorded || avgPerformance > 0)
+      ? `${Math.round(avgPerformance)}%`
+      : typeof avgPerformance === 'number' && avgPerformance === 0 && !anyGradesRecorded
+        ? "—"
+        : "—";
+    const showAtRiskNote = Number(atRiskCount) === 0 && Number(avgPerformance) < 65 && Number(totalStudentsForCard) > 2;
 
     return [
-      { name: t('students_page.total_students', 'Total Students'), value: String(totalStudents), icon: Users, color: "bg-blue-500" },
-      { name: t('students_page.avg_attendance', 'Average Attendance'), value: typeof avgAttendance === 'number' ? `${Math.round(avgAttendance)}%` : "—", icon: Clock, color: "bg-emerald-500" },
-      { name: t('students_page.avg_performance', 'Average Performance'), value: typeof avgPerformance === 'number' ? `${Math.round(avgPerformance)}%` : "—", icon: BarChart3, color: "bg-purple-500" },
-      { name: t('students_page.at_risk_students', 'At-Risk Students'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500" },
+      { name: t('students_page.total_students', 'Total Students'), value: String(totalStudentsForCard), icon: Users, color: "bg-blue-500", subtitle: null },
+      { name: t('students_page.avg_attendance', 'Average Attendance'), value: attendanceDisplay, icon: Clock, color: "bg-emerald-500", subtitle: null },
+      { name: t('students_page.avg_performance', 'Average Performance'), value: performanceDisplay, icon: BarChart3, color: "bg-purple-500", subtitle: null },
+      { name: t('students_page.at_risk_students', 'At-Risk Students'), value: typeof atRiskCount === 'number' ? String(atRiskCount) : "—", icon: AlertCircle, color: "bg-amber-500", subtitle: showAtRiskNote ? "Verify threshold (server)" : null },
     ];
   };
 
@@ -416,6 +474,12 @@ export function StudentsPage() {
         });
       }
     }
+  };
+
+  const handleOpenFullEditPage = (studentId: string | number) => {
+    setIsStudentFormOpen(false);
+    setSelectedStudentForEdit(null);
+    navigate(`/students/${String(studentId)}/edit`);
   };
 
   // Handle delete student
@@ -938,6 +1002,9 @@ export function StudentsPage() {
                     <div>
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.name}</p>
                       <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{stat.value}</p>
+                      {stat.subtitle && (
+                        <p className="text-[11px] italic text-gray-500 dark:text-gray-400 mt-1">{stat.subtitle}</p>
+                      )}
                     </div>
                     <div className={`p-3 rounded-xl ${stat.color} text-white shadow-sm`}>
                       <IconComponent className="h-5 w-5" />
@@ -960,7 +1027,14 @@ export function StudentsPage() {
               <div>
                 <CardTitle>{t('students_page.directory_title', 'Annuaire des élèves')}</CardTitle>
                 <CardDescription>
-                  {sortedStudents.length} {t('students_page.students_found', 'élèves trouvés')}
+                  {(() => {
+                    const totalShown = studentsData?.pagination?.total ?? studentsData?.data?.length ?? students.length;
+                    const hasFilters = Boolean(searchQuery.trim() || selectedGrade !== 'all' || selectedStatus !== 'All' || activeTab !== 'all');
+                    if (hasFilters) {
+                      return `${sortedStudents.length} of ${totalShown} found`;
+                    }
+                    return `${totalShown} students`;
+                  })()}
                 </CardDescription>
               </div>
               {renderViewModeToggle()}
@@ -1141,6 +1215,7 @@ export function StudentsPage() {
           onSuccess={() => {
             handleCloseStudentForm();
           }}
+          onOpenFullPageEdit={handleOpenFullEditPage}
         />
 
         {/* Delete Confirmation Dialog */}

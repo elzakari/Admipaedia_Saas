@@ -1,9 +1,10 @@
 import hashlib
 import secrets
 from datetime import date, datetime, timedelta
-from typing import Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 
 from app.extensions import bcrypt, db
 from app.models.admission import AdmissionApplication
@@ -18,8 +19,121 @@ class AdmissionService:
     """Service to handle student admission applications."""
 
     @staticmethod
+    def _get_ctx_scope(tenant_id=None, branch_id=None):
+        from flask import has_app_context
+        if has_app_context():
+            from flask import g
+            ctx_tenant = tenant_id if tenant_id is not None else getattr(g, "tenant_id", None)
+            ctx_branch = branch_id if branch_id is not None else getattr(g, "branch_id", None)
+        else:
+            ctx_tenant = tenant_id
+            ctx_branch = branch_id
+        return ctx_tenant, ctx_branch
+
+    @staticmethod
+    def _apply_scope(query, tenant_id=None, branch_id=None):
+        ctx_tenant, ctx_branch = AdmissionService._get_ctx_scope(tenant_id, branch_id)
+        if ctx_tenant is not None:
+            query = query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(
+                (Parent.tenant_id == ctx_tenant) | (Parent.tenant_id.is_(None))
+            )
+        if ctx_branch is not None and hasattr(AdmissionApplication, "branch_id"):
+            query = query.filter(
+                (AdmissionApplication.branch_id == ctx_branch) | (AdmissionApplication.branch_id.is_(None))
+            )
+        if ctx_tenant is not None and hasattr(AdmissionApplication, "tenant_id"):
+            query = query.filter(
+                (AdmissionApplication.tenant_id == ctx_tenant) | (AdmissionApplication.tenant_id.is_(None))
+            )
+        return query
+
+    @staticmethod
+    def get_all_applications(tenant_id=None, branch_id=None, statuses_exclude=None) -> List[AdmissionApplication]:
+        query = AdmissionApplication.query.options(
+            joinedload(AdmissionApplication.target_class),
+            joinedload(AdmissionApplication.parent).joinedload(Parent.user),
+        )
+        query = AdmissionService._apply_scope(query, tenant_id, branch_id)
+        if statuses_exclude:
+            query = query.filter(~AdmissionApplication.status.in_(statuses_exclude))
+        return query.order_by(
+            AdmissionApplication.updated_at.desc(),
+            AdmissionApplication.created_at.desc(),
+        ).all()
+
+    @staticmethod
+    def get_application_by_id(application_id: int, tenant_id=None, branch_id=None) -> Optional[AdmissionApplication]:
+        query = AdmissionApplication.query.options(
+            joinedload(AdmissionApplication.target_class),
+            joinedload(AdmissionApplication.parent).joinedload(Parent.user),
+        ).filter(AdmissionApplication.id == int(application_id))
+        query = AdmissionService._apply_scope(query, tenant_id, branch_id)
+        return query.first()
+
+    @staticmethod
+    def create_application(application_data: Dict[str, Any], tenant_id=None, branch_id=None) -> Tuple[Optional[AdmissionApplication], Optional[str]]:
+        try:
+            application = AdmissionApplication(**application_data)
+            from flask import g, has_app_context
+            if has_app_context():
+                t = getattr(g, "tenant_id", None)
+                b = getattr(g, "branch_id", None)
+                if t is not None and hasattr(application, "tenant_id"):
+                    application.tenant_id = t
+                if b is not None and hasattr(application, "branch_id"):
+                    application.branch_id = b
+            if tenant_id is not None and hasattr(application, "tenant_id") and application.tenant_id is None:
+                application.tenant_id = tenant_id
+            if branch_id is not None and hasattr(application, "branch_id") and application.branch_id is None:
+                application.branch_id = branch_id
+            db.session.add(application)
+            db.session.commit()
+            return application, None
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return None, f"Database error: {str(e)}"
+        except Exception as e:
+            db.session.rollback()
+            return None, f"Unexpected error: {str(e)}"
+
+    @staticmethod
+    def update_application(application_id: int, application_data: Dict[str, Any], tenant_id=None, branch_id=None) -> Tuple[Optional[AdmissionApplication], Optional[str]]:
+        try:
+            application = AdmissionService.get_application_by_id(application_id, tenant_id, branch_id)
+            if not application:
+                return None, "Application not found"
+            for key, value in application_data.items():
+                if hasattr(application, key):
+                    setattr(application, key, value)
+            application.updated_at = datetime.utcnow()
+            db.session.commit()
+            return application, None
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return None, f"Database error: {str(e)}"
+        except Exception as e:
+            db.session.rollback()
+            return None, f"Unexpected error: {str(e)}"
+
+    @staticmethod
+    def delete_application(application_id: int, tenant_id=None, branch_id=None) -> Tuple[bool, Optional[str]]:
+        try:
+            application = AdmissionService.get_application_by_id(application_id, tenant_id, branch_id)
+            if not application:
+                return False, "Application not found"
+            db.session.delete(application)
+            db.session.commit()
+            return True, None
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return False, f"Database error: {str(e)}"
+        except Exception as e:
+            db.session.rollback()
+            return False, f"Unexpected error: {str(e)}"
+
+    @staticmethod
     def change_application_status(
-        application_id: int, new_status: str, tenant_id=None
+        application_id: int, new_status: str, tenant_id=None, branch_id=None
     ) -> Tuple[
         Optional[AdmissionApplication], Optional[Student], Optional[str], Optional[str]
     ]:
@@ -31,22 +145,23 @@ class AdmissionService:
         All-or-nothing transactional guarantees are ensured using nested savepoints.
         """
         try:
-            # 1. Retrieve application with row-level locking
-            application = (
-                AdmissionApplication.query.filter_by(id=application_id)
-                .with_for_update()
-                .first()
-            )
+            ctx_tenant, ctx_branch = AdmissionService._get_ctx_scope(tenant_id, branch_id)
+            base_query = AdmissionApplication.query.filter_by(id=application_id).with_for_update()
+            if ctx_tenant is not None:
+                base_query = base_query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(
+                    (Parent.tenant_id == ctx_tenant) | (Parent.tenant_id.is_(None))
+                )
+            if ctx_branch is not None and hasattr(AdmissionApplication, "branch_id"):
+                base_query = base_query.filter(
+                    (AdmissionApplication.branch_id == ctx_branch) | (AdmissionApplication.branch_id.is_(None))
+                )
+            if ctx_tenant is not None and hasattr(AdmissionApplication, "tenant_id"):
+                base_query = base_query.filter(
+                    (AdmissionApplication.tenant_id == ctx_tenant) | (AdmissionApplication.tenant_id.is_(None))
+                )
+            application = base_query.first()
             if not application:
                 return None, None, None, "Admission application not found."
-
-            # If tenant_id provided, ensure parent has the same tenant_id
-            if (
-                tenant_id
-                and application.parent
-                and application.parent.tenant_id != tenant_id
-            ):
-                return None, None, None, "Unauthorized access to this application."
 
             # Normalize status to lowercase
             norm_status = new_status.lower().strip()

@@ -13,7 +13,10 @@ import {
   Save, 
   CheckCircle2, 
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Heart,
+  GraduationCap,
+  Users
 } from 'lucide-react';
 import api from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../../components/ui/card';
@@ -56,23 +59,67 @@ const AdmissionFormPage: React.FC = () => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState('');
   const [formData, setFormData] = useState<any>({
-    // Student Info
+    // Step 1 Personal
+    first_name: '',
+    last_name: '',
+    middle_name: '',
+    admission_number: '',
     dob: '',
     gender: '',
     blood_group: '',
     religion: '',
     nationality: '',
-    // Parent/Guardian
-    guardian_occupation: '',
-    emergency_contact: '',
-    // Address
+    place_of_birth: '',
+    surname: '',
+    // Step 2 Contact
+    email: '',
+    phone: '',
+    telephone: '',
+    whatsapp: '',
     home_address: '',
+    residential_address: '',
+    postal_address: '',
+    digital_address: '',
     city: '',
+    country: '',
     state: '',
-    // Previous School
+    local_landmark: '',
+    // Step 3 Medical
+    allergies: '',
+    medication: '',
+    medical_conditions: '',
+    special_circumstance: '',
+    physician_name: '',
+    physician_phone: '',
+    // Step 4 Enrollment
+    class_id: '',
+    enrollment_date: '',
     prev_school_name: '',
     prev_school_class: '',
-    leaving_reason: ''
+    prev_school_team: '',
+    prev_school_year: '',
+    leaving_reason: '',
+    // Step 5 Parent/Guardian
+    fatherName: '',
+    fatherContact: '',
+    fatherEmail: '',
+    fatherAddress: '',
+    fatherProfession: '',
+    fatherWorkplace: '',
+    motherName: '',
+    motherContact: '',
+    motherEmail: '',
+    motherAddress: '',
+    motherProfession: '',
+    motherWorkplace: '',
+    guardianName: '',
+    guardianContact: '',
+    guardianEmail: '',
+    guardianAddress: '',
+    guardian_occupation: '',
+    emergency_contact: '',
+    // Admin lock
+    profile_picture_locked: false
   });
 
   // Fetch application details
@@ -153,10 +200,10 @@ const AdmissionFormPage: React.FC = () => {
   });
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center space-x-4 mb-8">
-      {[1, 2, 3, 4].map((step) => (
+    <div className="flex items-center justify-center space-x-2 md:space-x-4 mb-8 overflow-x-auto py-2">
+      {[1, 2, 3, 4, 5, 6].map((step) => (
         <React.Fragment key={step}>
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center shrink-0">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${
               currentStep === step 
                 ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-110' 
@@ -166,23 +213,59 @@ const AdmissionFormPage: React.FC = () => {
             }`}>
               {currentStep > step ? <CheckCircle2 size={20} /> : step}
             </div>
-            <span className={`text-[10px] uppercase tracking-wider font-semibold mt-2 ${
+            <span className={`text-[10px] uppercase tracking-wider font-semibold mt-2 w-20 text-center ${
               currentStep === step ? 'text-indigo-600' : 'text-gray-400'
             }`}>
-              {step === 1 ? t('parent_admissions.steps.personal', 'Personal') : step === 2 ? t('parent_admissions.steps.guardian', 'Guardian') : step === 3 ? t('parent_admissions.steps.address', 'Address') : t('parent_admissions.steps.history', 'History')}
+              {step === 1 ? t('parent_admissions.steps.personal', 'Personal')
+                : step === 2 ? t('parent_admissions.steps.contact', 'Contact')
+                : step === 3 ? t('parent_admissions.steps.medical', 'Medical')
+                : step === 4 ? t('parent_admissions.steps.enrollment', 'Enrollment')
+                : step === 5 ? t('parent_admissions.steps.parent', 'Parent')
+                : t('parent_admissions.steps.review', 'Review')}
             </span>
           </div>
-          {step < 4 && <div className={`w-12 h-0.5 ${currentStep > step ? 'bg-green-500' : 'bg-gray-200'}`} />}
+          {step < 6 && <div className={`w-6 md:w-12 h-0.5 shrink-0 ${currentStep > step ? 'bg-green-500' : 'bg-gray-200'}`} />}
         </React.Fragment>
       ))}
     </div>
   );
+
+  const validateAdmissionNumber = (value: string): boolean => {
+    return /^ADM-\d{4}-\d{1,5}$|^$/.test(value);
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-2">
+              <Label>{t('students_page.form.first_name', 'First Name')}</Label>
+              <Input placeholder={t('students_page.form.first_name_placeholder', 'Enter first name')} value={formData.first_name} onChange={(e) => handleInputChange('first_name', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.middle_name', 'Middle Name')}</Label>
+              <Input placeholder={t('students_page.form.middle_name_placeholder', 'Enter middle name (optional)')} value={formData.middle_name} onChange={(e) => handleInputChange('middle_name', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.last_name', 'Last Name')}</Label>
+              <Input placeholder={t('students_page.form.last_name_placeholder', 'Enter last name')} value={formData.last_name} onChange={(e) => handleInputChange('last_name', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('common.admission_number', 'Admission Number')}</Label>
+              <Input
+                placeholder="ADM-YYYY-NNNNN"
+                value={formData.admission_number}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  handleInputChange('admission_number', val);
+                  if (val && !validateAdmissionNumber(val)) {
+                    toast.error('Must be in format ADM-YYYY-NNNNN');
+                  }
+                }}
+                disabled={isReadOnly || Boolean(isAdmin && formData.admission_number?.startsWith?.('ADM'))}
+              />
+            </div>
             <div className="space-y-2">
               <Label>{t('parent_admissions.fields.dob', 'Date of Birth')}</Label>
               <Input type="date" value={formData.dob} onChange={(e) => handleInputChange('dob', e.target.value)} disabled={isReadOnly} />
@@ -213,56 +296,252 @@ const AdmissionFormPage: React.FC = () => {
               <Label>{t('parent_admissions.fields.religion', 'Religion')}</Label>
               <Input placeholder={t('parent_admissions.placeholders.religion', 'e.g. Christian')} value={formData.religion} onChange={(e) => handleInputChange('religion', e.target.value)} disabled={isReadOnly} />
             </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.nationality', 'Nationality')}</Label>
+              <Input placeholder={t('admission_form.fields.nationality', 'Enter nationality')} value={formData.nationality} onChange={(e) => handleInputChange('nationality', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('common.place_of_birth', 'Place of Birth')}</Label>
+              <Input placeholder={t('common.place_of_birth', 'Enter place of birth')} value={formData.place_of_birth} onChange={(e) => handleInputChange('place_of_birth', e.target.value)} disabled={isReadOnly} />
+            </div>
           </div>
         );
       case 2:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
-              <Label>{t('parent_admissions.fields.guardian_occupation', 'Guardian Occupation')}</Label>
-              <Input placeholder={t('parent_admissions.placeholders.guardian_occupation', 'e.g. Software Engineer')} value={formData.guardian_occupation} onChange={(e) => handleInputChange('guardian_occupation', e.target.value)} disabled={isReadOnly} />
+              <Label>{t('teachers_page.profile.email', 'Email Address')}</Label>
+              <Input type="email" placeholder={t('students_page.form.email_placeholder', 'Enter email address')} value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} disabled={isReadOnly} />
             </div>
             <div className="space-y-2">
-              <Label>{t('parent_admissions.fields.emergency_contact', 'Emergency Contact Number')}</Label>
-              <Input placeholder={t('parent_admissions.placeholders.emergency_contact', 'e.g. +233 24 000 0000')} value={formData.emergency_contact} onChange={(e) => handleInputChange('emergency_contact', e.target.value)} disabled={isReadOnly} />
+              <Label>{t('teachers_page.profile.phone', 'Phone Number')}</Label>
+              <Input placeholder={t('students_page.form.phone_placeholder', 'Enter phone number')} value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.telephone', 'Telephone')}</Label>
+              <Input placeholder={t('students_page.form.telephone_placeholder', 'Enter telephone number')} value={formData.telephone} onChange={(e) => handleInputChange('telephone', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.whatsapp', 'WhatsApp')}</Label>
+              <Input placeholder={t('students_page.form.whatsapp_placeholder', 'Enter WhatsApp number')} value={formData.whatsapp} onChange={(e) => handleInputChange('whatsapp', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('parent_admissions.fields.home_address', 'Home Address')}</Label>
+              <Input placeholder={t('parent_admissions.placeholders.home_address', 'House No, Street, Landmark')} value={formData.home_address} onChange={(e) => handleInputChange('home_address', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('admission_form.fields.home_address', 'Residential Address')}</Label>
+              <Input placeholder={t('admission_form.fields.home_address', 'Enter residential address')} value={formData.residential_address} onChange={(e) => handleInputChange('residential_address', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.city', 'City')}</Label>
+              <Input placeholder={t('admission_form.placeholders.city', 'Enter city')} value={formData.city} onChange={(e) => handleInputChange('city', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.state', 'Country')}</Label>
+              <Input placeholder={t('admission_form.fields.state', 'Enter country')} value={formData.country} onChange={(e) => handleInputChange('country', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('parent_admissions.fields.state', 'State/Region')}</Label>
+              <Input placeholder={t('parent_admissions.placeholders.state', 'Greater Accra')} value={formData.state} onChange={(e) => handleInputChange('state', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.local_landmark', 'Local Landmark')}</Label>
+              <Input placeholder={t('admission_form.fields.local_landmark', 'Enter local landmark')} value={formData.local_landmark} onChange={(e) => handleInputChange('local_landmark', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.postal_address', 'Postal Address')}</Label>
+              <Input placeholder={t('admission_form.fields.postal_address', 'Enter postal address')} value={formData.postal_address} onChange={(e) => handleInputChange('postal_address', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.fields.digital_address', 'Digital Address')}</Label>
+              <Input placeholder={t('admission_form.fields.digital_address', 'Enter digital address (GPS)')} value={formData.digital_address} onChange={(e) => handleInputChange('digital_address', e.target.value)} disabled={isReadOnly} />
             </div>
           </div>
         );
       case 3:
         return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
-              <Label>{t('parent_admissions.fields.home_address', 'Home Address')}</Label>
-              <Input placeholder={t('parent_admissions.placeholders.home_address', 'House No, Street, Landmark')} value={formData.home_address} onChange={(e) => handleInputChange('home_address', e.target.value)} disabled={isReadOnly} />
+              <Label>{t('admission_form.placeholders.physician_name', 'Physician Name')}</Label>
+              <Input placeholder={t('admission_form.placeholders.physician_name', 'Enter physician name')} value={formData.physician_name} onChange={(e) => handleInputChange('physician_name', e.target.value)} disabled={isReadOnly} />
             </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>{t('parent_admissions.fields.city', 'City')}</Label>
-                <Input placeholder={t('parent_admissions.placeholders.city', 'Accra')} value={formData.city} onChange={(e) => handleInputChange('city', e.target.value)} disabled={isReadOnly} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('parent_admissions.fields.state', 'State/Region')}</Label>
-                <Input placeholder={t('parent_admissions.placeholders.state', 'Greater Accra')} value={formData.state} onChange={(e) => handleInputChange('state', e.target.value)} disabled={isReadOnly} />
-              </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.placeholders.physician_phone', 'Physician Phone')}</Label>
+              <Input placeholder={t('admission_form.placeholders.physician_phone', 'Enter physician phone')} value={formData.physician_phone} onChange={(e) => handleInputChange('physician_phone', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('common.medical_conditions', 'Medical Conditions')}</Label>
+              <Input placeholder={t('common.medical_conditions', 'Enter any existing medical conditions')} value={formData.medical_conditions} onChange={(e) => handleInputChange('medical_conditions', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('common.allergies', 'Allergies')}</Label>
+              <Input placeholder={t('common.allergies', 'Enter any known allergies')} value={formData.allergies} onChange={(e) => handleInputChange('allergies', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('admission_form.fields.medications', 'Current Medication')}</Label>
+              <Input placeholder={t('admission_form.fields.medications', 'Enter current medications')} value={formData.medication} onChange={(e) => handleInputChange('medication', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('admission_form.fields.special_circumstances', 'Special Circumstances')}</Label>
+              <Input placeholder={t('admission_form.fields.special_circumstances', 'Enter any special circumstances')} value={formData.special_circumstance} onChange={(e) => handleInputChange('special_circumstance', e.target.value)} disabled={isReadOnly} />
             </div>
           </div>
         );
       case 4:
         return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
+              <Label>{t('common.class', 'Class')}</Label>
+              <Input placeholder="Select or enter class ID" value={formData.class_id} onChange={(e) => handleInputChange('class_id', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admission_form.step_titles.enrollment', 'Enrollment Date')}</Label>
+              <Input type="date" value={formData.enrollment_date} onChange={(e) => handleInputChange('enrollment_date', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
               <Label>{t('parent_admissions.fields.prev_school_name', 'Previous School Name')}</Label>
               <Input placeholder={t('parent_admissions.placeholders.prev_school_name', 'e.g. Lincoln International School')} value={formData.prev_school_name} onChange={(e) => handleInputChange('prev_school_name', e.target.value)} disabled={isReadOnly} />
             </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>{t('parent_admissions.fields.prev_school_class', 'Last Class Attended')}</Label>
-                <Input placeholder={t('parent_admissions.placeholders.prev_school_class', 'e.g. Basic 4')} value={formData.prev_school_class} onChange={(e) => handleInputChange('prev_school_class', e.target.value)} disabled={isReadOnly} />
+            <div className="space-y-2">
+              <Label>{t('parent_admissions.fields.prev_school_class', 'Last Class Attended')}</Label>
+              <Input placeholder={t('parent_admissions.placeholders.prev_school_class', 'e.g. Basic 4')} value={formData.prev_school_class} onChange={(e) => handleInputChange('prev_school_class', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.previous_team', 'Previous Team/House')}</Label>
+              <Input placeholder={t('students_page.form.previous_team_placeholder', 'Enter previous team or house')} value={formData.prev_school_team} onChange={(e) => handleInputChange('prev_school_team', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('students_page.form.previous_year', 'Previous Academic Year')}</Label>
+              <Input placeholder={t('students_page.form.previous_year_placeholder', 'Enter previous academic year')} value={formData.prev_school_year} onChange={(e) => handleInputChange('prev_school_year', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t('parent_admissions.fields.leaving_reason', 'Reason for Leaving')}</Label>
+              <Input placeholder={t('parent_admissions.placeholders.leaving_reason', 'e.g. Relocation')} value={formData.leaving_reason} onChange={(e) => handleInputChange('leaving_reason', e.target.value)} disabled={isReadOnly} />
+            </div>
+          </div>
+        );
+      case 5:
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t('students_page.form.father_info', "Father's Information")}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.father_name', "Father's Name")}</Label>
+                  <Input placeholder={t('students_page.form.father_name_placeholder', "Enter father's name")} value={formData.fatherName} onChange={(e) => handleInputChange('fatherName', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.father_contact', "Father's Contact")}</Label>
+                  <Input placeholder={t('students_page.form.father_contact_placeholder', "Enter father's contact")} value={formData.fatherContact} onChange={(e) => handleInputChange('fatherContact', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.father_email', "Father's Email")}</Label>
+                  <Input type="email" placeholder={t('students_page.form.father_email_placeholder', "Enter father's email")} value={formData.fatherEmail} onChange={(e) => handleInputChange('fatherEmail', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.father_profession', "Father's Profession")}</Label>
+                  <Input placeholder={t('students_page.form.father_profession_placeholder', "Enter father's profession")} value={formData.fatherProfession} onChange={(e) => handleInputChange('fatherProfession', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>{t('students_page.form.father_address', "Father's Address")}</Label>
+                  <Input placeholder={t('students_page.form.father_address_placeholder', "Enter father's address")} value={formData.fatherAddress} onChange={(e) => handleInputChange('fatherAddress', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.father_workplace', "Father's Workplace")}</Label>
+                  <Input placeholder={t('students_page.form.father_workplace_placeholder', "Enter father's workplace")} value={formData.fatherWorkplace} onChange={(e) => handleInputChange('fatherWorkplace', e.target.value)} disabled={isReadOnly} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>{t('parent_admissions.fields.leaving_reason', 'Reason for Leaving')}</Label>
-                <Input placeholder={t('parent_admissions.placeholders.leaving_reason', 'e.g. Relocation')} value={formData.leaving_reason} onChange={(e) => handleInputChange('leaving_reason', e.target.value)} disabled={isReadOnly} />
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t('students_page.form.mother_info', "Mother's Information")}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.mother_name', "Mother's Name")}</Label>
+                  <Input placeholder={t('students_page.form.mother_name_placeholder', "Enter mother's name")} value={formData.motherName} onChange={(e) => handleInputChange('motherName', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.mother_contact', "Mother's Contact")}</Label>
+                  <Input placeholder={t('students_page.form.mother_contact_placeholder', "Enter mother's contact")} value={formData.motherContact} onChange={(e) => handleInputChange('motherContact', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.mother_email', "Mother's Email")}</Label>
+                  <Input type="email" placeholder={t('students_page.form.mother_email_placeholder', "Enter mother's email")} value={formData.motherEmail} onChange={(e) => handleInputChange('motherEmail', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.mother_profession', "Mother's Profession")}</Label>
+                  <Input placeholder={t('students_page.form.mother_profession_placeholder', "Enter mother's profession")} value={formData.motherProfession} onChange={(e) => handleInputChange('motherProfession', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>{t('students_page.form.mother_address', "Mother's Address")}</Label>
+                  <Input placeholder={t('students_page.form.mother_address_placeholder', "Enter mother's address")} value={formData.motherAddress} onChange={(e) => handleInputChange('motherAddress', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.mother_workplace', "Mother's Workplace")}</Label>
+                  <Input placeholder={t('students_page.form.mother_workplace_placeholder', "Enter mother's workplace")} value={formData.motherWorkplace} onChange={(e) => handleInputChange('motherWorkplace', e.target.value)} disabled={isReadOnly} />
+                </div>
               </div>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t('students_page.form.guardian_info', "Guardian's Information (If different from parents)")}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.guardian_name', "Guardian's Name")}</Label>
+                  <Input placeholder={t('students_page.form.guardian_name_placeholder', "Enter guardian's name")} value={formData.guardianName} onChange={(e) => handleInputChange('guardianName', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('students_page.form.guardian_contact', "Guardian's Contact")}</Label>
+                  <Input placeholder={t('students_page.form.guardian_contact_placeholder', "Enter guardian's contact")} value={formData.guardianContact} onChange={(e) => handleInputChange('guardianContact', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('parent_admissions.fields.guardian_occupation', 'Guardian Occupation')}</Label>
+                  <Input placeholder={t('parent_admissions.placeholders.guardian_occupation', 'e.g. Software Engineer')} value={formData.guardian_occupation} onChange={(e) => handleInputChange('guardian_occupation', e.target.value)} disabled={isReadOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('parent_admissions.fields.emergency_contact', 'Emergency Contact Number')}</Label>
+                  <Input placeholder={t('parent_admissions.placeholders.emergency_contact', 'e.g. +233 24 000 0000')} value={formData.emergency_contact} onChange={(e) => handleInputChange('emergency_contact', e.target.value)} disabled={isReadOnly} />
+                </div>
+              </div>
+            </div>
+            {isAdmin && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.profile_picture_locked)}
+                    onChange={(e) => handleInputChange('profile_picture_locked', e.target.checked ? 'true' : '')}
+                    disabled={isReadOnly}
+                  />
+                  <span>{t('students_page.form.lock_profile_picture', 'Lock student profile picture from non-admin changes')}</span>
+                </label>
+              </div>
+            )}
+          </div>
+        );
+      case 6:
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">Review Information</h3>
+              </div>
+              <p className="text-sm text-blue-700">Please review all the information below before submitting. You can go back to any section to make changes.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-sm">
+              <h4 className="font-semibold text-slate-900 mb-3">All required fields collected</h4>
+              {[
+                { label: 'Step 1 Personal: first & last name + valid admission number', ok: Boolean(formData.first_name && formData.last_name && validateAdmissionNumber(formData.admission_number)) },
+                { label: 'Step 2 Contact: at least email OR phone provided', ok: Boolean(formData.email || formData.phone) },
+                { label: 'Step 3 Medical Info: optional (always allowed)', ok: true },
+                { label: 'Step 4 Enrollment: class selected', ok: Boolean(formData.class_id) },
+                { label: 'Step 5 Parent/Guardian: 1 name + 1 phone contact', ok: Boolean((formData.fatherName || formData.motherName || formData.guardianName) && (formData.fatherContact || formData.motherContact || formData.guardianContact || formData.emergency_contact)) }
+              ].map((item: any, i: number) => (
+                <div key={i} className={`flex items-start gap-2 ${item.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <span className="mt-0.5">{item.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}</span>
+                  <span>{item.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -314,11 +593,21 @@ const AdmissionFormPage: React.FC = () => {
         <CardHeader className="bg-gray-50/50 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-              {currentStep === 1 ? <User size={24} /> : currentStep === 2 ? <ShieldCheck size={24} /> : currentStep === 3 ? <Home size={24} /> : <FileText size={24} />}
+              {currentStep === 1 ? <User size={24} />
+                : currentStep === 2 ? <ShieldCheck size={24} />
+                : currentStep === 3 ? <Heart size={24} />
+                : currentStep === 4 ? <GraduationCap size={24} />
+                : currentStep === 5 ? <Users size={24} />
+                : <FileText size={24} />}
             </div>
             <div>
               <CardTitle className="text-xl">
-                {currentStep === 1 ? t('parent_admissions.step_titles.personal', 'Student Personal Details') : currentStep === 2 ? t('parent_admissions.step_titles.guardian', 'Guardian Information') : currentStep === 3 ? t('parent_admissions.step_titles.address', 'Address & Residency') : t('parent_admissions.step_titles.history', 'Academic History')}
+                {currentStep === 1 ? t('parent_admissions.step_titles.personal', 'Student Personal Details')
+                  : currentStep === 2 ? t('parent_admissions.step_titles.contact', 'Contact & Residency')
+                  : currentStep === 3 ? t('parent_admissions.step_titles.medical', 'Medical Information')
+                  : currentStep === 4 ? t('parent_admissions.step_titles.enrollment', 'Enrollment & History')
+                  : currentStep === 5 ? t('parent_admissions.step_titles.parent', 'Parent / Guardian Details')
+                  : t('parent_admissions.step_titles.review', 'Review & Submit')}
               </CardTitle>
               <CardDescription>
                 {t('parent_admissions.step_description', 'Please provide accurate information for the admission review')}
@@ -360,9 +649,9 @@ const AdmissionFormPage: React.FC = () => {
               </Button>
             ) : null}
 
-            {currentStep < 4 ? (
+            {currentStep < 6 ? (
               <Button 
-                onClick={() => setCurrentStep(prev => Math.min(4, prev + 1))}
+                onClick={() => setCurrentStep(prev => Math.min(6, prev + 1))}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {t('parent_admissions.next_step', 'Next Step')}

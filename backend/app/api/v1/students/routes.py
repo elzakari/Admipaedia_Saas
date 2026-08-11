@@ -176,17 +176,33 @@ def get_students():
         if user_id:
             from flask import abort
 
-            from app.models.class_ import ClassTeacherMapping
+            from app.models.class_ import Class, ClassTeacherMapping
             from app.models.user import User
 
-            user_obj = User.query.get(user_id)
+            user_obj = User.query.filter(User.id == user_id).first()
+            if user_obj is not None and getattr(user_obj, "tenant_id", None) is not None:
+                if getattr(user_obj, "tenant_id", None) != getattr(g, "tenant_id", None):
+                    user_obj = None
             if (
                 user_obj
                 and getattr(user_obj, "role", "").lower() == "teacher"
                 and class_id
             ):
+                class_scope = Class.query.filter(Class.id == class_id)
+                t_id = getattr(g, "tenant_id", None)
+                b_id = getattr(g, "branch_id", None)
+                if t_id is not None and hasattr(Class, "tenant_id"):
+                    class_scope = class_scope.filter(
+                        (Class.tenant_id == t_id) | (Class.tenant_id.is_(None))
+                    )
+                if b_id is not None and hasattr(Class, "branch_id"):
+                    class_scope = class_scope.filter(
+                        (Class.branch_id == b_id) | (Class.branch_id.is_(None))
+                    )
+                valid_class = class_scope.first() is not None
                 is_assigned = (
-                    db.session.query(ClassTeacherMapping)
+                    valid_class
+                    and db.session.query(ClassTeacherMapping)
                     .filter_by(teacher_id=user_id, class_id=class_id)
                     .first()
                     is not None
@@ -198,10 +214,13 @@ def get_students():
                         description="Insufficient permissions for this class context.",
                     )
 
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
         paginated_students = student_service.get_all_students(
             page=page,
             per_page=per_page,
-            tenant_id=getattr(g, "tenant_id", None),
+            tenant_id=tenant_id,
+            branch_id=branch_id,
             class_id=class_id,
             status=status,
             search=search,
@@ -262,11 +281,9 @@ def get_students():
 def get_student(student_id):
     """Get a specific student by ID."""
     try:
-        student = student_service.get_student_by_id(student_id)
-        if student and getattr(student, "tenant_id", None) != getattr(
-            g, "tenant_id", None
-        ):
-            student = None
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        student = student_service.get_student_by_id(student_id, tenant_id=tenant_id, branch_id=branch_id)
 
         if not student:
             return jsonify({"success": False, "message": "Student not found"}), 404
@@ -449,23 +466,32 @@ def create_student():
 def update_student(student_id):
     """Update an existing student."""
     try:
-        # Log the incoming request data for debugging
         current_app.logger.debug(
             f"Update student request data for student {student_id}: {request.json}"
         )
 
-        # Validate the incoming data against the schema
         data = student_schema.load(request.json, partial=True)
 
-        # Update the student
-        existing = student_service.get_student_by_id(student_id)
-        if not existing or getattr(existing, "tenant_id", None) != getattr(
-            g, "tenant_id", None
-        ):
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        existing = student_service.get_student_by_id(student_id, tenant_id=tenant_id, branch_id=branch_id)
+        if not existing:
             return jsonify({"success": False, "message": "Student not found"}), 404
 
+        user_id = get_jwt_identity()
+        from app.models.user import User
+        caller = User.query.filter(User.id == user_id).first() if user_id else None
+        caller_role = getattr(caller, "role", "").lower() if caller else ""
+        non_admin_roles = {"teacher", "parent"}
+        if caller_role in non_admin_roles:
+            if getattr(existing, "profile_picture_locked", False) and "profile_picture" in data:
+                return jsonify({
+                    "success": False,
+                    "message": "Profile picture is locked and cannot be modified by non-admin users"
+                }), 403
+
         student, error = student_service.update_student(
-            student_id, data, tenant_id=getattr(g, "tenant_id", None)
+            student_id, data, tenant_id=tenant_id, branch_id=branch_id
         )
 
         if error:
@@ -488,7 +514,6 @@ def update_student(student_id):
         current_app.logger.warning(
             f"Validation error updating student {student_id}: {err.messages}"
         )
-        # Return detailed validation errors to help frontend debugging
         return (
             jsonify(
                 {
@@ -524,13 +549,13 @@ def delete_student(student_id):
     try:
         current_app.logger.info(f"Attempting to delete student {student_id}")
 
-        existing = student_service.get_student_by_id(student_id)
-        if not existing or getattr(existing, "tenant_id", None) != getattr(
-            g, "tenant_id", None
-        ):
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        existing = student_service.get_student_by_id(student_id, tenant_id=tenant_id, branch_id=branch_id)
+        if not existing:
             return jsonify({"success": False, "message": "Student not found"}), 404
 
-        success, error = student_service.delete_student(student_id)
+        success, error = student_service.delete_student(student_id, tenant_id=tenant_id, branch_id=branch_id)
 
         if error:
             current_app.logger.warning(

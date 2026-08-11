@@ -34,10 +34,19 @@ class Student(db.Model):
     @classmethod
     def query_scoped(cls):
         from flask import g, has_app_context
-
         query = cls.query
-        if has_app_context() and getattr(g, "branch_id", None):
-            query = query.filter_by(branch_id=g.branch_id)
+        if not has_app_context():
+            return query
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+        if tenant_id is not None and hasattr(cls, "tenant_id"):
+            query = query.filter(
+                (cls.tenant_id == tenant_id) | (cls.tenant_id.is_(None))
+            )
+        if branch_id is not None and hasattr(cls, "branch_id"):
+            query = query.filter(
+                (cls.branch_id == branch_id) | (cls.branch_id.is_(None))
+            )
         return query
 
     # Personal Details - Updated name structure
@@ -131,20 +140,29 @@ class Student(db.Model):
 
     @staticmethod
     def generate_admission_number(tenant_id=None):
-        """Generate unique admission number in format ADM + [3-initials] + [YY] + [6-digit padded serial]"""
+        """Generate unique admission number. Default format: ADM-YYYY-NNNNN. Configurable via ADMISSION_NUMBER_FORMAT env."""
+        from flask import current_app, has_app_context
         current_year = datetime.now().year
+
+        config_mode = getattr(current_app, "config", {}).get("ADMISSION_NUMBER_FORMAT", "ADM-YYYY-NNNNN") if hasattr(current_app, "config") and has_app_context() else "ADM-YYYY-NNNNN"
+
+        from app.models.security import TenantCredentialCounter
+        next_serial = TenantCredentialCounter.get_next_serial(tenant_id, current_year)
+
+        if config_mode == "ADM-YYYY-NNNNN":
+            return f"ADM-{current_year}-{next_serial:05d}"
+
         yy = str(current_year)[-2:]
 
         if not tenant_id:
             tenant_initials = "GHS"
-            return f"ADM{tenant_initials}{yy}000001"
+            return f"ADM{tenant_initials}{yy}{0:06d}"
 
         from app.models.tenant import Tenant
 
         tenant_rec = Tenant.query.get(tenant_id)
         tenant_name = tenant_rec.name if tenant_rec else "Sync School"
 
-        # Decompose accents and spaces
         import unicodedata
 
         nfkd_form = unicodedata.normalize("NFKD", tenant_name)
@@ -163,9 +181,6 @@ class Student(db.Model):
         if len(tenant_initials) < 3:
             tenant_initials = (tenant_initials + "XXX")[:3]
 
-        from app.models.security import TenantCredentialCounter
-
-        next_serial = TenantCredentialCounter.get_next_serial(tenant_id, current_year)
         serial_padded = f"{next_serial:06d}"
 
         return f"ADM{tenant_initials}{yy}{serial_padded}"

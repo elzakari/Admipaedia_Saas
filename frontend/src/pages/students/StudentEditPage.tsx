@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Calendar, MapPin, GraduationCap, Save, ArrowLeft, X } from 'lucide-react';
+import { User, Mail, Heart, GraduationCap, Users, Save, ArrowLeft, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -146,7 +146,10 @@ const StudentEditPage: React.FC = () => {
         {/* Personal Information */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('common.personal_information', 'Personal Information')}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-4 w-4 text-indigo-600" />
+              {t('common.personal_information', 'Personal Information')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -239,10 +242,100 @@ const StudentEditPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Academic Information */}
+        {/* Contact Details */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('academics_page.management_title', 'Academic Information')}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-indigo-600" />
+              {t('students_page.contact_details', 'Contact Details')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="telephone">{t('common.phone_alt', 'Telephone (Alt)')}</Label>
+                <Input id="telephone" value={formData.telephone || ''} onChange={(e) => handleInputChange('telephone', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="whatsapp">{t('common.whatsapp', 'WhatsApp')}</Label>
+                <Input id="whatsapp" value={formData.whatsapp || ''} onChange={(e) => handleInputChange('whatsapp', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="postal_address">{t('common.postal_address', 'Postal Address')}</Label>
+                <Input id="postal_address" value={formData.postal_address || ''} onChange={(e) => handleInputChange('postal_address', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="city">{t('common.city', 'City')}</Label>
+                <Input id="city" value={formData.city || ''} onChange={(e) => handleInputChange('city', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="country">{t('common.country', 'Country')}</Label>
+                <Input id="country" value={formData.country || ''} onChange={(e) => handleInputChange('country', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="residential_address">{t('common.residential_address', 'Residential Address')}</Label>
+                <Input id="residential_address" value={formData.residential_address || ''} onChange={(e) => handleInputChange('residential_address', e.target.value)} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Health Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Heart className="h-4 w-4 text-indigo-600" />
+              {t('common.health_information', 'Health Information')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="blood_group">{t('common.blood_group', 'Blood Group')}</Label>
+                <Input
+                  id="blood_group"
+                  value={formData.blood_group || ''}
+                  onChange={(e) => handleInputChange('blood_group', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="allergies">{t('common.allergies', 'Allergies')}</Label>
+                <Input
+                  id="allergies"
+                  value={formData.allergies || ''}
+                  onChange={(e) => handleInputChange('allergies', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label htmlFor="medication">{t('common.medication', 'Medication')}</Label>
+                <Input id="medication" value={formData.medication || ''} onChange={(e) => handleInputChange('medication', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="physician_phone">{t('common.physician_contact', 'Physician Contact')}</Label>
+                <Input id="physician_phone" value={formData.physician_phone || ''} onChange={(e) => handleInputChange('physician_phone', e.target.value)} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <Label htmlFor="medical_conditions">{t('common.medical_conditions', 'Medical Conditions')}</Label>
+              <Textarea
+                id="medical_conditions"
+                value={formData.medical_conditions || ''}
+                onChange={(e) => handleInputChange('medical_conditions', e.target.value)}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Academic Management (Enrollment) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-indigo-600" />
+              {t('academics_page.management_title', 'Academic / Enrollment')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -264,42 +357,55 @@ const StudentEditPage: React.FC = () => {
                   onChange={(e) => handleInputChange('enrollment_date', e.target.value)}
                 />
               </div>
+              <div>
+                <Label htmlFor="class_id">{t('common.class', 'Class')}</Label>
+                <Select value={String(formData.class_id || '')} onValueChange={(value) => handleInputChange('class_id', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('common.select_class', 'Select class')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{t('common.unassigned', 'Unassigned')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="previous_school">{t('students_page.previous_school', 'Previous School')}</Label>
+                <Input id="previous_school" value={formData.previous_school || ''} onChange={(e) => handleInputChange('previous_school', e.target.value)} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Health Information */}
+        {/* Parent / Guardian */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('common.health_information', 'Health Information')}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-indigo-600" />
+              {t('students_page.parent_guardian', 'Parent / Guardian')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="blood_group">{t('common.blood_group', 'Blood Group')}</Label>
-                <Input
-                  id="blood_group"
-                  value={formData.blood_group || ''}
-                  onChange={(e) => handleInputChange('blood_group', e.target.value)}
-                />
+                <Label htmlFor="father_name">{t('common.father_name', 'Father Name')}</Label>
+                <Input id="father_name" value={formData.father_name || ''} onChange={(e) => handleInputChange('father_name', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="allergies">{t('common.allergies', 'Allergies')}</Label>
-                <Input
-                  id="allergies"
-                  value={formData.allergies || ''}
-                  onChange={(e) => handleInputChange('allergies', e.target.value)}
-                />
+                <Label htmlFor="father_contact">{t('common.father_contact', 'Father Contact')}</Label>
+                <Input id="father_contact" value={formData.father_contact || ''} onChange={(e) => handleInputChange('father_contact', e.target.value)} />
               </div>
-            </div>
-            <div className="mt-4">
-              <Label htmlFor="medical_conditions">{t('common.medical_conditions', 'Medical Conditions')}</Label>
-              <Textarea
-                id="medical_conditions"
-                value={formData.medical_conditions || ''}
-                onChange={(e) => handleInputChange('medical_conditions', e.target.value)}
-                rows={3}
-              />
+              <div>
+                <Label htmlFor="mother_name">{t('common.mother_name', 'Mother Name')}</Label>
+                <Input id="mother_name" value={formData.mother_name || ''} onChange={(e) => handleInputChange('mother_name', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="mother_contact">{t('common.mother_contact', 'Mother Contact')}</Label>
+                <Input id="mother_contact" value={formData.mother_contact || ''} onChange={(e) => handleInputChange('mother_contact', e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="guardian_name">{t('common.guardian_name', 'Guardian Name')}</Label>
+                <Input id="guardian_name" value={formData.guardian_name || ''} onChange={(e) => handleInputChange('guardian_name', e.target.value)} />
+              </div>
             </div>
           </CardContent>
         </Card>

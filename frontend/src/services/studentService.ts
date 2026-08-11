@@ -10,6 +10,15 @@ export interface StudentAnalyticsSummary {
   at_risk_students_count: number;
   class_performance?: Array<{ class_name: string; average_score: number }>;
   trends?: Array<{ date: string; average_score: number }>;
+  linked_parents_count?: number;
+  needs_follow_up_count?: number;
+  missing_contacts_count?: number;
+  unassigned_classes_count?: number;
+  attendance_marks_recorded?: number;
+  attendance_total_days?: number;
+  grades_recorded_count?: number;
+  graded_assessments?: number;
+  at_risk_threshold?: number;
 }
 
 interface PasswordOptions {

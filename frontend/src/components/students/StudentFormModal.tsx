@@ -11,7 +11,7 @@ import MobileOptimizedTextarea from "../common/MobileOptimizedTextarea";
 import { FormValidationProvider } from "../common/FormValidationProvider";
 import { useMobileKeyboard } from "@/hooks/useMobileKeyboard";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { Loader2, AlertCircle, ChevronRight, ChevronLeft, Check, User, Phone, Mail, MapPin, Heart, GraduationCap, Users, Camera, Lock } from "lucide-react";
+import { Loader2, AlertCircle, ChevronRight, ChevronLeft, Check, User, Phone, Mail, MapPin, Heart, GraduationCap, Users, Camera, Lock, ExternalLink } from "lucide-react";
 import { Alert, AlertDescription } from "../ui/alert";
 import { FormProgressIndicator } from "./FormProgressIndicator";
 import { FormQuickNav } from "./FormQuickNav";
@@ -20,6 +20,8 @@ import api from "@/lib/api";
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from "@/lib/adminUi";
 import { getClassDisplayName } from "@/utils/formatters";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import studentService from "@/services/studentService";
 import { resolveAvatarUrl, resolveStudentAvatar } from "@/utils/avatar";
 
@@ -45,6 +47,7 @@ interface StudentFormModalProps {
   onClose: () => void;
   student?: Student | null;
   onSuccess?: () => void;
+  onOpenFullPageEdit?: (studentId: string | number) => void;
 }
 
 interface FormData {
@@ -172,7 +175,7 @@ interface StudentCreate {
 
 const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   const { t } = useTranslation();
-  const { student, isOpen, onClose, onSuccess } = props;
+  const { student, isOpen, onClose, onSuccess, onOpenFullPageEdit } = props;
   const { toast } = useToast();
   const { mutateAsync: createStudentAsync } = useCreateStudent();
   const updateStudentMutation = useUpdateStudent();
@@ -241,7 +244,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
   const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [originalProfilePicture, setOriginalProfilePicture] = useState<string>('');
+  const [draftRestoredBanner, setDraftRestoredBanner] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const admissionHint = `ADM-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -343,7 +349,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
   // Initialize form data with student data
   useEffect(() => {
+    if (!isOpen) return;
     if (student) {
+      const origPic = resolveStudentAvatar(student) || '';
+      setOriginalProfilePicture(origPic);
       setFormData({
         name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
         first_name: student.first_name || '',
@@ -357,8 +366,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         address: student.address || '',
         class_id: student.class_id ? student.class_id.toString() : '',
         parent_id: '',
-        
-        // Personal Information
+
         surname: (student as any).surname || '',
         placeOfBirth: (student as any).place_of_birth || '',
         religiousDenomination: (student as any).religious_denomination || '',
@@ -366,37 +374,33 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         bloodGroup: (student as any).blood_group || '',
         telephone: (student as any).telephone || student.phone || '',
         whatsapp: (student as any).whatsapp || '',
-        
-        // Contact Information
+
         postalAddress: (student as any).postal_address || '',
         digitalAddress: (student as any).digital_address || '',
         city: (student as any).city || '',
         country: (student as any).country || '',
         residentialAddress: (student as any).residential_address || '',
         localLandmark: (student as any).local_landmark || '',
-        
-        // Health Information
+
         medicalConditions: (student as any).medical_conditions || '',
         specialCircumstance: (student as any).special_circumstance || '',
         allergies: (student as any).allergies || '',
         medication: (student as any).medication || '',
         physicianName: (student as any).physician_name || '',
         physicianPhone: (student as any).physician_phone || '',
-        
-        // Academic Information
+
         previousSchool: (student as any).previous_school || '',
         previousClass: (student as any).previous_class || '',
         previousTeam: (student as any).previous_team || '',
         previousYear: (student as any).previous_year || '',
-        
-        // Parent Information
+
         fatherName: (student as any).father_name || '',
         fatherContact: (student as any).father_contact || '',
         fatherAddress: (student as any).father_address || '',
         fatherEmail: (student as any).father_email || '',
         fatherProfession: (student as any).father_profession || '',
         fatherWorkplace: (student as any).father_workplace || '',
-        
+
         motherName: (student as any).mother_name || '',
         motherContact: (student as any).mother_contact || '',
         motherAddress: (student as any).mother_address || '',
@@ -408,68 +412,83 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         guardianContact: (student as any).guardian_contact || '',
         profile_picture_locked: Boolean((student as any).profile_picture_locked)
       });
-      setPhotoPreview(resolveStudentAvatar(student) || '');
+      setPhotoPreview(origPic);
       setPhotoFile(null);
       setPhotoRemoved(false);
+      setDraftRestoredBanner(null);
     } else {
-      // Reset form when no student is provided (for creating new student)
+      const draftKey = 'student_draft_new';
+      const raw = localStorage.getItem(draftKey);
+      let draftBanner: string | null = null;
+      let initial: Partial<FormData> = {};
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            initial = parsed;
+            draftBanner = 'Restored from draft saved locally';
+          }
+        } catch { /* noop */ }
+      }
+      setOriginalProfilePicture('');
       setFormData({
-        name: '',
-        first_name: '',
-        middle_name: '',
-        last_name: '',
-        email: '',
-        admission_number: '',
-        date_of_birth: '',
-        gender: '',
-        address: '',
-        phone: '',
-        class_id: '',
-        parent_id: '',
-        surname: '',
-        placeOfBirth: '',
-        religiousDenomination: '',
-        nationality: '',
-        bloodGroup: '',
-        telephone: '',
-        whatsapp: '',
-        postalAddress: '',
-        digitalAddress: '',
-        city: '',
-        country: '',
-        residentialAddress: '',
-        localLandmark: '',
-        medicalConditions: '',
-        specialCircumstance: '',
-        allergies: '',
-        medication: '',
-        physicianName: '',
-        physicianPhone: '',
-        previousSchool: '',
-        previousClass: '',
-        previousTeam: '',
-        previousYear: '',
-        fatherName: '',
-        fatherContact: '',
-        fatherAddress: '',
-        fatherEmail: '',
-        fatherProfession: '',
-        fatherWorkplace: '',
-        motherName: '',
-        motherContact: '',
-        motherAddress: '',
-        motherEmail: '',
-        motherProfession: '',
-        motherWorkplace: '',
-        guardianName: '',
-        guardianContact: '',
-        profile_picture_locked: false
+        name: initial.name || '',
+        first_name: initial.first_name || '',
+        middle_name: initial.middle_name || '',
+        last_name: initial.last_name || '',
+        email: initial.email || '',
+        admission_number: initial.admission_number || admissionHint,
+        date_of_birth: initial.date_of_birth || '',
+        gender: initial.gender || '',
+        address: initial.address || '',
+        phone: initial.phone || '',
+        class_id: initial.class_id || '',
+        parent_id: initial.parent_id || '',
+        surname: initial.surname || '',
+        placeOfBirth: initial.placeOfBirth || '',
+        religiousDenomination: initial.religiousDenomination || '',
+        nationality: initial.nationality || '',
+        bloodGroup: initial.bloodGroup || '',
+        telephone: initial.telephone || '',
+        whatsapp: initial.whatsapp || '',
+        postalAddress: initial.postalAddress || '',
+        digitalAddress: initial.digitalAddress || '',
+        city: initial.city || '',
+        country: initial.country || '',
+        residentialAddress: initial.residentialAddress || '',
+        localLandmark: initial.localLandmark || '',
+        medicalConditions: initial.medicalConditions || '',
+        specialCircumstance: initial.specialCircumstance || '',
+        allergies: initial.allergies || '',
+        medication: initial.medication || '',
+        physicianName: initial.physicianName || '',
+        physicianPhone: initial.physicianPhone || '',
+        previousSchool: initial.previousSchool || '',
+        previousClass: initial.previousClass || '',
+        previousTeam: initial.previousTeam || '',
+        previousYear: initial.previousYear || '',
+        fatherName: initial.fatherName || '',
+        fatherContact: initial.fatherContact || '',
+        fatherAddress: initial.fatherAddress || '',
+        fatherEmail: initial.fatherEmail || '',
+        fatherProfession: initial.fatherProfession || '',
+        fatherWorkplace: initial.fatherWorkplace || '',
+        motherName: initial.motherName || '',
+        motherContact: initial.motherContact || '',
+        motherAddress: initial.motherAddress || '',
+        motherEmail: initial.motherEmail || '',
+        motherProfession: initial.motherProfession || '',
+        motherWorkplace: initial.motherWorkplace || '',
+        guardianName: initial.guardianName || '',
+        guardianContact: initial.guardianContact || '',
+        profile_picture_locked: Boolean(initial.profile_picture_locked || false)
       });
       setPhotoPreview('');
       setPhotoFile(null);
       setPhotoRemoved(false);
+      setDraftRestoredBanner(draftBanner);
     }
-  }, [student]);
+  }, [student, isOpen, admissionHint]);
 
   // Mark a step as completed
   const markStepAsCompleted = (step: number) => {
@@ -629,12 +648,8 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
     // Enhanced admission number validation
     if (formData.admission_number?.trim()) {
-      if (formData.admission_number.trim().length < 3) {
-        newErrors.admission_number = 'Admission number must be at least 3 characters long';
-      } else if (formData.admission_number.trim().length > 20) {
-        newErrors.admission_number = 'Admission number must not exceed 20 characters';
-      } else if (!/^[A-Za-z0-9\-\/]+$/.test(formData.admission_number.trim())) {
-        newErrors.admission_number = 'Admission number can only contain letters, numbers, hyphens, and forward slashes';
+      if (!/^ADM-\d{4}-\d{1,5}$|^$/.test(formData.admission_number.trim())) {
+        newErrors.admission_number = 'Must be in format ADM-YYYY-NNNNN';
       }
     }
 
@@ -682,21 +697,28 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     const stepErrors: Record<string, string> = {};
 
     switch (currentStep) {
-      case 0: // Basic Information
+      case 0: // Personal
         if (!formData.first_name?.trim()) stepErrors.first_name = 'First name is required';
         if (!formData.last_name?.trim()) stepErrors.last_name = 'Last name is required';
-        if (!formData.date_of_birth?.trim()) stepErrors.date_of_birth = 'Date of birth is required';
-        if (!formData.gender?.trim()) stepErrors.gender = 'Gender is required';
-        
+        if (!formData.admission_number?.trim()) stepErrors.admission_number = 'Admission number is required';
+        if (formData.admission_number?.trim() && !/^ADM-\d{4}-\d{1,5}$|^$/.test(formData.admission_number.trim())) {
+          stepErrors.admission_number = 'Must be in format ADM-YYYY-NNNNN';
+        }
+        break;
+
+      case 1: // Contact
+        const hasEmail = Boolean(formData.email?.trim());
+        const hasPhone = Boolean(formData.phone?.trim());
+        if (!hasEmail && !hasPhone) {
+          stepErrors.email = 'At least email OR phone is required';
+          stepErrors.phone = 'At least email OR phone is required';
+        }
         if (formData.email?.trim()) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(formData.email.trim())) {
             stepErrors.email = 'Please enter a valid email address';
           }
         }
-        break;
-
-      case 1: // Contact Information
         if (formData.phone?.trim()) {
           const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,15}$/;
           if (!phoneRegex.test(formData.phone.trim())) {
@@ -705,11 +727,39 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         }
         break;
 
-      case 3: // Academic Information
-        if (!formData.class_id?.trim()) stepErrors.class_id = 'Class selection is required';
+      case 2: // Medical
         break;
 
-      case 4: // Parent Information
+      case 3: // Enrollment
+        if (!formData.class_id?.trim()) stepErrors.class_id = 'Class selection is required';
+        if (formData.class_id?.trim() && formData.date_of_birth?.trim()) {
+          const age = calculateAge(formData.date_of_birth);
+          const { minAge, maxAge } = getExpectedAgeRangeForClass(formData.class_id);
+          if (age < minAge || age > maxAge) {
+            stepErrors.class_id = 'Age should be appropriate for selected class';
+          }
+        }
+        break;
+
+      case 4: // Parent/Guardian
+        const hasFather = Boolean(formData.fatherName?.trim());
+        const hasMother = Boolean(formData.motherName?.trim());
+        const hasGuardian = Boolean(formData.guardianName?.trim());
+        const hasAnyName = hasFather || hasMother || hasGuardian;
+        const hasAnyPhone =
+          Boolean(formData.fatherContact?.trim()) ||
+          Boolean(formData.motherContact?.trim()) ||
+          Boolean(formData.guardianContact?.trim());
+        if (!hasAnyName) {
+          stepErrors.fatherName = 'At least one parent/guardian name is required';
+          stepErrors.motherName = 'At least one parent/guardian name is required';
+          stepErrors.guardianName = 'At least one parent/guardian name is required';
+        }
+        if (!hasAnyPhone) {
+          stepErrors.fatherContact = 'At least one parent/guardian phone is required';
+          stepErrors.motherContact = 'At least one parent/guardian phone is required';
+          stepErrors.guardianContact = 'At least one parent/guardian phone is required';
+        }
         if (formData.fatherContact?.trim()) {
           const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,15}$/;
           if (!phoneRegex.test(formData.fatherContact.trim())) {
@@ -722,6 +772,41 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
             stepErrors.motherContact = 'Please enter a valid mother contact number';
           }
         }
+        if (formData.fatherEmail?.trim()) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.fatherEmail.trim())) {
+            stepErrors.fatherEmail = 'Please enter a valid father email address';
+          }
+        }
+        if (formData.motherEmail?.trim()) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.motherEmail.trim())) {
+            stepErrors.motherEmail = 'Please enter a valid mother email address';
+          }
+        }
+        break;
+
+      case 5: // Review
+        if (!formData.first_name?.trim()) stepErrors.first_name = 'First name is required';
+        if (!formData.last_name?.trim()) stepErrors.last_name = 'Last name is required';
+        if (formData.admission_number?.trim() && !/^ADM-\d{4}-\d{1,5}$|^$/.test(formData.admission_number.trim())) {
+          stepErrors.admission_number = 'Must be in format ADM-YYYY-NNNNN';
+        }
+        const rHasContact = Boolean(formData.email?.trim()) || Boolean(formData.phone?.trim());
+        if (!rHasContact) {
+          stepErrors.email = 'At least email OR phone is required';
+        }
+        if (!formData.class_id?.trim()) stepErrors.class_id = 'Class selection is required';
+        const rHasParentName =
+          Boolean(formData.fatherName?.trim()) ||
+          Boolean(formData.motherName?.trim()) ||
+          Boolean(formData.guardianName?.trim());
+        const rHasParentPhone =
+          Boolean(formData.fatherContact?.trim()) ||
+          Boolean(formData.motherContact?.trim()) ||
+          Boolean(formData.guardianContact?.trim());
+        if (!rHasParentName) stepErrors.fatherName = 'At least one parent/guardian name is required';
+        if (!rHasParentPhone) stepErrors.fatherContact = 'At least one parent/guardian phone is required';
         break;
     }
 
@@ -800,11 +885,37 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
 
   // Navigation functions
   const nextStep = () => {
-    if (validateCurrentStep()) {
+    if (currentStep === 0 && !formData.admission_number?.trim()) {
+      handleInputChange('admission_number', admissionHint);
+    }
+    const ok = validateCurrentStep();
+    if (ok) {
       markStepAsCompleted(currentStep);
       if (currentStep < steps.length - 1) {
         setCurrentStep(currentStep + 1);
       }
+    } else {
+      const stepErrorsMap: Record<number, string[]> = {
+        0: ['first_name', 'last_name', 'admission_number', 'date_of_birth', 'gender'],
+        1: ['email', 'phone', 'telephone', 'whatsapp'],
+        3: ['class_id', 'parent_id'],
+        4: ['fatherName', 'motherName', 'guardianName', 'fatherContact', 'motherContact', 'guardianContact']
+      };
+      const order = stepErrorsMap[currentStep] || Object.keys(errors);
+      const firstKey = order.find(k => errors[k]) || Object.keys(errors)[0];
+      if (firstKey) {
+        const el = document.querySelector<HTMLElement>(`[name="${firstKey}"]`) ||
+          document.querySelector<HTMLElement>(`input[name="${firstKey}"]`) ||
+          document.querySelector<HTMLElement>(`select[name="${firstKey}"]`) ||
+          document.querySelector<HTMLElement>(`textarea[name="${firstKey}"]`);
+        if (el && typeof el.focus === 'function') el.focus();
+      }
+      toast({
+        title: t('students_page.form.toast.validation_error_title', 'Validation Error'),
+        description: t('students_page.form.toast.step_validation', 'Please complete required fields before proceeding.'),
+        variant: "destructive",
+        id: ""
+      });
     }
   };
 
@@ -815,6 +926,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   };
 
   const saveProgress = () => {
+    try {
+      const draftKey = 'student_draft_' + (student?.id || 'new');
+      localStorage.setItem(draftKey, JSON.stringify(formData));
+    } catch { /* noop */ }
     toast({
       title: t('students_page.form.toast.progress_saved_title', 'Progress Saved'),
       description: t('students_page.form.toast.progress_saved_desc', 'Your form progress has been saved locally.'),
@@ -825,11 +940,27 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   // Enhanced form submission with comprehensive error handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.admission_number?.trim()) {
+      handleInputChange('admission_number', admissionHint);
+    }
     
     if (!validateForm()) {
       toast({
         title: t('students_page.form.toast.validation_error_title', 'Validation Error'),
         description: t('students_page.form.toast.validation_error_desc', 'Please fix all errors in the form before submitting.'),
+        id: ""
+      });
+      return;
+    }
+
+    const newProfilePictureChanged = Boolean(photoFile) || photoRemoved;
+    const originalLocked = Boolean((student as any)?.profile_picture_locked);
+    if (student && formData.profile_picture_locked && originalLocked && newProfilePictureChanged) {
+      toast({
+        title: t('students_page.form.toast.validation_error_title', 'Validation Error'),
+        description: t('students_page.form.toast.profile_locked', 'Profile picture is locked from non-admin changes.'),
+        variant: "destructive",
         id: ""
       });
       return;
@@ -845,7 +976,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         last_name: formData.last_name.trim(),
         email: formData.email?.trim() || null,
         phone: formData.phone?.trim() || null,
-        admission_number: formData.admission_number?.trim() || null,
+        admission_number: formData.admission_number?.trim() || admissionHint,
         date_of_birth: formData.date_of_birth,
         gender: formData.gender,
         address: formData.address?.trim() || null,
@@ -906,7 +1037,6 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       let savedStudentId: number | undefined;
 
       if (student) {
-        // Update existing student
         const updateResponse = await updateStudentMutation.mutateAsync({
           id: student.id,
           data: transformedData
@@ -914,8 +1044,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         savedStudentId = Number(updateResponse?.data?.id || student.id);
 
         if (photoFile && savedStudentId) {
-          const uploadResponse = await studentService.uploadProfilePicture(savedStudentId, photoFile);
-          setPhotoPreview(resolveAvatarUrl(uploadResponse?.profile_picture_url) || '');
+          const formDataUpload = new FormData();
+          formDataUpload.append('profile_picture', photoFile);
+          const uploadResponse = await api.post(`/students/${savedStudentId}/profile-picture`, formDataUpload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          setPhotoPreview(resolveAvatarUrl((uploadResponse?.data as any)?.profile_picture_url || (uploadResponse as any)?.profile_picture_url) || '');
           setPhotoFile(null);
           setPhotoRemoved(false);
         }
@@ -926,7 +1060,6 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           id: ""
         });
       } else {
-        // Create new student
         const createData = {
           ...transformedData,
           password: generatePassword(),
@@ -937,8 +1070,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         savedStudentId = Number(createResponse?.data?.id);
 
         if (photoFile && savedStudentId) {
-          const uploadResponse = await studentService.uploadProfilePicture(savedStudentId, photoFile);
-          setPhotoPreview(resolveAvatarUrl(uploadResponse?.profile_picture_url) || '');
+          const formDataUpload = new FormData();
+          formDataUpload.append('profile_picture', photoFile);
+          const uploadResponse = await api.post(`/students/${savedStudentId}/profile-picture`, formDataUpload, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          setPhotoPreview(resolveAvatarUrl((uploadResponse?.data as any)?.profile_picture_url || (uploadResponse as any)?.profile_picture_url) || '');
           setPhotoFile(null);
           setPhotoRemoved(false);
         }
@@ -949,6 +1086,11 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           id: ""
         });
       }
+
+      try {
+        localStorage.removeItem('student_draft_new');
+        if (student?.id) localStorage.removeItem('student_draft_' + student.id);
+      } catch { /* noop */ }
       
       onSuccess?.();
       onClose();
@@ -1126,6 +1268,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                 onChange={handleInputEvent}
                 error={errors.admission_number}
                 placeholder={t('students_page.form.admission_number_placeholder', 'Enter admission number')}
+                disabled={Boolean(student?.id || student?.admission_number?.startsWith?.('ADM'))}
                 required
               />
               
@@ -1618,6 +1761,13 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         );
         
         case 5: // Review
+        const checklist = [
+          { label: 'Step 1 Personal: first & last name + valid admission number', ok: Boolean(formData.first_name?.trim() && formData.last_name?.trim() && /^ADM-\d{4}-\d{1,5}$/.test(formData.admission_number?.trim() || '')) },
+          { label: 'Step 2 Contact: at least email OR phone provided', ok: Boolean(formData.email?.trim() || formData.phone?.trim()) },
+          { label: 'Step 3 Medical Info: optional (always allowed)', ok: true },
+          { label: 'Step 4 Enrollment: class selected', ok: Boolean(formData.class_id?.trim()) },
+          { label: 'Step 5 Parent/Guardian: 1 name + 1 phone contact', ok: Boolean((formData.fatherName?.trim() || formData.motherName?.trim() || formData.guardianName?.trim()) && (formData.fatherContact?.trim() || formData.motherContact?.trim() || formData.guardianContact?.trim())) }
+        ];
         return (
           <div className="space-y-6">
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -1628,6 +1778,18 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
               <p className="text-sm text-blue-700 dark:text-blue-300">
                 {t('students_page.form.review_help', 'Please review all the information below before submitting. You can go back to any section to make changes.')}
               </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/30 p-4">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">All required fields collected</h4>
+              <ul className="space-y-2 text-sm">
+                {checklist.map((item, i) => (
+                  <li key={i} className={`flex items-start gap-2 ${item.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
+                    <span className="mt-0.5">{item.ok ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}</span>
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             
             {/* Basic Information Summary */}
@@ -1739,14 +1901,35 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         }}
       >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-xl font-semibold">
-            {student ? t('students_page.form.edit_student', 'Edit Student') : t('students_page.form.add_student', 'Add New Student')}
-          </DialogTitle>
-          <DialogDescription>
-            {student 
-              ? `${t('students_page.form.update_details_for', 'Update details for')} ${student.first_name} ${student.last_name}` 
-              : t('students_page.form.new_student_desc', 'Enter information for the new student record using the same intake flow as admissions, with admin-only enrollment fields.')}
-          </DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                {student ? t('students_page.form.edit_student', 'Edit Student') : t('students_page.form.add_student', 'Add New Student')}
+                {student && (
+                  <Badge variant="outline" className="text-[11px] font-normal ml-1">
+                    {t('students_page.form.quick_edit_badge', 'Quick Edit')}
+                  </Badge>
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                {student 
+                  ? `${t('students_page.form.update_details_for', 'Update details for')} ${student.first_name} ${student.last_name}`
+                  : t('students_page.form.new_student_desc', 'Enter information for the new student record using the same intake flow as admissions, with admin-only enrollment fields.')}
+              </DialogDescription>
+            </div>
+            {student && onOpenFullPageEdit && (
+              <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenFullPageEdit(student.id)}
+              className="text-xs text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 shrink-0 -mt-0.5"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              {t('students_page.form.open_full_edit', 'Full Page Edit')}
+            </Button>
+            )}
+          </div>
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -1783,6 +1966,15 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
                     <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                     <AlertDescription className="text-red-700 dark:text-red-300">
                       {t('students_page.form.fix_errors_alert', 'Please fix the errors below before continuing.')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {draftRestoredBanner && (
+                  <Alert className="border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/20">
+                    <AlertCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <AlertDescription className="text-indigo-700 dark:text-indigo-300">
+                      {draftRestoredBanner}
                     </AlertDescription>
                   </Alert>
                 )}
