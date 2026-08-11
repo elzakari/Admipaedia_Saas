@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 let deleteMutateMock = vi.fn();
 let createMutateAsyncMock = vi.fn().mockResolvedValue({ data: { id: 1 }, success: true });
 let updateMutateAsyncMock = vi.fn().mockResolvedValue({ data: { id: 1 }, success: true });
+let useStudentsMockFactory: ReturnType<typeof vi.fn>;
 
 // Mock services with factories to ensure methods are mocked
 vi.mock('../../services/studentService', () => {
@@ -67,7 +68,7 @@ vi.mock('../../hooks/useStudents', () => {
     reset: vi.fn(),
   });
   return {
-    useStudents: vi.fn().mockImplementation(() => ({
+    useStudents: (useStudentsMockFactory = vi.fn().mockImplementation(() => ({
       data: {
         data: [
           { id: 1, first_name: 'John', last_name: 'Doe', name: 'John Doe', email: 'john.doe@example.com', phone: '1234567890', telephone: '1234567890', gender: 'Male', class_id: 1, status: 'active', attendance_percentage: 95, performance_average: 85, class_name: 'Grade 1', admission_number: 'STU001', profile_image: 'https://example.com/avatar.jpg', date_of_birth: '2005-01-15', address: '123 Main St' },
@@ -79,7 +80,7 @@ vi.mock('../../hooks/useStudents', () => {
       isError: false,
       error: null,
       refetch: vi.fn().mockResolvedValue({}),
-    })),
+    }))),
     useStudentAnalyticsSummary: vi.fn().mockReturnValue({
       data: {
         total_students: 2,
@@ -103,6 +104,27 @@ vi.mock('../../hooks/useStudents', () => {
     useDeleteStudent: vi.fn(() => mkMutation(undefined, deleteMutateMock, { success: true })),
   };
 });
+
+// Mock useTranslation (react-i18next) to prevent i18next no-instance stderr warning (and identity fallback for label/string t() calls)
+vi.mock('react-i18next', () => ({
+  useTranslation: vi.fn().mockReturnValue({
+    t: (key: string, fallback?: string) => fallback ?? key,
+    i18n: {
+      language: 'en',
+      changeLanguage: vi.fn().mockResolvedValue(undefined),
+      exists: vi.fn().mockReturnValue(false),
+    },
+    ready: true,
+  }),
+  Trans: ({ children }: { children?: React.ReactNode }) => children as any,
+  I18nextProvider: ({ children }: { children?: React.ReactNode }) => children as any,
+  initReactI18next: { type: '3rdParty', init: vi.fn() } as any,
+}));
+
+// Mock useMediaQuery to avoid window.matchMedia in headless jsdom (CI jsdom doesn't implement matchMedia reliably; would throw or fire after-render setState outside act())
+vi.mock('../../hooks/useMediaQuery', () => ({
+  useMediaQuery: vi.fn(() => false),
+}));
 
 // Mock useClasses hook that StudentsPage imports separately
 vi.mock('../../hooks/useClasses', () => ({
@@ -346,6 +368,21 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+// Helper: wraps render() + immediate React scheduler drain (setState from useLayoutEffect /
+// useEffect post-render microtasks) inside act() so React 18 strict testing does not fire
+// "Update was not wrapped in act(...)" warnings on initial StudentsPage mount setStates.
+async function renderApp(ui: React.ReactElement = <StudentsPage />) {
+  await act(async () => {
+    render(<TestWrapper>{ui}</TestWrapper>);
+    // 1) Drain microtask queue (Promise.then callbacks that useEffect schedules
+    //    synchronously, e.g. analytics / classes promise resolution for sync-mocked hooks)
+    await Promise.resolve();
+    // 2) Drain macrotask queue (setTimeout 0 callbacks queued by third-party libs,
+    //    deferred focus() calls, ResizeObserver microtask-like fallbacks)
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), 0));
+  });
+}
+
 describe('Student Management Integration Tests', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -353,6 +390,24 @@ describe('Student Management Integration Tests', () => {
     // Clean up Radix scroll/pointer locks from other runs
     document.body.removeAttribute('data-scroll-locked');
     document.body.style.pointerEvents = '';
+
+    // JSDOM window.matchMedia fallback (belt-and-suspenders; useMediaQuery hook mocked but other libs (Dialog/Select) may still invoke directly)
+    if (typeof window !== 'undefined' && typeof (window as any).matchMedia !== 'function') {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        configurable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+    }
     
     // Mock localStorage (getItem must return null string-compatible value to avoid JSON.parse(undefined))
     const localStorageMock = {
@@ -376,6 +431,7 @@ describe('Student Management Integration Tests', () => {
     deleteMutateMock.mockClear?.();
     createMutateAsyncMock.mockClear?.();
     updateMutateAsyncMock.mockClear?.();
+    useStudentsMockFactory?.mockClear?.();
 
     // Default lib/api mock for StudentFormModal inline data-fetches (not through services)
     vi.mocked(api.get).mockImplementation(((url: string, _opts?: any) => {
@@ -412,11 +468,7 @@ describe('Student Management Integration Tests', () => {
 
   describe('Student List Display', () => {
     it('should display list of students', async () => {
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -425,11 +477,7 @@ describe('Student Management Integration Tests', () => {
     });
 
     it('should show student details in table format', async () => {
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.queryByText(/loading students/i)).not.toBeInTheDocument();
@@ -444,11 +492,7 @@ describe('Student Management Integration Tests', () => {
     });
 
     it('should display student profile images', async () => {
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.queryByText(/loading students/i)).not.toBeInTheDocument();
@@ -462,11 +506,7 @@ describe('Student Management Integration Tests', () => {
     it('should filter students by search term', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.queryByText(/loading students/i)).not.toBeInTheDocument();
@@ -490,11 +530,7 @@ describe('Student Management Integration Tests', () => {
     it('should filter students by class', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.queryByText(/loading students/i)).not.toBeInTheDocument();
@@ -508,20 +544,20 @@ describe('Student Management Integration Tests', () => {
       });
 
       await waitFor(() => {
-        expect(mockStudentService.getStudents).toHaveBeenCalledWith(
-          expect.objectContaining({ class_id: 1 })
+        // StudentsPage selects Grade 1 -> passes class_id: 1 to useStudents hook args.
+        // We mock at hook level (not service level) so assert against hook invocation.
+        const allCalls = (useStudentsMockFactory ?? vi.fn()).mock.calls as any[][];
+        const classFilteredCall = allCalls.find(
+          (args) => Array.isArray(args) && args[0] && Number((args[0] as any).class_id) === 1
         );
+        expect(classFilteredCall).toBeDefined();
       });
     });
 
     it('should filter students by status', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.queryByText(/loading students/i)).not.toBeInTheDocument();
@@ -544,11 +580,7 @@ describe('Student Management Integration Tests', () => {
     it('should create a new student', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       // Wait for loading to finish
       await waitFor(() => {
@@ -574,11 +606,7 @@ describe('Student Management Integration Tests', () => {
     it('should delete a student', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -615,11 +643,7 @@ describe('Student Management Integration Tests', () => {
 
   describe('Accessibility', () => {
     it('should have proper labels', async () => {
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search students/i)).toBeInTheDocument();
@@ -631,11 +655,7 @@ describe('Student Management Integration Tests', () => {
     it('should show validation errors for invalid form data', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
       
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       // Wait for loading to finish
       await waitFor(() => {
@@ -665,11 +685,7 @@ describe('Student Management Integration Tests', () => {
       });
       window.dispatchEvent(new Event('resize'));
 
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -685,11 +701,7 @@ describe('Student Management Integration Tests', () => {
       });
       window.dispatchEvent(new Event('resize'));
 
-      render(
-        <TestWrapper>
-          <StudentsPage />
-        </TestWrapper>
-      );
+      await renderApp();
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
