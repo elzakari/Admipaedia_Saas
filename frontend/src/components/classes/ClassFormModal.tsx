@@ -1,5 +1,5 @@
 // ClassFormModal component
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -77,40 +77,6 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [gradeEditSubmitting, setGradeEditSubmitting] = useState(false);
   const [gradeEditErrors, setGradeEditErrors] = useState<{ name?: string }>({});
 
-  const normalizedGradeLevels = React.useMemo(() => {
-    if (!Array.isArray(gradeLevelsData)) return [];
-    const seen = new Map<string, { display_name: string; cnt: number }>();
-    return gradeLevelsData
-      .filter((l: any) => !!l && !!l.id)
-      .map((lvl: any) => {
-        const baseName = (lvl.display_name || lvl.name || `Grade ${lvl.numeric_value || lvl.order_index || ''}`).toString().trim();
-        const code = (lvl.code || '').toString().trim();
-        const display = baseName + (code ? ` · ${code}` : '');
-        // Secondary dedupe on the frontend as a safety net against any duplicates from the backend
-        const prev = seen.get(baseName) || { cnt: 0, display_name: '' };
-        const nextCnt = prev.cnt + 1;
-        let finalDisplay = display;
-        if (nextCnt > 1) {
-          finalDisplay = baseName.includes('(') ? display : `${baseName} (#${nextCnt})${code ? ` · ${code}` : ''}`;
-        }
-        seen.set(baseName, { cnt: nextCnt, display_name: finalDisplay });
-        return {
-          id: String(lvl.id),
-          display_name: finalDisplay,
-          name: baseName,
-          code,
-          order_index: typeof lvl.order_index === 'number' ? lvl.order_index : 0,
-          note: lvl.note || null,
-        };
-      })
-      .sort((a, b) => {
-        if (a.order_index === b.order_index) {
-          return a.display_name.localeCompare(b.display_name);
-        }
-        return (a.order_index || 0) - (b.order_index || 0);
-      });
-  }, [gradeLevelsData]);
-
   // Fetch current user for role-based access control
   const {
     data: currentUser,
@@ -148,6 +114,40 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     queryFn: () => academicService.getStandardGradeLevels(),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  const normalizedGradeLevels = React.useMemo(() => {
+    if (!Array.isArray(gradeLevelsData)) return [];
+    const seen = new Map<string, { display_name: string; cnt: number }>();
+    return gradeLevelsData
+      .filter((l: any) => !!l && !!l.id)
+      .map((lvl: any) => {
+        const baseName = (lvl.display_name || lvl.name || `Grade ${lvl.numeric_value || lvl.order_index || ''}`).toString().trim();
+        const code = (lvl.code || '').toString().trim();
+        const display = baseName + (code ? ` · ${code}` : '');
+        // Secondary dedupe on the frontend as a safety net against any duplicates from the backend
+        const prev = seen.get(baseName) || { cnt: 0, display_name: '' };
+        const nextCnt = prev.cnt + 1;
+        let finalDisplay = display;
+        if (nextCnt > 1) {
+          finalDisplay = baseName.includes('(') ? display : `${baseName} (#${nextCnt})${code ? ` · ${code}` : ''}`;
+        }
+        seen.set(baseName, { cnt: nextCnt, display_name: finalDisplay });
+        return {
+          id: String(lvl.id),
+          display_name: finalDisplay,
+          name: baseName,
+          code,
+          order_index: typeof lvl.order_index === 'number' ? lvl.order_index : 0,
+          note: lvl.note || null,
+        };
+      })
+      .sort((a, b) => {
+        if (a.order_index === b.order_index) {
+          return a.display_name.localeCompare(b.display_name);
+        }
+        return (a.order_index || 0) - (b.order_index || 0);
+      });
+  }, [gradeLevelsData]);
 
   // Enhanced teacher options with better error handling
   const teacherOptions = React.useMemo(() => {
@@ -602,6 +602,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   };
 
   return (
+    <Fragment>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -672,7 +673,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 <Button
                   type="button"
                   variant="outline"
-                  size="xs"
+                  size="sm"
                   className="h-7 px-2 text-xs flex items-center gap-1"
                   onClick={(e) => {
                     e.preventDefault();
@@ -1120,7 +1121,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                   <div className="flex items-center gap-2 shrink-0">
                     <Button
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       className="h-7 px-2 text-xs"
                       disabled={gradeEditSubmitting}
@@ -1130,7 +1131,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                     </Button>
                     <Button
                       type="button"
-                      size="xs"
+                      size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
                       disabled={gradeEditSubmitting}
@@ -1154,7 +1155,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                 <Label className="text-sm font-medium">
                   {t('classes_page.form.editing_grade', 'Editing Grade Level')}
                 </Label>
-                <Button type="button" size="xs" variant="ghost" className="h-7 px-2" onClick={() => setGradeEditId(null)} disabled={gradeEditSubmitting}>
+                <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => setGradeEditId(null)} disabled={gradeEditSubmitting}>
                   {t('common.close', 'Close')}
                 </Button>
               </div>
@@ -1226,6 +1227,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </Fragment>
   );
 };
 
