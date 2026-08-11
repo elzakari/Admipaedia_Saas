@@ -127,15 +127,6 @@ class RBACApiService {
     }
   }
 
-  async updatePermission(id: number, data: Partial<UpdatePermissionRequest>): Promise<RBACResponse<RBACPermission>> {
-    try {
-      const response = await apiClient.put(`${this.baseUrl}/permissions/${id}`, data);
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
   // User role assignments
   async getUserRoles(userId: number): Promise<RBACResponse<UserRoleAssignment[]>> {
     try {
