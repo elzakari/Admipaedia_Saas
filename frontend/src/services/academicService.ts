@@ -819,7 +819,63 @@ const academicService = {
       console.error('Error fetching standard grade levels:', error);
       throw error;
     }
-  }
+  },
+
+  createGradeLevel: async (payload: { name: string; code?: string; order_index?: number; is_terminal?: boolean }): Promise<any> => {
+    try {
+      const activeBranchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+      const headers: Record<string, string> = {};
+      if (activeBranchId) {
+        headers['X-Active-Branch-ID'] = activeBranchId;
+        headers['X-Branch-ID'] = activeBranchId;
+      }
+      const response = await api.post('/academics/standard-grade-levels', payload, { headers });
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to create grade level');
+      }
+      return response.data.level;
+    } catch (error) {
+      console.error('Error creating grade level:', error);
+      throw error;
+    }
+  },
+
+  updateGradeLevel: async (levelId: string, payload: Partial<{ name: string; code?: string; order_index?: number; is_terminal?: boolean }>): Promise<any> => {
+    try {
+      const activeBranchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+      const headers: Record<string, string> = {};
+      if (activeBranchId) {
+        headers['X-Active-Branch-ID'] = activeBranchId;
+        headers['X-Branch-ID'] = activeBranchId;
+      }
+      const response = await api.put(`/academics/standard-grade-levels/${encodeURIComponent(levelId)}`, payload, { headers });
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to update grade level');
+      }
+      return response.data.level;
+    } catch (error) {
+      console.error('Error updating grade level:', error);
+      throw error;
+    }
+  },
+
+  deleteGradeLevel: async (levelId: string): Promise<void> => {
+    try {
+      const activeBranchId = localStorage.getItem('active_branch_id') || localStorage.getItem('saas_current_branch_id');
+      const headers: Record<string, string> = {};
+      if (activeBranchId) {
+        headers['X-Active-Branch-ID'] = activeBranchId;
+        headers['X-Branch-ID'] = activeBranchId;
+      }
+      const response = await api.delete(`/academics/standard-grade-levels/${encodeURIComponent(levelId)}`, { headers });
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to delete grade level');
+      }
+    } catch (error) {
+      console.error('Error deleting grade level:', error);
+      throw error;
+    }
+  },
 };
 
 export { academicService };

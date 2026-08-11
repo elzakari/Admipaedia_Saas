@@ -13,7 +13,10 @@ from app.schemas.curriculum_unit import (CurriculumUnitCreateSchema,
                                          CurriculumUnitSchema,
                                          CurriculumUnitUpdateSchema)
 from app.schemas.educational_level import (CoreCompetencySchema,
-                                           EducationalLevelSchema)
+                                           EducationalLevelSchema,
+                                           GradeLevelCreateSchema,
+                                           GradeLevelUpdateSchema,
+                                           GradeLevelMinimalSchema)
 from app.services.curriculum_service import CurriculumService
 from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.tenant_context import tenant_required
@@ -33,6 +36,9 @@ educational_level_schema = EducationalLevelSchema()
 educational_levels_schema = EducationalLevelSchema(many=True)
 core_competency_schema = CoreCompetencySchema()
 core_competencies_schema = CoreCompetencySchema(many=True)
+grade_level_create_schema = GradeLevelCreateSchema()
+grade_level_update_schema = GradeLevelUpdateSchema()
+grade_level_minimal_schema = GradeLevelMinimalSchema(many=True)
 
 
 def _serialize_academic_year(y: AcademicYear) -> dict:
@@ -169,7 +175,12 @@ def get_educational_levels():
 @jwt_required()
 @tenant_required
 def get_standard_grade_levels():
-    """Get all standardized grade levels scoped to the tenant's educational system configuration."""
+    """Get all standardized grade levels scoped to the tenant's educational system configuration.
+
+    Response is guaranteed free of duplicate display labels — duplicate rows in the
+    DB (e.g. same grade name across multiple tracks) are annotated with (#2), (#3)
+    suffixes so admins can always distinguish them in the dropdown.
+    """
     try:
         import sqlalchemy.exc
 
@@ -201,31 +212,214 @@ def get_standard_grade_levels():
         if not levels:
             # Fallback sequence to match the attendance module
             levels_data = [
-                {"id": f"default-grade-{i}", "name": f"Grade {i}", "order_index": i}
+                {"id": f"default-grade-{i}", "name": f"Grade {i}", "display_name": f"Grade {i}", "order_index": i, "code": None, "is_custom": False}
                 for i in range(1, 13)
             ]
         else:
-            levels_data = []
+            name_counts: dict = {}
+            rows: list[dict] = []
             for idx, level in enumerate(levels, start=1):
                 level_id = getattr(level, "id", f"grade-{idx}")
                 level_name = getattr(level, "name", None)
                 if not level_name:
                     numeric_value = getattr(level, "numeric_value", idx)
                     level_name = f"Grade {numeric_value}"
+                code = getattr(level, "code", None)
                 order_index = getattr(level, "order_index", idx)
                 try:
                     id_serializable = str(level_id) if level_id is not None else f"grade-{idx}"
                 except (TypeError, ValueError, AttributeError):
                     id_serializable = f"grade-{idx}"
-                levels_data.append({
+                normalized_name = str(level_name).strip()
+                occ = name_counts.get(normalized_name, 0) + 1
+                name_counts[normalized_name] = occ
+                rows.append({
                     "id": id_serializable,
-                    "name": level_name,
-                    "order_index": order_index,
+                    "name": normalized_name,
+                    "code": code,
+                    "order_index": order_index if isinstance(order_index, int) else idx,
+                    "occurrence": occ,
+                    "educational_system_id": str(getattr(level, "educational_system_id")) if getattr(level, "educational_system_id", None) is not None else None,
+                    "is_custom": True,
                 })
+            levels_data = []
+            for r in rows:
+                occ = r.pop("occurrence")
+                total = name_counts.get(r["name"], 1)
+                if total > 1:
+                    r["display_name"] = f"{r['name']} (#{occ})"
+                    r["note"] = f"Shared name — {total} grade-level rows exist with this label"
+                else:
+                    r["display_name"] = r["name"]
+                levels_data.append(r)
 
         return jsonify({"success": True, "levels": levels_data}), 200
     except Exception as e:
         logger.error(f"Error retrieving standard grade levels: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/standard-grade-levels", methods=["POST"])
+@jwt_required()
+@admin_required
+@tenant_required
+def create_standard_grade_level():
+    """Flexible inline creation of a new custom Grade Level, e.g. from the Class modal."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        try:
+            data = grade_level_create_schema.load(payload)
+        except ValidationError as err:
+            return jsonify({"success": False, "errors": err.messages}), 422
+
+        from app.models.educational_system import GradeLevel
+
+        tenant_id = getattr(g, "tenant_id", None)
+        if not tenant_id:
+            return jsonify({"success": False, "message": "Tenant context is required"}), 400
+
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"success": False, "message": "Grade level name is required"}), 422
+
+        # Optional educational_system binding — if provided and invalid, just fall back to None
+        educational_system_id = data.get("educational_system_id")
+        if educational_system_id:
+            try:
+                import uuid as _uuid
+                educational_system_id = _uuid.UUID(str(educational_system_id).strip())
+            except (ValueError, AttributeError, TypeError):
+                educational_system_id = None
+
+        # Auto-assign a sensible order_index (append after the tenant's current max)
+        order_index = data.get("order_index")
+        if order_index is None:
+            try:
+                order_col = getattr(GradeLevel, "order_index", None)
+                if order_col is not None:
+                    last = (
+                        db.session.query(db.func.max(order_col))
+                        .select_from(GradeLevel)
+                        .filter(GradeLevel.tenant_id == tenant_id)
+                        .scalar()
+                    )
+                    order_index = int(last) + 1 if (last is not None) else 1
+                else:
+                    order_index = 1
+            except Exception as _order_err:
+                logger.warning(f"Failed to calculate grade_level order_index: {_order_err}")
+                order_index = 1
+
+        new_level = GradeLevel(
+            tenant_id=tenant_id,
+            educational_system_id=educational_system_id,
+            name=name,
+            order_index=int(order_index),
+            is_terminal=bool(data.get("is_terminal", False)),
+        )
+        db.session.add(new_level)
+        db.session.flush()
+        level_id = str(new_level.id) if new_level.id is not None else None
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Grade level created successfully",
+            "level": {
+                "id": level_id,
+                "name": name,
+                "code": data.get("code"),
+                "order_index": order_index,
+                "display_name": name,
+                "is_custom": True,
+            },
+        }), 201
+    except Exception as e:
+        logger.error(f"Error creating grade level: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/standard-grade-levels/<string:level_id>", methods=["PUT"])
+@jwt_required()
+@admin_required
+@tenant_required
+def update_standard_grade_level(level_id):
+    """Rename, reorder, or mark terminal an existing Grade Level."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        try:
+            data = grade_level_update_schema.load(payload)
+        except ValidationError as err:
+            return jsonify({"success": False, "errors": err.messages}), 422
+
+        import uuid as _uuid
+
+        from app.models.educational_system import GradeLevel
+
+        try:
+            level_uuid = _uuid.UUID(str(level_id).strip())
+        except (ValueError, AttributeError, TypeError):
+            return jsonify({"success": False, "message": "Invalid grade level id"}), 422
+
+        level = GradeLevel.query_scoped().filter(GradeLevel.id == level_uuid).first()
+        if not level:
+            return jsonify({"success": False, "message": "Grade level not found"}), 404
+
+        if "name" in data and data["name"]:
+            level.name = str(data["name"]).strip()
+        if "code" in data:
+            level.code = data["code"] if data["code"] else None
+        if "order_index" in data and data["order_index"] is not None:
+            level.order_index = int(data["order_index"])
+        if "is_terminal" in data and data["is_terminal"] is not None:
+            level.is_terminal = bool(data["is_terminal"])
+
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "message": "Grade level updated successfully",
+            "level": {
+                "id": str(level.id),
+                "name": level.name,
+                "order_index": getattr(level, "order_index", None),
+                "is_terminal": getattr(level, "is_terminal", False),
+                "display_name": level.name,
+                "is_custom": True,
+            },
+        }), 200
+    except Exception as e:
+        logger.error(f"Error updating grade level: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/standard-grade-levels/<string:level_id>", methods=["DELETE"])
+@jwt_required()
+@admin_required
+@tenant_required
+def delete_standard_grade_level(level_id):
+    """Delete a custom Grade Level created inline."""
+    try:
+        import uuid as _uuid
+
+        from app.models.educational_system import GradeLevel
+
+        try:
+            level_uuid = _uuid.UUID(str(level_id).strip())
+        except (ValueError, AttributeError, TypeError):
+            return jsonify({"success": False, "message": "Invalid grade level id"}), 422
+
+        level = GradeLevel.query_scoped().filter(GradeLevel.id == level_uuid).first()
+        if not level:
+            return jsonify({"success": False, "message": "Grade level not found"}), 404
+
+        db.session.delete(level)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Grade level deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting grade level: {str(e)}")
+        db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
 
 

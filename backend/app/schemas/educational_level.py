@@ -7,6 +7,26 @@ class GradeLevelMinimalSchema(Schema):
     id = fields.String(dump_only=True)
     name = fields.String(dump_only=True)
     code = fields.String(dump_only=True)
+    order_index = fields.Integer(dump_only=True)
+
+
+class GradeLevelCreateSchema(Schema):
+    """Schema for creating a new custom Grade Level via the class form"""
+
+    name = fields.String(required=True, validate=validate.Length(min=1, max=255))
+    code = fields.String(allow_none=True, validate=validate.Length(min=0, max=50))
+    order_index = fields.Integer(allow_none=True, validate=validate.Range(min=0, max=10000))
+    educational_system_id = fields.String(allow_none=True)
+    is_terminal = fields.Boolean(allow_none=True)
+
+
+class GradeLevelUpdateSchema(Schema):
+    """Schema for renaming/reordering a Grade Level inline"""
+
+    name = fields.String(validate=validate.Length(min=1, max=255))
+    code = fields.String(allow_none=True, validate=validate.Length(min=0, max=50))
+    order_index = fields.Integer(allow_none=True, validate=validate.Range(min=0, max=10000))
+    is_terminal = fields.Boolean(allow_none=True)
 
 
 class EducationalLevelSchema(Schema):

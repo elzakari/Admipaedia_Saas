@@ -1,14 +1,14 @@
 // ClassFormModal component
 import React, { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { useToast } from '../ui/use-toast';
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, Plus, Settings2, X } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import teacherService from '../../services/teacherService';
 import classService from '../../services/classService';
@@ -59,6 +59,57 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const queryClient = useQueryClient();
+
+  const [gradeCreateOpen, setGradeCreateOpen] = useState(false);
+  const [gradeCreateName, setGradeCreateName] = useState('');
+  const [gradeCreateCode, setGradeCreateCode] = useState('');
+  const [gradeCreateOrder, setGradeCreateOrder] = useState('');
+  const [gradeCreateSubmitting, setGradeCreateSubmitting] = useState(false);
+  const [gradeCreateErrors, setGradeCreateErrors] = useState<{ name?: string }>({});
+
+  const [gradeManageOpen, setGradeManageOpen] = useState(false);
+  const [gradeEditId, setGradeEditId] = useState<string | null>(null);
+  const [gradeEditName, setGradeEditName] = useState('');
+  const [gradeEditCode, setGradeEditCode] = useState('');
+  const [gradeEditOrder, setGradeEditOrder] = useState('');
+  const [gradeEditSubmitting, setGradeEditSubmitting] = useState(false);
+  const [gradeEditErrors, setGradeEditErrors] = useState<{ name?: string }>({});
+
+  const normalizedGradeLevels = React.useMemo(() => {
+    if (!Array.isArray(gradeLevelsData)) return [];
+    const seen = new Map<string, { display_name: string; cnt: number }>();
+    return gradeLevelsData
+      .filter((l: any) => !!l && !!l.id)
+      .map((lvl: any) => {
+        const baseName = (lvl.display_name || lvl.name || `Grade ${lvl.numeric_value || lvl.order_index || ''}`).toString().trim();
+        const code = (lvl.code || '').toString().trim();
+        const display = baseName + (code ? ` · ${code}` : '');
+        // Secondary dedupe on the frontend as a safety net against any duplicates from the backend
+        const prev = seen.get(baseName) || { cnt: 0, display_name: '' };
+        const nextCnt = prev.cnt + 1;
+        let finalDisplay = display;
+        if (nextCnt > 1) {
+          finalDisplay = baseName.includes('(') ? display : `${baseName} (#${nextCnt})${code ? ` · ${code}` : ''}`;
+        }
+        seen.set(baseName, { cnt: nextCnt, display_name: finalDisplay });
+        return {
+          id: String(lvl.id),
+          display_name: finalDisplay,
+          name: baseName,
+          code,
+          order_index: typeof lvl.order_index === 'number' ? lvl.order_index : 0,
+          note: lvl.note || null,
+        };
+      })
+      .sort((a, b) => {
+        if (a.order_index === b.order_index) {
+          return a.display_name.localeCompare(b.display_name);
+        }
+        return (a.order_index || 0) - (b.order_index || 0);
+      });
+  }, [gradeLevelsData]);
 
   // Fetch current user for role-based access control
   const {
@@ -112,6 +163,158 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     { value: 'none', label: t('classes.form.no_teacher_assigned', 'No Teacher Assigned'), email: '' },
     ...teacherOptions
   ], [teacherOptions, t]);
+
+  const openCreateGrade = () => {
+    setGradeCreateName('');
+    setGradeCreateCode('');
+    setGradeCreateOrder('');
+    setGradeCreateErrors({});
+    setGradeCreateOpen(true);
+  };
+
+  const closeCreateGrade = () => {
+    if (gradeCreateSubmitting) return;
+    setGradeCreateOpen(false);
+  };
+
+  const submitCreateGrade = async () => {
+    const trimmed = gradeCreateName.trim();
+    if (!trimmed) {
+      setGradeCreateErrors({ name: t('classes_page.form.err_grade_name_required', 'Grade level name is required') });
+      return;
+    }
+    if (trimmed.length > 255) {
+      setGradeCreateErrors({ name: t('classes_page.form.err_grade_name_length', 'Grade name must be 255 characters or less') });
+      return;
+    }
+    try {
+      setGradeCreateSubmitting(true);
+      setGradeCreateErrors({});
+      const payload: any = { name: trimmed };
+      if (gradeCreateCode.trim()) payload.code = gradeCreateCode.trim();
+      const orderNum = gradeCreateOrder.trim() !== '' ? Number(gradeCreateOrder) : null;
+      if (orderNum !== null && Number.isFinite(orderNum) && Number.isInteger(orderNum) && orderNum >= 0) {
+        payload.order_index = orderNum;
+      }
+      const newLevel: any = await academicService.createGradeLevel(payload);
+      await queryClient.invalidateQueries({ queryKey: ['standardGradeLevels'] });
+      toast({
+        title: t('common.success', 'Success'),
+        description: t('classes_page.form.grade_created', `Created grade level "{{name}}"`, { name: newLevel?.name || trimmed }),
+        variant: 'default',
+      });
+      setGradeCreateOpen(false);
+      if (newLevel && newLevel.id) {
+        setFormData(prev => ({ ...prev, grade_level: String(newLevel.id) }));
+        if (errors.grade_level) setErrors(prev => ({ ...prev, grade_level: '' }));
+      }
+    } catch (err: any) {
+      const msg = err?.message || t('classes_page.form.grade_create_failed', 'Failed to create grade level');
+      setGradeCreateErrors({ name: msg });
+      toast({
+        title: t('common.error', 'Error'),
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setGradeCreateSubmitting(false);
+    }
+  };
+
+  const openManageGrade = (existingId?: string) => {
+    if (existingId) {
+      const found = normalizedGradeLevels.find(g => g.id === existingId);
+      setGradeEditId(existingId);
+      setGradeEditName(found?.name || '');
+      setGradeEditCode(found?.code || '');
+      setGradeEditOrder((found && typeof found.order_index === 'number' && found.order_index > 0) ? String(found.order_index) : '');
+    } else {
+      setGradeEditId(null);
+      setGradeEditName('');
+      setGradeEditCode('');
+      setGradeEditOrder('');
+    }
+    setGradeEditErrors({});
+    setGradeManageOpen(true);
+  };
+
+  const closeManageGrade = () => {
+    if (gradeEditSubmitting) return;
+    setGradeManageOpen(false);
+    setGradeEditId(null);
+  };
+
+  const submitManageGrade = async () => {
+    const trimmed = gradeEditName.trim();
+    if (!trimmed) {
+      setGradeEditErrors({ name: t('classes_page.form.err_grade_name_required', 'Grade level name is required') });
+      return;
+    }
+    if (trimmed.length > 255) {
+      setGradeEditErrors({ name: t('classes_page.form.err_grade_name_length', 'Grade name must be 255 characters or less') });
+      return;
+    }
+    if (!gradeEditId) {
+      setGradeManageOpen(false);
+      return;
+    }
+    try {
+      setGradeEditSubmitting(true);
+      setGradeEditErrors({});
+      const payload: any = { name: trimmed };
+      payload.code = gradeEditCode.trim() || null;
+      const orderNum = gradeEditOrder.trim() !== '' ? Number(gradeEditOrder) : null;
+      if (orderNum !== null && Number.isFinite(orderNum) && Number.isInteger(orderNum) && orderNum >= 0) {
+        payload.order_index = orderNum;
+      } else {
+        payload.order_index = null;
+      }
+      const updated: any = await academicService.updateGradeLevel(gradeEditId, payload);
+      await queryClient.invalidateQueries({ queryKey: ['standardGradeLevels'] });
+      toast({
+        title: t('common.success', 'Success'),
+        description: t('classes_page.form.grade_updated', `Updated grade level "{{name}}"`, { name: updated?.name || trimmed }),
+        variant: 'default',
+      });
+      setGradeManageOpen(false);
+    } catch (err: any) {
+      const msg = err?.message || t('classes_page.form.grade_update_failed', 'Failed to update grade level');
+      setGradeEditErrors({ name: msg });
+      toast({
+        title: t('common.error', 'Error'),
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setGradeEditSubmitting(false);
+    }
+  };
+
+  const deleteGradeById = async (levelId: string) => {
+    try {
+      setGradeEditSubmitting(true);
+      await academicService.deleteGradeLevel(levelId);
+      await queryClient.invalidateQueries({ queryKey: ['standardGradeLevels'] });
+      if (String(formData.grade_level) === String(levelId)) {
+        setFormData(prev => ({ ...prev, grade_level: '' }));
+      }
+      toast({
+        title: t('common.success', 'Success'),
+        description: t('classes_page.form.grade_deleted', 'Grade level deleted'),
+        variant: 'default',
+      });
+      setGradeManageOpen(false);
+    } catch (err: any) {
+      const msg = err?.message || t('classes_page.form.grade_delete_failed', 'Failed to delete grade level (it may still be in use)');
+      toast({
+        title: t('common.error', 'Error'),
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setGradeEditSubmitting(false);
+    }
+  };
 
   // Enhanced form reset with proper error clearing
   const resetFormData = () => {
@@ -461,12 +664,40 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
 
           {/* Grade Level */}
           <div className="space-y-2">
-            <Label htmlFor="grade_level">
-              {t('classes_page.form.grade_level', 'Grade Level')} <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="grade_level">
+                {t('classes_page.form.grade_level', 'Grade Level')} <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="h-7 px-2 text-xs flex items-center gap-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openManageGrade(formData.grade_level || undefined);
+                  }}
+                  disabled={!formData.grade_level && normalizedGradeLevels.length === 0}
+                  title={t('classes_page.form.manage_grade', 'Edit the selected grade level')}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {t('classes_page.form.manage', 'Manage')}
+                </Button>
+              </div>
+            </div>
             <Select
               value={formData.grade_level}
               onValueChange={(value) => {
+                if (value === '__create_grade__') {
+                  openCreateGrade();
+                  return;
+                }
+                if (value === '__manage_grades__') {
+                  openManageGrade(formData.grade_level || undefined);
+                  return;
+                }
                 setFormData(prev => ({ ...prev, grade_level: value }));
                 if (errors.grade_level) {
                   setErrors(prev => ({ ...prev, grade_level: '' }));
@@ -479,16 +710,27 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
               <SelectContent>
                 {isLoadingGradeLevels ? (
                   <SelectItem value="loading" disabled>
-                    {t('classes_page.form.loading_grade_levels', 'Loading grade levels...')}
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {t('classes_page.form.loading_grade_levels', 'Loading grade levels...')}
+                    </span>
                   </SelectItem>
                 ) : gradeLevelsError ? (
                   <SelectItem value="error" disabled>
-                    {t('classes_page.form.error_loading_grade_levels', 'Error loading grade levels')}
+                    <span className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="h-3 w-3" />
+                      {t('classes_page.form.error_loading_grade_levels', 'Error loading grade levels')}
+                    </span>
                   </SelectItem>
-                ) : Array.isArray(gradeLevelsData) && gradeLevelsData.length > 0 ? (
-                  gradeLevelsData.map((level: any) => (
+                ) : normalizedGradeLevels.length > 0 ? (
+                  normalizedGradeLevels.map((level) => (
                     <SelectItem key={level.id} value={level.id}>
-                      {level.name}
+                      <span className="flex flex-col items-start leading-snug">
+                        <span>{level.display_name}</span>
+                        {level.note && (
+                          <span className="text-[10px] text-gray-500 font-normal">{level.note}</span>
+                        )}
+                      </span>
                     </SelectItem>
                   ))
                 ) : (
@@ -496,10 +738,31 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
                     {t('classes_page.form.no_grade_levels', 'No grade levels available')}
                   </SelectItem>
                 )}
+                <SelectSeparator />
+                <SelectItem value="__create_grade__" className="text-blue-600">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-3.5 w-3.5" />
+                    {t('classes_page.form.create_grade_level', '+ Add new grade level')}
+                  </span>
+                </SelectItem>
+                <SelectItem value="__manage_grades__" className="text-gray-600">
+                  <span className="flex items-center gap-2">
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {t('classes_page.form.manage_grade_levels', 'Manage grade levels...')}
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
             {errors.grade_level && (
               <p className="text-sm text-red-500">{errors.grade_level}</p>
+            )}
+            {normalizedGradeLevels.some((l: any) => l.display_name.includes('(#')) && (
+              <p className="text-xs text-amber-700 flex items-start gap-1">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5" />
+                <span>
+                  {t('classes_page.form.grade_duplicates_hint', 'Some grade levels share the same name — tagged with (#2), (#3)... Use the Manage button to rename them.')}
+                </span>
+              </p>
             )}
           </div>
 
@@ -746,6 +1009,221 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+
+    {/* Create Grade Level Dialog */}
+    <Dialog open={gradeCreateOpen} onOpenChange={(open) => { if (!open) closeCreateGrade(); else setGradeCreateOpen(true); }}>
+      <DialogContent className="sm:max-w-[460px]">
+        <DialogHeader>
+          <DialogTitle>{t('classes_page.form.create_grade_level_dialog_title', 'Create Grade Level')}</DialogTitle>
+          <DialogDescription>
+            {t('classes_page.form.create_grade_level_dialog_desc', 'Add a new grade level. It will be immediately available when creating classes.')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="grade_create_name">
+              {t('classes_page.form.grade_level_name', 'Name')} <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="grade_create_name"
+              value={gradeCreateName}
+              onChange={(e) => {
+                setGradeCreateName(e.target.value);
+                if (gradeCreateErrors.name) setGradeCreateErrors({});
+              }}
+              placeholder={t('classes_page.form.grade_level_name_placeholder', 'e.g. Petite Section, CP2, 6ème, Grade 7')}
+              autoFocus
+              className={gradeCreateErrors.name ? 'border-red-500' : ''}
+            />
+            {gradeCreateErrors.name && (
+              <p className="text-sm text-red-500">{gradeCreateErrors.name}</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="grade_create_code">{t('classes_page.form.grade_level_code', 'Short Code')}</Label>
+              <Input
+                id="grade_create_code"
+                value={gradeCreateCode}
+                onChange={(e) => setGradeCreateCode(e.target.value)}
+                maxLength={20}
+                placeholder={t('classes_page.form.grade_level_code_placeholder', 'e.g. PS, CP2, 6E')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="grade_create_order">{t('classes_page.form.grade_level_order', 'Order (optional)')}</Label>
+              <Input
+                id="grade_create_order"
+                type="number"
+                min="0"
+                step="1"
+                value={gradeCreateOrder}
+                onChange={(e) => setGradeCreateOrder(e.target.value)}
+                placeholder={t('classes_page.form.grade_level_order_placeholder', 'Auto — append')}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={closeCreateGrade} disabled={gradeCreateSubmitting}>
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button type="button" onClick={submitCreateGrade} disabled={gradeCreateSubmitting}>
+            {gradeCreateSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                {t('common.creating', 'Creating...')}
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('classes_page.form.create_grade_level', 'Create Grade Level')}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Manage Grade Level Dialog */}
+    <Dialog open={gradeManageOpen} onOpenChange={(open) => { if (!open) closeManageGrade(); else setGradeManageOpen(true); }}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>{t('classes_page.form.manage_grade_levels', 'Manage Grade Levels')}</DialogTitle>
+          <DialogDescription>
+            {t('classes_page.form.manage_grade_levels_desc', 'Rename, reorder, or clean up duplicate grade levels.')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="max-h-56 overflow-auto border rounded-md p-2 space-y-1">
+            {normalizedGradeLevels.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-6">
+                {t('classes_page.form.no_grade_levels', 'No grade levels available')}
+              </p>
+            ) : (
+              normalizedGradeLevels.map((g) => (
+                <div
+                  key={g.id}
+                  className={`flex items-center justify-between gap-2 rounded border px-3 py-2 ${gradeEditId === g.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium truncate">{g.display_name}</span>
+                      {g.note && <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Duplicate name</span>}
+                    </div>
+                    <div className="text-[11px] text-gray-500">
+                      {t('classes_page.form.order_index', 'Order')}: {g.order_index ?? '—'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      disabled={gradeEditSubmitting}
+                      onClick={() => openManageGrade(g.id)}
+                    >
+                      {t('common.edit', 'Edit')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                      disabled={gradeEditSubmitting}
+                      onClick={async () => {
+                        if (!window.confirm(t('classes_page.form.confirm_delete_grade', 'Delete this grade level? This cannot be undone.'))) return;
+                        await deleteGradeById(g.id);
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      {t('common.delete', 'Delete')}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {gradeEditId && (
+            <div className="border rounded-md p-3 space-y-3 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  {t('classes_page.form.editing_grade', 'Editing Grade Level')}
+                </Label>
+                <Button type="button" size="xs" variant="ghost" className="h-7 px-2" onClick={() => setGradeEditId(null)} disabled={gradeEditSubmitting}>
+                  {t('common.close', 'Close')}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="grade_edit_name">
+                  {t('classes_page.form.grade_level_name', 'Name')} <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="grade_edit_name"
+                  value={gradeEditName}
+                  onChange={(e) => {
+                    setGradeEditName(e.target.value);
+                    if (gradeEditErrors.name) setGradeEditErrors({});
+                  }}
+                  className={gradeEditErrors.name ? 'border-red-500' : ''}
+                />
+                {gradeEditErrors.name && (
+                  <p className="text-sm text-red-500">{gradeEditErrors.name}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="grade_edit_code">{t('classes_page.form.grade_level_code', 'Short Code')}</Label>
+                  <Input
+                    id="grade_edit_code"
+                    value={gradeEditCode}
+                    onChange={(e) => setGradeEditCode(e.target.value)}
+                    maxLength={20}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade_edit_order">{t('classes_page.form.grade_level_order', 'Order (optional)')}</Label>
+                  <Input
+                    id="grade_edit_order"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={gradeEditOrder}
+                    onChange={(e) => setGradeEditOrder(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={closeManageGrade} disabled={gradeEditSubmitting}>
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+                <Button type="button" size="sm" onClick={submitManageGrade} disabled={gradeEditSubmitting}>
+                  {gradeEditSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {t('common.saving', 'Saving...')}
+                    </>
+                  ) : (
+                    t('common.save', 'Save changes')
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={openCreateGrade} disabled={gradeCreateSubmitting || gradeEditSubmitting}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('classes_page.form.create_grade_level', 'Create Grade Level')}
+          </Button>
+          <Button type="button" onClick={closeManageGrade} disabled={gradeEditSubmitting}>
+            {t('common.done', 'Done')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
