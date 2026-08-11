@@ -31,6 +31,7 @@ jobs:
   frontend-tests:
     runs-on: ubuntu-latest
     needs: security-scan
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ./frontend
@@ -57,7 +58,7 @@ jobs:
       run: npm run lint
 
     - name: Run unit tests
-      run: npm run test:coverage -- --pool=threads --maxWorkers=1
+      run: npm run test:coverage -- --pool=forks --maxWorkers=1
       continue-on-error: true
 
     - name: Build

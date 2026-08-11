@@ -160,6 +160,13 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.ts', './src/test/vitest.setup.ts'],
     css: true,
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
-    testTimeout: 10000
+    testTimeout: 8000,
+    hookTimeout: 12000,
+    teardownTimeout: 8000,
+    bail: 3,
+    slowTestThreshold: 3000,
+    sequence: {
+      shuffle: false,
+    },
   }
 })
