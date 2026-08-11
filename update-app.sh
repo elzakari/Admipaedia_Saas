@@ -7,8 +7,54 @@ set -e
 export ENVIRONMENT="${ENVIRONMENT:-production}"
 export VERSION="${VERSION:-latest}"
 export DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_FILE:-docker-compose.prod.yml}"
+export DOCKER_COMPOSE_SOCKET_HOTFIX="${DOCKER_COMPOSE_SOCKET_HOTFIX:-docker-compose.socket-hotfix.yml}"
 export BACKEND_API_PORT="${BACKEND_API_PORT:-5000}"
 export FRONTEND_PORT="${FRONTEND_PORT:-80}"
+
+# Resolve the complete docker-compose CLI arguments.
+#
+# Production architecture MUST include docker-compose.socket-hotfix.yml
+# whenever it is present alongside the primary compose file.  Operators may
+# omit the file on non-socket fleets; the function silently skips the hotfix
+# overlay so this script remains portable.
+DOCKER_COMPOSE_ARGS=(-f "$DOCKER_COMPOSE_FILE")
+if [ -f "$DOCKER_COMPOSE_SOCKET_HOTFIX" ]; then
+  DOCKER_COMPOSE_ARGS+=(-f "$DOCKER_COMPOSE_SOCKET_HOTFIX")
+fi
+
+docker_compose() {
+  docker compose "${DOCKER_COMPOSE_ARGS[@]}" "$@"
+}
+
+# Wait until PostgreSQL accepts connections AND has completed crash recovery
+# (pg_is_in_recovery() = f).  Only after both conditions pass may Alembic
+# issue DDL writes.
+wait_for_postgres_writable() {
+  local max_attempts="${1:-90}"
+  local attempt=1
+
+  echo "🗄️  Checking PostgreSQL readiness..."
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if docker_compose exec -T postgres sh -lc '
+        set -e
+        pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1
+        recovery_state="$(psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT pg_is_in_recovery();")"
+        [ "$recovery_state" = "f" ]
+      ' 2>/dev/null; then
+      echo "✅ PostgreSQL is accepting connections and is writable."
+      return 0
+    fi
+
+    echo "⏳ PostgreSQL not ready yet ($attempt/$max_attempts). Retrying..."
+
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+
+  echo "❌ ERROR: PostgreSQL did not become writable within $((max_attempts * 2)) seconds."
+  return 1
+}
 
 echo "🚀 Starting ADMIPAEDIA update sequence..."
 echo "📋 Environment: $ENVIRONMENT"
@@ -36,7 +82,7 @@ fi
 
 # Build images
 echo "🏗️  Evaluating build configuration and compiling images..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" build --no-cache
+docker_compose build --no-cache backend frontend worker
 
 # Run container updates
 #
@@ -44,12 +90,35 @@ docker-compose -f "$DOCKER_COMPOSE_FILE" build --no-cache
 # (service names: backend, frontend, worker, postgres, redis).
 # The single `backend` container serves both REST API and Socket.IO traffic
 # with a single gunicorn worker so Engine.IO sid state is preserved.
+#
+# Only backend/frontend/worker are force-recreated here; postgres/redis
+# infrastructure containers stay up so long-running connections and volumes
+# are never torn down during routine application deploys.
 echo "🚀 Deploying unified backend architecture (backend + frontend + worker)..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" up -d
+docker_compose up -d --no-deps --force-recreate backend frontend worker
 
-# Execute database migrations (which includes the bfa_apc permanent fixes)
+# Ensure supporting infrastructure is running if this is a first-time deploy.
+# Running `up -d --no-deps` on the infra services is a pure reconciliation
+# no-op when they already exist and are healthy.
+echo "🖥️  Reconciling infrastructure (postgres, redis, nginx-if-present)..."
+docker_compose up -d --no-deps postgres redis 2>/dev/null || true
+if docker_compose config --services 2>/dev/null | grep -qx nginx; then
+  docker_compose up -d --no-deps nginx 2>/dev/null || true
+fi
+
+# Execute database migrations (which includes the bfa_apc permanent fixes).
+#
+# Gate sequence:
+#   1. wait_for_postgres_writable — bounded retries, validates pg_isready AND
+#      pg_is_in_recovery()=false.  Prevents the well-known Alembic
+#      "FATAL: the database system is not yet accepting connections" crash
+#      during postmaster recovery replay on container restart.
+#   2. flask db upgrade — runs EXACTLY ONCE against a backend one-shot with
+#      --no-deps (never starts postgres/redis).  No retry; a migration defect
+#      must halt deployment immediately so operators can triage the DDL.
+wait_for_postgres_writable
 echo "🗄️  Enforcing migrations on active production backend..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend flask db upgrade
+docker_compose run --rm --no-deps backend flask db upgrade
 
 # Grace period for service startup
 echo "⏱️  Waiting for service stabilization..."
