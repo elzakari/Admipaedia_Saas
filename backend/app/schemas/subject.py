@@ -11,14 +11,19 @@ class SubjectSchema(Schema):
 
     id = fields.Int(dump_only=True)
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
-    code = fields.String(required=True, validate=validate.Length(min=2, max=20))
+    # On CREATE payloads the code is optional: SubjectService auto-generates it.
+    # Use SubjectCreateSchema below; this field stays required on dump only to
+    # guarantee responses always include the final code.
+    code = fields.String(
+        validate=validate.Length(min=2, max=20),
+        load_default=None,
+        allow_none=True,
+    )
     description = fields.String(validate=validate.Length(max=1000), allow_none=True)
 
-    # FK (load) + resolved name (dump)
     department_id = fields.Integer(allow_none=True, load_default=None)
     department_name = fields.Method("get_department_name", dump_only=True)
 
-    # Legacy string field accepted on load for backward compat; ignored on dump
     department = fields.String(
         validate=validate.Length(max=100),
         allow_none=True,
@@ -26,7 +31,12 @@ class SubjectSchema(Schema):
     )
 
     credit_hours = fields.Float(allow_none=True)
-    is_active = fields.Boolean()
+    is_active = fields.Boolean(load_default=True)
+
+    # Stripped on load so frontends can send the full shape from detail screens
+    # without the server rejecting assigned_* arrays on POST/PUT.
+    assigned_class_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
+    assigned_teacher_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
     classes = fields.Method("get_classes", dump_only=True)
     teachers = fields.Method("get_teachers", dump_only=True)
     created_at = fields.DateTime(format="iso", dump_only=True)
@@ -82,32 +92,47 @@ class SubjectSchema(Schema):
 
 
 class SubjectCreateSchema(Schema):
-    """Schema for POST /subjects."""
+    """Schema for POST /subjects.
+
+    - ``code`` is optional: SubjectService generates a deterministic, unique
+      code based on name + department + tenant + auto-incrementing serial if
+      the caller omits it.
+    - ``assigned_class_ids`` / ``assigned_teacher_ids`` are accepted on load
+      for ergonomic frontend payloads but are handled atomically *after* the
+      subject row is committed, not by the ORM constructor.
+    """
 
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
-    code = fields.String(required=True, validate=validate.Length(min=2, max=20))
+    code = fields.String(
+        validate=validate.Length(min=2, max=20),
+        allow_none=True,
+        load_default=None,
+    )
     description = fields.String(validate=validate.Length(max=1000), allow_none=True)
     department_id = fields.Integer(allow_none=True, load_default=None)
-    # also accepted for legacy callers that still send department text
     department = fields.String(
         validate=validate.Length(max=100), allow_none=True, load_only=True
     )
-    credit_hours = fields.Float(allow_none=True)
+    credit_hours = fields.Float(allow_none=True, load_default=None)
     is_active = fields.Boolean(load_default=True)
+    assigned_class_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
+    assigned_teacher_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
 
 
 class SubjectUpdateSchema(Schema):
     """Schema for PUT /subjects/:id."""
 
     name = fields.String(validate=validate.Length(min=2, max=100))
-    code = fields.String(validate=validate.Length(min=2, max=20))
+    code = fields.String(validate=validate.Length(min=2, max=20), allow_none=True)
     description = fields.String(validate=validate.Length(max=1000), allow_none=True)
     department_id = fields.Integer(allow_none=True)
     department = fields.String(
         validate=validate.Length(max=100), allow_none=True, load_only=True
     )
     credit_hours = fields.Float(allow_none=True)
-    is_active = fields.Boolean()
+    is_active = fields.Boolean(allow_none=True)
+    assigned_class_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
+    assigned_teacher_ids = fields.List(fields.Int(), load_only=True, allow_none=True)
 
 
 class SubjectListSchema(Schema):

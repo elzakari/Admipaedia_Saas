@@ -19,22 +19,26 @@ export interface Subject {
 
 export interface SubjectCreate {
   name: string;
-  code?: string;
+  code?: string | null;
   description?: string;
   department?: string;
   department_id?: number | null;
-  credit_hours?: number;
+  credit_hours?: number | null;
   is_active?: boolean;
+  assigned_class_ids?: number[];
+  assigned_teacher_ids?: number[];
 }
 
 export interface SubjectUpdate {
   name?: string;
-  code?: string;
+  code?: string | null;
   description?: string;
   department?: string;
   department_id?: number | null;
-  credit_hours?: number;
+  credit_hours?: number | null;
   is_active?: boolean;
+  assigned_class_ids?: number[];
+  assigned_teacher_ids?: number[];
 }
 
 const subjectService = {
@@ -97,11 +101,35 @@ const subjectService = {
 
   createSubject: async (subjectData: SubjectCreate): Promise<Subject> => {
     try {
-      const response = await api.post('/subjects', subjectData);
+      const { assigned_class_ids, assigned_teacher_ids, ...basePayload } = subjectData;
+      const payload: Record<string, unknown> = { ...basePayload };
+      if (assigned_class_ids !== undefined) payload.assigned_class_ids = assigned_class_ids;
+      if (assigned_teacher_ids !== undefined) payload.assigned_teacher_ids = assigned_teacher_ids;
+      if (payload.code !== undefined && (payload.code === null || String(payload.code).trim() === '')) {
+        delete payload.code;
+      }
+      if (payload.credit_hours !== undefined && payload.credit_hours !== null) {
+        const numeric = Number(payload.credit_hours);
+        payload.credit_hours = Number.isFinite(numeric) ? numeric : null;
+      }
+      const response = await api.post('/subjects', payload);
       return response.data.subject;
-    } catch (error) {
+    } catch (error: any) {
+      const message = error?.response?.data?.message
+        || (() => {
+          const err = error?.response?.data?.errors;
+          if (!err) return undefined;
+          const firstKey = Object.keys(err)[0];
+          const firstVal = firstKey ? err[firstKey] : undefined;
+          return Array.isArray(firstVal) ? `${firstKey}: ${firstVal[0]}` : firstKey ? `${firstKey}: ${firstVal}` : undefined;
+        })()
+        || error?.message
+        || 'Failed to create subject';
+      const wrapper: any = new Error(message);
+      wrapper.response = error?.response;
+      wrapper.original = error;
       console.error('Error creating subject:', error);
-      throw error;
+      throw wrapper;
     }
   },
 
@@ -111,11 +139,26 @@ const subjectService = {
         assigned_class_ids?: number[];
         assigned_teacher_ids?: number[];
       });
+      if (assigned_class_ids !== undefined) (apiPayload as any).assigned_class_ids = assigned_class_ids;
+      if (assigned_teacher_ids !== undefined) (apiPayload as any).assigned_teacher_ids = assigned_teacher_ids;
       const response = await api.put(`/subjects/${subjectId}`, apiPayload);
       return response.data.subject;
-    } catch (error) {
+    } catch (error: any) {
+      const message = error?.response?.data?.message
+        || (() => {
+          const err = error?.response?.data?.errors;
+          if (!err) return undefined;
+          const firstKey = Object.keys(err)[0];
+          const firstVal = firstKey ? err[firstKey] : undefined;
+          return Array.isArray(firstVal) ? `${firstKey}: ${firstVal[0]}` : firstKey ? `${firstKey}: ${firstVal}` : undefined;
+        })()
+        || error?.message
+        || 'Failed to update subject';
+      const wrapper: any = new Error(message);
+      wrapper.response = error?.response;
+      wrapper.original = error;
       console.error(`Error updating subject ${subjectId}:`, error);
-      throw error;
+      throw wrapper;
     }
   },
 

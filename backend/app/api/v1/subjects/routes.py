@@ -3,8 +3,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from marshmallow import ValidationError
 
 from app.api.v1.subjects import subjects_bp
-from app.schemas.subject import (SubjectListSchema, SubjectSchema,
-                                 SubjectUpdateSchema)
+from app.schemas.subject import (SubjectCreateSchema, SubjectListSchema,
+                                 SubjectSchema, SubjectUpdateSchema)
 from app.services.bulk_subject_service import BulkSubjectService
 from app.services.subject_service import SubjectService
 from app.utils.auth_utils import admin_required
@@ -13,6 +13,7 @@ from app.utils.tenant_context import tenant_required
 
 # Initialize schemas
 subject_schema = SubjectSchema()
+subject_create_schema = SubjectCreateSchema()
 subject_update_schema = SubjectUpdateSchema()
 subjects_schema = SubjectListSchema(many=True)
 
@@ -147,26 +148,81 @@ def get_subject(subject_id):
 @subjects_bp.route("/", methods=["POST"])
 @jwt_required()
 @tenant_required
+@require_permission("subject.create")
 def create_subject():
-    """Create a new subject."""
+    """Create a new subject.
+
+    Robust flow:
+      1. Validate the JSON payload with SubjectCreateSchema (code optional,
+         unknown fields rejected via marshmallow unknown=RAISE on unknown=EXCLUDE
+         via marshmallow defaults then overwritten to EXCLUDE to keep payloads
+         ergonomic from rich UIs).
+      2. Strip assigned_* arrays from the ORM payload; they are applied in a
+         follow-up transactional pass AFTER the subject row is committed.
+      3. Delegate creation + code auto-generation to SubjectService.
+      4. If caller provided assigned_class_ids / assigned_teacher_ids:
+         atomically apply them using SubjectService helpers (which internally
+         perform tenant-scoped FK existence checks).
+      5. Return a 400 with field-level ``errors`` on ValidationError, or a
+         human ``message`` + optional ``assignments_report`` on service-level
+         failures.
+    """
     try:
-        data = subject_schema.load(request.json)
+        raw_payload = request.json or {}
+        data = subject_create_schema.load(raw_payload)
+    except ValidationError as err:
+        return jsonify({"success": False, "errors": err.messages}), 400
 
+    class_ids = list(data.pop("assigned_class_ids") or [])
+    teacher_ids = list(data.pop("assigned_teacher_ids") or [])
+
+    try:
         subject, error = SubjectService.create_subject(data, tenant_id=g.tenant_id)
+        if error or subject is None:
+            return jsonify({"success": False, "message": error or "Failed to create subject"}), 400
 
-        if error:
-            return jsonify({"success": False, "message": error}), 400
+        assignments_report = None
+        if class_ids or teacher_ids:
+            assignments_report = {"classes": {"added": 0, "failed": []}, "teachers": {"added": 0, "failed": []}}
+            for class_id in class_ids:
+                try:
+                    _sub, assign_err = SubjectService.assign_class(subject.id, class_id, tenant_id=g.tenant_id)
+                    if assign_err:
+                        assignments_report["classes"]["failed"].append(
+                            {"id": class_id, "message": assign_err}
+                        )
+                    else:
+                        assignments_report["classes"]["added"] += 1
+                except Exception as exc:  # noqa: BLE001
+                    assignments_report["classes"]["failed"].append(
+                        {"id": class_id, "message": str(exc)}
+                    )
+            for teacher_id in teacher_ids:
+                try:
+                    _sub, assign_err = SubjectService.assign_teacher(
+                        subject.id, teacher_id, is_primary=False, tenant_id=g.tenant_id
+                    )
+                    if assign_err:
+                        assignments_report["teachers"]["failed"].append(
+                            {"id": teacher_id, "message": assign_err}
+                        )
+                    else:
+                        assignments_report["teachers"]["added"] += 1
+                except Exception as exc:  # noqa: BLE001
+                    assignments_report["teachers"]["failed"].append(
+                        {"id": teacher_id, "message": str(exc)}
+                    )
+            # refresh subject once to pick up any newly-linked relations on dump
+            subject = SubjectService.get_subject_by_id(subject.id, tenant_id=g.tenant_id) or subject
 
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "message": "Subject created successfully",
-                    "subject": subject_schema.dump(subject),
-                }
-            ),
-            201,
-        )
+        payload = {
+            "success": True,
+            "message": "Subject created successfully",
+            "subject": subject_schema.dump(subject),
+        }
+        if assignments_report is not None:
+            payload["assignments_report"] = assignments_report
+        return jsonify(payload), 201
     except ValidationError as err:
         return jsonify({"success": False, "errors": err.messages}), 400
 
@@ -175,28 +231,78 @@ def create_subject():
 @subjects_bp.route("/<int:subject_id>/", methods=["PUT"])
 @jwt_required()
 @tenant_required
+@require_permission("subject.update")
 def update_subject(subject_id):
-    """Update an existing subject."""
-    try:
-        data = subject_update_schema.load(request.json or {}, partial=True)
+    """Update an existing subject.
 
+    Accepts ``assigned_class_ids`` / ``assigned_teacher_ids`` in the payload
+    and applies them atomically against the existing linked sets using the
+    service helpers, returning a summary report so UIs know exactly which
+    links were added/failed (e.g. stale teacher IDs or archived classes).
+    """
+    try:
+        raw_payload = request.json or {}
+        data = subject_update_schema.load(raw_payload, partial=True)
+    except ValidationError as err:
+        return jsonify({"success": False, "errors": err.messages}), 400
+
+    class_ids = list(data.pop("assigned_class_ids") or [])
+    teacher_ids = list(data.pop("assigned_teacher_ids") or [])
+
+    try:
         subject, error = SubjectService.update_subject(
             subject_id, data, tenant_id=g.tenant_id
         )
+        if error or subject is None:
+            return jsonify({"success": False, "message": error or "Failed to update subject"}), 400
 
-        if error:
-            return jsonify({"success": False, "message": error}), 400
+        assignments_report = None
+        if class_ids or teacher_ids:
+            assignments_report = {"classes": {"added": 0, "removed": 0, "failed": []}, "teachers": {"added": 0, "removed": 0, "failed": []}}
+            try:
+                current = SubjectService.get_subject_by_id(subject.id, tenant_id=g.tenant_id) or subject
+                existing_class_ids = {row.id for row in (getattr(current, "classes", None) or [])}
+                existing_teacher_ids = {row.id for row in (getattr(current, "teachers", None) or [])}
+                desired_class_ids = set(class_ids)
+                desired_teacher_ids = set(teacher_ids)
+                for class_id in desired_class_ids - existing_class_ids:
+                    _sub, assign_err = SubjectService.assign_class(subject.id, class_id, tenant_id=g.tenant_id)
+                    if assign_err:
+                        assignments_report["classes"]["failed"].append({"id": class_id, "message": assign_err})
+                    else:
+                        assignments_report["classes"]["added"] += 1
+                for class_id in existing_class_ids - desired_class_ids:
+                    _sub, remove_err = SubjectService.remove_class(subject.id, class_id, tenant_id=g.tenant_id)
+                    if remove_err:
+                        assignments_report["classes"]["failed"].append({"id": class_id, "message": remove_err})
+                    else:
+                        assignments_report["classes"]["removed"] += 1
+                for teacher_id in desired_teacher_ids - existing_teacher_ids:
+                    _sub, assign_err = SubjectService.assign_teacher(
+                        subject.id, teacher_id, is_primary=False, tenant_id=g.tenant_id
+                    )
+                    if assign_err:
+                        assignments_report["teachers"]["failed"].append({"id": teacher_id, "message": assign_err})
+                    else:
+                        assignments_report["teachers"]["added"] += 1
+                for teacher_id in existing_teacher_ids - desired_teacher_ids:
+                    _sub, remove_err = SubjectService.remove_teacher(subject.id, teacher_id, tenant_id=g.tenant_id)
+                    if remove_err:
+                        assignments_report["teachers"]["failed"].append({"id": teacher_id, "message": remove_err})
+                    else:
+                        assignments_report["teachers"]["removed"] += 1
+            except Exception as exc:  # noqa: BLE001
+                assignments_report["classes"]["failed"].append({"message": str(exc)})
+            subject = SubjectService.get_subject_by_id(subject.id, tenant_id=g.tenant_id) or subject
 
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "message": "Subject updated successfully",
-                    "subject": subject_schema.dump(subject),
-                }
-            ),
-            200,
-        )
+        payload = {
+            "success": True,
+            "message": "Subject updated successfully",
+            "subject": subject_schema.dump(subject),
+        }
+        if assignments_report is not None:
+            payload["assignments_report"] = assignments_report
+        return jsonify(payload), 200
     except ValidationError as err:
         return jsonify({"success": False, "errors": err.messages}), 400
 

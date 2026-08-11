@@ -22,9 +22,34 @@ import { getClassDisplayName } from '../../../utils/formatters'
 
 const PAGE_SIZES = [10, 25, 50, 100]
 type SubjectFormData = Partial<Subject> & {
-  department_id?: number
+  department_id?: number | null
   assigned_class_ids?: number[]
   assigned_teacher_ids?: number[]
+}
+
+function normalizeCreatePayload(raw: SubjectFormData) {
+  const name = (raw.name || '').trim()
+  const code = (raw.code ?? '').toString().trim() || null
+  const credit_raw = raw.credit_hours
+  const credit_numeric = credit_raw === undefined || credit_raw === null || credit_raw === ''
+    ? null
+    : Number(credit_raw)
+  return {
+    name,
+    code,
+    description: (raw.description ?? '').toString().trim() || null,
+    department_id: raw.department_id == null || raw.department_id === ''
+      ? null
+      : Number(raw.department_id) || null,
+    credit_hours: credit_numeric === null || Number.isFinite(credit_numeric) ? credit_numeric : null,
+    is_active: raw.is_active !== false,
+    assigned_class_ids: Array.isArray(raw.assigned_class_ids)
+      ? raw.assigned_class_ids.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+      : [],
+    assigned_teacher_ids: Array.isArray(raw.assigned_teacher_ids)
+      ? raw.assigned_teacher_ids.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+      : [],
+  }
 }
 
 export default function SubjectsManagement() {
@@ -80,54 +105,64 @@ export default function SubjectsManagement() {
     }
   }
 
-  const handleCreate = (data: Partial<Subject>) => {
-    if (!data.name || !data.code) {
+  const handleCreate = (data: SubjectFormData) => {
+    const payload = normalizeCreatePayload(data)
+    if (!payload.name) {
       toast({
           title: t('common.validation_error', 'Validation Error'),
-          description: t('admin_settings.subjects_name_code_req', 'Name and code are required'),
+          description: t('admin_settings.subjects_name_req', 'Subject name is required'),
           variant: 'destructive',
-          id: ''
+          id: 'subject_create_validation'
       })
       return
     }
-    createMutation.mutate(data as any, {
+    if (payload.name.length < 2) {
+      toast({
+          title: t('common.validation_error', 'Validation Error'),
+          description: t('admin_settings.subjects_name_too_short', 'Subject name must be at least 2 characters'),
+          variant: 'destructive',
+          id: 'subject_create_validation'
+      })
+      return
+    }
+    if (payload.code != null && (payload.code.length < 2 || payload.code.length > 20)) {
+      toast({
+          title: t('common.validation_error', 'Validation Error'),
+          description: t('admin_settings.subjects_code_length', 'Subject code (when provided) must be 2-20 characters'),
+          variant: 'destructive',
+          id: 'subject_create_validation'
+      })
+      return
+    }
+    createMutation.mutate(payload as any, {
       onSuccess: async (subject) => {
-        try {
-          await syncSubjectAssignments(subject.id, data as SubjectFormData)
-          toast({
-              title: t('admin_settings.subject_created', 'Subject Created'),
-              description: 'New subject added and timetable mappings saved successfully',
-              id: ''
-          })
-          setIsFormOpen(false)
-        } catch (error: any) {
-          toast({
-            title: 'Subject created with mapping issue',
-            description: error?.message || 'Subject was created but class or teacher mapping failed',
-            variant: 'destructive',
-            id: ''
-          })
-        }
+        toast({
+            title: t('admin_settings.subject_created', 'Subject Created'),
+            description: 'New subject added and timetable mappings saved successfully',
+            id: 'subject_create_success'
+        })
+        setIsFormOpen(false)
       },
       onError: (e: any) => toast({
           title: t('admin_settings.create_failed', 'Create Failed'),
           description: e?.message || t('common.error', 'Error'),
           variant: 'destructive',
-          id: ''
+          id: 'subject_create_error'
       }),
     })
   }
 
-  const handleUpdate = (id: number, data: Partial<Subject>) => {
-    const { assigned_class_ids, assigned_teacher_ids, ...subjectPayload } = data as SubjectFormData
-    updateMutation.mutate({ id, data: subjectPayload }, {
+  const handleUpdate = (id: number, data: SubjectFormData) => {
+    const normalized = normalizeCreatePayload(data)
+    const { assigned_class_ids, assigned_teacher_ids, ...subjectPayload } = normalized
+    updateMutation.mutate({ id, data: subjectPayload as any }, {
       onSuccess: async () => {
         try {
-          await syncSubjectAssignments(id, data as SubjectFormData)
+          await syncSubjectAssignments(id, normalized)
           toast({
               title: t('admin_settings.subject_updated', 'Subject Updated'),
               description: 'Changes saved successfully and timetable mappings updated',
-              id: ''
+              id: 'subject_update_success'
           })
           setIsFormOpen(false)
           setEditing(null)
@@ -136,7 +171,7 @@ export default function SubjectsManagement() {
             title: 'Subject updated with mapping issue',
             description: error?.message || 'Subject details were saved but class or teacher mapping failed',
             variant: 'destructive',
-            id: ''
+            id: 'subject_update_mapping_warning'
           })
         }
       },
@@ -144,7 +179,7 @@ export default function SubjectsManagement() {
           title: t('admin_settings.update_failed_title', 'Update Failed'),
           description: e?.message || t('common.error', 'Error'),
           variant: 'destructive',
-          id: ''
+          id: 'subject_update_error'
       }),
     })
   }
