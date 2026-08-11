@@ -11,6 +11,9 @@ import studentService from '../../services/studentService';
 import { useToast } from '../../components/ui/use-toast';
 import { ADMIN_PRIMARY_BUTTON_CLASS, ADMIN_SECONDARY_BUTTON_CLASS } from '../../lib/adminUi';
 import { useTranslation } from 'react-i18next';
+import { useClasses } from '../../hooks/useClasses';
+
+const UNASSIGNED_CLASS_SENTINEL = 'unassigned';
 
 const StudentEditPage: React.FC = () => {
   const { t } = useTranslation();
@@ -21,6 +24,14 @@ const StudentEditPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [student, setStudent] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+
+  const { data: classesPaginated, isLoading: classesLoading, isError: classesError } = useClasses({ page: 1, per_page: 500 });
+  const classOptions: Array<{ id: number | string; name: string }> = React.useMemo(() => {
+    const list = (classesPaginated?.data as any) || classesPaginated?.classes || [];
+    return Array.isArray(list)
+      ? list.map((c: any) => ({ id: c.id, name: c.display_name || c.name || `Class ${c.id}` }))
+      : [];
+  }, [classesPaginated]);
 
   useEffect(() => {
     const fetchStudent = async () => {
@@ -43,7 +54,13 @@ const StudentEditPage: React.FC = () => {
         const studentResp: any = await studentService.getStudentById(studentId);
         const studentData: any = studentResp?.data || {};
         setStudent(studentData);
-        setFormData(studentData);
+        const hydrate: any = { ...studentData };
+        if (hydrate.class_id === null || hydrate.class_id === undefined || hydrate.class_id === '') {
+          hydrate.class_id = UNASSIGNED_CLASS_SENTINEL;
+        } else {
+          hydrate.class_id = String(hydrate.class_id);
+        }
+        setFormData(hydrate);
       } catch (error) {
         toast({
             title: t('common.error', 'Error'),
@@ -72,7 +89,14 @@ const StudentEditPage: React.FC = () => {
     
     try {
       setSaving(true);
-      await studentService.updateStudent(studentId, formData);
+      const payload: any = { ...formData };
+      if (String(payload.class_id || UNASSIGNED_CLASS_SENTINEL) === UNASSIGNED_CLASS_SENTINEL) {
+        payload.class_id = null;
+      } else if (payload.class_id) {
+        payload.class_id = Number(payload.class_id);
+        if (!Number.isFinite(payload.class_id)) payload.class_id = null;
+      }
+      await studentService.updateStudent(studentId, payload);
       toast({
         title: t('common.success', 'Success'),
         description: t('students_page.update_success', 'Student updated successfully'),
@@ -359,12 +383,33 @@ const StudentEditPage: React.FC = () => {
               </div>
               <div>
                 <Label htmlFor="class_id">{t('common.class', 'Class')}</Label>
-                <Select value={String(formData.class_id || '')} onValueChange={(value) => handleInputChange('class_id', value)}>
+                <Select
+                  value={String(formData.class_id || UNASSIGNED_CLASS_SENTINEL)}
+                  onValueChange={(value) => handleInputChange('class_id', value)}
+                  disabled={classesLoading}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t('common.select_class', 'Select class')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('common.unassigned', 'Unassigned')}</SelectItem>
+                    {classesLoading && (
+                      <SelectItem value="__loading__" disabled>
+                        {t('common.loading', 'Loading...')}
+                      </SelectItem>
+                    )}
+                    {classesError && (
+                      <SelectItem value="__error__" disabled>
+                        {t('common.error_loading', 'Error loading classes')}
+                      </SelectItem>
+                    )}
+                    {classOptions.map((cls) => (
+                      <SelectItem key={String(cls.id)} value={String(cls.id)}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={UNASSIGNED_CLASS_SENTINEL}>
+                      {t('common.unassigned', 'Unassigned')}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

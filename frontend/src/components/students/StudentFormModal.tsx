@@ -240,6 +240,7 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [classOptions, setClassOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [classRecords, setClassRecords] = useState<Array<{ id: any; age_min?: number | null; age_max?: number | null; name?: string | null }>>([]);
   const [parentOptions, setParentOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>('');
@@ -254,9 +255,13 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     api.get('/classes', { params: { per_page: 200 } })
       .then((res) => {
         const classes = Array.isArray(res.data?.classes) ? res.data.classes : [];
+        setClassRecords(classes);
         setClassOptions(classes.map((c: any) => ({ value: String(c.id), label: getClassDisplayName(c) || `Class ${c.id}` })));
       })
-      .catch(() => setClassOptions([]));
+      .catch(() => {
+        setClassRecords([]);
+        setClassOptions([]);
+      });
 
     api.get('/parents', { params: { per_page: 200 } })
       .then((res) => {
@@ -286,9 +291,10 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     date_of_birth: [
       { rule: (value: string) => value.trim().length > 0, message: t('students_page.form.errors.dob_required', 'Date of birth is required') },
       { rule: (value: string) => {
+        const range = getExpectedAgeRangeForClass(formData.class_id);
+        if (range.noLimits) return true;
         const age = calculateAge(value);
-        const { minAge, maxAge } = getExpectedAgeRangeForClass(formData.class_id);
-        return age >= minAge && age <= maxAge;
+        return age >= range.minAge && age <= range.maxAge;
       }, message: t('students_page.form.errors.age_inappropriate', 'Age should be appropriate for the selected class') }
     ],
     gender: [
@@ -521,16 +527,28 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
     return age;
   };
 
-  const getExpectedAgeRangeForClass = (classId: string): { minAge: number; maxAge: number } => {
-    const classMap: Record<string, { minAge: number; maxAge: number }> = {
-      '1': { minAge: 5, maxAge: 7 },
-      '2': { minAge: 6, maxAge: 8 },
-      '3': { minAge: 7, maxAge: 9 },
-      '4': { minAge: 8, maxAge: 10 },
-      '5': { minAge: 9, maxAge: 11 },
-      '6': { minAge: 10, maxAge: 12 }
-    };
-    return classMap[classId] || { minAge: 5, maxAge: 18 };
+  const getExpectedAgeRangeForClass = (classId: string): { minAge: number; maxAge: number; noLimits: boolean } => {
+    const trimmed = String(classId ?? '').trim();
+    if (trimmed) {
+      const found = classRecords.find((c) => String(c.id) === trimmed);
+      if (found) {
+        const min = (found.age_min === undefined || found.age_min === null) ? null : Number(found.age_min);
+        const max = (found.age_max === undefined || found.age_max === null) ? null : Number(found.age_max);
+        const minValid = min !== null && Number.isFinite(min) && Number.isInteger(min);
+        const maxValid = max !== null && Number.isFinite(max) && Number.isInteger(max);
+        if (!minValid && !maxValid) {
+          return { minAge: -Infinity, maxAge: Infinity, noLimits: true };
+        }
+        if (minValid && !maxValid) {
+          return { minAge: min as number, maxAge: Infinity, noLimits: false };
+        }
+        if (!minValid && maxValid) {
+          return { minAge: -Infinity, maxAge: max as number, noLimits: false };
+        }
+        return { minAge: Math.min(min as number, max as number), maxAge: Math.max(min as number, max as number), noLimits: false };
+      }
+    }
+    return { minAge: 3, maxAge: 99, noLimits: true };
   };
 
   // Handle input changes
@@ -733,10 +751,12 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       case 3: // Enrollment
         if (!formData.class_id?.trim()) stepErrors.class_id = 'Class selection is required';
         if (formData.class_id?.trim() && formData.date_of_birth?.trim()) {
-          const age = calculateAge(formData.date_of_birth);
-          const { minAge, maxAge } = getExpectedAgeRangeForClass(formData.class_id);
-          if (age < minAge || age > maxAge) {
-            stepErrors.class_id = 'Age should be appropriate for selected class';
+          const range = getExpectedAgeRangeForClass(formData.class_id);
+          if (!range.noLimits) {
+            const age = calculateAge(formData.date_of_birth);
+            if (age < range.minAge || age > range.maxAge) {
+              stepErrors.class_id = 'Age should be appropriate for selected class';
+            }
           }
         }
         break;
@@ -1530,6 +1550,30 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
       case 3: // Academic Information
         return (
           <div className="space-y-6">
+            {(() => {
+              const sel = String(formData.class_id ?? '').trim();
+              if (!sel) return null;
+              const cls = classRecords.find((c) => String(c.id) === sel);
+              const minV = cls && (cls.age_min !== undefined && cls.age_min !== null) ? Number(cls.age_min) : null;
+              const maxV = cls && (cls.age_max !== undefined && cls.age_max !== null) ? Number(cls.age_max) : null;
+              const noConfiguredLimits =
+                !cls ||
+                ((minV === null || !Number.isFinite(minV) || !Number.isInteger(minV)) &&
+                  (maxV === null || !Number.isFinite(maxV) || !Number.isInteger(maxV)));
+              if (!noConfiguredLimits) return null;
+              return (
+                <Alert className="bg-amber-50 border-amber-200 text-amber-900">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-sm">
+                    <strong className="font-semibold">{t('students_page.form.age_warn_title', 'No age limits configured')}</strong>
+                    {' '}
+                    <span className="text-amber-800">
+                      {t('students_page.form.age_warn_body', 'Admins can set min/max age per class via the Edit Class dialog. Age validation is currently skipped for this class.')}
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <MobileOptimizedSelect
                 label={t('common.class', 'Class')}

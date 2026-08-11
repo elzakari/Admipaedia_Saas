@@ -29,6 +29,8 @@ class Class(db.Model):
     section = db.Column(db.String(20))
     academic_year = db.Column(db.String(20), nullable=False)
     capacity = db.Column(db.Integer)
+    age_min = db.Column(db.Integer, nullable=True)
+    age_max = db.Column(db.Integer, nullable=True)
     teacher_id = db.Column(
         db.Integer, db.ForeignKey("teachers.id")
     )  # Changed to Integer
@@ -51,11 +53,39 @@ class Class(db.Model):
 
     @classmethod
     def query_scoped(cls):
+        import uuid
         from flask import g, has_app_context
 
         query = cls.query
-        if has_app_context() and getattr(g, "branch_id", None):
-            query = query.filter_by(branch_id=g.branch_id)
+        if not has_app_context():
+            return query
+
+        # Tenant scope — OR-NULL back-compat (tenant_id NULL rows visible to all, e.g. system templates)
+        ctx_tenant_id = getattr(g, "tenant_id", None)
+        if ctx_tenant_id is not None and hasattr(cls, "tenant_id"):
+            if isinstance(ctx_tenant_id, uuid.UUID):
+                tenant_value = ctx_tenant_id
+            else:
+                try:
+                    tenant_value = uuid.UUID(str(ctx_tenant_id))
+                except (ValueError, AttributeError, TypeError):
+                    tenant_value = ctx_tenant_id
+            col = cls.tenant_id
+            query = query.filter((col == tenant_value) | (col.is_(None)))
+
+        # Branch scope — OR-NULL back-compat
+        ctx_branch_id = getattr(g, "branch_id", None)
+        if ctx_branch_id is not None and hasattr(cls, "branch_id"):
+            if isinstance(ctx_branch_id, uuid.UUID):
+                branch_value = ctx_branch_id
+            else:
+                try:
+                    branch_value = uuid.UUID(str(ctx_branch_id))
+                except (ValueError, AttributeError, TypeError):
+                    branch_value = ctx_branch_id
+            col = cls.branch_id
+            query = query.filter((col == branch_value) | (col.is_(None)))
+
         return query
 
     # Relationships

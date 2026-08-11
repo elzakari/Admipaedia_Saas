@@ -186,10 +186,11 @@ def get_standard_grade_levels():
         else:
             try:
                 # Query scoped grade levels safely
+                order_col = GradeLevel.order_index if hasattr(GradeLevel, "order_index") else GradeLevel.id
                 levels = (
                     GradeLevel.query_scoped()
                     .filter(GradeLevel.is_active == True)
-                    .order_by(GradeLevel.numeric_value.asc())
+                    .order_by(order_col.asc())
                     .all()
                 )
             except sqlalchemy.exc.SQLAlchemyError as db_err:
@@ -200,18 +201,27 @@ def get_standard_grade_levels():
         if not levels:
             # Fallback sequence to match the attendance module
             levels_data = [
-                {"id": f"Grade {i}", "name": f"Grade {i}", "order_index": i}
+                {"id": f"default-grade-{i}", "name": f"Grade {i}", "order_index": i}
                 for i in range(1, 13)
             ]
         else:
-            levels_data = [
-                {
-                    "id": f"Grade {level.numeric_value}",
-                    "name": f"Grade {level.numeric_value}",
-                    "order_index": level.order_index,
-                }
-                for level in levels
-            ]
+            levels_data = []
+            for idx, level in enumerate(levels, start=1):
+                level_id = getattr(level, "id", f"grade-{idx}")
+                level_name = getattr(level, "name", None)
+                if not level_name:
+                    numeric_value = getattr(level, "numeric_value", idx)
+                    level_name = f"Grade {numeric_value}"
+                order_index = getattr(level, "order_index", idx)
+                try:
+                    id_serializable = str(level_id) if level_id is not None else f"grade-{idx}"
+                except (TypeError, ValueError, AttributeError):
+                    id_serializable = f"grade-{idx}"
+                levels_data.append({
+                    "id": id_serializable,
+                    "name": level_name,
+                    "order_index": order_index,
+                })
 
         return jsonify({"success": True, "levels": levels_data}), 200
     except Exception as e:

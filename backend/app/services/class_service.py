@@ -18,18 +18,67 @@ class ClassService:
     """Service for class-related operations."""
 
     @staticmethod
+    def _resolve_scope(tenant_id=None, branch_id=None):
+        """Resolve (tenant_id, branch_id) from params or g context, preserving explicit None semantics."""
+        from flask import g, has_app_context
+
+        if has_app_context():
+            if tenant_id is None:
+                tenant_id = getattr(g, "tenant_id", None)
+            if branch_id is None:
+                branch_id = getattr(g, "branch_id", None)
+        return tenant_id, branch_id
+
+    @staticmethod
+    def _apply_scope(query, cls, tenant_id, branch_id):
+        """Apply OR-NULL scope filters on a Class/related query using resolved context values."""
+        import uuid
+
+        if tenant_id is not None and hasattr(cls, "tenant_id"):
+            if isinstance(tenant_id, str):
+                try:
+                    tenant_id = uuid.UUID(tenant_id)
+                except (ValueError, AttributeError, TypeError):
+                    pass
+            col = cls.tenant_id
+            query = query.filter((col == tenant_id) | (col.is_(None)))
+        if branch_id is not None and hasattr(cls, "branch_id"):
+            if isinstance(branch_id, str):
+                try:
+                    branch_id = uuid.UUID(branch_id)
+                except (ValueError, AttributeError, TypeError):
+                    pass
+            col = cls.branch_id
+            query = query.filter((col == branch_id) | (col.is_(None)))
+        return query
+
+    @staticmethod
+    def _coerce_age(value):
+        """Coerce age_min/age_max payloads into optional ints (empty string / None stay None)."""
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return int(value) if value == value else None  # NaN guard
+        s = str(value).strip()
+        if not s:
+            return None
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
     def get_all_classes(
-        page=1, per_page=20, grade_level=None, academic_year=None, tenant_id=None
+        page=1, per_page=20, grade_level=None, academic_year=None, tenant_id=None, branch_id=None
     ):
         """Get all classes with optional filtering and pagination, optimized for N+1 queries."""
         from sqlalchemy.orm import joinedload
 
+        tenant_id, branch_id = ClassService._resolve_scope(tenant_id, branch_id)
         query = Class.query.options(
             joinedload(Class.teacher), joinedload(Class.educational_level)
         )
-
-        if tenant_id is not None and hasattr(Class, "tenant_id"):
-            query = query.filter(Class.tenant_id == tenant_id)
+        query = ClassService._apply_scope(query, Class, tenant_id, branch_id)
 
         if grade_level:
             query = query.filter(Class.grade_level == grade_level)
@@ -40,30 +89,38 @@ class ClassService:
         return query.order_by(Class.name).paginate(page=page, per_page=per_page)
 
     @staticmethod
-    def get_class_by_id(class_id, tenant_id=None):
-        """Get a class by ID. Always returns a Class model instance."""
-        obj = Class.query.get(class_id)
-        if (
-            obj
-            and tenant_id is not None
-            and hasattr(obj, "tenant_id")
-            and obj.tenant_id != tenant_id
-        ):
+    def get_class_by_id(class_id, tenant_id=None, branch_id=None):
+        """Get a class by ID (IDOR-safe: scoped to tenant + branch)."""
+        tenant_id, branch_id = ClassService._resolve_scope(tenant_id, branch_id)
+        try:
+            class_id_int = int(class_id)
+        except (ValueError, TypeError):
             return None
+        query = Class.query.filter(Class.id == class_id_int)
+        query = ClassService._apply_scope(query, Class, tenant_id, branch_id)
+        obj = query.first()
         if obj:
-            # We still cache the DTO for other uses, but this method returns the object
-            key = f"class:dto:{class_id}"
+            # Tolerance check — explicit context mismatch still rejects
+            if tenant_id is not None and getattr(obj, "tenant_id", None) is not None and obj.tenant_id != tenant_id:
+                return None
+            if branch_id is not None and getattr(obj, "branch_id", None) is not None and obj.branch_id != branch_id:
+                return None
+            key = f"class:dto:{class_id_int}"
             cache_service.set(key, class_schema.dump(obj), ttl=cache_service.LONG_TTL)
         return obj
 
     @staticmethod
-    def get_class_dto(class_id):
+    def get_class_dto(class_id, tenant_id=None, branch_id=None):
         """Get a class DTO (dict) by ID, using cache if available."""
-        key = f"class:dto:{class_id}"
+        try:
+            class_id_int = int(class_id)
+        except (ValueError, TypeError):
+            return None
+        key = f"class:dto:{class_id_int}"
         dto = cache_service.get(key)
         if dto:
             return dto
-        obj = Class.query.get(class_id)
+        obj = ClassService.get_class_by_id(class_id_int, tenant_id=tenant_id, branch_id=branch_id)
         if obj:
             dto = class_schema.dump(obj)
             cache_service.set(key, dto, ttl=cache_service.LONG_TTL)
@@ -71,48 +128,76 @@ class ClassService:
         return None
 
     @staticmethod
-    def get_classes_by_teacher_id(teacher_id, page=1, per_page=20, tenant_id=None):
+    def get_classes_by_teacher_id(teacher_id, page=1, per_page=20, tenant_id=None, branch_id=None):
         """Get classes by teacher ID with optimized query."""
         from sqlalchemy.orm import joinedload
 
+        tenant_id, branch_id = ClassService._resolve_scope(tenant_id, branch_id)
         query = Class.query.options(
             joinedload(Class.teacher), joinedload(Class.educational_level)
         ).filter_by(teacher_id=teacher_id)
-
-        if tenant_id is not None and hasattr(Class, "tenant_id"):
-            query = query.filter(Class.tenant_id == tenant_id)
-
+        query = ClassService._apply_scope(query, Class, tenant_id, branch_id)
         return query.paginate(page=page, per_page=per_page)
 
     @staticmethod
-    def create_class(class_data, tenant_id=None):
-        """Create a new class."""
+    def create_class(class_data, tenant_id=None, branch_id=None):
+        """Create a new class (scoped; writes tenant+branch context; accepts age_min/age_max)."""
+        from flask import g, has_app_context
+
         try:
+            tenant_id, branch_id = ClassService._resolve_scope(tenant_id, branch_id)
             # Check if teacher exists if teacher_id is provided
             if "teacher_id" in class_data and class_data["teacher_id"]:
-                teacher = Teacher.query.get(class_data["teacher_id"])
-                if not teacher:
-                    return None, "Teacher not found"
-                if (
-                    tenant_id is not None
-                    and hasattr(teacher, "tenant_id")
-                    and teacher.tenant_id != tenant_id
-                ):
-                    return None, "Teacher not found"
+                teacher_id = class_data["teacher_id"]
+                if str(teacher_id).lower() == "none":
+                    teacher_id = None
+                if teacher_id:
+                    teacher = Teacher.query.get(teacher_id)
+                    if not teacher:
+                        return None, "Teacher not found"
+                    if (
+                        tenant_id is not None
+                        and hasattr(teacher, "tenant_id")
+                        and teacher.tenant_id != tenant_id
+                    ):
+                        return None, "Teacher not found"
 
             payload = dict(class_data)
+
+            # Teacher_id "none" sentinel → actual NULL
+            if "teacher_id" in payload:
+                t_val = payload.get("teacher_id")
+                if t_val is None or str(t_val).lower() in {"none", "", "unassigned"}:
+                    payload["teacher_id"] = None
+
+            # Coerce age_min/age_max → int or None
+            if "age_min" in payload:
+                payload["age_min"] = ClassService._coerce_age(payload["age_min"])
+            if "age_max" in payload:
+                payload["age_max"] = ClassService._coerce_age(payload["age_max"])
+
             if (
                 tenant_id is not None
                 and "tenant_id" not in payload
                 and hasattr(Class, "tenant_id")
             ):
                 payload["tenant_id"] = tenant_id
+            if has_app_context():
+                if hasattr(Class, "tenant_id") and "tenant_id" not in payload:
+                    ctx_t = getattr(g, "tenant_id", None)
+                    if ctx_t is not None:
+                        payload["tenant_id"] = ctx_t
+                if hasattr(Class, "branch_id") and "branch_id" not in payload:
+                    ctx_b = getattr(g, "branch_id", None)
+                    if ctx_b is not None:
+                        payload["branch_id"] = ctx_b
+
             new_class = Class(**payload)
             db.session.add(new_class)
             db.session.commit()
             cache_service.delete(f"class:dto:{new_class.id}")
 
-            logger.info("Class created", class_id=new_class.id, name=new_class.name)
+            logger.info("Class created", class_id=new_class.id, name=new_class.name, age_min=new_class.age_min, age_max=new_class.age_max)
             return new_class, None
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -120,39 +205,50 @@ class ClassService:
             return None, str(e)
 
     @staticmethod
-    def update_class(class_id, class_data, tenant_id=None):
-        """Update an existing class."""
+    def update_class(class_id, class_data, tenant_id=None, branch_id=None):
+        """Update an existing class (scoped lookup; age_min/age_max coerced)."""
+        from flask import g, has_app_context
+
         try:
-            class_obj = Class.query.get(class_id)
+            tenant_id, branch_id = ClassService._resolve_scope(tenant_id, branch_id)
+            class_obj = ClassService.get_class_by_id(class_id, tenant_id=tenant_id, branch_id=branch_id)
             if not class_obj:
-                return None, "Class not found"
-            if (
-                tenant_id is not None
-                and hasattr(class_obj, "tenant_id")
-                and class_obj.tenant_id != tenant_id
-            ):
                 return None, "Class not found"
 
             # Check if teacher exists if teacher_id is provided
             if "teacher_id" in class_data and class_data["teacher_id"]:
-                teacher = Teacher.query.get(class_data["teacher_id"])
-                if not teacher:
-                    return None, "Teacher not found"
-                if (
-                    tenant_id is not None
-                    and hasattr(teacher, "tenant_id")
-                    and teacher.tenant_id != tenant_id
-                ):
-                    return None, "Teacher not found"
+                teacher_id = class_data["teacher_id"]
+                if str(teacher_id).lower() == "none":
+                    teacher_id = None
+                if teacher_id:
+                    teacher = Teacher.query.get(teacher_id)
+                    if not teacher:
+                        return None, "Teacher not found"
+                    if (
+                        tenant_id is not None
+                        and hasattr(teacher, "tenant_id")
+                        and teacher.tenant_id != tenant_id
+                    ):
+                        return None, "Teacher not found"
 
-            for key, value in class_data.items():
+            payload = dict(class_data)
+            if "teacher_id" in payload:
+                t_val = payload.get("teacher_id")
+                if t_val is None or str(t_val).lower() in {"none", "", "unassigned"}:
+                    payload["teacher_id"] = None
+            if "age_min" in payload:
+                payload["age_min"] = ClassService._coerce_age(payload["age_min"])
+            if "age_max" in payload:
+                payload["age_max"] = ClassService._coerce_age(payload["age_max"])
+
+            for key, value in payload.items():
                 setattr(class_obj, key, value)
 
             class_obj.updated_at = datetime.utcnow()
             db.session.commit()
             cache_service.delete(f"class:dto:{class_id}")
 
-            logger.info("Class updated", class_id=class_obj.id)
+            logger.info("Class updated", class_id=class_obj.id, age_min=class_obj.age_min, age_max=class_obj.age_max)
             return class_obj, None
         except SQLAlchemyError as e:
             db.session.rollback()

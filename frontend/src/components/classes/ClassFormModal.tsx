@@ -25,6 +25,8 @@ interface ClassFormData {
   capacity: string;
   teacher_id: string;
   description: string;
+  age_min: string;
+  age_max: string;
 }
 
 interface ClassFormModalProps {
@@ -50,7 +52,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     room_number: '',
     capacity: '',
     teacher_id: '',
-    description: ''
+    description: '',
+    age_min: '',
+    age_max: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -119,7 +123,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
       room_number: '',
       capacity: '',
       teacher_id: '',
-      description: ''
+      description: '',
+      age_min: '',
+      age_max: '',
     });
     setErrors({});
     setIsSubmitting(false);
@@ -167,7 +173,9 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           room_number: classData.room_number || '',
           capacity: classData.capacity?.toString() || '',
           teacher_id: teacherId.toString(),
-          description: classData.description || ''
+          description: classData.description || '',
+          age_min: classData.age_min != null ? String(classData.age_min) : '',
+          age_max: classData.age_max != null ? String(classData.age_max) : '',
         });
       } else {
         // Creating new class
@@ -215,6 +223,25 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           newErrors.teacher_id = 'Selected teacher is not available';
         }
       }
+    }
+
+    // Age limits validation (optional, but when provided → valid integers in range 2-99, min ≤ max)
+    const ageMinTrim = formData.age_min?.trim() ?? '';
+    const ageMaxTrim = formData.age_max?.trim() ?? '';
+    const ageMinNum: number | null = ageMinTrim !== '' ? Number(ageMinTrim) : null;
+    const ageMaxNum: number | null = ageMaxTrim !== '' ? Number(ageMaxTrim) : null;
+    if (ageMinNum !== null) {
+      if (!Number.isFinite(ageMinNum) || !Number.isInteger(ageMinNum) || ageMinNum < 2 || ageMinNum > 99) {
+        newErrors.age_min = 'Min age must be an integer between 2 and 99, or leave blank';
+      }
+    }
+    if (ageMaxNum !== null) {
+      if (!Number.isFinite(ageMaxNum) || !Number.isInteger(ageMaxNum) || ageMaxNum < 2 || ageMaxNum > 99) {
+        newErrors.age_max = 'Max age must be an integer between 2 and 99, or leave blank';
+      }
+    }
+    if (ageMinNum !== null && ageMaxNum !== null && ageMinNum > ageMaxNum) {
+      newErrors.age_max = 'Max age must be greater than or equal to min age';
     }
 
     setErrors(newErrors);
@@ -287,6 +314,8 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
         teacher_id: (formData.teacher_id && formData.teacher_id !== 'none') ? parseInt(formData.teacher_id) : null,
         room: formData.room_number?.trim() || null,
         description: formData.description?.trim() || null,
+        age_min: (formData.age_min?.trim() !== '') ? parseInt(formData.age_min, 10) : null,
+        age_max: (formData.age_max?.trim() !== '') ? parseInt(formData.age_max, 10) : null,
       };
       console.log('Optional fields constructed:', optional);
 
@@ -552,6 +581,70 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
             {errors.capacity && (
               <p className="text-sm text-red-500">{errors.capacity}</p>
             )}
+          </div>
+
+          {/* Age Limits */}
+          <div className="space-y-2">
+            <Label className="flex items-center justify-between">
+              <span>{t('classes_page.form.age_limits', 'Age Limits')}</span>
+              <span className="text-xs text-gray-500 font-normal">{t('classes_page.form.age_limits_optional', 'Optional — leave blank to skip age validation')}</span>
+            </Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="age_min" className="text-xs text-gray-600">
+                  {t('classes_page.form.min_age', 'Minimum Age')}
+                </Label>
+                <Input
+                  id="age_min"
+                  type="number"
+                  min="2"
+                  max="99"
+                  step="1"
+                  value={formData.age_min}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, age_min: e.target.value }));
+                    if (errors.age_min) {
+                      setErrors(prev => ({ ...prev, age_min: '' }));
+                    }
+                    if (errors.age_max) {
+                      setErrors(prev => ({ ...prev, age_max: '' }));
+                    }
+                  }}
+                  placeholder={t('classes_page.form.min_age_placeholder', 'e.g. 5')}
+                  className={errors.age_min ? 'border-red-500' : ''}
+                />
+                {errors.age_min && (
+                  <p className="text-xs text-red-500">{errors.age_min}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="age_max" className="text-xs text-gray-600">
+                  {t('classes_page.form.max_age', 'Maximum Age')}
+                </Label>
+                <Input
+                  id="age_max"
+                  type="number"
+                  min="2"
+                  max="99"
+                  step="1"
+                  value={formData.age_max}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, age_max: e.target.value }));
+                    if (errors.age_max) {
+                      setErrors(prev => ({ ...prev, age_max: '' }));
+                    }
+                    if (errors.age_min) {
+                      setErrors(prev => ({ ...prev, age_min: '' }));
+                    }
+                  }}
+                  placeholder={t('classes_page.form.max_age_placeholder', 'e.g. 7')}
+                  className={errors.age_max ? 'border-red-500' : ''}
+                />
+                {errors.age_max && (
+                  <p className="text-xs text-red-500">{errors.age_max}</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Teacher Assignment */}

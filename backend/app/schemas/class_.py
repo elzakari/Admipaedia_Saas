@@ -23,6 +23,8 @@ class ClassSchema(Schema):
     days = fields.String(validate=validate.Length(max=100), allow_none=True)
     room = fields.String(validate=validate.Length(max=50), allow_none=True)
     description = fields.String(allow_none=True)
+    age_min = fields.Integer(allow_none=True)
+    age_max = fields.Integer(allow_none=True)
     status = fields.String(validate=validate.Length(max=20), load_default="active")
 
     # Read-only fields for frontend
@@ -99,6 +101,8 @@ class ClassCreateSchema(Schema):
     days = fields.String(validate=validate.Length(max=100), allow_none=True)
     room = fields.String(validate=validate.Length(max=50), allow_none=True)
     description = fields.String(allow_none=True)
+    age_min = fields.Integer(allow_none=True)
+    age_max = fields.Integer(allow_none=True)
     status = fields.String(validate=validate.Length(max=20), load_default="active")
 
 
@@ -117,6 +121,8 @@ class ClassUpdateSchema(Schema):
     days = fields.String(validate=validate.Length(max=100), allow_none=True)
     room = fields.String(validate=validate.Length(max=50), allow_none=True)
     description = fields.String(allow_none=True)
+    age_min = fields.Integer(allow_none=True)
+    age_max = fields.Integer(allow_none=True)
     status = fields.String(validate=validate.Length(max=20))
 
 
@@ -140,6 +146,8 @@ class ClassListSchema(Schema):
     # Extra fields for list view
     current_enrollment = fields.Integer(dump_only=True)
     capacity = fields.Integer(dump_only=True)
+    age_min = fields.Integer(dump_only=True)
+    age_max = fields.Integer(dump_only=True)
     class_teacher = fields.String(dump_only=True)
     status = fields.String(dump_only=True)
 
