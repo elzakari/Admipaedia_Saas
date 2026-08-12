@@ -1396,16 +1396,15 @@ const UserRoleManagement = () => {
                     </Label>
                     <Select
                       value={permissionTypeFilter}
-                      onValueChange={(value) => setPermissionTypeFilter(value)}
+                      onValueChange={(value) => setPermissionTypeFilter(value as PermissionTypeFilter)}
                     >
                       <SelectTrigger id="perm-type-filter" className="mt-1 h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {availablePermissionTypes.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {PERMISSION_TYPE_OPTIONS.find((row) => row.value === option)?.label ||
-                              option}
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
