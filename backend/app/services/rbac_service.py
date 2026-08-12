@@ -1269,13 +1269,65 @@ class RBACService:
     def create_role(
         name: str, display_name: str, permission_names: List[str] = None, **kwargs
     ) -> Tuple[Optional[RBACRole], str]:
-        """Create a new role"""
+        """Create a new role.
+
+        Performs strict ORM-attribute whitelisting so payloads can safely carry
+        both the canonical DB column names AND the REST-facing alias names
+        without raising ``invalid keyword argument for RBACRole``. Currently
+        aliased pairs:
+
+        * ``auto_assignment_conditions`` (REST) ↔ ``auto_assign_conditions`` (DB column)
+        * ``default_properties`` (REST & DB - native column, but still whitelisted)
+        """
         try:
             existing = RBACRole.query.filter_by(name=name).first()
             if existing:
                 return None, "Role already exists"
 
-            role = RBACRole(name=name, display_name=display_name, **kwargs)
+            # Normalize REST aliases → DB column names before ORM construction.
+            raw_kwargs = dict(kwargs or {})
+
+            # Priority: canonical DB column wins if both provided; else take alias.
+            if "auto_assign_conditions" in raw_kwargs:
+                assign_conditions = raw_kwargs.pop("auto_assign_conditions")
+            elif "auto_assignment_conditions" in raw_kwargs:
+                assign_conditions = raw_kwargs.pop("auto_assignment_conditions")
+            elif "auto_assigned_conditions" in raw_kwargs:
+                assign_conditions = raw_kwargs.pop("auto_assigned_conditions")
+            else:
+                assign_conditions = None
+
+            default_properties = None
+            if "default_properties" in raw_kwargs:
+                default_properties = raw_kwargs.pop("default_properties")
+
+            # Whitelist the remaining kwargs against known RBACRole scalar columns
+            # so future callers / drafts that send extra fields (e.g. is_system,
+            # user_count, permissions array, createdAt) fail softly instead of
+            # blowing up at SQLAlchemy constructor time.
+            ALLOWED_ROLE_KWARGS = {
+                "description",
+                "color",
+                "icon",
+                "level",
+                "hierarchy_level",
+                "department_id",
+                "max_users",
+                "is_active",
+                "is_default",
+                "priority",
+                "display_name",
+            }
+            filtered = {key: val for key, val in raw_kwargs.items() if key in ALLOWED_ROLE_KWARGS}
+
+            # Build role - use native column for aliased fields via setattr after.
+            role = RBACRole(
+                name=name,
+                display_name=display_name,
+                auto_assign_conditions=assign_conditions,
+                default_properties=default_properties,
+                **filtered,
+            )
 
             # Add permissions if provided
             if permission_names:

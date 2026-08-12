@@ -222,6 +222,18 @@ def update_role(role_id: int):
         schema = UpdateRoleSchema()
         data = schema.load(request.json)
 
+        # Normalize REST alias spelling → DB column names so the update
+        # loop below never calls setattr(role, "auto_assignment_conditions", …)
+        # on an object that only exposes that as a property alias (which would
+        # otherwise still work, but keeps the loop logic honest).
+        if "auto_assignment_conditions" in data:
+            if "auto_assign_conditions" not in data:
+                data["auto_assign_conditions"] = data.pop("auto_assignment_conditions")
+            else:
+                data.pop("auto_assignment_conditions")
+        if "auto_assigned_conditions" in data and "auto_assign_conditions" not in data:
+            data["auto_assign_conditions"] = data.pop("auto_assigned_conditions")
+
         # Update role fields
         for field, value in data.items():
             if field == "permission_names":
@@ -230,8 +242,20 @@ def update_role(role_id: int):
                     RBACPermission.name.in_(value)
                 ).all()
                 role.permissions = permissions
-            else:
+            elif field == "auto_assign_conditions":
+                role.auto_assign_conditions = value
+            elif field == "default_properties":
+                role.default_properties = value
+            elif hasattr(RBACRole, field):
                 setattr(role, field, value)
+            else:
+                # Ignore unknown scalar fields instead of raising attribute error
+                # inside the transaction; logs help track payload drift.
+                logger.debug(
+                    "update_role_ignored_field",
+                    role_id=role_id,
+                    field=field,
+                )
 
         db.session.commit()
 

@@ -196,7 +196,10 @@ class RBACRole(db.Model):
     )  # Maximum users that can have this role
     auto_assign_conditions = db.Column(
         db.JSON, nullable=True
-    )  # Conditions for auto-assignment
+    )  # Conditions for auto-assignment (canonical column)
+    default_properties = db.Column(
+        db.JSON, nullable=True
+    )  # Default props copied to UserRoleAssignment when granted
 
     # Metadata
     color = db.Column(db.String(7), default="#6B7280")  # Hex color for UI
@@ -227,6 +230,29 @@ class RBACRole(db.Model):
 
     def __repr__(self):
         return f"<RBACRole {self.name}>"
+
+    # ------------------------------------------------------------------
+    # API-name aliases. The REST contract uses `auto_assignment_conditions`
+    # (plural) while the database column is historically `auto_assign_`
+    # (singular verb). Exposing both as synonyms lets callers use either
+    # spelling and guarantees no "invalid keyword argument" on ORM
+    # construction regardless of which field the payload sends.
+    # ------------------------------------------------------------------
+    @property
+    def auto_assignment_conditions(self):
+        return self.auto_assign_conditions
+
+    @auto_assignment_conditions.setter
+    def auto_assignment_conditions(self, value):
+        self.auto_assign_conditions = value
+
+    @property
+    def auto_assigned_conditions(self):
+        return self.auto_assign_conditions
+
+    @auto_assigned_conditions.setter
+    def auto_assigned_conditions(self, value):
+        self.auto_assign_conditions = value
 
     def has_permission(self, permission_name: str) -> bool:
         """Check if role has a specific permission"""

@@ -582,11 +582,49 @@ const UserRoleManagement = () => {
 
   const createRoleMutation = useMutation({
     mutationFn: async (roleData: typeof emptyRoleDraft) => {
+      const name = (roleData.name || '').trim();
+      const description = (roleData.description ?? '').toString().trim();
+      const color = (roleData.color || '#6B7280').toString().trim() || '#6B7280';
+      const icon = (roleData.icon || 'shield').toString().trim() || 'shield';
+      const level =
+        roleData.level === null || roleData.level === undefined || roleData.level === ''
+          ? 5
+          : Number(roleData.level);
+      const department_id =
+        roleData.department_id == null || roleData.department_id === ''
+          ? null
+          : Number(roleData.department_id) || null;
+      const max_users =
+        roleData.max_users == null || roleData.max_users === ''
+          ? null
+          : Number(roleData.max_users) || null;
+      const permission_names = Array.isArray(roleData.permissions)
+        ? roleData.permissions.map((v) => String(v)).filter((v) => !!v)
+        : [];
+      const auto_assignment_conditions =
+        !!roleData.auto_assignment_conditions &&
+        typeof roleData.auto_assignment_conditions === 'object'
+          ? roleData.auto_assignment_conditions
+          : {};
+      const default_properties =
+        !!roleData.default_properties && typeof roleData.default_properties === 'object'
+          ? roleData.default_properties
+          : {};
+      const is_active =
+        typeof roleData.is_active === 'boolean' ? roleData.is_active : true;
       const res = await rbacApi.createRole({
-        name: roleData.name.trim(),
-        display_name: roleData.name.trim(),
-        description: roleData.description.trim(),
-        permission_names: roleData.permissions
+        name,
+        display_name: name,
+        description,
+        color,
+        icon,
+        level: Number.isFinite(level) ? level : 5,
+        department_id,
+        max_users,
+        permission_names,
+        auto_assignment_conditions,
+        default_properties,
+        is_active,
       });
       if (!res.success) {
         throw new Error(res.message || 'Failed to create role');
