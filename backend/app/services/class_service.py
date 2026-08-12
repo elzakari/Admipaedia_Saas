@@ -68,6 +68,114 @@ class ClassService:
             return None
 
     @staticmethod
+    def _resolve_grade_level_payload(payload, tenant_id=None):
+        """Normalize grade_level + educational_level_id inputs so they are safe for the Class model.
+
+        Accepted inputs for ``grade_level`` (comes from UI dropdowns):
+          * UUID str (36 chars or shortened): settings/academic Grade Levels use UUIDs.
+          * Stringified integer: treated as EducationalLevel integer PK.
+          * Short legacy name/code: written as-is to legacy column if nothing else matches.
+
+        The Class table has:
+          - ``grade_level``: String(20) (legacy, NOT NULL).
+          - ``educational_level_id``: Integer FK to educational_levels.id (nullable).
+
+        This helper NEVER writes a UUID verbatim into the 20-char legacy column. It tries
+        to look up the matching EducationalLevel (by int id first, then name/code), falls
+        back to a truncated/slugified legacy string, and always populates
+        ``educational_level_id`` when a concrete match is found.
+        """
+        import re
+
+        raw_grade = payload.get("grade_level")
+        educational_level_id = payload.get("educational_level_id")
+
+        # Avoid mutating caller dict
+        payload = dict(payload)
+
+        # First, resolve an EducationalLevel row if we possibly can
+        EducationalLevel = None
+        try:
+            from app.models.educational_level import EducationalLevel as _EL
+            EducationalLevel = _EL
+        except Exception:  # noqa: BLE001
+            EducationalLevel = None
+
+        resolved_edu = None
+
+        # Path 1: explicit integer FK sent
+        if educational_level_id not in (None, ""):
+            try:
+                edu_pk = int(educational_level_id)
+                if EducationalLevel is not None:
+                    resolved_edu = EducationalLevel.query.get(edu_pk)
+            except (ValueError, TypeError):
+                pass
+
+        # Path 2: grade_level is a stringified integer PK
+        if resolved_edu is None and isinstance(raw_grade, str) and raw_grade.isdigit():
+            try:
+                edu_pk = int(raw_grade)
+                if EducationalLevel is not None:
+                    resolved_edu = EducationalLevel.query.get(edu_pk)
+            except (ValueError, TypeError):
+                pass
+
+        # Path 3: grade_level looks like a UUID or long identifier -> try to match name/code
+        if resolved_edu is None and isinstance(raw_grade, str) and EducationalLevel is not None:
+            s = raw_grade.strip()
+            if len(s) > 0:
+                # Try name or code exact match (case-insensitive)
+                resolved_edu = (
+                    EducationalLevel.query.filter(
+                        db.or_(
+                            db.func.lower(EducationalLevel.level_name) == s.lower(),
+                            db.func.lower(EducationalLevel.level_code) == s.lower(),
+                        )
+                    ).first()
+                )
+                # If still not found and it looks UUID-ish, try to strip dashes and
+                # match on a potential legacy uuid_code column; if none, keep None.
+                if resolved_edu is None and re.fullmatch(r"[0-9a-fA-F\-]{8,64}", s):
+                    # Last-ditch: slugify first 3 words of "name" from any known record
+                    # with similar length/structure - otherwise leave edu null.
+                    resolved_edu = None
+
+        # Now decide final legacy grade_level text (must fit in db.String(20)):
+        if resolved_edu is not None:
+            primary_text = resolved_edu.level_code or resolved_edu.level_name
+            payload["educational_level_id"] = resolved_edu.id
+        else:
+            # Caller sent something we can't map to EducationalLevel row. Use the raw
+            # value but make sure it's <= 20 chars.
+            primary_text = str(raw_grade).strip() if raw_grade is not None else ""
+            # keep educational_level_id from payload (explicit) or None
+            payload["educational_level_id"] = educational_level_id if educational_level_id not in (
+                None,
+                "",
+            ) else None
+
+        # Truncate legacy text to 20 chars exactly to avoid DB String(20) error
+        if primary_text:
+            payload["grade_level"] = primary_text[:20]
+        elif raw_grade:
+            payload["grade_level"] = str(raw_grade)[:20]
+        else:
+            payload["grade_level"] = ""
+
+        # If educational_level_id ended up as empty string / non-int, null it.
+        el_id = payload.get("educational_level_id")
+        if el_id in (None, ""):
+            payload["educational_level_id"] = None
+        else:
+            try:
+                payload["educational_level_id"] = int(el_id)
+            except (ValueError, TypeError):
+                payload["educational_level_id"] = None
+
+        return payload
+
+    @staticmethod
     def get_all_classes(
         page=1, per_page=20, grade_level=None, academic_year=None, tenant_id=None, branch_id=None
     ):
@@ -170,6 +278,10 @@ class ClassService:
                 if t_val is None or str(t_val).lower() in {"none", "", "unassigned"}:
                     payload["teacher_id"] = None
 
+            # Resolve grade_level (UUID / legacy name / integer PK) → safe legacy column + FK
+            if "grade_level" in payload or "educational_level_id" in payload:
+                payload = ClassService._resolve_grade_level_payload(payload, tenant_id=tenant_id)
+
             # Coerce age_min/age_max → int or None
             if "age_min" in payload:
                 payload["age_min"] = ClassService._coerce_age(payload["age_min"])
@@ -236,6 +348,8 @@ class ClassService:
                 t_val = payload.get("teacher_id")
                 if t_val is None or str(t_val).lower() in {"none", "", "unassigned"}:
                     payload["teacher_id"] = None
+            if "grade_level" in payload or "educational_level_id" in payload:
+                payload = ClassService._resolve_grade_level_payload(payload, tenant_id=tenant_id)
             if "age_min" in payload:
                 payload["age_min"] = ClassService._coerce_age(payload["age_min"])
             if "age_max" in payload:

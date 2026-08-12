@@ -225,6 +225,25 @@ const UserRoleManagement = () => {
     }));
   }, [permissions]);
 
+  const roleStats = useMemo(() => {
+    const totalRoles = Array.isArray(roles) ? roles.length : 0;
+    let systemRoles = 0;
+    let customRoles = 0;
+    if (Array.isArray(roles)) {
+      for (const role of roles) {
+        if (role.isSystem) systemRoles += 1;
+        else customRoles += 1;
+      }
+    }
+    const totalPermissions = Array.isArray(permissions) ? permissions.length : 0;
+    return {
+      totalRoles,
+      systemRoles,
+      customRoles,
+      totalPermissions
+    };
+  }, [roles, permissions]);
+
   const filteredPermissions = useMemo(() => {
     const query = permissionSearchTerm.trim().toLowerCase();
     return permissions.filter((permission) => {

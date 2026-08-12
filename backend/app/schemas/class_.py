@@ -85,11 +85,22 @@ class ClassSchema(Schema):
 
 
 class ClassCreateSchema(Schema):
-    """Schema for creating a new class"""
+    """Schema for creating a new class.
+
+    ``grade_level`` accepts either:
+      * a short legacy code/name (string)
+      * a 36-char UUID id sent by the Settings / ClassFormModal dropdowns
+      * a stringified integer (EducationalLevel.id FK)
+
+    ``educational_level_id`` (int, optional) lets clients send the integer FK
+    directly when they have it. When both are present, the service resolves
+    the integer FK first and uses grade_level for the legacy column fallback.
+    """
 
     name = fields.String(required=True, validate=validate.Length(min=2, max=100))
     code = fields.String(validate=validate.Length(max=50), allow_none=True)
-    grade_level = fields.String(required=True, validate=validate.Length(min=1, max=20))
+    grade_level = fields.String(required=True, validate=validate.Length(min=1, max=64))
+    educational_level_id = fields.Integer(allow_none=True, load_default=None)
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
     academic_year = fields.String(
         required=True, validate=validate.Length(min=4, max=20)
@@ -107,11 +118,12 @@ class ClassCreateSchema(Schema):
 
 
 class ClassUpdateSchema(Schema):
-    """Schema for updating an existing class"""
+    """Schema for updating an existing class."""
 
     name = fields.String(validate=validate.Length(min=2, max=100))
     code = fields.String(validate=validate.Length(max=50), allow_none=True)
-    grade_level = fields.String(validate=validate.Length(min=1, max=20))
+    grade_level = fields.String(validate=validate.Length(min=1, max=64))
+    educational_level_id = fields.Integer(allow_none=True)
     section = fields.String(validate=validate.Length(max=20), allow_none=True)
     academic_year = fields.String(validate=validate.Length(min=4, max=20))
     capacity = fields.Integer(allow_none=True)
