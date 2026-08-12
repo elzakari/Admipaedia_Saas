@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import structlog
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from marshmallow import Schema, ValidationError, fields, validate
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, validate
 
 from app.extensions import db
 from app.models.rbac import (AccessControlList, PermissionGrant,
@@ -26,8 +26,15 @@ rbac_bp = Blueprint("rbac", __name__, url_prefix="/api/v1/rbac")
 
 # Schemas for request validation
 class CreateRoleSchema(Schema):
-    name = fields.Str(required=True)
-    display_name = fields.Str(required=True)
+    class Meta:
+        # Accept forward-compatible payload extras (e.g. UI drafts that start
+        # sending new fields) without raising "Unknown field" ValidationError.
+        # The service layer already whitelists the actual RBACRole constructor
+        # kwargs, so unknown keys are safely dropped at commit time.
+        unknown = EXCLUDE
+
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    display_name = fields.Str(load_default=None)
     description = fields.Str(load_default="")
     color = fields.Str(load_default="#6B7280")
     icon = fields.Str(load_default="shield")
@@ -35,11 +42,20 @@ class CreateRoleSchema(Schema):
     department_id = fields.Int(allow_none=True)
     max_users = fields.Int(allow_none=True)
     permission_names = fields.List(fields.Str(), load_default=[])
-    auto_assignment_conditions = fields.Dict(load_default={})
-    default_properties = fields.Dict(load_default={})
+    auto_assignment_conditions = fields.Dict(keys=fields.Str(), load_default={})
+    auto_assign_conditions = fields.Dict(keys=fields.Str(), load_default=None)
+    auto_assigned_conditions = fields.Dict(keys=fields.Str(), load_default=None)
+    default_properties = fields.Dict(keys=fields.Str(), load_default={})
+    is_active = fields.Bool(load_default=True)
+    is_default = fields.Bool(load_default=False)
+    priority = fields.Int(allow_none=True)
 
 
 class UpdateRoleSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    name = fields.Str(validate=validate.Length(min=1, max=50))
     display_name = fields.Str()
     description = fields.Str()
     color = fields.Str()
@@ -48,9 +64,13 @@ class UpdateRoleSchema(Schema):
     department_id = fields.Int(allow_none=True)
     max_users = fields.Int(allow_none=True)
     permission_names = fields.List(fields.Str())
-    auto_assignment_conditions = fields.Dict()
-    default_properties = fields.Dict()
+    auto_assignment_conditions = fields.Dict(keys=fields.Str())
+    auto_assign_conditions = fields.Dict(keys=fields.Str())
+    auto_assigned_conditions = fields.Dict(keys=fields.Str())
+    default_properties = fields.Dict(keys=fields.Str())
     is_active = fields.Bool()
+    is_default = fields.Bool()
+    priority = fields.Int(allow_none=True)
 
 
 class UpdatePermissionSchema(Schema):
@@ -61,16 +81,26 @@ class UpdatePermissionSchema(Schema):
 
 
 class RoleCreateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     name = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    display_name = fields.Str(load_default=None)
     description = fields.Str(load_default="")
     color = fields.Str(load_default="#6B7280")
     icon = fields.Str(load_default="shield")
     level = fields.Int(load_default=5)
     is_system_role = fields.Bool(dump_only=True)
-    is_active = fields.Bool()
+    is_active = fields.Bool(load_default=True)
     permission_names = fields.List(fields.Str(), load_default=[])
-    auto_assignment_conditions = fields.Dict(load_default={})
-    default_properties = fields.Dict(load_default={})
+    auto_assignment_conditions = fields.Dict(keys=fields.Str(), load_default={})
+    auto_assign_conditions = fields.Dict(keys=fields.Str(), load_default=None)
+    auto_assigned_conditions = fields.Dict(keys=fields.Str(), load_default=None)
+    default_properties = fields.Dict(keys=fields.Str(), load_default={})
+    department_id = fields.Int(allow_none=True)
+    max_users = fields.Int(allow_none=True)
+    is_default = fields.Bool(load_default=False)
+    priority = fields.Int(allow_none=True)
 
 
 class CreatePermissionSchema(Schema):
@@ -171,15 +201,20 @@ def create_role():
     """Create a new role"""
     try:
         schema = CreateRoleSchema()
-        data = schema.load(request.json)
+        raw_data = schema.load(request.json)
+
+        # Backfill display_name from name if caller omitted it (frontend
+        # Settings dialog uses role name as the display label too).
+        if not raw_data.get("display_name"):
+            raw_data["display_name"] = raw_data.get("name", "").strip() or None
 
         role, message = RBACService.create_role(
-            name=data["name"],
-            display_name=data["display_name"],
-            permission_names=data.get("permission_names", []),
+            name=raw_data["name"],
+            display_name=raw_data["display_name"],
+            permission_names=raw_data.get("permission_names", []),
             **{
                 k: v
-                for k, v in data.items()
+                for k, v in raw_data.items()
                 if k not in ["name", "display_name", "permission_names"]
             },
         )
