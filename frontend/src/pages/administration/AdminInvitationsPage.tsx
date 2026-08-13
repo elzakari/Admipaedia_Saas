@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, ShieldCheck, ShieldAlert, Users, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +31,7 @@ function StatusBadge({ status }: { status: InviteStatus }) {
 export default function AdminInvitationsPage() {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [inviteeType, setInviteeType] = useState<InviteeType>('parent')
   const [expiresInDays, setExpiresInDays] = useState<string>('7')
   const [creating, setCreating] = useState(false)
@@ -53,6 +56,23 @@ export default function AdminInvitationsPage() {
       return true
     })
   }, [invites, filterStatus, filterType])
+
+  const inviteStats = useMemo(() => {
+    const byType: Record<InviteeType, number> = { parent: 0, teacher: 0, general: 0 }
+    const consumedByType: Record<InviteeType, number> = { parent: 0, teacher: 0, general: 0 }
+    let generalWithoutRole = 0
+    for (const inv of invites) {
+      byType[inv.invitee_type] = (byType[inv.invitee_type] || 0) + 1
+      if (inv.status === 'consumed') {
+        consumedByType[inv.invitee_type] = (consumedByType[inv.invitee_type] || 0) + 1
+      }
+      if (inv.invitee_type === 'general' && inv.status === 'consumed') {
+        const roles = inv.consumed_by_user?.role_names || []
+        if (roles.length === 0) generalWithoutRole += 1
+      }
+    }
+    return { byType, consumedByType, generalWithoutRole, total: invites.length }
+  }, [invites])
 
   async function loadInvites() {
     setLoading(true)
@@ -152,6 +172,76 @@ export default function AdminInvitationsPage() {
         <p className="text-sm text-muted-foreground">{t('admin_invitations.description', 'Generate signed, single-use registration links for Parents, Teachers, and General users.')}</p>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {t('admin_invitations.stat_teachers', 'Enseignants')}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <div className="text-2xl font-bold">{inviteStats.byType.teacher}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('admin_invitations.stat_consumed', '{{consumed}} utilisés', { consumed: inviteStats.consumedByType.teacher })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {t('admin_invitations.stat_parents', 'Parents')}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <div className="text-2xl font-bold">{inviteStats.byType.parent}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('admin_invitations.stat_consumed', '{{consumed}} utilisés', { consumed: inviteStats.consumedByType.parent })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {t('admin_invitations.stat_general', 'Généraux')}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <div className="text-2xl font-bold">{inviteStats.byType.general}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('admin_invitations.stat_consumed', '{{consumed}} utilisés', { consumed: inviteStats.consumedByType.general })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={inviteStats.generalWithoutRole > 0 ? 'border-amber-300/70 dark:border-amber-800/70 bg-amber-50/50 dark:bg-amber-950/20' : ''}>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+              {inviteStats.generalWithoutRole > 0 ? (<ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500" />) : null}
+              {t('admin_invitations.stat_general_no_role', 'Généraux sans rôle')}
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <div className="text-2xl font-bold">{inviteStats.generalWithoutRole}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('admin_invitations.stat_general_no_role_hint', 'requièrent une action')}
+              </div>
+            </div>
+            {inviteStats.generalWithoutRole > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={() => {
+                  setFilterType('general')
+                  setFilterStatus('consumed')
+                }}
+              >
+                {t('admin_invitations.stat_general_no_role_action', 'Afficher la liste')}
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('admin_invitations.create_invite_link', 'Create invite link')}</CardTitle>
@@ -249,25 +339,84 @@ export default function AdminInvitationsPage() {
                     <TableCell colSpan={6} className="text-sm text-muted-foreground">{t('admin_invitations.no_invitations', 'No invitations found.')}</TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="capitalize">
-                        {inv.invitee_type === 'parent' ? t('admin_invitations.parent', 'Parent') :
-                         inv.invitee_type === 'teacher' ? t('admin_invitations.teacher', 'Teacher') :
-                         t('admin_invitations.general', 'General')}
-                      </TableCell>
-                      <TableCell><StatusBadge status={inv.status} /></TableCell>
-                      <TableCell>{formatDate(inv.created_at)}</TableCell>
-                      <TableCell>{formatDate(inv.expires_at)}</TableCell>
-                      <TableCell>{inv.consumed_at ? formatDate(inv.consumed_at) : '—'}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button variant="secondary" size="sm" onClick={() => openEvents(inv)}>{t('admin_invitations.audit', 'Audit')}</Button>
-                        <Button variant="destructive" size="sm" disabled={inv.status !== 'active'} onClick={() => revokeInvite(inv.id)}>
-                          {t('admin_invitations.revoke', 'Revoke')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filtered.map((inv) => {
+                    const cu = inv.consumed_by_user
+                    const isGeneralConsumedNoRole = inv.invitee_type === 'general' && inv.status === 'consumed' && (cu?.role_names.length || 0) === 0
+                    const hasStaff = cu?.has_staff_profile
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell className="capitalize">
+                          <div className="flex items-center gap-2">
+                            <span>{inv.invitee_type === 'parent' ? t('admin_invitations.parent', 'Parent') :
+                              inv.invitee_type === 'teacher' ? t('admin_invitations.teacher', 'Teacher') :
+                              t('admin_invitations.general', 'General')}</span>
+                            {inv.status === 'consumed' && cu ? (
+                              <Badge variant="secondary" className="text-[10px] h-4">
+                                <Users className="h-3 w-3 mr-1 opacity-70" />
+                                {cu.username || cu.email}
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell><StatusBadge status={inv.status} /></TableCell>
+                        <TableCell>{formatDate(inv.created_at)}</TableCell>
+                        <TableCell>{formatDate(inv.expires_at)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1.5">
+                            <div className="text-sm">{inv.consumed_at ? formatDate(inv.consumed_at) : '—'}</div>
+                            {cu && cu.role_names && cu.role_names.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {cu.role_names.map((r) => (
+                                  <Badge key={r} variant="secondary" className="text-[10px] h-4">
+                                    <ShieldCheck className="h-3 w-3 mr-0.5 opacity-70" />{r}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : cu && inv.status === 'consumed' ? (
+                              <div className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                <span>{t('admin_invitations.no_role', 'Aucun rôle')}</span>
+                              </div>
+                            ) : null}
+                            {cu?.email ? (
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">{cu.email}</div>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end flex-wrap gap-1.5">
+                            {inv.status === 'consumed' && inv.invitee_type === 'general' && hasStaff ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate('/admin/administration?tab=directory')}
+                                title={t('admin_invitations.go_staff', 'Aller à la fiche personnel')}
+                              >
+                                <FileText className="h-3.5 w-3.5 mr-1" />
+                                {t('admin_invitations.staff', 'Fiche')}
+                              </Button>
+                            ) : null}
+                            {inv.status === 'consumed' && inv.invitee_type === 'general' ? (
+                              <Button
+                                type="button"
+                                variant={isGeneralConsumedNoRole ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => navigate('/admin/administration?tab=directory' + (isGeneralConsumedNoRole ? '&filter=general-no-role' : ''))}
+                                title={t('admin_invitations.assign_role_action', 'Attribuer un rôle')}
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                                {t('admin_invitations.assign_role', 'Rôles')}
+                              </Button>
+                            ) : null}
+                            <Button variant="secondary" size="sm" onClick={() => openEvents(inv)}>{t('admin_invitations.audit', 'Audit')}</Button>
+                            <Button variant="destructive" size="sm" disabled={inv.status !== 'active'} onClick={() => revokeInvite(inv.id)}>
+                              {t('admin_invitations.revoke', 'Revoke')}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

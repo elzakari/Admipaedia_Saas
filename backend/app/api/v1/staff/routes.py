@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from flask import g, jsonify, request
 from flask_jwt_extended import jwt_required
@@ -166,7 +167,19 @@ def list_staff():
 @admin_required
 def staff_directory():
     search = request.args.get("search")
-    directory = StaffService.get_staff_directory(tenant_id=g.tenant_id, search=search)
+    entity_type = (request.args.get("entity_type") or "").strip().lower() or None
+    has_role_arg = (request.args.get("has_role") or "").strip().lower()
+    has_role: Optional[bool] = None
+    if has_role_arg in {"1", "true", "yes"}:
+        has_role = True
+    elif has_role_arg in {"0", "false", "no"}:
+        has_role = False
+    directory = StaffService.get_staff_directory(
+        tenant_id=g.tenant_id,
+        search=search,
+        entity_type=entity_type,
+        has_role=has_role,
+    )
     return (
         jsonify(
             {
@@ -190,6 +203,19 @@ def staff_directory():
                             for row in directory
                             if str(row.get("status", "")).lower() == "active"
                         ]
+                    ),
+                    "general": len(
+                        [
+                            row
+                            for row in directory
+                            if row.get("origin") == "general_invitation"
+                        ]
+                    ),
+                    "without_role": len(
+                        [row for row in directory if not row.get("has_role")]
+                    ),
+                    "with_role": len(
+                        [row for row in directory if row.get("has_role")]
                     ),
                 },
             }

@@ -47,7 +47,11 @@ import {
   BookOpen,
   Award,
   PieChart,
-  Loader2
+  Loader2,
+  Shield,
+  AlertTriangle,
+  Settings as SettingsIcon,
+  X
 } from 'lucide-react';
 import { TeacherFormModal } from '../teachers/TeacherFormModal';
 import { toast } from 'sonner';
@@ -66,7 +70,9 @@ import {
   ScheduleItem
 } from '../../types/teacher.types';
 import departmentService, { Department as ApiDepartment } from '../../services/departmentService';
-import staffService, { StaffRecord, StaffDirectoryItem } from '../../services/staffService';
+import staffService, { StaffRecord, StaffDirectoryItem, StaffDirectorySummary } from '../../services/staffService';
+import { rbacApi } from '../../services/rbacApi';
+import type { RBACRole } from '../../types/rbac';
 
 // Remove these conflicting local interface declarations:
 // interface Qualification {
@@ -162,6 +168,23 @@ const StaffManagement: React.FC = () => {
     department_id: undefined,
   });
 
+  type DirectoryFilterType = 'all' | 'teacher' | 'staff' | 'general';
+  type DirectoryFilterRole = 'all' | 'has_role' | 'no_role';
+  const [filterType, setFilterType] = useState<DirectoryFilterType>('all');
+  const [filterRole, setFilterRole] = useState<DirectoryFilterRole>('all');
+
+  const [assignRoleDialogOpen, setAssignRoleDialogOpen] = useState(false);
+  const [assignRoleTarget, setAssignRoleTarget] = useState<{
+    user_id: number;
+    staff_id: number;
+    entity_type: DirectoryEntityType;
+    name: string;
+    role_names: string[];
+  } | null>(null);
+  const [assignRoleNewRole, setAssignRoleNewRole] = useState<string>('');
+  const [assignRoleReason, setAssignRoleReason] = useState<string>('');
+  const [assignRoleSubmitting, setAssignRoleSubmitting] = useState(false);
+
   const exportCsv = (filename: string, rows: Array<Record<string, any>>) => {
     const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
     const escape = (v: any) => {
@@ -203,10 +226,27 @@ const StaffManagement: React.FC = () => {
   );
 
   const { data: directoryResponse, isLoading: isLoadingDirectory, error: directoryError } = useQuery({
-    queryKey: ['staff-directory', searchTerm],
-    queryFn: () => staffService.getDirectory(searchTerm || undefined),
+    queryKey: ['staff-directory', searchTerm, filterType, filterRole],
+    queryFn: () => staffService.getDirectory({
+      search: searchTerm || undefined,
+      entity_type: filterType === 'all' ? undefined : filterType,
+      has_role: filterRole === 'all' ? undefined : filterRole === 'has_role',
+    }),
     staleTime: 30_000
   });
+
+  const { data: rbacRolesResponse } = useQuery({
+    queryKey: ['rbac-roles-assign'],
+    queryFn: () => rbacApi.getAllRoles(),
+    staleTime: 2 * 60_000
+  });
+  const rbacRoles: RBACRole[] = useMemo(() => {
+    return Array.isArray((rbacRolesResponse as any)?.data)
+      ? (rbacRolesResponse as any).data as RBACRole[]
+      : Array.isArray((rbacRolesResponse as any)?.roles)
+        ? (rbacRolesResponse as any).roles as RBACRole[]
+        : [];
+  }, [rbacRolesResponse]);
 
   const { data: selectedStaffRecord, isLoading: isLoadingSelectedStaffRecord } = useQuery({
     queryKey: ['staff-detail', selectedStaff],
@@ -364,6 +404,73 @@ const StaffManagement: React.FC = () => {
       .sort((a, b) => (b.staff_count || 0) - (a.staff_count || 0));
   }, [departments, directoryRows]);
   
+  const directorySummary: StaffDirectorySummary | null = useMemo(() => {
+    return (directoryResponse?.summary as StaffDirectorySummary | undefined) || null;
+  }, [directoryResponse?.summary]);
+
+  const generalWithoutRoleCount = useMemo(() => {
+    return directoryRows.filter((r) => r.origin === 'general_invitation' && !r.has_role).length;
+  }, [directoryRows]);
+
+  const openAssignRoleDialog = (row: StaffDirectoryItem) => {
+    if (!row.user_id) {
+      toast.error(t('admin_staff.no_linked_user', 'No linked user account for this staff entry'));
+      return;
+    }
+    setAssignRoleTarget({
+      user_id: row.user_id,
+      staff_id: row.id,
+      entity_type: row.entity_type,
+      name: row.name,
+      role_names: [...(row.role_names || [])],
+    });
+    setAssignRoleNewRole('');
+    setAssignRoleReason('');
+    setAssignRoleSubmitting(false);
+    setAssignRoleDialogOpen(true);
+  };
+
+  const submitAssignRole = async () => {
+    if (!assignRoleTarget || !assignRoleNewRole) return;
+    setAssignRoleSubmitting(true);
+    try {
+      await staffService.assignRoleToUser(
+        assignRoleTarget.user_id,
+        assignRoleNewRole,
+        assignRoleReason.trim() || undefined,
+      );
+      toast.success(t('admin_staff.role_assigned', 'Role assigned successfully'));
+      setAssignRoleDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['staff-directory'] });
+    } catch (e: any) {
+      toast.error(e?.message || t('admin_staff.role_assign_failed', 'Failed to assign role'));
+    } finally {
+      setAssignRoleSubmitting(false);
+    }
+  };
+
+  const submitRevokeRole = async (roleName: string) => {
+    if (!assignRoleTarget) return;
+    const ok = window.confirm(
+      t('admin_staff.revoke_role_confirm', 'Revoke role {{role}} from {{name}}? This cannot be undone.', {
+        role: roleName,
+        name: assignRoleTarget.name,
+      }),
+    );
+    if (!ok) return;
+    try {
+      await staffService.revokeRoleFromUser(assignRoleTarget.user_id, roleName);
+      toast.success(t('admin_staff.role_revoked', 'Role revoked'));
+      queryClient.invalidateQueries({ queryKey: ['staff-directory'] });
+      setAssignRoleTarget({
+        ...assignRoleTarget,
+        role_names: assignRoleTarget.role_names.filter((r) => r !== roleName),
+      });
+    } catch (e: any) {
+      toast.error(e?.message || t('admin_staff.role_revoke_failed', 'Failed to revoke role'));
+    }
+  };
+
   // Event handlers with proper typing
   const handleStaffSelect = (staffId: number, entityType: DirectoryEntityType = 'teacher'): void => {
     setSelectedStaff(staffId);
@@ -558,48 +665,137 @@ const StaffManagement: React.FC = () => {
         </TabsList>
         
         <TabsContent value="directory" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">{t('admin_staff.directory_title', 'Annuaire du personnel')}</h3>
-            <div className="flex gap-2">
-              <div className="relative w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder={t('admin_staff.search_placeholder', 'Rechercher un membre du personnel…')}
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">{t('admin_staff.directory_title', 'Annuaire du personnel')}</h3>
+              <div className="flex gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder={t('admin_staff.search_placeholder', 'Rechercher un membre du personnel…')}
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    exportCsv('staff_directory.csv', directoryRows.map((row) => ({
+                      id: row.id,
+                      type: row.entity_type,
+                      origin: row.origin,
+                      name: row.name,
+                      email: row.email,
+                      phone: row.phone,
+                      department: row.department_name,
+                      position: row.position,
+                      roles: (row.role_names || []).join('|'),
+                      status: row.status
+                    })));
+                    toast.success(t('admin_staff.export_success', 'Annuaire du personnel exporté'));
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('common.export', 'Exporter')}
+                </Button>
+                <Button onClick={() => setIsAddModalOpen(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {t('admin_staff.add_teaching', 'Ajouter du personnel enseignant')}
+                </Button>
+                <Button variant="outline" onClick={openCreateStaffDialog}>
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  {t('admin_staff.add_non_teaching', 'Ajouter du personnel non-enseignant')}
+                </Button>
               </div>
+            </div>
+
+            {generalWithoutRoleCount > 0 ? (
+              <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/60 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-amber-900 dark:text-amber-200">
+                        {t('admin_staff.general_pending_roles_title', '{{count}} nouveaux membres Généraux sans rôle attribué', { count: generalWithoutRoleCount })}
+                      </div>
+                      <p className="text-sm text-amber-800/90 dark:text-amber-300/80 mt-1">
+                        {t('admin_staff.general_pending_roles_hint', 'Ces utilisateurs ont accepté leur invitation mais ne peuvent pas accéder aux modules tant qu\'aucun rôle ne leur est attribué.')}
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => { setFilterType('general'); setFilterRole('no_role'); }}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    {t('admin_staff.assign_roles_now', 'Assigner maintenant')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                variant="outline"
-                onClick={() => {
-                  exportCsv('staff_directory.csv', directoryRows.map((row) => ({
-                    id: row.id,
-                    type: row.entity_type,
-                    name: row.name,
-                    email: row.email,
-                    phone: row.phone,
-                    department: row.department_name,
-                    position: row.position,
-                    status: row.status
-                  })));
-                  toast.success(t('admin_staff.export_success', 'Annuaire du personnel exporté'));
-                }}
+                type="button"
+                variant={filterType === 'all' && filterRole === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterType('all'); setFilterRole('all'); }}
               >
-                <Download className="mr-2 h-4 w-4" />
-                {t('common.export', 'Exporter')}
+                {t('admin_staff.filter_all', 'Tous')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.total ?? directoryRows.length}</Badge>
               </Button>
-              <Button onClick={() => setIsAddModalOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {t('admin_staff.add_teaching', 'Ajouter du personnel enseignant')}
+              <Button
+                type="button"
+                variant={filterType === 'teacher' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterType('teacher'); }}
+              >
+                <GraduationCap className="mr-1 h-4 w-4" />
+                {t('admin_staff.filter_teachers', 'Enseignants')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.teachers ?? directoryRows.filter(r => r.entity_type === 'teacher').length}</Badge>
               </Button>
-              <Button variant="outline" onClick={openCreateStaffDialog}>
-                <Briefcase className="mr-2 h-4 w-4" />
-                {t('admin_staff.add_non_teaching', 'Ajouter du personnel non-enseignant')}
+              <Button
+                type="button"
+                variant={filterType === 'staff' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterType('staff'); }}
+              >
+                <Briefcase className="mr-1 h-4 w-4" />
+                {t('admin_staff.filter_staff', 'Non-enseignants')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.staff ?? directoryRows.filter(r => r.entity_type === 'staff').length}</Badge>
+              </Button>
+              <Button
+                type="button"
+                variant={filterType === 'general' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterType('general'); }}
+              >
+                <Users className="mr-1 h-4 w-4" />
+                {t('admin_staff.filter_general', 'Généraux invités')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.general ?? directoryRows.filter(r => r.origin === 'general_invitation').length}</Badge>
+              </Button>
+              <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
+              <Button
+                type="button"
+                variant={filterRole === 'no_role' ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterRole(filterRole === 'no_role' ? 'all' : 'no_role'); }}
+              >
+                <Shield className="mr-1 h-4 w-4 opacity-60" />
+                {t('admin_staff.filter_no_role', 'Sans rôle')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.without_role ?? directoryRows.filter(r => !r.has_role).length}</Badge>
+              </Button>
+              <Button
+                type="button"
+                variant={filterRole === 'has_role' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setFilterRole(filterRole === 'has_role' ? 'all' : 'has_role'); }}
+              >
+                <Shield className="mr-1 h-4 w-4" />
+                {t('admin_staff.filter_has_role', 'Avec rôle')}
+                <Badge variant="secondary" className="ml-2">{directorySummary?.with_role ?? directoryRows.filter(r => r.has_role).length}</Badge>
               </Button>
             </div>
           </div>
-          
+
           {selectedStaff && selectedStaffType === 'teacher' && enhancedSelectedTeacher ? (
             <Card>
               <CardHeader>
@@ -816,97 +1012,153 @@ const StaffManagement: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Position</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t('admin_staff.col_name', 'Name')}</TableHead>
+                        <TableHead>{t('admin_staff.col_position', 'Position')}</TableHead>
+                        <TableHead>{t('admin_staff.col_department', 'Department')}</TableHead>
+                        <TableHead>{t('admin_staff.col_roles', 'Rôles attribués')}</TableHead>
+                        <TableHead>{t('admin_staff.col_email', 'Email')}</TableHead>
+                        <TableHead>{t('admin_staff.col_status', 'Status')}</TableHead>
+                        <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {directoryRows.length > 0 ? (
-                        directoryRows.map((staff) => (
-                          <TableRow key={staff.entity_key}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span>{staff.name}</span>
-                                <Badge variant="outline">{staff.entity_type === 'teacher' ? 'Teaching' : 'Non-Teaching'}</Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell>{staff.position || (staff.entity_type === 'teacher' ? 'Teacher' : 'Staff')}</TableCell>
-                            <TableCell>{staff.department_name || 'N/A'}</TableCell>
-                            <TableCell>{staff.email}</TableCell>
-                            <TableCell>{staff.phone}</TableCell>
-                            <TableCell>
-                              <Badge variant={staff.status?.toLowerCase() === 'active' ? 'default' : 'secondary'}>
-                                {staff.status || 'Active'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => handleStaffSelect(staff.id, staff.entity_type)}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => {
-                                    if (staff.entity_type === 'teacher') {
-                                      handleEditTeacher(staff.id);
-                                      return;
-                                    }
-                                    openEditStaffDialog(selectedStaffType === 'staff' && selectedStaffProfile?.id === staff.id ? selectedStaffProfile : {
-                                      id: staff.id,
-                                      first_name: staff.name.split(' ')[0] || '',
-                                      last_name: staff.name.split(' ').slice(1).join(' ') || '',
-                                      full_name: staff.name,
-                                      job_title: staff.position,
-                                      email: staff.email || '',
-                                      phone_number: staff.phone || '',
-                                      joining_date: staff.join_date || '',
-                                      department_id: staff.department_id || undefined,
-                                      department_name: staff.department_name || undefined,
-                                      status: (staff.status as any) || 'active',
-                                    });
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => {
-                                    if (staff.entity_type === 'teacher') {
-                                      handleDeleteTeacher(staff.id, staff.name);
-                                      return;
-                                    }
-                                    setStaffToDelete({
-                                      id: staff.id,
-                                      first_name: staff.name.split(' ')[0] || '',
-                                      last_name: staff.name.split(' ').slice(1).join(' ') || '',
-                                      full_name: staff.name,
-                                      job_title: staff.position,
-                                      email: staff.email || '',
-                                      phone_number: staff.phone || '',
-                                      department_id: staff.department_id || undefined,
-                                      department_name: staff.department_name || undefined,
-                                      status: (staff.status as any) || 'active',
-                                    });
-                                    setIsDeleteModalOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        directoryRows.map((staff) => {
+                          const isGeneralInvite = staff.origin === 'general_invitation';
+                          const roleCount = (staff.role_names || []).length;
+                          return (
+                            <TableRow key={staff.entity_key}>
+                              <TableCell className="font-medium">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span>{staff.name}</span>
+                                    <Badge variant={staff.entity_type === 'teacher' ? 'secondary' : 'outline'}>
+                                      {staff.entity_type === 'teacher'
+                                        ? t('admin_staff.tag_teaching', 'Teaching')
+                                        : t('admin_staff.tag_non_teaching', 'Non-Teaching')}
+                                    </Badge>
+                                    {isGeneralInvite ? (
+                                      <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60">
+                                        {t('admin_staff.tag_general_invite', 'Général invité')}
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  {staff.email ? (
+                                    <div className="text-xs text-muted-foreground truncate max-w-[260px]">{staff.email}</div>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                              <TableCell>{staff.position || (staff.entity_type === 'teacher' ? t('admin_staff.default_teacher', 'Teacher') : t('admin_staff.default_staff', 'Staff'))}</TableCell>
+                              <TableCell>{staff.department_name || '—'}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-2">
+                                  {roleCount > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {(staff.role_names || []).map((r) => (
+                                        <Badge key={r} variant="secondary"><Shield className="h-3 w-3 mr-1 opacity-60" />{r}</Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="destructive" className="bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/60">
+                                        {t('admin_staff.no_role', 'Aucun rôle')}
+                                      </Badge>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openAssignRoleDialog(staff)}
+                                      >
+                                        <SettingsIcon className="h-3.5 w-3.5 mr-1.5" />
+                                        {t('admin_staff.assign_now_short', 'Assigner')}
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {staff.phone || '—'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={String(staff.status || '').toLowerCase() === 'active' ? 'default' : 'secondary'}>
+                                  {staff.status || 'Active'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => handleStaffSelect(staff.id, staff.entity_type)} title={t('common.view', 'View')}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => openAssignRoleDialog(staff)}
+                                    title={t('admin_staff.assign_role', 'Assigner un rôle')}
+                                  >
+                                    <Shield className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (staff.entity_type === 'teacher') {
+                                        handleEditTeacher(staff.id);
+                                        return;
+                                      }
+                                      openEditStaffDialog(selectedStaffType === 'staff' && selectedStaffProfile?.id === staff.id ? selectedStaffProfile : {
+                                        id: staff.id,
+                                        first_name: staff.name.split(' ')[0] || '',
+                                        last_name: staff.name.split(' ').slice(1).join(' ') || '',
+                                        full_name: staff.name,
+                                        job_title: staff.position,
+                                        email: staff.email || '',
+                                        phone_number: staff.phone || '',
+                                        joining_date: staff.join_date || '',
+                                        department_id: staff.department_id || undefined,
+                                        department_name: staff.department_name || undefined,
+                                        status: (staff.status as any) || 'active',
+                                      });
+                                    }}
+                                    title={t('common.edit', 'Edit')}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (staff.entity_type === 'teacher') {
+                                        handleDeleteTeacher(staff.id, staff.name);
+                                        return;
+                                      }
+                                      setStaffToDelete({
+                                        id: staff.id,
+                                        first_name: staff.name.split(' ')[0] || '',
+                                        last_name: staff.name.split(' ').slice(1).join(' ') || '',
+                                        full_name: staff.name,
+                                        job_title: staff.position,
+                                        email: staff.email || '',
+                                        phone_number: staff.phone || '',
+                                        department_id: staff.department_id || undefined,
+                                        department_name: staff.department_name || undefined,
+                                        status: (staff.status as any) || 'active',
+                                      });
+                                      setIsDeleteModalOpen(true);
+                                    }}
+                                    title={t('common.delete', 'Delete')}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       ) : (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                            No staff members found
+                            {t('admin_staff.no_staff', 'Aucun membre du personnel trouvé')}
                           </TableCell>
                         </TableRow>
                       )}
@@ -1631,6 +1883,97 @@ const StaffManagement: React.FC = () => {
               disabled={deleteTeacherMutation.isPending || deleteStaffMutation.isPending}
             >
               {(deleteTeacherMutation.isPending || deleteStaffMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assignRoleDialogOpen} onOpenChange={(v) => !v && setAssignRoleDialogOpen(false)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t('admin_staff.assign_role_title', 'Gérer les rôles — {{name}}', { name: assignRoleTarget?.name || 'User' })}</DialogTitle>
+            <DialogDescription>
+              {t('admin_staff.assign_role_desc', 'Attribuez un rôle depuis la liste RBAC pour accorder les permissions appropriées. Les rôles attribués sont appliqués immédiatement à la prochaine connexion de l\'utilisateur.')}
+            </DialogDescription>
+          </DialogHeader>
+          {assignRoleTarget ? (
+            <div className="space-y-5">
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">{t('admin_staff.current_roles', 'Rôles actuels')}</Label>
+                <div className="mt-2 min-h-[44px] rounded-lg border p-3 bg-muted/30">
+                  {assignRoleTarget.role_names.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {assignRoleTarget.role_names.map((role) => (
+                        <div key={role} className="flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-full bg-secondary text-secondary-foreground text-sm">
+                          <Shield className="h-3.5 w-3.5 opacity-70" />
+                          <span>{role}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 ml-0.5 hover:bg-destructive/20 hover:text-destructive rounded-full"
+                            onClick={() => submitRevokeRole(role)}
+                            title={t('admin_staff.revoke_role', 'Révoquer ce rôle')}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      <span>{t('admin_staff.no_roles_assigned', 'Aucun rôle attribué. L\'utilisateur ne pourra pas accéder aux modules protégés.')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-4 bg-card/50">
+                <div className="text-sm font-medium">{t('admin_staff.add_new_role', 'Ajouter un rôle')}</div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="role-select">{t('admin_staff.role', 'Rôle')}</Label>
+                    <Select value={assignRoleNewRole} onValueChange={setAssignRoleNewRole}>
+                      <SelectTrigger id="role-select" className="bg-white"><SelectValue placeholder={t('admin_staff.select_role_placeholder', 'Sélectionner un rôle…')} /></SelectTrigger>
+                      <SelectContent>
+                        {rbacRoles.length === 0 ? (
+                          <SelectItem value="none" disabled>{t('admin_staff.no_roles_available', 'Aucun rôle disponible')}</SelectItem>
+                        ) : (
+                          rbacRoles
+                            .filter((r) => !assignRoleTarget.role_names.includes(String(r.name || r.id)))
+                            .map((r) => (
+                              <SelectItem key={String(r.id)} value={String(r.name || r.id)}>
+                                {String(r.display_name || r.name || r.id)}
+                                {r.is_system ? ` (${t('admin_staff.system_role', 'Système')})` : ''}
+                              </SelectItem>
+                            ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role-reason">{t('admin_staff.reason_optional', 'Raison (optionnel)')}</Label>
+                    <Textarea
+                      id="role-reason"
+                      rows={2}
+                      value={assignRoleReason}
+                      onChange={(e) => setAssignRoleReason(e.target.value)}
+                      placeholder={t('admin_staff.reason_placeholder', 'Ex: Nouvel arrivant RH, accès facturation…')}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignRoleDialogOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
+            <Button
+              onClick={submitAssignRole}
+              disabled={!assignRoleTarget || !assignRoleNewRole || assignRoleSubmitting}
+            >
+              {assignRoleSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {t('admin_staff.assign_role_confirm', 'Attribuer le rôle')}
             </Button>
           </DialogFooter>
         </DialogContent>

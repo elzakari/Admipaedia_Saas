@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Optional
 
 from flask import current_app, g, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token
@@ -9,6 +10,8 @@ from app.middleware.security_middleware import (rate_limit,
                                                 sanitize_request_data)
 from app.models.invitation import InvitationLink
 from app.models.parent import Parent
+from app.models.rbac import RBACRole, UserRoleAssignment
+from app.models.staff import Staff
 from app.models.teacher import Teacher
 from app.models.tenant import TenantMembership
 from app.models.user import User
@@ -34,6 +37,52 @@ def _parse_uuid(value: str):
 def _frontend_invite_url(invite_id: str, exp_ts: int, sig: str) -> str:
     frontend_url = get_frontend_base_url()
     return f"{frontend_url}/invite/{invite_id}?exp={exp_ts}&sig={sig}"
+
+
+def _derive_display_names(first_name: Optional[str], last_name: Optional[str],
+                          username: Optional[str], email: Optional[str]):
+    """Derive a (first_name, last_name) tuple for users that only provide email/username.
+
+    General invitees often skip the dedicated first_name / last_name fields; the
+    form only requires email + password.  We still need non-empty names for the
+    Staff row because the Staff ORM declares first_name / last_name as not-null.
+    """
+    first = (first_name or "").strip()
+    last = (last_name or "").strip()
+    if first and last:
+        return first, last
+    stem = ""
+    if username:
+        stem = str(username).strip()
+    if not stem and email:
+        local = str(email).split("@", 1)[0]
+        stem = local.replace(".", " ").replace("_", " ").replace("-", " ").strip()
+    stem = stem or "Utilisateur"
+    parts = stem.split()
+    if not first and not last:
+        if len(parts) >= 2:
+            return parts[0].title(), " ".join(parts[1:]).title()
+        return parts[0].title() if parts else "Invité", "Général"
+    if first and not last:
+        # user gave first name only; keep last as remaining parts or Général
+        return first, " ".join(parts[1:]).title() or "Général"
+    # last without first
+    return "Invité", last
+
+
+def _tenant_user_active_role_names(user_id: int) -> list[str]:
+    rows = (
+        UserRoleAssignment.query
+        .filter_by(user_id=int(user_id), is_active=True)
+        .join(RBACRole, UserRoleAssignment.role_id == RBACRole.id)
+        .add_columns(RBACRole.name, RBACRole.display_name, RBACRole.id, RBACRole.is_system)
+        .all()
+    )
+    names: list[str] = []
+    for assignment, name, _display, _rid, _sys in rows:
+        if name:
+            names.append(str(name))
+    return names
 
 
 @invitations_bp.route("/admin/invitations", methods=["POST"])
@@ -136,6 +185,30 @@ def admin_list_invitations():
 
     out = []
     for inv in invites:
+        consumed_by_user = None
+        if inv.consumed_by_user_id:
+            u = User.query.filter_by(id=int(inv.consumed_by_user_id)).first()
+            if u:
+                staff_row = Staff.query.filter_by(
+                    user_id=u.id, tenant_id=tenant_id
+                ).first()
+                teacher_row = Teacher.query.filter_by(
+                    user_id=u.id, tenant_id=tenant_id
+                ).first()
+                role_names = _tenant_user_active_role_names(u.id)
+                consumed_by_user = {
+                    "id": u.id,
+                    "email": u.email,
+                    "username": u.username,
+                    "role": u.role,
+                    "is_active": getattr(u, "is_active", True),
+                    "has_staff_profile": staff_row is not None,
+                    "staff_id": getattr(staff_row, "id", None),
+                    "has_teacher_profile": teacher_row is not None,
+                    "teacher_id": getattr(teacher_row, "id", None),
+                    "role_names": role_names,
+                    "role_count": len(role_names),
+                }
         out.append(
             {
                 "id": str(inv.id),
@@ -147,6 +220,7 @@ def admin_list_invitations():
                 "created_by_user_id": inv.created_by_user_id,
                 "consumed_at": inv.consumed_at.isoformat() if inv.consumed_at else None,
                 "consumed_by_user_id": inv.consumed_by_user_id,
+                "consumed_by_user": consumed_by_user,
                 "revoked_at": inv.revoked_at.isoformat() if inv.revoked_at else None,
                 "revoked_by_user_id": inv.revoked_by_user_id,
             }
@@ -460,6 +534,28 @@ def public_register_with_invitation(invite_id: str):
                     last_name=last_name,
                 )
             )
+        if inv.invitee_type == "general":
+            _fn, _ln = _derive_display_names(
+                first_name, last_name, username, email
+            )
+            existing_staff = Staff.query.filter_by(
+                user_id=user.id, tenant_id=inv.tenant_id
+            ).first()
+            if not existing_staff:
+                employee_id = Staff.generate_employee_id(inv.tenant_id)
+                db.session.add(
+                    Staff(
+                        user_id=user.id,
+                        tenant_id=inv.tenant_id,
+                        first_name=_fn,
+                        last_name=_ln,
+                        email=email,
+                        job_title="General Staff",
+                        status="active",
+                        joining_date=date.today(),
+                        employee_id=employee_id,
+                    )
+                )
 
         membership = TenantMembership(
             tenant_id=inv.tenant_id,

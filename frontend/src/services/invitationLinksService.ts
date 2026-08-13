@@ -3,6 +3,20 @@ import api from '@/lib/api'
 export type InviteeType = 'parent' | 'teacher' | 'general'
 export type InviteStatus = 'active' | 'expired' | 'revoked' | 'consumed'
 
+export type InvitationConsumedByUser = {
+  id: number
+  email: string
+  username: string
+  role: string
+  is_active: boolean
+  has_staff_profile: boolean
+  staff_id?: number | null
+  has_teacher_profile: boolean
+  teacher_id?: number | null
+  role_names: string[]
+  role_count: number
+}
+
 export type InvitationLink = {
   id: string
   tenant_id: string
@@ -13,6 +27,7 @@ export type InvitationLink = {
   created_by_user_id?: number
   consumed_at?: string | null
   consumed_by_user_id?: number | null
+  consumed_by_user?: InvitationConsumedByUser | null
   revoked_at?: string | null
   revoked_by_user_id?: number | null
 }

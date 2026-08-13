@@ -1,4 +1,6 @@
 import api from '../lib/api';
+import { rbacApi } from './rbacApi';
+import type { AssignRoleRequest } from '../types/rbac';
 
 export interface StaffRecord {
   id: number;
@@ -19,6 +21,13 @@ export interface StaffRecord {
   department_name?: string | null;
 }
 
+export type StaffOrigin =
+  | 'manual_teacher'
+  | 'manual_staff'
+  | 'teacher_invitation'
+  | 'general_invitation'
+  | 'parent_invitation';
+
 export interface StaffDirectoryItem {
   id: number;
   entity_type: 'teacher' | 'staff';
@@ -32,6 +41,21 @@ export interface StaffDirectoryItem {
   status?: string | null;
   employee_id?: string | null;
   department_id?: number | null;
+  user_id?: number | null;
+  role_names: string[];
+  has_role: boolean;
+  origin: StaffOrigin;
+  has_login: boolean;
+}
+
+export interface StaffDirectorySummary {
+  total: number;
+  teachers: number;
+  staff: number;
+  active: number;
+  general: number;
+  without_role: number;
+  with_role: number;
 }
 
 export interface StaffAttendanceSummaryItem {
@@ -51,6 +75,9 @@ const staffService = {
     const entityType = (item?.entity_type || item?.entityType || '').toString().toLowerCase() === 'teacher'
       ? 'teacher'
       : 'staff';
+    const originRaw = String(item?.origin || (entityType === 'teacher' ? 'manual_teacher' : 'manual_staff'));
+    const allowedOrigins: StaffOrigin[] = ['manual_teacher', 'manual_staff', 'teacher_invitation', 'general_invitation', 'parent_invitation'];
+    const origin: StaffOrigin = allowedOrigins.includes(originRaw as StaffOrigin) ? originRaw as StaffOrigin : (entityType === 'teacher' ? 'manual_teacher' : 'manual_staff');
     return {
       id: Number(item?.id || 0),
       entity_type: entityType,
@@ -64,6 +91,11 @@ const staffService = {
       status: item?.status || 'active',
       employee_id: item?.employee_id || item?.employeeId || null,
       department_id: item?.department_id || item?.departmentId || null,
+      user_id: item?.user_id ?? item?.userId ?? null,
+      role_names: Array.isArray(item?.role_names) ? item.role_names.map(String) : Array.isArray(item?.roleNames) ? item.roleNames.map(String) : [],
+      has_role: Boolean(item?.has_role ?? item?.hasRole ?? (Array.isArray(item?.role_names) ? item.role_names.length > 0 : false)),
+      origin,
+      has_login: Boolean(item?.has_login ?? item?.hasLogin ?? !!item?.user_id),
     };
   },
 
@@ -99,20 +131,44 @@ const staffService = {
     return response.data;
   },
 
-  async getDirectory(search?: string): Promise<{ directory: StaffDirectoryItem[]; summary: Record<string, number> }> {
-    const response = await api.get('/staff/directory', { params: search ? { search } : undefined });
+  async assignRoleToUser(userId: number, roleName: string, reason?: string) {
+    const payload: AssignRoleRequest = { user_id: userId, role_name: roleName };
+    if (reason) (payload as any).reason = reason;
+    return await rbacApi.assignRole(payload);
+  },
+
+  async revokeRoleFromUser(userId: number, roleName: string) {
+    return await rbacApi.revokeRole(userId, roleName);
+  },
+
+  async getUserRoles(userId: number) {
+    return await rbacApi.getUserRoles(userId);
+  },
+
+  async getDirectory(params?: {
+    search?: string;
+    entity_type?: 'teacher' | 'staff' | 'general' | 'all';
+    has_role?: boolean;
+  }): Promise<{ directory: StaffDirectoryItem[]; summary: StaffDirectorySummary }> {
+    const queryParams: Record<string, any> = {};
+    if (params?.search) queryParams.search = params.search;
+    if (params?.entity_type) queryParams.entity_type = params.entity_type;
+    if (params?.has_role !== undefined) queryParams.has_role = params.has_role ? '1' : '0';
+    const response = await api.get('/staff/directory', { params: Object.keys(queryParams).length ? queryParams : undefined });
     const directory = Array.isArray(response.data?.directory)
       ? response.data.directory.map((item: any) => staffService.normalizeDirectoryItem(item))
       : [];
-    return {
-      directory,
-      summary: response.data?.summary || {
-        total: directory.length,
-        teachers: directory.filter((row: StaffDirectoryItem) => row.entity_type === 'teacher').length,
-        staff: directory.filter((row: StaffDirectoryItem) => row.entity_type === 'staff').length,
-        active: directory.filter((row: StaffDirectoryItem) => String(row.status || '').toLowerCase() === 'active').length,
-      },
+    const s = response.data?.summary || {};
+    const summary: StaffDirectorySummary = {
+      total: Number(s.total ?? directory.length),
+      teachers: Number(s.teachers ?? directory.filter((row) => row.entity_type === 'teacher').length),
+      staff: Number(s.staff ?? directory.filter((row) => row.entity_type === 'staff').length),
+      active: Number(s.active ?? directory.filter((row) => String(row.status || '').toLowerCase() === 'active').length),
+      general: Number(s.general ?? directory.filter((row) => row.origin === 'general_invitation').length),
+      without_role: Number(s.without_role ?? directory.filter((row) => !row.has_role).length),
+      with_role: Number(s.with_role ?? directory.filter((row) => row.has_role).length),
     };
+    return { directory, summary };
   },
 
   async getAttendanceSummary(month: string): Promise<{ month: string; summary: StaffAttendanceSummaryItem[]; by_entity: Record<string, any[]> }> {

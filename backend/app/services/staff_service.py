@@ -1,6 +1,6 @@
 import calendar
 from datetime import date, datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import structlog
 from sqlalchemy import or_
@@ -8,6 +8,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models.department import Department, department_staff
+from app.models.invitation import InvitationLink
+from app.models.rbac import RBACRole, UserRoleAssignment
 from app.models.staff import Staff
 from app.models.staff_enhanced import StaffAttendance
 from app.models.teacher import Teacher
@@ -258,11 +260,16 @@ class StaffService:
             return False, "Unexpected error"
 
     @staticmethod
-    def get_staff_directory(tenant_id=None, search: Optional[str] = None):
+    def get_staff_directory(
+        tenant_id=None,
+        search: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        has_role: Optional[bool] = None,
+    ):
         teacher_query = Teacher.query
         if tenant_id is not None and hasattr(Teacher, "tenant_id"):
             teacher_query = teacher_query.filter(Teacher.tenant_id == tenant_id)
-        teacher_rows = teacher_query.all()
+        teacher_rows: List[Teacher] = teacher_query.all()
 
         staff_query = Staff.query
         if tenant_id is not None:
@@ -278,11 +285,63 @@ class StaffService:
                     User.email.ilike(search_term),
                 )
             )
-        staff_rows = staff_query.all()
+        staff_rows: List[Staff] = staff_query.all()
         staff_departments = StaffService._get_department_lookup(
             [staff.user_id for staff in staff_rows if getattr(staff, "user_id", None)],
             tenant_id=tenant_id,
         )
+
+        all_user_ids: List[int] = []
+        for t in teacher_rows:
+            if getattr(t, "user_id", None):
+                all_user_ids.append(int(t.user_id))
+        for s in staff_rows:
+            if getattr(s, "user_id", None):
+                all_user_ids.append(int(s.user_id))
+
+        roles_by_user: Dict[int, List[str]] = {}
+        if all_user_ids:
+            assignment_rows = (
+                UserRoleAssignment.query
+                .filter(
+                    UserRoleAssignment.user_id.in_(all_user_ids),
+                    UserRoleAssignment.is_active.is_(True),
+                )
+                .join(RBACRole, UserRoleAssignment.role_id == RBACRole.id)
+                .add_columns(UserRoleAssignment.user_id, RBACRole.name)
+                .all()
+            )
+            for _assignment, uid, rname in assignment_rows:
+                roles_by_user.setdefault(int(uid), [])
+                if rname:
+                    roles_by_user[int(uid)].append(str(rname))
+
+        origins_by_user: Dict[int, str] = {}
+        if all_user_ids:
+            invite_rows = (
+                InvitationLink.query
+                .filter(InvitationLink.consumed_by_user_id.in_(all_user_ids))
+                .add_columns(
+                    InvitationLink.consumed_by_user_id,
+                    InvitationLink.invitee_type,
+                )
+                .all()
+            )
+            for _inv, uid, itype in invite_rows:
+                if not uid:
+                    continue
+                itype_s = str(itype or "")
+                if itype_s == "general":
+                    origins_by_user[int(uid)] = "general_invitation"
+                elif itype_s == "teacher":
+                    origins_by_user[int(uid)] = "teacher_invitation"
+                elif itype_s == "parent":
+                    origins_by_user[int(uid)] = "parent_invitation"
+
+        def _origin_for(entity_type_row: str, user_id_val) -> str:
+            if user_id_val and int(user_id_val) in origins_by_user:
+                return origins_by_user[int(user_id_val)]
+            return "manual_teacher" if entity_type_row == "teacher" else "manual_staff"
 
         directory = []
         for teacher in teacher_rows:
@@ -300,41 +359,56 @@ class StaffService:
                 ).lower()
                 if search.strip().lower() not in haystack:
                     continue
-            directory.append(
-                {
-                    "id": teacher.id,
-                    "entity_type": "teacher",
-                    "entity_key": f"teacher-{teacher.id}",
-                    "name": full_name or f"Teacher {teacher.id}",
-                    "position": getattr(teacher, "specialization", None) or "Teacher",
-                    "department_name": getattr(
-                        getattr(teacher, "department", None), "name", None
-                    ),
-                    "email": email,
-                    "phone": getattr(teacher, "phone_number", None),
-                    "join_date": (
-                        teacher.joining_date.isoformat()
-                        if getattr(teacher, "joining_date", None)
-                        else (
-                            teacher.hire_date.isoformat()
-                            if getattr(teacher, "hire_date", None)
-                            else None
-                        )
-                    ),
-                    "status": getattr(teacher, "status", "active"),
-                    "employee_id": getattr(teacher, "employee_id", None),
-                }
-            )
+            user_id_val = getattr(teacher, "user_id", None)
+            role_names = roles_by_user.get(int(user_id_val), []) if user_id_val else []
+            entry_origin = _origin_for("teacher", user_id_val)
+            entry = {
+                "id": teacher.id,
+                "entity_type": "teacher",
+                "entity_key": f"teacher-{teacher.id}",
+                "name": full_name or f"Teacher {teacher.id}",
+                "position": getattr(teacher, "specialization", None) or "Teacher",
+                "department_name": getattr(
+                    getattr(teacher, "department", None), "name", None
+                ),
+                "email": email,
+                "phone": getattr(teacher, "phone_number", None),
+                "join_date": (
+                    teacher.joining_date.isoformat()
+                    if getattr(teacher, "joining_date", None)
+                    else (
+                        teacher.hire_date.isoformat()
+                        if getattr(teacher, "hire_date", None)
+                        else None
+                    )
+                ),
+                "status": getattr(teacher, "status", "active"),
+                "employee_id": getattr(teacher, "employee_id", None),
+                "user_id": user_id_val,
+                "role_names": role_names,
+                "has_role": bool(role_names),
+                "origin": entry_origin,
+                "has_login": bool(
+                    user_id_val and getattr(getattr(teacher, "user", None), "is_active", True)
+                ),
+            }
+            directory.append(entry)
 
         for staff in staff_rows:
             department_info = staff_departments.get(getattr(staff, "user_id", None), {})
+            user_id_val = getattr(staff, "user_id", None)
+            role_names = roles_by_user.get(int(user_id_val), []) if user_id_val else []
+            entry_origin = _origin_for("staff", user_id_val)
+            position = staff.job_title or "Staff"
+            if entry_origin == "general_invitation" and not staff.job_title:
+                position = "General Staff (Invited)"
             directory.append(
                 {
                     "id": staff.id,
                     "entity_type": "staff",
                     "entity_key": f"staff-{staff.id}",
                     "name": staff.full_name,
-                    "position": staff.job_title or "Staff",
+                    "position": position,
                     "department_id": department_info.get("department_id"),
                     "department_name": department_info.get("department_name"),
                     "email": getattr(getattr(staff, "user", None), "email", None),
@@ -344,8 +418,29 @@ class StaffService:
                     ),
                     "status": staff.status or "active",
                     "employee_id": staff.employee_id,
+                    "user_id": user_id_val,
+                    "role_names": role_names,
+                    "has_role": bool(role_names),
+                    "origin": entry_origin,
+                    "has_login": bool(
+                        user_id_val and getattr(getattr(staff, "user", None), "is_active", True)
+                    ),
                 }
             )
+
+        def _row_passes_filters(row) -> bool:
+            if entity_type and entity_type != "all":
+                if entity_type == "general":
+                    if row.get("origin") != "general_invitation":
+                        return False
+                elif row.get("entity_type") != entity_type:
+                    return False
+            if has_role is not None:
+                if bool(row.get("has_role")) != bool(has_role):
+                    return False
+            return True
+
+        directory = [row for row in directory if _row_passes_filters(row)]
 
         return sorted(
             directory,
