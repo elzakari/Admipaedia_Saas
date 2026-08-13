@@ -49,8 +49,31 @@ import SuperAdminPlanPricingPage from '../pages/super-admin/SuperAdminPlanPricin
 
 const lazyPage = (importer: () => Promise<any>) =>
   lazy(async () => {
-    const mod: any = await importer();
-    return { default: (mod.default ?? mod) as React.ComponentType<any> };
+    try {
+      const mod: any = await importer();
+      return { default: (mod.default ?? mod) as React.ComponentType<any> };
+    } catch (err: any) {
+      if (
+        typeof window !== 'undefined' &&
+        (err?.name === 'TypeError' || /failed to fetch dynamically imported module/i.test(err?.message || '') || err?.message?.includes('error loading dynamically imported module'))
+      ) {
+        const isChunkLoadError = /ChunkLoadError|Loading chunk .* failed|Loading CSS chunk .* failed/.test(err?.message || err?.stack || '');
+        if (isChunkLoadError || !window.__admipaediaChunkRetried) {
+          window.__admipaediaChunkRetried = true;
+          const retryDelay = 350 + Math.floor(Math.random() * 350);
+          await new Promise((r) => setTimeout(r, retryDelay));
+          try {
+            const mod2: any = await importer();
+            return { default: (mod2.default ?? mod2) as React.ComponentType<any> };
+          } catch (_retryErr: any) { /* fall through to reload */ }
+          try {
+            window.location.reload();
+          } catch { /* ignore */ }
+          await new Promise(() => { /* hang until reload */ });
+        }
+      }
+      throw err;
+    }
   });
 
 // Lazy-loaded dashboard components (high priority)
