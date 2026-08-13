@@ -1541,11 +1541,14 @@ const StaffManagement: React.FC = () => {
                 <SelectTrigger className="bg-white"><SelectValue placeholder="Optional" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No department head</SelectItem>
-                  {(teachersData?.teachers || []).map((teacher: Teacher) => (
-                    <SelectItem key={teacher.id} value={String(teacher.id)}>
-                      {`${teacher.firstName || ''} ${teacher.lastName || ''}`.trim() || `Teacher ${teacher.id}`}
-                    </SelectItem>
-                  ))}
+                  {(teachersData?.teachers || []).map((teacher: Teacher) => {
+                    const headId = teacher.user_id && teacher.user_id > 0 ? teacher.user_id : teacher.id;
+                    return (
+                      <SelectItem key={teacher.id} value={String(headId)}>
+                        {`${teacher.firstName || teacher.first_name || ''} ${teacher.lastName || teacher.last_name || ''}`.trim() || teacher.email || `Teacher ${teacher.id}`}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

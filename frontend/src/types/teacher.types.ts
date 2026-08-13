@@ -1,6 +1,7 @@
 // Teacher entity types
 export interface Teacher {
   id: number;
+  user_id?: number;
   first_name: string;
   last_name: string;
   full_name?: string;
@@ -25,6 +26,7 @@ export interface Teacher {
     name: string;
     code: string;
   } | null;
+  department_id?: number | null;
   salary_info?: {
     basic_salary: number;
     allowances: Record<string, number>;

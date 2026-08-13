@@ -467,93 +467,123 @@ class StaffService:
             staff_query = staff_query.filter(Staff.tenant_id == tenant_id)
         staff_rows = staff_query.all()
 
+        teacher_ids = [t.id for t in teachers] or [-1]
+        staff_ids = [s.id for s in staff_rows] or [-1]
+
+        # Pull attendance rows (we still need them for by_entity detail)
         teacher_attendance = TeacherAttendance.query.filter(
             TeacherAttendance.date >= start_date,
             TeacherAttendance.date <= end_date,
-            TeacherAttendance.teacher_id.in_(
-                [teacher.id for teacher in teachers] or [-1]
-            ),
+            TeacherAttendance.teacher_id.in_(teacher_ids),
         ).all()
         staff_attendance = StaffAttendance.query.filter(
             StaffAttendance.date >= start_date,
             StaffAttendance.date <= end_date,
-            StaffAttendance.staff_id.in_([staff.id for staff in staff_rows] or [-1]),
+            StaffAttendance.staff_id.in_(staff_ids),
         ).all()
 
-        by_entity = {}
-        summary = []
+        # ── Dict-group attendance rows in ONE pass (O(n) instead of O(n*m)) ──
+        ta_by_teacher: Dict[int, List[TeacherAttendance]] = {}
+        for rec in teacher_attendance:
+            ta_by_teacher.setdefault(int(rec.teacher_id), []).append(rec)
 
-        def _build_stats(records):
-            present = sum(1 for record in records if record["status"] == "present")
-            absent = sum(1 for record in records if record["status"] == "absent")
-            late = sum(1 for record in records if record["status"] == "late")
-            total = present + absent + late
-            return (
-                present,
-                absent,
-                late,
-                (round(((present + late) / total) * 100) if total > 0 else 0),
-            )
+        sa_by_staff: Dict[int, List[StaffAttendance]] = {}
+        for rec in staff_attendance:
+            sa_by_staff.setdefault(int(rec.staff_id), []).append(rec)
+
+        # Stats counts (single-pass tally per record instead of repeated sum())
+        ta_stats = {}
+        for _tid, recs in ta_by_teacher.items():
+            p = a = l_ = 0
+            for r in recs:
+                s = r.status
+                if s == "present":
+                    p += 1
+                elif s == "absent":
+                    a += 1
+                elif s == "late":
+                    l_ += 1
+            tot = p + a + l_
+            ta_stats[_tid] = (p, a, l_, round(((p + l_) / tot) * 100) if tot > 0 else 0)
+
+        sa_stats = {}
+        for _sid, recs in sa_by_staff.items():
+            p = a = l_ = 0
+            for r in recs:
+                s = r.status
+                if s == "present":
+                    p += 1
+                elif s == "absent":
+                    a += 1
+                elif s == "late":
+                    l_ += 1
+            tot = p + a + l_
+            sa_stats[_sid] = (p, a, l_, round(((p + l_) / tot) * 100) if tot > 0 else 0)
+
+        by_entity: Dict[str, List[Dict[str, Any]]] = {}
+        summary: List[Dict[str, Any]] = []
 
         for teacher in teachers:
             key = f"teacher-{teacher.id}"
+            _tid = int(teacher.id)
+            recs = ta_by_teacher.get(_tid, [])
             items = [
                 {
                     "id": record.id,
                     "entity_type": "teacher",
-                    "entity_id": teacher.id,
+                    "entity_id": _tid,
                     "entity_key": key,
                     "date": record.date.isoformat(),
                     "status": record.status,
-                    "note": record.note,
+                    "note": getattr(record, "note", None),
                 }
-                for record in teacher_attendance
-                if record.teacher_id == teacher.id
+                for record in recs
             ]
             by_entity[key] = items
-            present, absent, late, rate = _build_stats(items)
+            p, a, l_, rate = ta_stats.get(_tid, (0, 0, 0, 0))
             summary.append(
                 {
                     "entity_type": "teacher",
-                    "entity_id": teacher.id,
+                    "entity_id": _tid,
                     "entity_key": key,
                     "name": f"{getattr(teacher, 'first_name', '')} {getattr(teacher, 'last_name', '')}".strip()
-                    or f"Teacher {teacher.id}",
+                    or f"Teacher {_tid}",
                     "position": getattr(teacher, "specialization", None) or "Teacher",
-                    "present": present,
-                    "absent": absent,
-                    "late": late,
+                    "present": p,
+                    "absent": a,
+                    "late": l_,
                     "attendanceRate": rate,
                 }
             )
 
         for staff in staff_rows:
             key = f"staff-{staff.id}"
+            _sid = int(staff.id)
+            recs = sa_by_staff.get(_sid, [])
             items = [
                 {
                     "id": record.id,
                     "entity_type": "staff",
-                    "entity_id": staff.id,
+                    "entity_id": _sid,
                     "entity_key": key,
                     "date": record.date.isoformat(),
                     "status": record.status,
                     "note": None,
                 }
-                for record in staff_attendance
-                if record.staff_id == staff.id
+                for record in recs
             ]
             by_entity[key] = items
-            present, absent, late, rate = _build_stats(items)
+            p, a, l_, rate = sa_stats.get(_sid, (0, 0, 0, 0))
             summary.append(
                 {
                     "entity_type": "staff",
-                    "entity_id": staff.id,
+                    "entity_id": _sid,
                     "entity_key": key,
                     "name": staff.full_name,
                     "position": staff.job_title or "Staff",
-                    "present": present,
-                    "absent": absent,
-                    "late": late,
+                    "present": p,
+                    "absent": a,
+                    "late": l_,
                     "attendanceRate": rate,
                 }
             )

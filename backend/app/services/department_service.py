@@ -12,13 +12,84 @@ both the backend API and any future CLI seed commands share the same algorithm.
 import logging
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models.department import (AcademicStructure, AcademicStructureType,
-                                   Department)
+                                   Department, department_staff)
+from app.models.subject import Subject
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+# ── Whitelist of AcademicStructure column names (ORM-safe payload filter) ───
+_ACADEMIC_STRUCTURE_COLUMNS = {
+    "tenant_id",
+    "structure_type",
+    "name",
+    "code",
+    "description",
+    "head_id",
+    "parent_id",
+    "display_order",
+    "allocated_budget",
+    "is_active",
+}
+
+
+def _whitelist_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of *payload* keeping only real AcademicStructure columns.
+
+    Extra keys (e.g. the frontend's subjects_count/staff_count/staff, or any
+    drift from newer client fields) are silently dropped.  This prevents the
+    ``AcademicStructure(**payload)`` constructor from raising ``TypeError``
+    when the client sends extra keys.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    return {k: v for k, v in payload.items() if k in _ACADEMIC_STRUCTURE_COLUMNS}
+
+
+def _attach_batch_counts(structures: List[AcademicStructure]) -> None:
+    """Patch each structure in-place with precomputed subjects_count/staff_count.
+
+    Avoids the N+1 ``obj.subjects.count()`` / ``len(obj.staff)`` calls that used
+    to happen inside ``AcademicStructureListSchema`` / ``AcademicStructureSchema``
+    for every row of the list endpoint.  Batches all counts in 2 SQL queries
+    regardless of list size.
+    """
+    if not structures:
+        return
+    ids = [s.id for s in structures]
+
+    # Subjects count per department
+    subj_rows = (
+        db.session.query(
+            Subject.department_id.label("dept_id"),
+            func.count(Subject.id).label("cnt"),
+        )
+        .filter(Subject.department_id.in_(ids))
+        .group_by(Subject.department_id)
+        .all()
+    )
+    subj_counts = {int(dept_id): int(cnt) for dept_id, cnt in subj_rows}
+
+    # Staff count per department (through department_staff association)
+    staff_rows = (
+        db.session.query(
+            department_staff.c.department_id.label("dept_id"),
+            func.count(department_staff.c.user_id).label("cnt"),
+        )
+        .filter(department_staff.c.department_id.in_(ids))
+        .group_by(department_staff.c.department_id)
+        .all()
+    )
+    staff_counts = {int(dept_id): int(cnt) for dept_id, cnt in staff_rows}
+
+    for s in structures:
+        setattr(s, "subjects_count", subj_counts.get(s.id, 0))
+        setattr(s, "staff_count", staff_counts.get(s.id, 0))
 
 
 class AcademicStructureService:
@@ -41,10 +112,12 @@ class AcademicStructureService:
                 q = q.filter(AcademicStructure.structure_type == structure_type)
             if is_active is not None:
                 q = q.filter(AcademicStructure.is_active == is_active)
-            return q.order_by(
+            items = q.order_by(
                 AcademicStructure.display_order,
                 AcademicStructure.name,
             ).all()
+            _attach_batch_counts(items)
+            return items
         except SQLAlchemyError as exc:
             logger.error("get_all error: %s", exc)
             return []
@@ -58,7 +131,10 @@ class AcademicStructureService:
             q = AcademicStructure.query.filter(AcademicStructure.id == structure_id)
             if tenant_id is not None:
                 q = q.filter(AcademicStructure.tenant_id == tenant_id)
-            return q.first()
+            item = q.first()
+            if item is not None:
+                _attach_batch_counts([item])
+            return item
         except SQLAlchemyError as exc:
             logger.error("get_by_id(%s) error: %s", structure_id, exc)
             return None
@@ -96,7 +172,7 @@ class AcademicStructureService:
                 logger.warning("create called without tenant_id")
                 return None
 
-            payload = dict(data or {})
+            payload = _whitelist_payload(data or {})
 
             # Coerce structure_type string → enum
             st_raw = payload.get(
@@ -107,6 +183,24 @@ class AcademicStructureService:
                     payload["structure_type"] = AcademicStructureType(st_raw)
                 except ValueError:
                     payload["structure_type"] = AcademicStructureType.DISCIPLINE
+            elif st_raw is None:
+                payload["structure_type"] = AcademicStructureType.DISCIPLINE
+
+            # Normalize head_id / parent_id None (for empty string / 0 passed)
+            for _k in ("head_id", "parent_id"):
+                if payload.get(_k) in (None, "", 0, "0", "none"):
+                    payload[_k] = None
+
+            # Validate head_id refers to a real User FK (users.id, NOT teacher.id)
+            head_id = payload.get("head_id")
+            if head_id is not None:
+                head_user = db.session.get(User, int(head_id))
+                if head_user is None:
+                    logger.warning(
+                        "create: head_id=%s does not exist in users.id", head_id
+                    )
+                    return None
+                payload["head_id"] = int(head_id)
 
             # Uniqueness check: (tenant, code)
             if AcademicStructureService.get_by_code(
@@ -123,10 +217,15 @@ class AcademicStructureService:
             struct = AcademicStructure(**payload)
             db.session.add(struct)
             db.session.commit()
+            _attach_batch_counts([struct])
             return struct
         except SQLAlchemyError as exc:
             db.session.rollback()
-            logger.error("create error: %s", exc)
+            logger.error("create error: %s", exc, exc_info=True)
+            return None
+        except TypeError as exc:
+            db.session.rollback()
+            logger.error("create TypeError (payload mismatch): %s", exc, exc_info=True)
             return None
 
     @staticmethod
@@ -142,7 +241,7 @@ class AcademicStructureService:
             if not struct:
                 return None
 
-            payload = dict(data or {})
+            payload = _whitelist_payload(data or {})
 
             # Coerce structure_type if present
             if "structure_type" in payload and isinstance(
@@ -153,11 +252,28 @@ class AcademicStructureService:
                         payload["structure_type"]
                     )
                 except ValueError:
-                    del payload["structure_type"]  # ignore unknown values
+                    del payload["structure_type"]
+
+            # Normalize head_id / parent_id empty → None
+            for _k in ("head_id", "parent_id"):
+                if _k in payload and payload.get(_k) in (None, "", 0, "0", "none"):
+                    payload[_k] = None
+
+            # Validate head_id references users.id (NOT teacher.id)
+            if "head_id" in payload and payload.get("head_id") is not None:
+                head_user = db.session.get(User, int(payload["head_id"]))
+                if head_user is None:
+                    logger.warning(
+                        "update(%s): head_id=%s does not exist in users.id",
+                        structure_id,
+                        payload["head_id"],
+                    )
+                    return None
+                payload["head_id"] = int(payload["head_id"])
 
             # Code uniqueness (if changing)
             new_code = payload.get("code")
-            if new_code and new_code != struct.code:
+            if new_code and str(new_code) != str(struct.code):
                 existing = AcademicStructureService.get_by_code(
                     new_code, tenant_id=tenant_id
                 )
@@ -169,10 +285,20 @@ class AcademicStructureService:
                 setattr(struct, key, value)
 
             db.session.commit()
+            _attach_batch_counts([struct])
             return struct
         except SQLAlchemyError as exc:
             db.session.rollback()
-            logger.error("update(%s) error: %s", structure_id, exc)
+            logger.error("update(%s) error: %s", structure_id, exc, exc_info=True)
+            return None
+        except TypeError as exc:
+            db.session.rollback()
+            logger.error(
+                "update(%s) TypeError (payload mismatch): %s",
+                structure_id,
+                exc,
+                exc_info=True,
+            )
             return None
 
     @staticmethod
@@ -201,29 +327,28 @@ class AcademicStructureService:
         tenant_id=None,
     ) -> bool:
         try:
-            from app.models.department import department_staff
             from app.models.user import User
 
             struct = AcademicStructureService.get_by_id(
                 structure_id, tenant_id=tenant_id
             )
-            user = User.query.get(user_id)
+            user = db.session.get(User, int(user_id)) if user_id else None
             if not struct or not user:
                 return False
 
             existing = db.session.execute(
                 department_staff.select().where(
                     (department_staff.c.department_id == structure_id)
-                    & (department_staff.c.user_id == user_id)
+                    & (department_staff.c.user_id == int(user_id))
                 )
             ).first()
             if existing:
-                return True  # idempotent
+                return True
 
             db.session.execute(
                 department_staff.insert().values(
                     department_id=structure_id,
-                    user_id=user_id,
+                    user_id=int(user_id),
                     role=role,
                 )
             )
@@ -264,8 +389,6 @@ class AcademicStructureService:
         base = f"{prefix}-{dept_bin}"
 
         # Sequential suffix: count existing codes starting with base in this tenant
-        from app.models.subject import Subject
-
         q = Subject.query.filter(Subject.code.like(f"{base}-%"))
         if tenant_id:
             q = q.filter(Subject.tenant_id == tenant_id)
@@ -276,7 +399,6 @@ class AcademicStructureService:
 
 
 # ── Backward-compat alias ──────────────────────────────────────────────────────
-# Existing code that imports DepartmentService keeps working.
 class DepartmentService(AcademicStructureService):
     """
     Backward-compat shim.  All old method names are mapped to

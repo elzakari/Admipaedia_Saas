@@ -6,6 +6,7 @@ import { ApiResponseStandardizer } from '../lib/apiResponseStandardizer';
 // Teacher interface - consolidated and properly typed
 export interface Teacher {
   id: number;
+  user_id?: number;
   first_name: string;
   last_name: string;
   email: string;
@@ -29,6 +30,7 @@ export interface Teacher {
     name: string;
     code: string;
   } | null;
+  department_id?: number | null;
   salary_info?: {
     basic_salary: number;
     allowances: Record<string, number>;
@@ -443,9 +445,12 @@ const teacherService = {
     const emergencyContactVal = backendTeacher.emergency_contact as Teacher['emergency_contact'] | undefined;
     const salaryInfoVal = backendTeacher.salary_info as Teacher['salary_info'] | undefined;
     const departmentVal = (backendTeacher.department as Teacher['department'] | undefined) ?? null;
+    const userIdRaw = backendTeacher.user_id;
+    const deptIdRaw = backendTeacher.department_id ?? departmentVal?.id;
 
     return {
       id: Number(backendTeacher.id),
+      ...(userIdRaw != null && userIdRaw !== '' ? { user_id: Number(userIdRaw) } : {}),
       first_name: String(backendTeacher.first_name || ''),
       last_name: String(backendTeacher.last_name || ''),
       email: String(backendTeacher.email || ''),
@@ -458,6 +463,7 @@ const teacherService = {
       experience_years: Number(backendTeacher.experience_years || 0),
       status: (backendTeacher.status as 'active' | 'inactive' | 'on_leave') || 'active',
       department: departmentVal,
+      department_id: deptIdRaw != null && deptIdRaw !== '' ? Number(deptIdRaw) : (departmentVal?.id ?? null),
       created_at: String(backendTeacher.created_at || ''),
       updated_at: String(backendTeacher.updated_at || ''),
       full_name: String(backendTeacher.full_name || `${backendTeacher.first_name || ''} ${backendTeacher.last_name || ''}`.trim()),
