@@ -86,16 +86,51 @@ def get_structures():
     is_active = _parse_bool(request.args.get("is_active"))
     stype = _coerce_type(request.args.get("structure_type") or request.args.get("type"))
 
-    items = AcademicStructureService.get_all(
-        is_active=is_active,
-        structure_type=stype,
-        tenant_id=tid,
-    )
+    try:
+        items = AcademicStructureService.get_all(
+            is_active=is_active,
+            structure_type=stype,
+            tenant_id=tid,
+        )
+    except Exception as exc:
+        logger.exception("get_structures service error: %s", exc)
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Failed to list departments",
+                    "data": [],
+                    "error": str(exc),
+                }
+            ),
+            500,
+        )
+
+    try:
+        dumped = _schema_many.dump(items)
+    except Exception as exc:
+        logger.exception("get_structures schema dump error: %s", exc)
+        raw_items = []
+        for s in items or []:
+            raw_items.append({
+                "id": getattr(s, "id", None),
+                "name": getattr(s, "name", ""),
+                "code": getattr(s, "code", ""),
+                "description": getattr(s, "description", None),
+                "structure_type": getattr(getattr(s, "structure_type", None), "value", str(getattr(s, "structure_type", ""))),
+                "is_active": bool(getattr(s, "is_active", True)),
+                "display_order": getattr(s, "display_order", 0),
+                "head_id": getattr(s, "head_id", None),
+                "subjects_count": getattr(s, "subjects_count", 0),
+                "staff_count": getattr(s, "staff_count", 0),
+            })
+        dumped = raw_items
+
     return (
         jsonify(
             {
                 "success": True,
-                "data": _schema_many.dump(items),
+                "data": dumped,
             }
         ),
         200,

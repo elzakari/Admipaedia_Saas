@@ -61,35 +61,67 @@ def _attach_batch_counts(structures: List[AcademicStructure]) -> None:
     """
     if not structures:
         return
-    ids = [s.id for s in structures]
+    ids = [s.id for s in structures if getattr(s, "id", None) is not None]
+    if not ids:
+        for s in structures:
+            setattr(s, "subjects_count", 0)
+            setattr(s, "staff_count", 0)
+        return
 
-    # Subjects count per department
-    subj_rows = (
-        db.session.query(
-            Subject.department_id.label("dept_id"),
-            func.count(Subject.id).label("cnt"),
+    try:
+        subj_rows = (
+            db.session.query(
+                Subject.department_id.label("dept_id"),
+                func.count(Subject.id).label("cnt"),
+            )
+            .filter(Subject.department_id.in_(ids))
+            .group_by(Subject.department_id)
+            .all()
         )
-        .filter(Subject.department_id.in_(ids))
-        .group_by(Subject.department_id)
-        .all()
-    )
-    subj_counts = {int(dept_id): int(cnt) for dept_id, cnt in subj_rows}
+        subj_counts = {}
+        for dept_id, cnt in subj_rows:
+            if dept_id is None:
+                continue
+            try:
+                subj_counts[int(dept_id)] = int(cnt) if cnt is not None else 0
+            except (TypeError, ValueError):
+                continue
 
-    # Staff count per department (through department_staff association)
-    staff_rows = (
-        db.session.query(
-            department_staff.c.department_id.label("dept_id"),
-            func.count(department_staff.c.user_id).label("cnt"),
-        )
-        .filter(department_staff.c.department_id.in_(ids))
-        .group_by(department_staff.c.department_id)
-        .all()
-    )
-    staff_counts = {int(dept_id): int(cnt) for dept_id, cnt in staff_rows}
+        staff_counts: Dict[int, int] = {}
+        try:
+            staff_rows = (
+                db.session.query(
+                    department_staff.c.department_id.label("dept_id"),
+                    func.count(department_staff.c.user_id).label("cnt"),
+                )
+                .filter(department_staff.c.department_id.in_(ids))
+                .group_by(department_staff.c.department_id)
+                .all()
+            )
+            for dept_id, cnt in staff_rows:
+                if dept_id is None:
+                    continue
+                try:
+                    staff_counts[int(dept_id)] = int(cnt) if cnt is not None else 0
+                except (TypeError, ValueError):
+                    continue
+        except Exception as staff_err:
+            logger.warning("_attach_batch_counts staff query failed: %s", staff_err)
+            staff_counts = {}
 
-    for s in structures:
-        setattr(s, "subjects_count", subj_counts.get(s.id, 0))
-        setattr(s, "staff_count", staff_counts.get(s.id, 0))
+        for s in structures:
+            sid = getattr(s, "id", None)
+            try:
+                sid_int = int(sid) if sid is not None else None
+            except (TypeError, ValueError):
+                sid_int = None
+            setattr(s, "subjects_count", subj_counts.get(sid_int, 0))
+            setattr(s, "staff_count", staff_counts.get(sid_int, 0))
+    except Exception as exc:
+        logger.warning("_attach_batch_counts fallback to 0s: %s", exc)
+        for s in structures:
+            setattr(s, "subjects_count", 0)
+            setattr(s, "staff_count", 0)
 
 
 class AcademicStructureService:
@@ -113,13 +145,11 @@ class AcademicStructureService:
             if is_active is not None:
                 q = q.filter(AcademicStructure.is_active == is_active)
             items = q.order_by(
-                AcademicStructure.display_order,
-                AcademicStructure.name,
-            ).all()
+                AcademicStructure.display_order, AcademicStructure.name).all()
             _attach_batch_counts(items)
             return items
-        except SQLAlchemyError as exc:
-            logger.error("get_all error: %s", exc)
+        except Exception as exc:
+            logger.error("get_all error: %s", exc, exc_info=True)
             return []
 
     @staticmethod

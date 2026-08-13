@@ -17,8 +17,11 @@ class ExamSchema(Schema):
 
     id = fields.Integer(dump_only=True)
     title = fields.String(required=True, validate=validate.Length(min=3, max=100))
+    name = fields.Method("get_display_name", dump_only=True)
     description = fields.String(allow_none=True)
     exam_date = fields.DateTime(required=True)
+    start_date = fields.Method("get_start_date", dump_only=True)
+    end_date = fields.Method("get_end_date", dump_only=True)
     duration = fields.Integer(
         required=True, validate=validate.Range(min=5)
     )  # At least 5 minutes
@@ -32,6 +35,30 @@ class ExamSchema(Schema):
     )
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+
+    def get_display_name(self, obj):
+        title = getattr(obj, "title", None) or getattr(obj, "name", None)
+        return str(title or "Untitled Exam")
+
+    def get_start_date(self, obj):
+        dt = getattr(obj, "exam_date", None) or getattr(obj, "start_date", None)
+        if dt is None:
+            return None
+        if isinstance(dt, datetime):
+            return dt.strftime("%Y-%m-%d")
+        return str(dt)[:10] if str(dt) else None
+
+    def get_end_date(self, obj):
+        dt = getattr(obj, "exam_date", None) or getattr(obj, "end_date", None)
+        if dt is None:
+            return None
+        duration_minutes = int(getattr(obj, "duration", 0) or 0)
+        if isinstance(dt, datetime) and duration_minutes > 0:
+            end_dt = dt + timedelta(minutes=duration_minutes)
+            return end_dt.strftime("%Y-%m-%d")
+        if isinstance(dt, datetime):
+            return dt.strftime("%Y-%m-%d")
+        return str(dt)[:10] if str(dt) else None
 
     # Include related data when needed
     class_ = fields.Nested(

@@ -33,9 +33,9 @@ class AcademicStructureSchema(Schema):
     allocated_budget = fields.Float(load_default=0.0)
 
     # polymorphic discriminator
-    structure_type = fields.String(
+    structure_type = fields.Method(
+        "serialize_structure_type",
         load_default=AcademicStructureType.DISCIPLINE.value,
-        validate=validate.OneOf(STRUCTURE_TYPE_VALUES),
     )
 
     # Nested head details (dump-only)
@@ -75,6 +75,19 @@ class AcademicStructureSchema(Schema):
                 data["structure_type"] = AcademicStructureType.DISCIPLINE
         return data
 
+    def serialize_structure_type(self, obj):
+        raw = getattr(obj, "structure_type", None)
+        if raw is None:
+            return AcademicStructureType.DISCIPLINE.value
+        if isinstance(raw, AcademicStructureType):
+            return raw.value
+        if hasattr(raw, "value"):
+            return raw.value
+        val = str(raw)
+        if val in STRUCTURE_TYPE_VALUES:
+            return val
+        return AcademicStructureType.DISCIPLINE.value
+
 
 class AcademicStructureListSchema(Schema):
     """Slim schema for list responses and dropdown population."""
@@ -86,12 +99,25 @@ class AcademicStructureListSchema(Schema):
     name = fields.String()
     code = fields.String()
     description = fields.String(allow_none=True)
-    structure_type = fields.String()
+    structure_type = fields.Method("serialize_structure_type")
     is_active = fields.Boolean()
     display_order = fields.Integer()
     subjects_count = fields.Integer(dump_only=True, allow_none=True)
     staff_count = fields.Integer(dump_only=True, allow_none=True)
     head_id = fields.Integer(dump_only=True, allow_none=True)
+
+    def serialize_structure_type(self, obj):
+        raw = getattr(obj, "structure_type", None)
+        if raw is None:
+            return AcademicStructureType.DISCIPLINE.value
+        if isinstance(raw, AcademicStructureType):
+            return raw.value
+        if hasattr(raw, "value"):
+            return raw.value
+        val = str(raw)
+        if val in STRUCTURE_TYPE_VALUES:
+            return val
+        return AcademicStructureType.DISCIPLINE.value
 
 
 DepartmentSchema = AcademicStructureSchema

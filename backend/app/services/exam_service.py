@@ -275,15 +275,22 @@ class ExamService:
 
     @staticmethod
     def get_upcoming_exams(class_id=None, days=7, tenant_id=None, branch_id=None):
-        """Get upcoming exams within the specified number of days."""
+        """Get upcoming exams within the specified number of days.
+
+        Returns list of Exam ORM rows (NOT pre-dumped dicts) so route handlers
+        can perform marshmallow serialization exactly once.  This avoids the
+        double-dump bug (DTO dicts dumped again via ExamSchema → DateTime
+        serializer crashes because it receives a string, not a datetime).
+        """
         from datetime import timedelta
 
         from sqlalchemy.orm import joinedload
 
-        cache_key = f"upcoming_exams:dto:t{tenant_id}:b{branch_id}:class_{class_id}:days_{days}"
-        cached_exams = cache_service.get(cache_key)
-        if cached_exams:
-            return cached_exams
+        cache_key = f"upcoming_exams:raw:t{tenant_id}:b{branch_id}:class_{class_id}:days_{days}"
+        try:
+            cached_rows = cache_service.get(cache_key)
+        except Exception:
+            cached_rows = None
 
         now = datetime.now()
         end_date = now + timedelta(days=days)
@@ -292,10 +299,14 @@ class ExamService:
             joinedload(Exam.class_), joinedload(Exam.subject), joinedload(Exam.creator)
         )
 
-        if tenant_id is not None and hasattr(Exam, 'tenant_id'):
-            query = query.filter((Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None)))
-        if branch_id is not None and hasattr(Exam, 'branch_id'):
-            query = query.filter((Exam.branch_id == branch_id) | (Exam.branch_id.is_(None)))
+        if tenant_id is not None and hasattr(Exam, "tenant_id"):
+            query = query.filter(
+                (Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None))
+            )
+        if branch_id is not None and hasattr(Exam, "branch_id"):
+            query = query.filter(
+                (Exam.branch_id == branch_id) | (Exam.branch_id.is_(None))
+            )
 
         query = query.filter(
             and_(
@@ -308,13 +319,18 @@ class ExamService:
         if class_id:
             query = query.filter(Exam.class_id == class_id)
 
-        exams = query.order_by(Exam.exam_date.asc()).all()
-        dto_list = [exam_schema.dump(e) for e in exams]
+        if cached_rows and isinstance(cached_rows, list) and all(
+            getattr(e, "__table__", None) is not None for e in cached_rows
+        ):
+            exams = cached_rows
+        else:
+            exams = query.order_by(Exam.exam_date.asc()).all()
+            try:
+                cache_service.set(cache_key, exams, ttl=cache_service.SHORT_TTL)
+            except Exception:
+                pass
 
-        # Cache the result for 5 minutes (upcoming exams change frequently)
-        cache_service.set(cache_key, dto_list, ttl=cache_service.SHORT_TTL)
-
-        return dto_list
+        return exams
 
     @staticmethod
     def get_exam_schedule(class_id=None, subject_id=None, date_from=None, date_to=None):

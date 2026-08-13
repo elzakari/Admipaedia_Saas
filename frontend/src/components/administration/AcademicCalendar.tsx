@@ -127,6 +127,70 @@ const AcademicCalendar = () => {
     };
   }, []);
 
+  const safeFormatDate = (value: any): string => {
+    if (value == null || value === '') return '—';
+    const v = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(v.getTime())) return '—';
+    try {
+      return v.toLocaleDateString();
+    } catch {
+      return String(value).slice(0, 10);
+    }
+  };
+
+  const EN_SUBJECT_ALIASES: Record<string, string> = {
+    'Mathématiques': 'Mathematics',
+    'Mathematiques': 'Mathematics',
+    'Mathemathiques': 'Mathematics',
+    'Math': 'Mathematics',
+    'Maths': 'Mathematics',
+    'Éducation Morale': 'Moral Education',
+    'Education Morale': 'Moral Education',
+    'Education Civique': 'Civic Education',
+    'Éducation Civique': 'Civic Education',
+    'Education Physique': 'Physical Education',
+    'Éducation Physique': 'Physical Education',
+    'Sciences de la Vie et de la Terre': 'Biology & Earth Science',
+    'SVT': 'Biology & Earth Science',
+    'Sciences Physiques': 'Physical Sciences',
+    'Physique-Chimie': 'Physics & Chemistry',
+    'Histoire-Géographie': 'History & Geography',
+    'Histoire-Geographie': 'History & Geography',
+    'Langue Française': 'French Language',
+    'Français': 'French',
+    'Anglais': 'English',
+    'Langue Anglaise': 'English Language',
+    'Informatique': 'Computer Science',
+    'Technologie': 'Technology',
+    'Musique': 'Music',
+    'Arts Plastiques': 'Visual Arts',
+    'Dessin': 'Visual Arts',
+    'Philosophie': 'Philosophy',
+    'Comptabilité': 'Accounting',
+    'Économie': 'Economics',
+    'Economie': 'Economics',
+    'Droit': 'Law',
+    'Management': 'Business Management',
+    'Comprehension Orale': 'Listening Comprehension',
+    'Expression Orale': 'Oral Expression',
+    'Expression Écrite': 'Writing',
+    'Expression Ecrite': 'Writing',
+    'Vocabulaire': 'Vocabulary',
+    'Grammaire': 'Grammar',
+  };
+
+  const englishSubjectLabel = (subject: any): string => {
+    const raw = subject?.name ?? subject?.title ?? subject?.label ?? 'All Subjects';
+    if (!raw) return 'All Subjects';
+    const name = String(raw).trim();
+    if (!name) return 'All Subjects';
+    if (EN_SUBJECT_ALIASES[name]) return EN_SUBJECT_ALIASES[name];
+    for (const [k, v] of Object.entries(EN_SUBJECT_ALIASES)) {
+      if (name.toLowerCase() === k.toLowerCase()) return v;
+    }
+    return name;
+  };
+
   const termsWithStatus = useMemo(() => {
     return terms.map((t) => ({
       id: t.id,
@@ -752,7 +816,7 @@ const AcademicCalendar = () => {
                     <div key={exam.id} className="flex justify-between items-center">
                       <span className="font-medium">{exam.name}</span>
                       <span className="text-sm text-amber-700">
-                        {new Date(exam.start_date).toLocaleDateString()}
+                        {safeFormatDate(exam.start_date ?? exam.exam_date ?? exam.date)}
                       </span>
                     </div>
                   ))}
@@ -785,9 +849,9 @@ const AcademicCalendar = () => {
                     exams.map((exam: any) => (
                       <TableRow key={exam.id}>
                         <TableCell className="font-medium">{exam.name}</TableCell>
-                        <TableCell>{new Date(exam.start_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(exam.end_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{exam.subject?.name || 'All Subjects'}</TableCell>
+                        <TableCell>{safeFormatDate(exam.start_date ?? exam.exam_date ?? exam.date)}</TableCell>
+                        <TableCell>{safeFormatDate(exam.end_date ?? exam.start_date ?? exam.exam_date ?? exam.date)}</TableCell>
+                        <TableCell>{englishSubjectLabel(exam.subject)}</TableCell>
                         <TableCell>
                           <Badge variant={
                             exam.status === 'completed' ? 'default' :
