@@ -3,8 +3,28 @@ import { useQuery } from '@tanstack/react-query';
 import { feesService } from '../services/feesService';
 import financialService from '../services/financialService';
 import academicService from '../services/academicService';
+import type { CanonicalAcademicSetup } from '../services/academicService';
+import { getDefaultAcademicYear } from './useAcademicSetup';
 
-export function useFeesOverview() {
+export function deriveAcademicYearParam(
+  setup?: CanonicalAcademicSetup | null,
+  override?: string
+): string {
+  if (override?.trim()) return override.trim();
+  if (setup) return getDefaultAcademicYear(setup);
+  return `${new Date().getFullYear()}/${String((new Date().getFullYear() + 1) % 100).padStart(2, '0')}`;
+}
+
+export function getDefaultAcademicYearStatic(): string {
+  return `${new Date().getFullYear()}/${String((new Date().getFullYear() + 1) % 100).padStart(2, '0')}`;
+}
+
+// NOTE: Callers should pass academicYear derived from useAcademicSetup() when
+// possible for best consistency with the tenant's canonical academic defaults.
+// Example:
+//   const { data: setup } = useAcademicSetup();
+//   const { metrics } = useFeesOverview({ academicYear: deriveAcademicYearParam(setup) });
+export function useFeesOverview(params?: { academicYear?: string }) {
   const currentAcademicYearQuery = useQuery({
     queryKey: ['academic-years', 'current'],
     queryFn: async () => {
@@ -16,9 +36,10 @@ export function useFeesOverview() {
       }
     },
     staleTime: 10 * 60_000,
-    retry: false
+    retry: false,
+    enabled: !params?.academicYear
   });
-  const currentAcademicYear = currentAcademicYearQuery.data;
+  const currentAcademicYear = params?.academicYear?.trim() || currentAcademicYearQuery.data;
 
   const paymentsQuery = useQuery({
     queryKey: ['fees', 'payments', 'overview'],

@@ -7,7 +7,10 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from marshmallow import ValidationError
 
 from app.api.v1.calendar import calendar_bp
+from app.extensions import db, logger as _ext_logger
 from app.schemas.academic_term import AcademicTermSchema
+from app.services.academic_configuration_service import \
+    AcademicConfigurationService
 from app.services.academic_term_service import AcademicTermService
 from app.services.calendar_service import CalendarService
 from app.utils.auth_utils import admin_required, teacher_required
@@ -359,8 +362,18 @@ def create_academic_term():
         start_date=data["start_date"],
         end_date=data["end_date"],
     )
+    status = AcademicTermService.compute_status(term)
+    if status == "Current":
+        try:
+            AcademicConfigurationService.sync_settings_from_current_entities(
+                g.tenant_id, calendar_term=term
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
     out = academic_term_schema.dump(term)
-    out["status"] = AcademicTermService.compute_status(term)
+    out["status"] = status
     return jsonify({"success": True, "term": out}), 201
 
 
@@ -384,8 +397,19 @@ def update_academic_term(term_id):
     )
     if not term:
         return jsonify({"success": False, "message": "Term not found"}), 404
+
+    status = AcademicTermService.compute_status(term)
+    if status == "Current":
+        try:
+            AcademicConfigurationService.sync_settings_from_current_entities(
+                g.tenant_id, calendar_term=term
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
     out = academic_term_schema.dump(term)
-    out["status"] = AcademicTermService.compute_status(term)
+    out["status"] = status
     return jsonify({"success": True, "term": out}), 200
 
 

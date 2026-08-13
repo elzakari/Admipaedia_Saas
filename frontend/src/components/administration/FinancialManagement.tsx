@@ -49,6 +49,13 @@ import { useToast } from '../../components/ui/use-toast';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { DialogDescription } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
+import { useAcademicSetup, getDefaultAcademicYear } from '../../hooks/useAcademicSetup';
+
+const extractYearFromAcademicYear = (academicYear: string): string => {
+  const firstPart = academicYear.split(/[/-]/)[0] || '';
+  const fourDigits = firstPart.match(/\d{4}/)?.[0];
+  return fourDigits || '2024';
+};
 
 const FinancialManagement: React.FC = () => {
   const { t } = useTranslation();
@@ -56,6 +63,8 @@ const FinancialManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('budget');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: setup } = useAcademicSetup();
 
   // State for financial data
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -70,7 +79,7 @@ const FinancialManagement: React.FC = () => {
 
   // Search and filter states
   const [transactionSearch, setTransactionSearch] = useState('');
-  const [budgetFilter] = useState({ academic_year: '2024' });
+  const [budgetFilter, setBudgetFilter] = useState({ academic_year: '2024' });
   const [transactionFilter] = useState<{
     type: 'income' | 'expense' | '';
     category: string;
@@ -88,6 +97,14 @@ const FinancialManagement: React.FC = () => {
   const [paymentForm, setPaymentForm] = useState({ fee_record_id: 0, amount: '', payment_method: 'cash' as 'cash' | 'bank_transfer' | 'card' | 'mobile_money', reference_number: '', payment_date: '' });
   const [currentAcademicYear, setCurrentAcademicYear] = useState<string | undefined>(undefined);
   const [academicYearLoaded, setAcademicYearLoaded] = useState(false);
+
+  useEffect(() => {
+    if (setup) {
+      const defaultYear = extractYearFromAcademicYear(getDefaultAcademicYear(setup, '2024'));
+      setBudgetFilter((prev) => (prev.academic_year === '2024' ? { ...prev, academic_year: defaultYear } : prev));
+      setBudgetForm((prev) => (prev.academic_year === '2024' ? { ...prev, academic_year: defaultYear } : prev));
+    }
+  }, [setup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +210,8 @@ const FinancialManagement: React.FC = () => {
   };
 
   const handleAddBudget = () => {
-    setBudgetForm({ category: '', allocated_amount: '', academic_year: '2024', description: '' });
+    const defaultYear = setup ? extractYearFromAcademicYear(getDefaultAcademicYear(setup, '2024')) : '2024';
+    setBudgetForm({ category: '', allocated_amount: '', academic_year: defaultYear, description: '' });
     setBudgetDialogOpen(true);
   };
 

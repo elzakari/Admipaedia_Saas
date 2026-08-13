@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../../components/ui/button';
 import type { TeacherClass } from '../teacherMockData';
 import api from '../../../lib/api';
+import { useAcademicSetup, getDefaultAcademicYear, getDefaultTermName } from '../../../hooks/useAcademicSetup';
 
 interface SubjectOption {
   id: number;
@@ -71,6 +72,11 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   const [isApc, setIsApc] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const userTouchedAcademicYear = useRef(false);
+  const userTouchedTerm = useRef(false);
+  const setupDefaultsApplied = useRef(false);
+  const { data: setup } = useAcademicSetup();
 
   const activeRoster = useMemo(() => cls.roster.filter((r) => r.status === 'active'), [cls.roster]);
   const numericClassId = Number(cls.id);
@@ -160,6 +166,20 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
   useEffect(() => {
     setGradeMatrix(buildEmptyMatrix());
   }, [buildEmptyMatrix]);
+
+  useEffect(() => {
+    if (setup && !setupDefaultsApplied.current) {
+      if (!userTouchedAcademicYear.current && !String(cls.term || '').trim()) {
+        const defaultYear = getDefaultAcademicYear(setup);
+        if (defaultYear) setSelectedAcademicYear((prev) => prev || defaultYear);
+      }
+      if (!userTouchedTerm.current) {
+        const defaultTerm = getDefaultTermName(setup, 'First Term');
+        if (defaultTerm) setSelectedTerm((prev) => prev || defaultTerm);
+      }
+      setupDefaultsApplied.current = true;
+    }
+  }, [setup, cls.term]);
 
   useEffect(() => {
     let active = true;
@@ -478,7 +498,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           <span className="text-xs font-semibold text-slate-500">Term</span>
           <select
             value={selectedTerm}
-            onChange={(e) => setSelectedTerm(e.target.value)}
+            onChange={(e) => { userTouchedTerm.current = true; setSelectedTerm(e.target.value); }}
             className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             disabled={isLoading}
           >
@@ -492,7 +512,7 @@ export function TeacherClassGradebookTab({ cls }: { cls: TeacherClass }) {
           <span className="text-xs font-semibold text-slate-500">Academic Year</span>
           <input
             value={selectedAcademicYear}
-            onChange={(e) => setSelectedAcademicYear(e.target.value)}
+            onChange={(e) => { userTouchedAcademicYear.current = true; setSelectedAcademicYear(e.target.value); }}
             className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             disabled={isLoading}
           />

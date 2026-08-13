@@ -15,6 +15,7 @@ import classService from '../../services/classService';
 import academicService from '../../services/academicService';
 import authService, { User } from '../../services/authService';
 import { useTranslation } from 'react-i18next';
+import { useAcademicSetup, getDefaultAcademicYear } from '../../hooks/useAcademicSetup';
 
 interface ClassFormData {
   name: string;
@@ -61,6 +62,7 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const queryClient = useQueryClient();
+  const { data: setup } = useAcademicSetup();
 
   const [gradeCreateOpen, setGradeCreateOpen] = useState(false);
   const [gradeCreateName, setGradeCreateName] = useState('');
@@ -396,6 +398,18 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
     }
   }, [teachersError, refetchTeachers, toast]);
 
+  // Pre-fill academic_year in create mode from setup
+  useEffect(() => {
+    if (setup && isOpen && !classData) {
+      setFormData((prev) => {
+        if (prev.academic_year?.trim()) return prev;
+        const defaultYear = getDefaultAcademicYear(setup);
+        if (!defaultYear) return prev;
+        return { ...prev, academic_year: defaultYear };
+      });
+    }
+  }, [setup, isOpen, classData]);
+
   // Enhanced initialization effect
   useEffect(() => {
     if (isOpen) {
@@ -418,14 +432,26 @@ const ClassFormModal: React.FC<ClassFormModalProps> = ({
           age_max: classData.age_max != null ? String(classData.age_max) : '',
         });
       } else {
-        // Creating new class
-        resetFormData();
+        // Creating new class - use setup default if available
+        const defaultYear = setup ? getDefaultAcademicYear(setup) : '';
+        setFormData({
+          name: '',
+          grade_level: '',
+          section: '',
+          academic_year: defaultYear,
+          room_number: '',
+          capacity: '',
+          teacher_id: '',
+          description: '',
+          age_min: '',
+          age_max: '',
+        });
       }
 
       // Handle teacher loading errors
       handleTeacherError();
     }
-  }, [isOpen, classData, handleTeacherError]);
+  }, [isOpen, classData, setup, handleTeacherError]);
 
   // Separate effect for handling teacher data refetch
   useEffect(() => {

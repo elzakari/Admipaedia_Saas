@@ -308,10 +308,10 @@ const AcademicConfiguration = () => {
           nextSettings.maxGrade = 20;
           nextSettings.passingGrade = 10;
           nextSettings.gradeScale = [
-            { id: '1', minScore: 16.00, maxScore: 20.00, grade: 'M', description: 'Maîtrisé', gradePoint: 16.00 },
-            { id: '2', minScore: 12.00, maxScore: 15.99, grade: 'A', description: 'Acquis', gradePoint: 14.00 },
-            { id: '3', minScore: 10.00, maxScore: 11.99, grade: 'EA', description: 'En cours d\'Acquisition', gradePoint: 10.00 },
-            { id: '4', minScore: 0.00, maxScore: 9.99, grade: 'NA', description: 'Non Acquis', gradePoint: 0.00 }
+            { id: '1', minScore: 16.00, maxScore: 20.00, grade: 'M', description: 'Mastered', gradePoint: 16.00 },
+            { id: '2', minScore: 12.00, maxScore: 15.99, grade: 'A', description: 'Acquired', gradePoint: 14.00 },
+            { id: '3', minScore: 10.00, maxScore: 11.99, grade: 'EA', description: 'In Progress', gradePoint: 10.00 },
+            { id: '4', minScore: 0.00, maxScore: 9.99, grade: 'NA', description: 'Not Acquired', gradePoint: 0.00 }
           ];
         } else {
           if (nextSettings.maxGrade === 20) nextSettings.maxGrade = 100;
@@ -434,23 +434,23 @@ const AcademicConfiguration = () => {
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="academic-year" className="flex items-center gap-2 min-w-[170px]">
             <Calendar className="h-4 w-4" />
-            {t('admin_settings.academic_year', 'Année académique')}
+            {t('admin_settings.academic_year', 'Academic Year')}
           </TabsTrigger>
           <TabsTrigger value="grading" className="flex items-center gap-2 min-w-[160px]">
             <Award className="h-4 w-4" />
-            {t('admin_settings.grading_system', 'Système de notation')}
+            {t('admin_settings.grading_system', 'Grading System')}
           </TabsTrigger>
           <TabsTrigger value="assessment" className="flex items-center gap-2 min-w-[140px]">
             <Calculator className="h-4 w-4" />
-            {t('admin_settings.assessment', 'Évaluation')}
+            {t('admin_settings.assessment', 'Assessment')}
           </TabsTrigger>
           <TabsTrigger value="subjects" className="flex items-center gap-2 min-w-[130px]">
             <BookOpen className="h-4 w-4" />
-            {t('admin_settings.subjects', 'Matières')}
+            {t('admin_settings.subjects', 'Subjects')}
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2 min-w-[130px]">
             <Clock className="h-4 w-4" />
-            {t('admin_settings.settings', 'Paramètres')}
+            {t('admin_settings.settings', 'Parameters')}
           </TabsTrigger>
         </TabsList>
 
@@ -459,16 +459,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {t('admin_settings.academic_year_config', 'Configuration de l\'année académique')}
+                {t('admin_settings.academic_year_config', 'Academic Year Configuration')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.academic_year_config_desc', 'Configurer l\'année académique et les trimestres')}
+                {t('admin_settings.academic_year_config_desc', 'Set up the academic year and terms')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Année académique')}</Label>
+                  <Label htmlFor="academic-year">{t('admin_settings.academic_year_label', 'Academic Year')}</Label>
                   <Input
                     id="academic-year"
                     value={settings.academicYear}
@@ -477,20 +477,20 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="current-term">{t('admin_settings.current_term', 'Trimestre actuel')}</Label>
+                  <Label htmlFor="current-term">{t('admin_settings.current_term', 'Current Term')}</Label>
                   <Select value={settings.currentTerm} onValueChange={(value) => handleInputChange('currentTerm', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="First Term">{t('admin_settings.first_term', 'Premier trimestre')}</SelectItem>
-                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Deuxième trimestre')}</SelectItem>
-                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Troisième trimestre')}</SelectItem>
+                      <SelectItem value="First Term">{t('admin_settings.first_term', 'First Term')}</SelectItem>
+                      <SelectItem value="Second Term">{t('admin_settings.second_term', 'Second Term')}</SelectItem>
+                      <SelectItem value="Third Term">{t('admin_settings.third_term', 'Third Term')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-start">{t('admin_settings.term_start_date', 'Date de début du trimestre')}</Label>
+                  <Label htmlFor="term-start">{t('admin_settings.term_start_date', 'Term Start Date')}</Label>
                   <Input
                     id="term-start"
                     type="date"
@@ -499,7 +499,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="term-end">{t('admin_settings.term_end_date', 'Date de fin du trimestre')}</Label>
+                  <Label htmlFor="term-end">{t('admin_settings.term_end_date', 'Term End Date')}</Label>
                   <Input
                     id="term-end"
                     type="date"
@@ -517,10 +517,10 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5" />
-                {t('admin_settings.grading_system', 'Système de notation')}
+                {t('admin_settings.grading_system', 'Grading System')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.grading_system_desc', 'Configurer les échelles de notation et les exigences de réussite')}
+                {t('admin_settings.grading_system_desc', 'Configure grading scales and passing requirements')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -537,12 +537,12 @@ const AcademicConfiguration = () => {
                       <SelectItem value="IB">International Baccalaureate (IB)</SelectItem>
                       <SelectItem value="Cambridge">Cambridge International</SelectItem>
                       <SelectItem value="APC">Approche Par Compétence (APC - Togo)</SelectItem>
-                      <SelectItem value="Custom">Système de notation personnalisé</SelectItem>
+                      <SelectItem value="Custom">Custom Grading System</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade', 'Note de passage (%)')}</Label>
+                  <Label htmlFor="passing-grade">{t('admin_settings.passing_grade', 'Passing Grade (%)')}</Label>
                   <Input
                     id="passing-grade"
                     type="number"
@@ -553,7 +553,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="max-grade">{t('admin_settings.maximum_grade', 'Note maximale (%)')}</Label>
+                  <Label htmlFor="max-grade">{t('admin_settings.maximum_grade', 'Maximum Grade (%)')}</Label>
                   <Input
                     id="max-grade"
                     type="number"
@@ -566,16 +566,16 @@ const AcademicConfiguration = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.grade_scale', 'Échelle de notation')}</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">{t('admin_settings.grade_scale', 'Grade Scale')}</h4>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('admin_settings.grade', 'Note / Échelon')}</TableHead>
-                        <TableHead>{t('admin_settings.min_score', 'Score min')}</TableHead>
-                        <TableHead>{t('admin_settings.max_score', 'Score max')}</TableHead>
+                        <TableHead>{t('admin_settings.grade', 'Grade')}</TableHead>
+                        <TableHead>{t('admin_settings.min_score', 'Min Score')}</TableHead>
+                        <TableHead>{t('admin_settings.max_score', 'Max Score')}</TableHead>
                         <TableHead>{t('common.description', 'Description')}</TableHead>
-                        <TableHead>{t('admin_settings.grade_point', 'Points')}</TableHead>
+                        <TableHead>{t('admin_settings.grade_point', 'Grade Point')}</TableHead>
                         <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -681,7 +681,7 @@ const AcademicConfiguration = () => {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Calculator className="h-5 w-5" />
-                  {t('admin_settings.assessment_config', 'Configuration des évaluations')}
+                  {t('admin_settings.assessment_config', 'Assessment Configuration')}
                 </CardTitle>
                 <CardDescription>
                   {t('admin_settings.assessment_config_desc', 'Configurer les types d\'évaluation et leurs pondérations')}
@@ -689,7 +689,7 @@ const AcademicConfiguration = () => {
               </div>
               <Button onClick={handleAddCategory} size="sm" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                {t('admin_settings.add_category', 'Ajouter une catégorie')}
+                {t('admin_settings.add_category', 'Add Category')}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -698,10 +698,10 @@ const AcademicConfiguration = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('admin_settings.category_name', 'Nom de la catégorie')}</TableHead>
+                        <TableHead>{t('admin_settings.category_name', 'Category Name')}</TableHead>
                         <TableHead>{t('admin_settings.description', 'Description')}</TableHead>
-                        <TableHead>{t('admin_settings.weight', 'Pondération (%)')}</TableHead>
-                        <TableHead>{t('admin_settings.active', 'Actif')}</TableHead>
+                        <TableHead>{t('admin_settings.weight', 'Weight (%)')}</TableHead>
+                        <TableHead>{t('admin_settings.active', 'Active')}</TableHead>
                         <TableHead className="text-right">{t('common.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -712,7 +712,7 @@ const AcademicConfiguration = () => {
                             <Input
                               value={category.name}
                               onChange={(e) => handleCategoryChange(index, 'name', e.target.value)}
-                              placeholder={t('admin_settings.category_name_placeholder', 'Ex: Examens')}
+                              placeholder={t('admin_settings.category_name_placeholder', 'Ex: Exams')}
                             />
                           </TableCell>
                           <TableCell>
@@ -753,7 +753,7 @@ const AcademicConfiguration = () => {
                       {(settings.assessmentTypes || []).length === 0 && (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-4 text-gray-500">
-                            {t('admin_settings.no_categories', 'Aucune catégorie d\'évaluation définie. Cliquez sur Ajouter une catégorie.')}
+                            {t('admin_settings.no_categories', 'No assessment categories defined. Click Add Category.')}
                           </TableCell>
                         </TableRow>
                       )}
@@ -765,11 +765,11 @@ const AcademicConfiguration = () => {
                   <div className="flex items-start">
                     <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Pondération active totale')}</h4>
+                      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('admin_settings.total_weight', 'Total Active Weight')}</h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                        {t('admin_settings.current_total', 'Total actuel :')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
+                        {t('admin_settings.current_total', 'Current total:')} {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0)}%
                         {(settings.assessmentTypes || []).filter(cat => cat.isActive).reduce((sum, cat) => sum + (Number(cat.weight) || 0), 0) !== 100 && (
-                          <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Doit être égal à 100%)')}</span>
+                          <span className="text-amber-600">{t('admin_settings.should_equal_100', ' (Must equal 100%)')}</span>
                         )}
                       </p>
                     </div>
@@ -789,16 +789,16 @@ const AcademicConfiguration = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                {t('admin_settings.class_attendance_settings', 'Paramètres des classes & de présence')}
+                {t('admin_settings.class_attendance_settings', 'Class & Attendance Settings')}
               </CardTitle>
               <CardDescription>
-                {t('admin_settings.class_attendance_settings_desc', 'Configurer la gestion des classes et les exigences de présence')}
+                {t('admin_settings.class_attendance_settings_desc', 'Configure class management and attendance requirements')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="max-students">{t('admin_settings.max_students_per_class', 'Nombre maximum d\'élèves par classe')}</Label>
+                  <Label htmlFor="max-students">{t('admin_settings.max_students_per_class', 'Maximum Students Per Class')}</Label>
                   <Input
                     id="max-students"
                     type="number"
@@ -809,7 +809,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="min-students">{t('admin_settings.min_students_per_class', 'Nombre minimum d\'élèves par classe')}</Label>
+                  <Label htmlFor="min-students">{t('admin_settings.min_students_per_class', 'Minimum Students Per Class')}</Label>
                   <Input
                     id="min-students"
                     type="number"
@@ -820,7 +820,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="class-duration">{t('admin_settings.class_duration', 'Durée d\'un cours (minutes)')}</Label>
+                  <Label htmlFor="class-duration">{t('admin_settings.class_duration', 'Class Duration (minutes)')}</Label>
                   <Input
                     id="class-duration"
                     type="number"
@@ -831,7 +831,7 @@ const AcademicConfiguration = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="break-duration">{t('admin_settings.break_duration', 'Durée de la pause (minutes)')}</Label>
+                  <Label htmlFor="break-duration">{t('admin_settings.break_duration', 'Break Duration (minutes)')}</Label>
                   <Input
                     id="break-duration"
                     type="number"
@@ -846,9 +846,9 @@ const AcademicConfiguration = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="attendance-required">{t('admin_settings.attendance_required', 'Présence obligatoire')}</Label>
+                    <Label htmlFor="attendance-required">{t('admin_settings.attendance_required', 'Attendance Required')}</Label>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {t('admin_settings.attendance_required_desc', 'Suivre et exiger un taux de présence minimum')}
+                      {t('admin_settings.attendance_required_desc', 'Track and require a minimum attendance rate')}
                     </p>
                   </div>
                   <Switch
@@ -860,7 +860,7 @@ const AcademicConfiguration = () => {
 
                 {settings.attendanceRequired && (
                   <div className="space-y-2">
-                    <Label htmlFor="minimum-attendance">{t('admin_settings.minimum_attendance', 'Présence minimum (%)')}</Label>
+                    <Label htmlFor="minimum-attendance">{t('admin_settings.minimum_attendance', 'Minimum Attendance (%)')}</Label>
                     <Input
                       id="minimum-attendance"
                       type="number"
@@ -869,19 +869,19 @@ const AcademicConfiguration = () => {
                       value={settings.minimumAttendance}
                       onChange={(e) => handleInputChange('minimumAttendance', parseInt(e.target.value))}
                     />
-                    <p className="text-xs text-gray-500">{t('admin_settings.minimum_attendance_hint', 'Présence minimale requise pour valider l\'année')}</p>
+                    <p className="text-xs text-gray-500">{t('admin_settings.minimum_attendance_hint', 'Minimum attendance required to pass the year')}</p>
                   </div>
                 )}
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.academic_features', 'Fonctionnalités académiques')}</h4>
+                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 mb-4">{t('admin_settings.academic_features', 'Academic Features')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="online-exams">{t('admin_settings.online_exams', 'Examens en ligne')}</Label>
+                      <Label htmlFor="online-exams">{t('admin_settings.online_exams', 'Online Exams')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.online_exams_desc', 'Activer le système d\'examens en ligne')}
+                        {t('admin_settings.online_exams_desc', 'Enable the online exam system')}
                       </p>
                     </div>
                     <Switch
@@ -892,9 +892,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="grade-moderation">{t('admin_settings.grade_moderation', 'Modération des notes')}</Label>
+                      <Label htmlFor="grade-moderation">{t('admin_settings.grade_moderation', 'Grade Moderation')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.grade_moderation_desc', 'Activer le processus de modération des notes')}
+                        {t('admin_settings.grade_moderation_desc', 'Enable the grade moderation process')}
                       </p>
                     </div>
                     <Switch
@@ -905,9 +905,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="parent-portal">{t('admin_settings.parent_portal_grades', 'Notes sur le portail parent')}</Label>
+                      <Label htmlFor="parent-portal">{t('admin_settings.parent_portal_grades', 'Parent Portal Grades')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.parent_portal_grades_desc', 'Afficher les notes sur le portail des parents')}
+                        {t('admin_settings.parent_portal_grades_desc', 'Display grades on the parent portal')}
                       </p>
                     </div>
                     <Switch
@@ -918,9 +918,9 @@ const AcademicConfiguration = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label htmlFor="transcript-generation">{t('admin_settings.transcript_generation', 'Génération de relevés de notes')}</Label>
+                      <Label htmlFor="transcript-generation">{t('admin_settings.transcript_generation', 'Transcript Generation')}</Label>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('admin_settings.transcript_generation_desc', 'Activer la génération automatique des relevés de notes')}
+                        {t('admin_settings.transcript_generation_desc', 'Enable automatic transcript generation')}
                       </p>
                     </div>
                     <Switch

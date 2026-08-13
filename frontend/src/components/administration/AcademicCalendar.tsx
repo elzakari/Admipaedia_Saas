@@ -348,15 +348,15 @@ const AcademicCalendar = () => {
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="terms">{t('admin_calendar.terms_tab', 'Trimestres académiques')}</TabsTrigger>
-          <TabsTrigger value="events">{t('admin_calendar.events_tab', 'Événements')} ({events.length})</TabsTrigger>
-          <TabsTrigger value="exams">{t('admin_calendar.exams_tab', 'Planning des examens')} ({exams.length})</TabsTrigger>
-          <TabsTrigger value="calendar">{t('admin_calendar.calendar_tab', 'Vue Calendrier')}</TabsTrigger>
+          <TabsTrigger value="terms">{t('admin_calendar.terms_tab', 'Academic Terms')}</TabsTrigger>
+          <TabsTrigger value="events">{t('admin_calendar.events_tab', 'Events')} ({events.length})</TabsTrigger>
+          <TabsTrigger value="exams">{t('admin_calendar.exams_tab', 'Exam Schedule')} ({exams.length})</TabsTrigger>
+          <TabsTrigger value="calendar">{t('admin_calendar.calendar_tab', 'Calendar View')}</TabsTrigger>
         </TabsList>
         
         <TabsContent value="terms" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">{t('admin_calendar.terms_title', 'Trimestres académiques')}</h3>
+            <h3 className="text-lg font-medium">{t('admin_calendar.terms_title', 'Academic Terms')}</h3>
             <Button
               onClick={() => {
                 setEditingTerm(null);
@@ -364,7 +364,7 @@ const AcademicCalendar = () => {
               }}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
-              {t('admin_calendar.add_term', 'Ajouter un trimestre')}
+              {t('admin_calendar.add_term', 'Add Term')}
             </Button>
           </div>
           

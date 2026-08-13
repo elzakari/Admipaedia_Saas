@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import g, jsonify, request
 from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
@@ -17,6 +19,8 @@ from app.schemas.educational_level import (CoreCompetencySchema,
                                            GradeLevelCreateSchema,
                                            GradeLevelUpdateSchema,
                                            GradeLevelMinimalSchema)
+from app.services.academic_configuration_service import \
+    AcademicConfigurationService
 from app.services.curriculum_service import CurriculumService
 from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.tenant_context import tenant_required
@@ -64,6 +68,13 @@ def _serialize_term(t: Term) -> dict:
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
     }
+
+
+@academics_bp.route("/setup", methods=["GET"])
+@jwt_required()
+@tenant_required
+def get_academic_setup():
+    return jsonify(AcademicConfigurationService.get_canonical_setup(g.tenant_id)), 200
 
 
 @academics_bp.route("/academic-years", methods=["GET"])
@@ -147,6 +158,268 @@ def get_current_term():
         return jsonify({"success": True, "data": _serialize_term(current)}), 200
     except Exception as e:
         logger.error("Error fetching current term", error=str(e))
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/academic-years", methods=["POST"])
+@jwt_required()
+@admin_required
+@tenant_required
+def create_academic_year():
+    """Create a new AcademicYear."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        name = (payload.get("name") or "").strip()
+        if not name:
+            return jsonify({"success": False, "message": "name is required"}), 422
+
+        start_date = payload.get("start_date")
+        end_date = payload.get("end_date")
+        is_current = bool(payload.get("is_current", False))
+
+        if isinstance(start_date, str) and start_date:
+            start_date = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+        if isinstance(end_date, str) and end_date:
+            end_date = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+
+        year = AcademicYear(
+            name=name,
+            start_date=start_date,
+            end_date=end_date,
+            is_current=is_current,
+        )
+        if hasattr(AcademicYear, "tenant_id"):
+            year.tenant_id = getattr(g, "tenant_id", None)
+        if hasattr(AcademicYear, "branch_id"):
+            year.branch_id = getattr(g, "branch_id", None)
+
+        if is_current:
+            for y in AcademicYear.query.all():
+                y.is_current = False
+
+        db.session.add(year)
+        db.session.commit()
+
+        db.session.refresh(year)
+        if year.is_current:
+            try:
+                AcademicConfigurationService.sync_settings_from_current_entities(
+                    g.tenant_id, academic_year=year
+                )
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return (
+            jsonify({"success": True, "data": _serialize_academic_year(year)}),
+            201,
+        )
+    except Exception as e:
+        logger.error(f"Error creating academic year: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/academic-years/<int:year_id>", methods=["PUT"])
+@jwt_required()
+@admin_required
+@tenant_required
+def update_academic_year(year_id):
+    """Update an existing AcademicYear."""
+    try:
+        data = request.get_json(silent=True) or {}
+        year = AcademicYear.query.get(year_id)
+        if year is None:
+            return jsonify({"success": False, "message": "Academic year not found"}), 404
+
+        if "name" in data and data["name"]:
+            year.name = str(data["name"]).strip()
+        if "start_date" in data:
+            sd = data["start_date"]
+            if isinstance(sd, str) and sd:
+                sd = datetime.strptime(sd[:10], "%Y-%m-%d").date()
+            year.start_date = sd
+        if "end_date" in data:
+            ed = data["end_date"]
+            if isinstance(ed, str) and ed:
+                ed = datetime.strptime(ed[:10], "%Y-%m-%d").date()
+            year.end_date = ed
+        if "is_current" in data:
+            new_is_current = bool(data["is_current"])
+            if new_is_current:
+                for y in AcademicYear.query.all():
+                    y.is_current = False
+            year.is_current = new_is_current
+
+        db.session.commit()
+
+        db.session.refresh(year)
+        if year.is_current or ("is_current" in data and data["is_current"]):
+            try:
+                AcademicConfigurationService.sync_settings_from_current_entities(
+                    g.tenant_id, academic_year=year
+                )
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return (
+            jsonify({"success": True, "data": _serialize_academic_year(year)}),
+            200,
+        )
+    except Exception as e:
+        logger.error(f"Error updating academic year: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/terms", methods=["POST"])
+@jwt_required()
+@admin_required
+@tenant_required
+def create_term():
+    """Create a new Term."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        name = (payload.get("name") or "").strip()
+        academic_year_id = payload.get("academic_year_id")
+        if not name or not academic_year_id:
+            return (
+                jsonify(
+                    {"success": False, "message": "name and academic_year_id are required"}
+                ),
+                422,
+            )
+
+        year = AcademicYear.query.get(academic_year_id)
+        if year is None:
+            return jsonify({"success": False, "message": "Academic year not found"}), 404
+
+        start_date = payload.get("start_date") or year.start_date
+        end_date = payload.get("end_date") or year.end_date
+        is_current = bool(payload.get("is_current", False))
+
+        if isinstance(start_date, str) and start_date:
+            start_date = datetime.strptime(start_date[:10], "%Y-%m-%d").date()
+        if isinstance(end_date, str) and end_date:
+            end_date = datetime.strptime(end_date[:10], "%Y-%m-%d").date()
+
+        term = Term(
+            name=name,
+            academic_year_id=year.id,
+            start_date=start_date,
+            end_date=end_date,
+            is_current=is_current,
+        )
+        if hasattr(Term, "tenant_id"):
+            term.tenant_id = getattr(g, "tenant_id", None)
+        if hasattr(Term, "branch_id"):
+            term.branch_id = getattr(g, "branch_id", None)
+
+        if is_current:
+            for t in Term.query.all():
+                t.is_current = False
+
+        db.session.add(term)
+        db.session.commit()
+
+        db.session.refresh(term)
+        if term.is_current:
+            try:
+                AcademicConfigurationService.sync_settings_from_current_entities(
+                    g.tenant_id, term=term
+                )
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return jsonify({"success": True, "data": _serialize_term(term)}), 201
+    except Exception as e:
+        logger.error(f"Error creating term: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/terms/<int:term_id>", methods=["PUT"])
+@jwt_required()
+@admin_required
+@tenant_required
+def update_term(term_id):
+    """Update an existing Term."""
+    try:
+        data = request.get_json(silent=True) or {}
+        term = Term.query.get(term_id)
+        if term is None:
+            return jsonify({"success": False, "message": "Term not found"}), 404
+
+        if "name" in data and data["name"]:
+            term.name = str(data["name"]).strip()
+        if "academic_year_id" in data and data["academic_year_id"]:
+            term.academic_year_id = int(data["academic_year_id"])
+        if "start_date" in data:
+            sd = data["start_date"]
+            if isinstance(sd, str) and sd:
+                sd = datetime.strptime(sd[:10], "%Y-%m-%d").date()
+            term.start_date = sd
+        if "end_date" in data:
+            ed = data["end_date"]
+            if isinstance(ed, str) and ed:
+                ed = datetime.strptime(ed[:10], "%Y-%m-%d").date()
+            term.end_date = ed
+        if "is_current" in data:
+            new_is_current = bool(data["is_current"])
+            if new_is_current:
+                for t in Term.query.all():
+                    t.is_current = False
+            term.is_current = new_is_current
+
+        db.session.commit()
+
+        db.session.refresh(term)
+        if term.is_current or ("is_current" in data and data["is_current"]):
+            try:
+                AcademicConfigurationService.sync_settings_from_current_entities(
+                    g.tenant_id, term=term
+                )
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return jsonify({"success": True, "data": _serialize_term(term)}), 200
+    except Exception as e:
+        logger.error(f"Error updating term: {str(e)}")
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@academics_bp.route("/terms/<int:term_id>", methods=["DELETE"])
+@jwt_required()
+@admin_required
+@tenant_required
+def delete_term(term_id):
+    """Delete a Term and sync the new current Term if any."""
+    try:
+        term = Term.query.get(term_id)
+        if term is None:
+            return jsonify({"success": False, "message": "Term not found"}), 404
+
+        db.session.delete(term)
+        db.session.commit()
+
+        new_current = Term.query.filter_by(is_current=True).first()
+        if new_current is not None:
+            try:
+                AcademicConfigurationService.sync_settings_from_current_entities(
+                    g.tenant_id, term=new_current
+                )
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return jsonify({"success": True, "message": "Term deleted successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error deleting term: {str(e)}")
+        db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
 
 

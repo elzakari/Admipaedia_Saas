@@ -14,6 +14,7 @@ import api from '../../lib/api'
 import { feesService, FeeTemplateGroup } from '../../services/feesService'
 import { formatCurrency } from '../../lib/utils'
 import { getClassDisplayName } from '../../utils/formatters'
+import { useAcademicSetup, getDefaultAcademicYear, getDefaultTermName } from '../../hooks/useAcademicSetup'
 
 const FeeTemplateManager: React.FC = () => {
   const { t } = useTranslation()
@@ -24,6 +25,8 @@ const FeeTemplateManager: React.FC = () => {
   const [editorOpen, setEditorOpen] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
+
+  const { data: setup } = useAcademicSetup()
 
   const [form, setForm] = useState({
     class_id: '0',
@@ -36,6 +39,19 @@ const FeeTemplateManager: React.FC = () => {
       { category: 'PTA', amount: 0 }
     ] as Array<{ category: string; amount: number }>
   })
+
+  useEffect(() => {
+    if (setup) {
+      setForm((prev) => {
+        const atHardcodedDefaults = prev.academic_year === '2024/2025' && prev.term === 'Term 1' && !selected
+        if (!atHardcodedDefaults) return prev
+        const defaultYear = getDefaultAcademicYear(setup, '2024/2025')
+        const defaultTerm = getDefaultTermName(setup, 'Term 1')
+        const normalizedTerm = /term 1|term 2|term 3/i.test(defaultTerm) ? defaultTerm : (/first/i.test(defaultTerm) ? 'Term 1' : /second/i.test(defaultTerm) ? 'Term 2' : /third/i.test(defaultTerm) ? 'Term 3' : 'Term 1')
+        return { ...prev, academic_year: defaultYear, term: normalizedTerm }
+      })
+    }
+  }, [setup, selected])
 
   const { data: templatesResp, isLoading } = useQuery({
     queryKey: ['fees', 'templates'],
@@ -74,11 +90,14 @@ const FeeTemplateManager: React.FC = () => {
 
   const openTemplateEditor = (template?: FeeTemplateGroup | null, mode: 'create' | 'edit' | 'duplicate' = 'create') => {
     if (!template || mode === 'create') {
+      const defaultYear = getDefaultAcademicYear(setup, '2024/2025')
+      const rawTerm = getDefaultTermName(setup, 'Term 1')
+      const normalizedTerm = /term 1|term 2|term 3/i.test(rawTerm) ? rawTerm : (/first/i.test(rawTerm) ? 'Term 1' : /second/i.test(rawTerm) ? 'Term 2' : /third/i.test(rawTerm) ? 'Term 3' : 'Term 1')
       setSelected(null)
       setForm({
         class_id: '0',
-        academic_year: '2024/2025',
-        term: 'Term 1',
+        academic_year: defaultYear,
+        term: normalizedTerm,
         due_date: '',
         items: [
           { category: 'Tuition', amount: 0 },

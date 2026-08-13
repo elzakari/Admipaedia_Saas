@@ -28,21 +28,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ initialTab = 'general' }) =
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const categories = [
-    { id: 'general', name: t('admin_settings.general', 'Général'), icon: 'settings' },
-    { id: 'users', name: t('admin_settings.users', 'Utilisateurs & Rôles'), icon: 'users' },
-    { id: 'academic', name: t('admin_settings.academic', 'Académique'), icon: 'graduation' },
-    { id: 'security', name: t('admin_settings.security', 'Sécurité'), icon: 'shield' },
-    { id: 'backup', name: t('admin_settings.backup', 'Sauvegarde & Restauration'), icon: 'database' },
-    { id: 'theme', name: t('admin_settings.theme', 'Thème'), icon: 'palette' },
-    { id: 'audit', name: t('admin_settings.audit', 'Journaux d\'audit'), icon: 'file' }
+    { id: 'general', name: t('admin_settings.general', 'General'), icon: 'settings' },
+    { id: 'users', name: t('admin_settings.users', 'Users & Roles'), icon: 'users' },
+    { id: 'academic', name: t('admin_settings.academic', 'Academic'), icon: 'graduation' },
+    { id: 'security', name: t('admin_settings.security', 'Security'), icon: 'shield' },
+    { id: 'backup', name: t('admin_settings.backup', 'Backup & Restore'), icon: 'database' },
+    { id: 'theme', name: t('admin_settings.theme', 'Theme'), icon: 'palette' },
+    { id: 'audit', name: t('admin_settings.audit', 'Audit Logs'), icon: 'file' }
   ];
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('admin_settings.title', 'Paramètres')}</h1>
-          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.description', 'Configurez et personnalisez votre expérience ADMIPAEDIA')}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('admin_settings.title', 'Settings')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('admin_settings.description', 'Configure and customize your ADMIPAEDIA experience')}</p>
         </div>
       </div>
 

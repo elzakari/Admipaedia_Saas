@@ -204,6 +204,19 @@ export interface ResourceFilters {
   per_page?: number;
 }
 
+export interface CanonicalAcademicSetup {
+  settings: Record<string, any>;
+  mismatchDetected?: boolean;
+  suggestedSettingsPatch?: Record<string, any>;
+  academicYear?: { id: number; name: string; start_date: string; end_date: string; is_current: boolean };
+  academicYears: Array<{ id: number; name: string; start_date: string; end_date: string; is_current: boolean }>;
+  currentTerm?: { id: number; name: string; academic_year_id: number; start_date: string; end_date: string; is_current: boolean };
+  terms: Array<{ id: number; name: string; academic_year_id: number; start_date: string; end_date: string; is_current: boolean }>;
+  calendarTerms: Array<{ id: number; name: string; start_date: string; end_date: string; status?: string }>;
+  calendarCurrentTerm?: { id: number; name: string; start_date: string; end_date: string; status?: string } | null;
+  progress?: { daysIntoTerm: number; daysRemainingInTerm: number; weeksRemaining: number; progressPercent: number; todayISO: string };
+}
+
 const academicService = {
   // Academic Years
   getAcademicYears: async (): Promise<AcademicYear[]> => {
@@ -874,6 +887,23 @@ const academicService = {
     } catch (error) {
       console.error('Error deleting grade level:', error);
       throw error;
+    }
+  },
+
+  getAcademicSetup: async (): Promise<CanonicalAcademicSetup> => {
+    try {
+      const response = await api.get('/academic/setup');
+      return (response.data ?? response ?? {}) as CanonicalAcademicSetup;
+    } catch (error: any) {
+      console.error('Error fetching academic setup:', error);
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) throw error;
+      return {
+        settings: {},
+        academicYears: [],
+        terms: [],
+        calendarTerms: [],
+      } as CanonicalAcademicSetup;
     }
   },
 };

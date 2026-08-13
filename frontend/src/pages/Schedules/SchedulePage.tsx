@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -25,6 +25,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { TimeSlotFormModal } from '../../components/academics/TimeSlotFormModal'
 import calendarService from '../../services/calendarService'
 import examService, { DEFAULT_EXAM_VALUES, extractExamRows } from '../../services/examService'
+import { useAcademicSetup, getDefaultAcademicYear, getDefaultTermName } from '../../hooks/useAcademicSetup'
 
 type Period = {
   id: number
@@ -71,6 +72,14 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10)
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0)
 
+const normalizeTimetableTerm = (term?: string): 'Term 1' | 'Term 2' | 'Term 3' => {
+  const normalized = String(term || '').trim().toLowerCase();
+  if (normalized === 'term1' || normalized === 'term 1' || normalized === '1' || normalized.includes('first')) return 'Term 1';
+  if (normalized === 'term2' || normalized === 'term 2' || normalized === '2' || normalized.includes('second')) return 'Term 2';
+  if (normalized === 'term3' || normalized === 'term 3' || normalized === '3' || normalized.includes('third')) return 'Term 3';
+  return 'Term 1';
+};
+
 const SchedulePage: React.FC = () => {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -80,6 +89,11 @@ const SchedulePage: React.FC = () => {
   const [academicYear, setAcademicYear] = useState('2024/2025')
   const [term, setTerm] = useState<'Term 1' | 'Term 2' | 'Term 3'>('Term 1')
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null)
+
+  const userTouchedAcademicYear = useRef(false)
+  const userTouchedTerm = useRef(false)
+  const setupDefaultsApplied = useRef(false)
+  const { data: setup } = useAcademicSetup()
 
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedDay, setSelectedDay] = useState(() => new Date())
@@ -123,6 +137,20 @@ const SchedulePage: React.FC = () => {
     if (selectedClassId) return
     if (classes.length > 0) setSelectedClassId(classes[0].id)
   }, [classes, selectedClassId])
+
+  useEffect(() => {
+    if (setup && !setupDefaultsApplied.current && setup) {
+      if (!userTouchedAcademicYear.current) {
+        const defaultYear = getDefaultAcademicYear(setup, '2024/2025')
+        setAcademicYear(defaultYear)
+      }
+      if (!userTouchedTerm.current) {
+        const rawTerm = getDefaultTermName(setup, 'First Term')
+        setTerm(normalizeTimetableTerm(rawTerm))
+      }
+      setupDefaultsApplied.current = true
+    }
+  }, [setup])
 
   const { data: periodsResp } = useQuery({
     queryKey: ['schedule', 'periods'],
@@ -625,11 +653,11 @@ const SchedulePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Academic year</Label>
-              <Input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} placeholder="2024/2025" />
+              <Input value={academicYear} onChange={(e) => { userTouchedAcademicYear.current = true; setAcademicYear(e.target.value); }} placeholder="2024/2025" />
             </div>
             <div className="space-y-2">
               <Label>Term</Label>
-              <Select value={term} onValueChange={(v) => setTerm(v as any)}>
+              <Select value={term} onValueChange={(v) => { userTouchedTerm.current = true; setTerm(v as any); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
