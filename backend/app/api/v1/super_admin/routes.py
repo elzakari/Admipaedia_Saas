@@ -698,6 +698,8 @@ def super_admin_purge_user(user_id: int):
         payload.get("confirm_text") or payload.get("confirmText") or ""
     ).strip()
     normalized_confirm = " ".join(confirm_text.split()).lower()
+
+    delete_status = UserDeletionPolicyService.get_delete_status(user_id, actor.id)
     expected_delete = f"DELETE {target.email}".strip()
     expected_anonymize = f"ANONYMIZE {target.email}".strip()
     normalized_expected_delete = " ".join(expected_delete.split()).lower()
@@ -707,6 +709,9 @@ def super_admin_purge_user(user_id: int):
     if normalized_confirm == normalized_expected_anonymize:
         mode = "anonymize"
     elif normalized_confirm != normalized_expected_delete:
+        status_payload = dict(delete_status)
+        status_payload["expected_anonymize"] = expected_anonymize
+        status_payload["can_anonymize"] = True
         return (
             jsonify(
                 {
@@ -714,18 +719,15 @@ def super_admin_purge_user(user_id: int):
                     "error": "Confirmation text mismatch",
                     "expected": expected_delete,
                     "expected_anonymize": expected_anonymize,
+                    "status": status_payload,
                 }
             ),
             400,
         )
 
     try:
-        delete_status = UserDeletionPolicyService.get_delete_status(user_id, actor.id)
         if mode == "delete":
-            if (
-                not delete_status.get("can_delete")
-                or delete_status.get("mode") != "purge"
-            ):
+            if not delete_status.get("can_delete"):
                 status_payload = dict(delete_status)
                 status_payload["expected_anonymize"] = expected_anonymize
                 status_payload["can_anonymize"] = True
@@ -739,42 +741,52 @@ def super_admin_purge_user(user_id: int):
                     ),
                     400,
                 )
-        if mode == "anonymize":
-            ok, result = OrphanCleanupService.anonymize_user(
+            ok, result = UserDeletionPolicyService.delete_user(
                 user_id, actor_user_id=actor.id
             )
-        else:
-            ok, result = OrphanCleanupService.purge_user(
-                user_id, actor_user_id=actor.id
-            )
-        if not ok:
-            status_payload = dict(result or {})
-            status_payload["expected_anonymize"] = expected_anonymize
-            status_payload["can_anonymize"] = True
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Cannot delete user",
-                        "status": status_payload,
-                    }
-                ),
-                400,
-            )
-
-        if mode == "anonymize":
-            _audit(
-                "super_admin.user_anonymized",
-                actor.id,
-                {"user_id": user_id},
-                severity="warning",
-            )
-        else:
+            if not ok:
+                status_payload = dict(result or {})
+                status_payload["expected_anonymize"] = expected_anonymize
+                status_payload["can_anonymize"] = True
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": status_payload.get("reasons", ["Cannot delete user"])[0],
+                            "status": status_payload,
+                        }
+                    ),
+                    400,
+                )
             _audit(
                 "super_admin.user_purged",
                 actor.id,
                 {"user_id": user_id, "deleted": result.get("deleted")},
                 severity="critical",
+            )
+        else:
+            ok, result = OrphanCleanupService.anonymize_user(
+                user_id, actor_user_id=actor.id
+            )
+            if not ok:
+                status_payload = dict(result or {})
+                status_payload["expected_anonymize"] = expected_anonymize
+                status_payload["can_anonymize"] = True
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Cannot anonymize user",
+                            "status": status_payload,
+                        }
+                    ),
+                    400,
+                )
+            _audit(
+                "super_admin.user_anonymized",
+                actor.id,
+                {"user_id": user_id},
+                severity="warning",
             )
         db.session.commit()
         return jsonify({"success": True, "result": result}), 200

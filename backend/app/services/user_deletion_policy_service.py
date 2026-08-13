@@ -146,16 +146,25 @@ class UserDeletionPolicyService:
                 status["mode"] = "orphan"
                 status["reasons"] = []
                 return status
-            status["reasons"] = orphan_status.get("reasons") or [
-                "User is not eligible for deletion"
-            ]
-            return status
-
-        if actor_role == "super_admin":
-            if not linked_tenant_ids:
+            if actor_role != "super_admin":
                 status["reasons"] = orphan_status.get("reasons") or [
                     "User is not eligible for deletion"
                 ]
+                return status
+            # Super Admin: true-orphan users may still carry soft FK references
+            # (session tokens, login history, password history, audit logs,
+            # computed-grade authorship, ...).  The lightweight "orphan" path
+            # refuses those, but the hardened purge pipeline (nullable FK SET
+            # NULL + non-nullable FK reassignment + full profile/staff/student
+            # teardown) is explicitly built for this case.  Fall through to the
+            # Super Admin purge gate below instead of returning 400 here.
+
+        if actor_role == "super_admin":
+            if not linked_tenant_ids:
+                status["can_delete"] = True
+                status["mode"] = "purge"
+                status["reasons"] = []
+                status["expected_delete"] = f"DELETE {target.email}"
                 return status
 
             tenant_status_map = {
