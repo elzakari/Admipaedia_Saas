@@ -174,6 +174,22 @@ def create_structure():
         )
 
     error_detail = error_detail or {}
+    # Log every non-success at WARN so we can triage 400s returned to admins
+    # without having to ask users to paste raw JSON out of DevTools Network tab.
+    # Include request body keys (not values) for correlation — never log secrets.
+    logger.warning(
+        "create_structure failed tenant=%s ip=%s user=%s error_type=%s field=%s pgcode=%s constraint=%s message=%r request_keys=%r detail=%r",
+        _tenant_id(),
+        getattr(request, "remote_addr", None),
+        get_jwt_identity() if callable(get_jwt_identity) else None,
+        error_detail.get("error"),
+        error_detail.get("field"),
+        error_detail.get("pgcode"),
+        error_detail.get("constraint"),
+        error_detail.get("message"),
+        sorted(list(data.keys())) if isinstance(data, dict) else None,
+        {k: v for k, v in error_detail.items() if k not in {"db_detail"}} if current_app.debug else None,
+    )
     error_type = error_detail.get("error") or "unknown"
     field = error_detail.get("field")
     pgcode = error_detail.get("pgcode")

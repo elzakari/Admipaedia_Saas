@@ -11,6 +11,7 @@ both the backend API and any future CLI seed commands share the same algorithm.
 
 import logging
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -998,12 +999,29 @@ class AcademicStructureService:
                     ),
                 }
 
-            payload.setdefault("tenant_id", tenant_id)
             payload.setdefault("is_active", True)
             if payload.get("display_order") in (None, ""):
                 payload["display_order"] = AcademicStructureService._next_display_order(
                     tenant_id, resolved_type
                 )
+            # SECURITY/FIX: tenant_id MUST ALWAYS come from the @tenant_required
+            # session g.tenant_id passed in as function parameter. Never trust the
+            # JSON body's tenant_id field (frontend may send "null"/empty string
+            # or, worse, a forged UUID for another tenant). Overwrite unconditionally.
+            payload["tenant_id"] = tenant_id
+            # Ensure the UUID is actually a UUID instance if it came in as string
+            # from the function parameter (belt-and-suspenders).
+            if payload["tenant_id"] is not None and not isinstance(payload["tenant_id"], UUID):
+                try:
+                    payload["tenant_id"] = UUID(str(payload["tenant_id"]))
+                except (ValueError, AttributeError, TypeError):
+                    return None, {
+                        "error": "tenant_missing",
+                        "message": (
+                            "Tenant context has an invalid id. "
+                            "Please refresh the page and sign in again."
+                        ),
+                    }
 
             struct = AcademicStructure(**payload)
             db.session.add(struct)
