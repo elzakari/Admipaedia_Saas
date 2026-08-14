@@ -204,61 +204,127 @@ class AcademicStructureService:
         other drivers surface through string matching. Also scans PostgreSQL
         Diagnostic.message and DETAIL for the actual columns/constraint name,
         because different drivers expose these through different attrs.
+
+        Scans both the SQLAlchemy wrapper ``exc`` and its driver ``exc.orig``
+        (since psycopg exposes ``pgcode`` and ``diag`` on the driver exception
+        only, not on the SQLAlchemy IntegrityError wrapper).
         """
         raw_parts: list[str] = []
-        for attr in ("orig", "args", "detail", "diag", "message"):
-            val = getattr(exc, attr, None)
-            if val is None:
+        pgcode: str | None = None
+        constraint_name: str | None = None
+        message_detail: str | None = None
+        message_primary: str | None = None
+        column_name: str | None = None
+        table_name: str | None = None
+        schema_name: str | None = None
+
+        # ── Attribute walk: SQLAlchemy wrapper + driver orig ───────────────
+        for root in (exc, getattr(exc, "orig", None)):
+            if root is None:
                 continue
-            if isinstance(val, (list, tuple)):
-                raw_parts.extend(str(x) for x in val if x)
-            else:
-                # psycopg2 IntegrityError.diag has .message_detail / .constraint_name
-                if attr == "diag":
+            for attr in ("orig", "args", "detail", "message", "__class__"):
+                if attr == "__class__":
                     try:
-                        if hasattr(val, "constraint_name"):
-                            raw_parts.append(str(val.constraint_name or ""))
-                        if hasattr(val, "message_detail"):
-                            raw_parts.append(str(val.message_detail or ""))
-                        if hasattr(val, "message_primary"):
-                            raw_parts.append(str(val.message_primary or ""))
-                        if hasattr(val, "schema_name"):
-                            raw_parts.append(str(val.schema_name or ""))
-                        if hasattr(val, "table_name"):
-                            raw_parts.append(str(val.table_name or ""))
-                        if hasattr(val, "column_name"):
-                            raw_parts.append(str(val.column_name or ""))
+                        raw_parts.append(root.__class__.__name__)
                     except Exception:  # noqa: BLE001
-                        raw_parts.append(str(val))
+                        pass
+                    continue
+                val = getattr(root, attr, None)
+                if val is None:
+                    continue
+                if isinstance(val, (list, tuple)):
+                    raw_parts.extend(str(x) for x in val if x)
                 else:
                     raw_parts.append(str(val))
-        # Exception class name often includes useful info (e.g. UniqueViolation)
+            # Diagnostic struct (psycopg2 IntegrityError.diag or psycopg3 conn.info)
+            diag = getattr(root, "diag", None)
+            if diag is not None:
+                try:
+                    for d_attr in (
+                        "constraint_name",
+                        "message_detail",
+                        "message_primary",
+                        "schema_name",
+                        "table_name",
+                        "column_name",
+                        "message_hint",
+                        "sqlstate",
+                    ):
+                        v = getattr(diag, d_attr, None)
+                        if not v:
+                            continue
+                        sv = str(v)
+                        raw_parts.append(sv)
+                        if d_attr == "constraint_name":
+                            constraint_name = sv
+                        elif d_attr == "message_detail":
+                            message_detail = sv
+                        elif d_attr == "message_primary":
+                            message_primary = sv
+                        elif d_attr == "schema_name":
+                            schema_name = sv
+                        elif d_attr == "table_name":
+                            table_name = sv
+                        elif d_attr == "column_name":
+                            column_name = sv
+                        elif d_attr == "sqlstate":
+                            pgcode = sv
+                except Exception:  # noqa: BLE001
+                    raw_parts.append(str(diag))
+            # pgcode / sqlstate shortcuts
+            for code_attr in ("pgcode", "sqlstate", "sqlcode"):
+                v = getattr(root, code_attr, None)
+                if v:
+                    pgcode = str(v)
+                    raw_parts.append(pgcode)
+
+        # Exception class name as a final signal
         raw_parts.append(exc.__class__.__name__)
-        # sqlstate: psycopg2 exc.orig.pgcode; others keep it inline
-        pgcode = None
-        for attr in ("pgcode", "sqlstate", "sqlcode"):
-            cand = getattr(exc, attr, None) or getattr(getattr(exc, "orig", None), attr, None)
-            if cand:
-                pgcode = str(cand)
+
+        # ── Last-ditch regex scan: look for SQLSTATE anywhere in text ──────
+        import re as _re
+
+        joined = " \u0001 ".join(raw_parts)
+        if not pgcode:
+            m = _re.search(r"sqlstate[^\w]{0,3}([0-9A-Za-z]{5})", joined, re.IGNORECASE)
+            if not m:
+                m = _re.search(r"\b([0-9A-Z]{5})\b.*(?:constraint|violation)", joined, re.IGNORECASE)
+            if m:
+                pgcode = m.group(1).upper()
                 raw_parts.append(pgcode)
-                break
 
-        haystack = " \u0001 ".join(raw_parts).lower()
+        haystack = joined.lower()
 
-        # ── SQLSTATE 23505 = unique_violation ─────────────────────────────────
-        is_unique = (
-            pgcode == "23505"
-            or "unique_violation" in haystack
-            or "unique constraint" in haystack
-            or "duplicate key value violates" in haystack
-        )
-        # ── SQLSTATE 23503 = foreign_key_violation ─────────────────────────────
-        is_fk = (
-            pgcode == "23503"
-            or "foreign_key_violation" in haystack
-            or "foreign key constraint" in haystack
-            or "violates foreign key" in haystack
-        )
+        # ── Integrity category (SQLSTATE 23) resolution ─────────────────────
+        code_category: str | None = None
+        pgcode_cat = (pgcode or "")[:2]
+        if pgcode_cat == "23":
+            code_category = {
+                "23000": "integrity",
+                "23001": "restrict",
+                "23502": "not_null",
+                "23503": "foreign_key",
+                "23505": "unique",
+                "23514": "check",
+                "23P01": "exclusion",
+            }.get(pgcode or "", "integrity")
+        else:
+            # Fallback string heuristics for non-pgcode drivers
+            if any(s in haystack for s in ("unique_violation", "unique constraint", "duplicate key value violates")):
+                code_category = "unique"
+                pgcode = pgcode or "23505"
+            elif any(s in haystack for s in ("foreign_key_violation", "foreign key constraint", "violates foreign key")):
+                code_category = "foreign_key"
+                pgcode = pgcode or "23503"
+            elif any(s in haystack for s in ("not_null_violation", "null value in column", "cannot be null")):
+                code_category = "not_null"
+                pgcode = pgcode or "23502"
+            elif any(s in haystack for s in ("check_violation", "check constraint", "violates check constraint")):
+                code_category = "check"
+                pgcode = pgcode or "23514"
+            elif any(s in haystack for s in ("exclusion_violation", "exclusion constraint")):
+                code_category = "exclusion"
+                pgcode = pgcode or "23P01"
 
         def _has(*toks: str) -> bool:
             return all(tok in haystack for tok in toks)
@@ -266,70 +332,193 @@ class AcademicStructureService:
         def _hasany(*toks: str) -> bool:
             return any(tok in haystack for tok in toks)
 
-        if is_unique:
-            if _hasany(
-                "uq_departments_tenant_name_type",
-                "uq_academic_structures_tenant_name_type",
-            ) or _has("name", "structure_type") or _has("name, structure_type") or _has("key (tenant_id, name, structure_type)"):
-                return {
-                    "error": "duplicate",
-                    "field": "name",
-                    "message": (
+        def _extract_column_from_message(hay: str) -> str | None:
+            patterns = [
+                r"column[^\w]{1,5}(\w+)[^\w]{1,10}of relation",
+                r"column[^\w]{1,5}(\w+)[^\w]{1,10}contains null values",
+                r"null value in column[^\w]{1,5}(\w+)",
+                r"new row for relation[^\w]{1,5}\w+[^\w]{1,5}violates check constraint[^\w]{1,5}(\w+)",
+                r"violates not-null constraint[^\w]{1,5}(\w+)",
+            ]
+            for pat in patterns:
+                m = _re.search(pat, hay, re.IGNORECASE)
+                if m:
+                    return m.group(1)
+            # Column name from diagnostic struct beats regex
+            return column_name or None
+
+        # ── 23505 UNIQUE ────────────────────────────────────────────────────
+        if code_category == "unique":
+            field = None
+            detail_msg = None
+            if constraint_name:
+                if _hasany(
+                    "uq_departments_tenant_name_type",
+                    "uq_academic_structures_tenant_name_type",
+                ) or "tenant_name_type" in constraint_name.lower():
+                    field = "name"
+                    detail_msg = (
                         f"A {type_label} named '{name}' already exists for this school. "
                         "Pick a different name."
-                    ),
-                }
-            if _hasany(
-                "uq_departments_tenant_code",
-                "uq_academic_structures_tenant_code",
-            ) or _hasany("code"):
-                return {
-                    "error": "duplicate",
-                    "field": "code",
-                    "message": (
+                    )
+                elif _hasany(
+                    "uq_departments_tenant_code",
+                    "uq_academic_structures_tenant_code",
+                ) or "tenant_code" in constraint_name.lower():
+                    field = "code"
+                    detail_msg = (
                         f"Code '{code}' already exists for this school. "
                         "Pick a different code or leave blank to auto-generate."
-                    ),
-                }
-            # Generic unique but unknown which field: assume name+code collision
-            return {
-                "error": "duplicate",
-                "message": (
+                    )
+            # Fallback: detail text / column scans
+            if detail_msg is None:
+                combined = (message_detail or "") + " " + haystack
+                if _has("name") and (_has("structure_type") or _has("tenant_id")):
+                    field = "name"
+                    detail_msg = (
+                        f"A {type_label} named '{name}' already exists for this school. "
+                        "Pick a different name."
+                    )
+                elif _hasany("code"):
+                    field = "code"
+                    detail_msg = (
+                        f"Code '{code}' already exists for this school. "
+                        "Pick a different code or leave blank to auto-generate."
+                    )
+            if detail_msg is None:
+                detail_msg = (
                     "A conflicting record already exists for this school. "
                     "Pick a different name or code."
-                ),
-            }
+                )
+            out: Dict[str, Any] = {"error": "duplicate", "message": detail_msg}
+            if field:
+                out["field"] = field
+            if pgcode:
+                out["pgcode"] = pgcode
+            if constraint_name:
+                out["constraint"] = constraint_name
+            return out
 
-        if is_fk:
+        # ── 23503 FOREIGN KEY ──────────────────────────────────────────────
+        if code_category == "foreign_key":
+            field = None
+            msg = "One or more linked records no longer exist."
+            combined = (constraint_name or "") + " " + (message_detail or "") + " " + haystack
             if _hasany("head_id", "head_of_department", "users_id", "users.id") or _hasany("head"):
-                return {
-                    "error": "validation",
-                    "field": "head_id",
-                    "message": "Selected Head of Department user no longer exists.",
-                }
-            if _hasany("parent_id"):
-                return {
-                    "error": "validation",
-                    "field": "parent_id",
-                    "message": "Parent department no longer exists.",
-                }
-            if _hasany("tenant_id", "tenant"):
-                return {
-                    "error": "tenant_missing",
-                    "message": "Tenant context missing — please refresh the page.",
-                }
-            return {
-                "error": "validation",
-                "message": "One or more linked records no longer exist.",
-            }
+                field = "head_id"
+                msg = "Selected Head of Department user no longer exists."
+            elif _hasany("parent_id"):
+                field = "parent_id"
+                msg = "Parent department no longer exists."
+            elif _hasany("tenant_id", "tenant"):
+                field = "tenant_id"
+                out = {"error": "tenant_missing", "message": "Tenant context missing — please refresh the page."}
+                if pgcode:
+                    out["pgcode"] = pgcode
+                if constraint_name:
+                    out["constraint"] = constraint_name
+                return out
+            out = {"error": "validation", "message": msg}
+            if field:
+                out["field"] = field
+            if pgcode:
+                out["pgcode"] = pgcode
+            if constraint_name:
+                out["constraint"] = constraint_name
+            return out
 
-        return {
-            "error": "integrity",
-            "message": (
-                "Could not save due to a data constraint. "
-                "Check that all fields are valid and try again."
-            ),
-        }
+        # ── 23502 NOT NULL ──────────────────────────────────────────────────
+        if code_category == "not_null":
+            col = _extract_column_from_message(haystack) or column_name
+            msg_map = {
+                "name": "Name is required and cannot be empty.",
+                "code": "Code is required and cannot be empty.",
+                "structure_type": "Department structure type is invalid — please refresh.",
+                "tenant_id": "Tenant context missing — please refresh the page.",
+                "is_active": "Status must be Active or Inactive.",
+                "display_order": "Sort order value could not be computed. Please retry.",
+                "head_id": "Invalid Head of Department selection.",
+                "parent_id": "Invalid Parent department.",
+            }
+            if col and col in msg_map:
+                out = {"error": "validation", "field": col, "message": msg_map[col]}
+                if pgcode:
+                    out["pgcode"] = pgcode
+                if constraint_name:
+                    out["constraint"] = constraint_name
+                return out
+            message = (
+                "A required field was empty. "
+                + (f" Missing field: {col}." if col else " Check Name, Code, and Status and try again.")
+            )
+            out = {"error": "validation", "message": message}
+            if col:
+                out["field"] = col
+            if pgcode:
+                out["pgcode"] = pgcode
+            if constraint_name:
+                out["constraint"] = constraint_name
+            return out
+
+        # ── 23514 CHECK / 23001 RESTRICT / 23P01 EXCLUSION / 23000 INTEGRITY ─
+        if code_category in {"check", "restrict", "exclusion", "integrity"}:
+            col = _extract_column_from_message(haystack) or column_name
+            human_cat = {"check": "check", "restrict": "restrict", "exclusion": "exclusion", "integrity": "integrity"}.get(
+                code_category or "integrity", "integrity"
+            )
+            # If we can tell the check is on a known enum/column, field-specify it
+            field = None
+            suggestion = "Check that all fields contain valid values and try again."
+            if constraint_name:
+                cn = constraint_name.lower()
+                if "structure_type" in cn or "structure" in cn:
+                    field = "structure_type"
+                    suggestion = "Select a valid Type (Cycle / Discipline / Operational) and try again."
+                elif "is_active" in cn:
+                    field = "status"
+                    suggestion = "Status must be Active or Inactive."
+                elif "credit" in cn or "display" in cn or "order" in cn:
+                    field = "display_order"
+                    suggestion = "Sort order value is invalid — please clear and retry."
+                elif "code" in cn:
+                    field = "code"
+                    suggestion = "Code is in an invalid format. Leave it blank to auto-generate."
+                elif "name" in cn:
+                    field = "name"
+                    suggestion = "Name is in an invalid format — remove any special characters."
+            message = (
+                f"Could not save — the server rejected this entry ({human_cat} constraint"
+                + (f", {constraint_name}" if constraint_name else "")
+                + (f", column {col}" if col else "")
+                + "). "
+                + suggestion
+            )
+            out = {"error": "integrity", "message": message, "suggestion": suggestion}
+            if field:
+                out["field"] = field
+            if pgcode:
+                out["pgcode"] = pgcode
+            if constraint_name:
+                out["constraint"] = constraint_name
+            if col:
+                out["column"] = col
+            return out
+
+        # ── Catch-all: we still attach pgcode / constraint so support can trace it
+        message = (
+            "Could not save due to a data constraint. "
+            "Check that all fields are valid and try again."
+        )
+        out = {"error": "integrity", "message": message}
+        if pgcode:
+            out["pgcode"] = pgcode
+        if constraint_name:
+            out["constraint"] = constraint_name
+        if column_name:
+            out["column"] = column_name
+        if message_detail:
+            out["db_detail"] = message_detail[:200]
+        return out
 
     @staticmethod
     def create(

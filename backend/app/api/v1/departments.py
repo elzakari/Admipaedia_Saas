@@ -14,6 +14,8 @@ Endpoints:
   DELETE /<id>/staff/<user_id>      remove staff member
 """
 
+from typing import Any, Dict
+
 import logging
 
 from flask import Blueprint, current_app, g, jsonify, request
@@ -174,23 +176,12 @@ def create_structure():
     error_detail = error_detail or {}
     error_type = error_detail.get("error") or "unknown"
     field = error_detail.get("field")
-    message = (
-        error_detail.get("message")
-        or {
-            "tenant_missing": "Tenant context missing. Please refresh and try again.",
-            "duplicate": (
-                "Code or name already exists for this school. "
-                "Try a different value, or leave code blank to auto-generate."
-            ),
-            "validation": "One or more fields contain invalid values.",
-            "integrity": (
-                "Could not save — this record conflicts with an existing one. "
-                "If the name already exists under a different code, rename it; "
-                "otherwise leave code blank to auto-generate a unique code."
-            ),
-        }.get(error_type, "Could not create. Please try again.")
-    )
-    suggestion = error_detail.get("suggestion") or {
+    pgcode = error_detail.get("pgcode")
+    constraint = error_detail.get("constraint")
+    db_detail = error_detail.get("db_detail")
+    detail_suggestion = error_detail.get("suggestion")
+
+    route_suggestions = {
         "duplicate": (
             "Tips: you can edit the existing department instead of creating a new one, "
             "or leave the code field blank and let the server assign one."
@@ -199,9 +190,35 @@ def create_structure():
             "Tips: refresh the page first (tenant context may have expired), "
             "pick a different head of department, or clear the name/code before retrying."
         ),
-    }.get(error_type, None)
+        "validation": (
+            "Tips: correct the highlighted field and try again. "
+            "If a select dropdown is stale, refresh the page to reload options."
+        ),
+        "tenant_missing": (
+            "Tips: refresh the page to renew your session and tenant context, then try again."
+        ),
+    }
+    suggestion = detail_suggestion or route_suggestions.get(error_type)
+
+    route_messages = {
+        "tenant_missing": "Tenant context missing. Please refresh and try again.",
+        "duplicate": (
+            "Code or name already exists for this school. "
+            "Try a different value, or leave code blank to auto-generate."
+        ),
+        "validation": "One or more fields contain invalid values.",
+        "integrity": (
+            "Could not save — this record conflicts with an existing one. "
+            "If the name already exists under a different code, rename it; "
+            "otherwise leave code blank to auto-generate a unique code."
+        ),
+    }
+    message = error_detail.get("message") or route_messages.get(
+        error_type, "Could not create. Please try again."
+    )
+
     status_code = 409 if error_type == "duplicate" else 400
-    payload = {
+    payload: Dict[str, Any] = {
         "success": False,
         "message": message,
         "error_type": error_type,
@@ -210,6 +227,14 @@ def create_structure():
         payload["field"] = field
     if suggestion:
         payload["suggestion"] = suggestion
+    # Always attach low-sensitivity diagnostic fields: they help admins / support
+    # reproduce exact constraint behaviour without exposing secrets.
+    if pgcode:
+        payload["pgcode"] = pgcode
+    if constraint:
+        payload["constraint"] = constraint
+    if db_detail and current_app.debug:
+        payload["db_detail"] = db_detail
     if current_app.debug:
         payload["detail"] = error_detail
     return jsonify(payload), status_code
