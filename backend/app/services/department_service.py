@@ -51,6 +51,158 @@ def _whitelist_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in payload.items() if k in _ACADEMIC_STRUCTURE_COLUMNS}
 
 
+def _safe_uuid(val, *, field: str):
+    """Return a UUID instance or ``None`` for null-ish values.
+
+    Raises ``ValueError`` with a user-facing message when *val* looks
+    intentional (non-empty) but is not a valid UUID literal.
+    """
+    if val is None:
+        return None
+    if isinstance(val, UUID):
+        return val
+    s = str(val).strip()
+    if not s or s.lower() in {"none", "null", "undefined", "0", "false", "nan", "[]", "{}"}:
+        return None
+    try:
+        return UUID(s)
+    except (ValueError, AttributeError):
+        raise ValueError(
+            f"{field} value '{val}' is not a valid id. "
+            f"Refresh the page and select {field} from the menu again."
+        )
+
+
+def _safe_int(val, *, field: str, default=None, nullable: bool = True):
+    """Return an int or ``None``/``default`` for null-ish values.
+
+    Raises ``ValueError`` with a user-facing message when *val* is non-empty
+    and cannot be coerced to an integer.
+    """
+    if val is None:
+        return None if nullable else default
+    if isinstance(val, bool):
+        return 1 if val else 0
+    if isinstance(val, int):
+        return val
+    s = str(val).strip()
+    if not s or s.lower() in {"none", "null", "undefined", "nan", "[]", "{}"}:
+        return None if nullable else default
+    # Allow numeric strings that look like ints (or floats ending in .0)
+    try:
+        f = float(s)
+    except ValueError:
+        raise ValueError(
+            f"{field} value '{val}' is not a valid number. "
+            f"Clear the field and try again, or refresh the page."
+        )
+    i = int(round(f))
+    if abs(f - i) > 1e-6:
+        raise ValueError(f"{field} must be a whole number (got '{val}').")
+    return i
+
+
+def _safe_bool(val, *, field: str):
+    """Strict but tolerant boolean coercion.
+
+    Accepts Python bools / ints and the usual JS/JSON string sentinels
+    ("true"/"false"/"on"/"off"/"yes"/"no"/1/0).  Returns ``None`` if the
+    value is empty/null-ish so the caller can apply its own default.
+    """
+    if val is None:
+        return None
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return bool(val)
+    s = str(val).strip().lower()
+    if not s or s in {"none", "null", "undefined", "nan"}:
+        return None
+    if s in {"true", "1", "yes", "y", "on", "active", "enabled"}:
+        return True
+    if s in {"false", "0", "no", "n", "off", "inactive", "disabled"}:
+        return False
+    raise ValueError(
+        f"{field} value '{val}' is not valid. Use 'true'/'false' or 'Active'/'Inactive'."
+    )
+
+
+def _coerce_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce each AcademicStructure column to its SQLAlchemy column type.
+
+    Raises :class:`ValueError` with a user-facing message for any un-coercible
+    value; the :meth:`AcademicStructureService.create` wrapper catches these
+    and returns a ``validation`` detail dict instead of letting a 22P02
+    ``invalid_text_representation`` bubble all the way up from PostgreSQL.
+    """
+    out: Dict[str, Any] = dict(payload)
+
+    # UUID: tenant_id
+    if "tenant_id" in out:
+        out["tenant_id"] = _safe_uuid(out["tenant_id"], field="Tenant")
+
+    # Integers: head_id, parent_id, display_order, allocated_budget (cast-as-int), id
+    for fld in ("head_id", "parent_id", "display_order", "id"):
+        if fld in out:
+            out[fld] = _safe_int(out[fld], field=fld.replace("_", " ").title())
+    if "allocated_budget" in out:
+        if out["allocated_budget"] is None or (
+            isinstance(out["allocated_budget"], str) and not out["allocated_budget"].strip()
+        ):
+            out["allocated_budget"] = None
+        else:
+            try:
+                v = float(out["allocated_budget"])
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Allocated Budget value '{out['allocated_budget']}' is not valid. "
+                    "Clear the field or enter a numeric amount."
+                )
+            out["allocated_budget"] = v
+
+    # Boolean: is_active
+    if "is_active" in out:
+        b = _safe_bool(out["is_active"], field="Status (is_active)")
+        if b is None:
+            del out["is_active"]  # let .create apply its own default later
+        else:
+            out["is_active"] = b
+
+    # Enum: structure_type
+    if "structure_type" in out:
+        raw = out["structure_type"]
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            del out["structure_type"]
+        elif not isinstance(raw, AcademicStructureType):
+            s = str(raw).strip().upper()
+            allowed = {
+                **{e.value.upper(): e for e in AcademicStructureType},
+                "DEPARTMENT": AcademicStructureType.DISCIPLINE,
+                "DEPT": AcademicStructureType.DISCIPLINE,
+                "CYLCLE": AcademicStructureType.CYCLE,
+                "OP": AcademicStructureType.OPERATIONAL,
+                "OPS": AcademicStructureType.OPERATIONAL,
+            }
+            if s in allowed:
+                out["structure_type"] = allowed[s]
+            else:
+                raise ValueError(
+                    f"Structure Type value '{raw}' is not valid. "
+                    "Use: Cycle / Discipline / Operational, or refresh the page."
+                )
+
+    # Strings: strip junk punctuation (name/code got _strip_junk already; here
+    # we just ensure empty literals map to None for nullable description/short_name)
+    for fld in ("description", "short_name", "email", "phone", "location"):
+        if fld in out:
+            if out[fld] is None:
+                continue
+            s = str(out[fld]).strip()
+            out[fld] = s or None
+
+    return out
+
+
 def _attach_batch_counts(structures: List[AcademicStructure]) -> None:
     """Patch each structure in-place with precomputed subjects_count/staff_count.
 
@@ -308,6 +460,33 @@ class AcademicStructureService:
                 "23514": "check",
                 "23P01": "exclusion",
             }.get(pgcode or "", "integrity")
+        elif pgcode_cat == "22":
+            # SQLSTATE 22 — Data Exception (subtypes: invalid repr, string data
+            # right truncation, numeric value out of range, null value not
+            # allowed, invalid datetime format, division by zero, etc.)
+            code_category = {
+                "22000": "data_exception",
+                "22001": "string_truncation",
+                "22003": "numeric_out_of_range",
+                "22004": "null_no_data",
+                "22005": "assignment_error",
+                "22007": "invalid_datetime",
+                "22008": "datetime_overflow",
+                "2201G": "invalid_argument_for_logarithm",
+                "2201H": "invalid_argument_for_power",
+                "2201W": "invalid_row_count_in_limit_clause",
+                "22021": "character_not_in_repertoire",
+                "22023": "invalid_parameter_value",
+                "22025": "invalid_escape_character",
+                "22026": "string_data_length_mismatch",
+                "2202E": "array_subscript_error",
+                "22P01": "floating_point_exception",
+                "22P02": "invalid_text_representation",
+                "22P03": "invalid_binary_representation",
+                "22P04": "bad_copy_file_format",
+                "22P05": "untranslatable_character",
+                "22P06": "nonstandard_use_of_escape_character",
+            }.get(pgcode or "", "data_exception")
         else:
             # Fallback string heuristics for non-pgcode drivers
             if any(s in haystack for s in ("unique_violation", "unique constraint", "duplicate key value violates")):
@@ -325,6 +504,18 @@ class AcademicStructureService:
             elif any(s in haystack for s in ("exclusion_violation", "exclusion constraint")):
                 code_category = "exclusion"
                 pgcode = pgcode or "23P01"
+            elif any(s in haystack for s in ("invalid input syntax", "invalid value", "invalid text representation", "invalid representation for type")):
+                code_category = "invalid_text_representation"
+                pgcode = pgcode or "22P02"
+            elif any(s in haystack for s in ("value too long", "right truncation", "too long for type", "varying")):
+                code_category = "string_truncation"
+                pgcode = pgcode or "22001"
+            elif any(s in haystack for s in ("out of range", "out of range for type", "numeric overflow")):
+                code_category = "numeric_out_of_range"
+                pgcode = pgcode or "22003"
+            elif any(s in haystack for s in ("invalid timestamp", "invalid date", "invalid time")):
+                code_category = "invalid_datetime"
+                pgcode = pgcode or "22007"
 
         def _has(*toks: str) -> bool:
             return all(tok in haystack for tok in toks)
@@ -504,6 +695,127 @@ class AcademicStructureService:
                 out["column"] = col
             return out
 
+        # ── Class 22 — DATA EXCEPTION branches ───────────────────────────────────
+        if pgcode_cat == "22" or code_category in {
+            "data_exception",
+            "invalid_text_representation",
+            "invalid_binary_representation",
+            "bad_copy_file_format",
+            "untranslatable_character",
+            "nonstandard_use_of_escape_character",
+            "character_not_in_repertoire",
+            "string_truncation",
+            "numeric_out_of_range",
+            "null_no_data",
+            "assignment_error",
+            "invalid_datetime",
+            "datetime_overflow",
+            "invalid_parameter_value",
+            "invalid_escape_character",
+            "string_data_length_mismatch",
+            "invalid_argument_for_logarithm",
+            "invalid_argument_for_power",
+            "invalid_row_count_in_limit_clause",
+            "array_subscript_error",
+            "floating_point_exception",
+        }:
+            col = _extract_column_from_message(haystack) or column_name
+            field = col or None
+            suggestion = "Clear the field and enter a valid value, or refresh the page to reload options."
+            category = code_category or (pgcode or "data_exception")
+            # Map data-type detection: UUID / integer / enum / date by column_name or message
+            looks_like_uuid = any(s in haystack for s in ("type\"uuid\"", "type 'uuid'", "invalid input syntax for type uuid"))
+            looks_like_int  = any(s in haystack for s in ("invalid input syntax for type integer", "invalid input syntax for integer", "type integer"))
+            looks_like_enum = any(s in haystack for s in ("invalid input value for enum", "type academic_structure_type", "enum academic_structure_type", "invalid input syntax for enum"))
+            looks_like_bool = any(s in haystack for s in ("type boolean", "invalid input syntax for type boolean"))
+            looks_like_date = any(s in haystack for s in ("type timestamp", "type date", "invalid input syntax for type date", "invalid timestamp", "invalid datetime"))
+            looks_like_varchar = category == "string_truncation" or any(s in haystack for s in ("varying", "varying("))
+
+            # Best-effort field match to a known column
+            if field is None:
+                if looks_like_uuid or (col and "tenant" in col.lower()):
+                    field = "tenant_id"
+                    suggestion = "Tenant context is invalid — refresh the page and try again."
+                elif looks_like_enum or "structure_type" in (constraint_name or "").lower():
+                    field = "structure_type"
+                    suggestion = "Department Type is invalid. Select Cycle / Discipline / Operational and try again."
+                elif looks_like_bool or "is_active" in (constraint_name or "").lower():
+                    field = "is_active"
+                    suggestion = "Status is invalid. Choose Active or Inactive and try again."
+                elif looks_like_date:
+                    field = "created_at"
+                    suggestion = "Date / timestamp value is invalid — clear and retry."
+                elif looks_like_int or (col and col.lower() in {"head_id", "parent_id", "display_order", "id"}):
+                    if col and col.lower() in {"head_id", "parent_id", "display_order", "id"}:
+                        field = col.lower()
+                        suggestion = f"{field.replace('_', ' ').title()} value is invalid. Clear the field or select from the dropdown."
+                elif looks_like_varchar or (col and col.lower() in {"name", "code", "description", "short_name"}):
+                    if col and col.lower() in {"name", "code", "description", "short_name"}:
+                        field = col.lower()
+                        if field == "name":
+                            suggestion = "Name is too long or in an invalid format."
+                        elif field == "code":
+                            suggestion = "Code is too long or in an invalid format. Leave it blank to auto-generate."
+                        elif "string_truncation" == category:
+                            suggestion = "One of the text fields (Name, Code, Description) value is too long."
+            # Build user message
+            user_issue_type = {
+                "invalid_text_representation": "in an invalid format",
+                "invalid_binary_representation": "in an invalid binary format",
+                "bad_copy_file_format": "in an unrecognized format",
+                "untranslatable_character": "contains characters we can't store",
+                "nonstandard_use_of_escape_character": "contains an invalid escape sequence",
+                "character_not_in_repertoire": "contains unsupported characters",
+                "string_truncation": "was too long and got truncated",
+                "numeric_out_of_range": "number is outside the allowed range",
+                "null_no_data": "was unexpectedly empty",
+                "assignment_error": "couldn't be applied to this field",
+                "invalid_datetime": "date / timestamp is invalid",
+                "datetime_overflow": "date/time is out of range",
+                "invalid_parameter_value": "contains an invalid value",
+                "invalid_escape_character": "contains an invalid escape character",
+                "string_data_length_mismatch": "length doesn't match the allowed length",
+                "invalid_argument_for_logarithm": "invalid",
+                "invalid_argument_for_power": "invalid",
+                "invalid_row_count_in_limit_clause": "invalid",
+                "array_subscript_error": "invalid array reference",
+                "floating_point_exception": "caused a floating-point error",
+                "data_exception": "contains an invalid value",
+            }.get(category, "contains an invalid value")
+
+            field_label = {
+                "tenant_id": "Tenant context",
+                "structure_type": "Department Type",
+                "is_active": "Status",
+                "head_id": "Head of Department",
+                "parent_id": "Parent Department",
+                "display_order": "Sort order",
+                "name": "Name",
+                "code": "Code",
+                "description": "Description",
+            }.get(field or "?", "Field")
+
+            if col and not field:
+                field = col
+
+            message = (
+                f"{field_label} {user_issue_type}"
+                + (f" (column: {col})" if col and field != col else "")
+                + (f". {suggestion}" if suggestion else ".")
+            )
+            out = {"error": "validation", "message": message}
+            if suggestion:
+                out["suggestion"] = suggestion
+            if field:
+                out["field"] = field
+            if pgcode:
+                out["pgcode"] = pgcode
+            if col:
+                out["column"] = col
+            if constraint_name:
+                out["constraint"] = constraint_name
+            return out
+
         # ── Catch-all: we still attach pgcode / constraint so support can trace it
         message = (
             "Could not save due to a data constraint. "
@@ -533,7 +845,8 @@ class AcademicStructureService:
             None, {"error": "tenant_missing"}
             None, {"error": "duplicate", "field": "code", "message": "..."}
             None, {"error": "duplicate", "field": "name", "message": "..."}
-            None, {"error": "integrity", "field": "head_id", "message": "..."}
+            None, {"error": "validation", "field": "head_id", "message": "..."}
+            None, {"error": "integrity", "pgcode": "23514", "constraint": "...", ...}
             struct, None
 
         Callers should use the detail dict to build user-facing error messages
@@ -547,7 +860,43 @@ class AcademicStructureService:
                     "message": "Tenant context missing. Please refresh and try again.",
                 }
 
-            payload = _whitelist_payload(data or {})
+            # Whitelist + type-coerce EVERY value BEFORE any validation or DB
+            # access.  The whitelist strips extraneous keys; the coerce step
+            # converts JSON string sentinels ("None"/"undefined"/empty UUIDs,
+            # bool strings like "Active", structure_type typos, etc.) into the
+            # Python types SQLAlchemy and PostgreSQL expect.  Without this
+            # step, Postgres throws SQLSTATE 22P02 "invalid_text_representation"
+            # for the exact values we handle here — and that 22P02 would
+            # otherwise surface as a generic "integrity" error to the user.
+            payload = _coerce_payload(_whitelist_payload(data or {}))
+        except ValueError as exc:
+            # _coerce_payload raises ValueError(msg) with a human message already.
+            # Extract a best-effort field name by scanning prefixes.
+            msg = str(exc) or "A value could not be read."
+            field = None
+            for fld in (
+                "tenant_id", "tenant", "name", "code", "structure_type", "type",
+                "head_id", "head", "parent_id", "parent", "display_order", "sort",
+                "is_active", "status", "allocated_budget", "budget",
+            ):
+                if fld in msg.lower():
+                    # Normalise a couple of friendly aliases to canonical field names
+                    field = {
+                        "type": "structure_type",
+                        "sort": "display_order",
+                        "budget": "allocated_budget",
+                        "status": "is_active",
+                        "head": "head_id",
+                        "parent": "parent_id",
+                        "tenant": "tenant_id",
+                    }.get(fld, fld)
+                    break
+            logger.warning("create payload coerce error: %s", exc)
+            detail = {"error": "validation", "message": msg}
+            if field:
+                detail["field"] = field
+            return None, detail
+        try:
 
             # Coerce structure_type string → enum
             st_raw = payload.get(
