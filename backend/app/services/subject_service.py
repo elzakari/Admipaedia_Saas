@@ -101,12 +101,6 @@ class SubjectService:
             if tenant_id is None:
                 return None, "Tenant context required"
 
-            # Check if code is unique
-            if Subject.query.filter_by(
-                code=subject_data["code"], tenant_id=tenant_id
-            ).first():
-                return None, "Subject code already exists"
-
             payload = dict(subject_data or {})
 
             # Resolve department string to department_id if needed
@@ -129,6 +123,14 @@ class SubjectService:
                     if dept:
                         payload["department_id"] = dept.id
 
+            name = (payload.get("name") or "").strip()
+            if not name or len(name) < 2:
+                return None, "Subject name must be at least 2 characters"
+
+            code = (payload.get("code") or "").strip()
+            if code and len(code) > 20:
+                return None, "Subject code must be 20 characters or fewer"
+
             if payload.get("department_id"):
                 from app.models.department import Department
 
@@ -140,7 +142,7 @@ class SubjectService:
                     return None, "Department not found"
 
             # Auto-generate subject code if not supplied by the caller
-            if not payload.get("code"):
+            if not code:
                 from app.models.department import AcademicStructure as _AS
                 from app.services.department_service import \
                     AcademicStructureService
@@ -148,24 +150,65 @@ class SubjectService:
                 _dept_obj = None
                 if payload.get("department_id"):
                     _dept_obj = _AS.query.get(payload["department_id"])
-                payload["code"] = AcademicStructureService.generate_subject_code(
+                code = AcademicStructureService.generate_subject_code(
                     payload.get("name", "SUB"),
                     _dept_obj,
                     tenant_id=tenant_id,
                 )
+                payload["code"] = code
+            else:
+                payload["code"] = code.upper()
+
+            # Check if code is unique (tenant-scoped)
+            if SubjectService.get_subject_by_code(payload["code"], tenant_id=tenant_id):
+                return None, (
+                    f"Subject code '{payload['code']}' already exists for this school. "
+                    "Pick a different code or leave blank to auto-generate."
+                )
+
+            # Check if name is unique within tenant (case-insensitive)
+            dup = Subject.query.filter(
+                Subject.tenant_id == tenant_id,
+                db.func.lower(Subject.name) == name.lower(),
+            ).first()
+            if dup is not None:
+                return None, (
+                    f"A subject named '{name}' already exists for this school "
+                    f"(existing code: {getattr(dup, 'code', 'N/A')})."
+                )
+
             # Cast credit_hours safely
             if "credit_hours" in payload and payload["credit_hours"] is not None:
                 try:
                     payload["credit_hours"] = float(payload["credit_hours"])
                 except (ValueError, TypeError):
                     payload["credit_hours"] = 0.0
+            else:
+                payload["credit_hours"] = 1.0
 
-            if "tenant_id" not in payload and hasattr(Subject, "tenant_id"):
-                payload["tenant_id"] = tenant_id
+            payload.setdefault("tenant_id", tenant_id)
+            payload.setdefault("is_active", True)
+            payload["name"] = name
 
             new_subject = Subject(**payload)
             db.session.add(new_subject)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception as commit_err:
+                db.session.rollback()
+                orig_msg = str(getattr(commit_err, "orig", commit_err)).lower()
+                if "uq_subjects_tenant_code" in orig_msg or ("unique" in orig_msg and "code" in orig_msg):
+                    return None, (
+                        f"Subject code '{payload['code']}' already exists for this school."
+                    )
+                if "subjects_pkey" in orig_msg:
+                    return None, "Subject ID collision — try again."
+                logger.error(
+                    "create_subject commit error", error=str(commit_err)
+                )
+                return None, (
+                    "Could not create subject due to a data constraint. Try a different code."
+                )
             cache_service.delete(f"subject:dto:{new_subject.id}")
 
             logger.info(
@@ -175,7 +218,7 @@ class SubjectService:
         except SQLAlchemyError as e:
             db.session.rollback()
             logger.error("Error creating subject", error=str(e))
-            return None, str(e)
+            return None, "Failed to create subject. Check for duplicates and try again."
 
     @staticmethod
     def update_subject(subject_id, subject_data, tenant_id=None):

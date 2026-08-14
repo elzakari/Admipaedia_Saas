@@ -52,13 +52,14 @@ export const FormRow: React.FC<FormRowProps> = ({ children, className }) => {
 };
 
 interface FormFieldProps {
-  label: string;
+  label: React.ReactNode;
   htmlFor?: string;
-  error?: string;
+  error?: React.ReactNode;
   required?: boolean;
   children: React.ReactNode;
   className?: string;
   fullWidth?: boolean;
+  hint?: React.ReactNode;
 }
 
 export const FormField: React.FC<FormFieldProps> = ({
@@ -69,6 +70,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   children,
   className,
   fullWidth,
+  hint,
 }) => {
   const isMobile = useMediaQuery('(max-width: 640px)');
   
@@ -87,6 +89,9 @@ export const FormField: React.FC<FormFieldProps> = ({
       {children}
       {error && (
         <p className="mt-1 text-sm text-red-500">{error}</p>
+      )}
+      {hint && !error && (
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-snug">{hint}</p>
       )}
     </div>
   );

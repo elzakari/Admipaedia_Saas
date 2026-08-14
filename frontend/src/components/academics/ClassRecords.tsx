@@ -453,22 +453,39 @@ const ClassRecords: React.FC = () => {
   
   // Extract data from API responses
   const classes = useMemo(() => {
-    console.log("ClassRecords - Raw classesData:", classesData);
-    if (!classesData) return [];
-    const extractedClasses = classesData.data || [];
-    console.log("ClassRecords - Extracted classes:", extractedClasses);
-    console.log("ClassRecords - Classes count:", extractedClasses.length);
-    return extractedClasses;
+    if (classesData == null) return [];
+    // StandardPaginatedResponse<T> from apiResponseStandardizer: { data, pagination, success }
+    // useSubjects returns { subjects, pagination } shape — ClassRecords.unwrap is tolerant of both.
+    const asStd = classesData as any;
+    if (Array.isArray(asStd)) return asStd;
+    if (Array.isArray(asStd.data)) return asStd.data;
+    if (Array.isArray(asStd.classes)) return asStd.classes;
+    if (asStd && typeof asStd === 'object') {
+      for (const val of Object.values(asStd)) {
+        if (Array.isArray(val) && (val.length === 0 || typeof (val as any[])[0] === 'object' && 'id' in ((val as any[])[0] || {}))) {
+          return val;
+        }
+      }
+    }
+    return [];
   }, [classesData]);
-  
+
   const subjects = useMemo(() => {
-    if (!subjectsData) return [];
-    return Array.isArray(subjectsData) ? subjectsData : subjectsData.subjects || [];
+    if (subjectsData == null) return [];
+    const asStd: any = subjectsData;
+    if (Array.isArray(asStd)) return asStd;
+    if (Array.isArray(asStd.subjects)) return asStd.subjects;
+    if (Array.isArray(asStd.data)) return asStd.data;
+    return [];
   }, [subjectsData]);
-  
+
   const timetableSlots = useMemo(() => {
-    if (!timetableDataRaw) return [];
-    return Array.isArray(timetableDataRaw) ? timetableDataRaw : (timetableDataRaw as any).data || [];
+    if (timetableDataRaw == null) return [];
+    if (Array.isArray(timetableDataRaw)) return timetableDataRaw;
+    const asAny: any = timetableDataRaw;
+    if (Array.isArray(asAny.data)) return asAny.data;
+    if (Array.isArray(asAny.slots)) return asAny.slots;
+    return [];
   }, [timetableDataRaw]);
   
   // Filtered and sorted data

@@ -375,6 +375,8 @@ function SubjectForm({ editing, onSubmit, onCancel, submitting }: { editing: Sub
       return academicStructureService.getDisciplines()
     },
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: true,
+    retry: 1,
   })
   const [data, setData] = useState<SubjectFormData>({
     name: editing?.name || '',

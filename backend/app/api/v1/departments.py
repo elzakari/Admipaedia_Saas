@@ -16,7 +16,7 @@ Endpoints:
 
 import logging
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.models.department import AcademicStructureType
@@ -153,27 +153,53 @@ def get_structure(structure_id):
 @tenant_required
 def create_structure():
     data = request.get_json() or {}
-    item = AcademicStructureService.create(data, tenant_id=_tenant_id())
-    if not item:
+    result = AcademicStructureService.create(data, tenant_id=_tenant_id())
+    if isinstance(result, tuple) and len(result) == 2:
+        item, error_detail = result
+    else:
+        item, error_detail = result, None
+
+    if item is not None:
         return (
             jsonify(
                 {
-                    "success": False,
-                    "message": "Could not create. Code may already exist or tenant context missing.",
+                    "success": True,
+                    "data": _schema.dump(item),
+                    "message": "Created successfully",
                 }
             ),
-            400,
+            201,
         )
-    return (
-        jsonify(
-            {
-                "success": True,
-                "data": _schema.dump(item),
-                "message": "Created successfully",
-            }
-        ),
-        201,
+
+    error_detail = error_detail or {}
+    error_type = error_detail.get("error") or "unknown"
+    field = error_detail.get("field")
+    message = (
+        error_detail.get("message")
+        or {
+            "tenant_missing": "Tenant context missing. Please refresh and try again.",
+            "duplicate": (
+                "Code or name already exists for this school. "
+                "Try a different value, or leave code blank to auto-generate."
+            ),
+            "validation": "One or more fields contain invalid values.",
+            "integrity": (
+                "Could not create due to a data constraint. "
+                "Check for duplicates and try again."
+            ),
+        }.get(error_type, "Could not create. Please try again.")
     )
+    status_code = 409 if error_type == "duplicate" else 400
+    payload = {
+        "success": False,
+        "message": message,
+        "error_type": error_type,
+    }
+    if field:
+        payload["field"] = field
+    if current_app.debug:
+        payload["detail"] = error_detail
+    return jsonify(payload), status_code
 
 
 @departments_bp.route("/<int:structure_id>", methods=["PUT"])

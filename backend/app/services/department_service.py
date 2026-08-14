@@ -195,12 +195,25 @@ class AcademicStructureService:
     ) -> Optional[AcademicStructure]:
         """
         Create a new AcademicStructure record.
-        Requires `tenant_id` – will return None if missing.
+
+        Returns a tuple ``(structure or None, error_detail_dict or None)``::
+
+            None, {"error": "tenant_missing"}
+            None, {"error": "duplicate", "field": "code", "message": "..."}
+            None, {"error": "duplicate", "field": "name", "message": "..."}
+            None, {"error": "integrity", "field": "head_id", "message": "..."}
+            struct, None
+
+        Callers should use the detail dict to build user-facing error messages
+        instead of returning a generic "could not create" on all failure paths.
         """
         try:
             if tenant_id is None:
                 logger.warning("create called without tenant_id")
-                return None
+                return None, {
+                    "error": "tenant_missing",
+                    "message": "Tenant context missing. Please refresh and try again.",
+                }
 
             payload = _whitelist_payload(data or {})
 
@@ -215,6 +228,12 @@ class AcademicStructureService:
                     payload["structure_type"] = AcademicStructureType.DISCIPLINE
             elif st_raw is None:
                 payload["structure_type"] = AcademicStructureType.DISCIPLINE
+            resolved_type = payload["structure_type"]
+            type_label = (
+                resolved_type.value
+                if isinstance(resolved_type, AcademicStructureType)
+                else str(resolved_type)
+            )
 
             # Normalize head_id / parent_id None (for empty string / 0 passed)
             for _k in ("head_id", "parent_id"):
@@ -224,39 +243,178 @@ class AcademicStructureService:
             # Validate head_id refers to a real User FK (users.id, NOT teacher.id)
             head_id = payload.get("head_id")
             if head_id is not None:
-                head_user = db.session.get(User, int(head_id))
+                try:
+                    head_int = int(head_id)
+                except (TypeError, ValueError):
+                    return None, {
+                        "error": "validation",
+                        "field": "head_id",
+                        "message": "Head of Department must be a valid user.",
+                    }
+                head_user = db.session.get(User, head_int)
                 if head_user is None:
-                    logger.warning(
-                        "create: head_id=%s does not exist in users.id", head_id
-                    )
-                    return None
-                payload["head_id"] = int(head_id)
+                    return None, {
+                        "error": "validation",
+                        "field": "head_id",
+                        "message": "Selected Head of Department user no longer exists.",
+                    }
+                payload["head_id"] = head_int
+
+            # Basic field validation
+            name = (payload.get("name") or "").strip()
+            code = (payload.get("code") or "").strip()
+            if len(name) < 2:
+                return None, {
+                    "error": "validation",
+                    "field": "name",
+                    "message": "Name must be at least 2 characters.",
+                }
+            if not code:
+                payload["code"] = AcademicStructureService._auto_code_for_name(
+                    name, resolved_type, tenant_id
+                )
+                code = payload["code"]
+            elif len(code) > 20:
+                return None, {
+                    "error": "validation",
+                    "field": "code",
+                    "message": "Code must be 20 characters or fewer.",
+                }
+            payload["name"] = name
+            payload["code"] = code.upper()
 
             # Uniqueness check: (tenant, code)
             if AcademicStructureService.get_by_code(
-                payload.get("code", ""),
+                payload["code"],
                 tenant_id=tenant_id,
             ):
-                logger.warning(
-                    "Duplicate code '%s' for tenant %s", payload.get("code"), tenant_id
-                )
-                return None
+                return None, {
+                    "error": "duplicate",
+                    "field": "code",
+                    "message": (
+                        f"Code '{payload['code']}' already exists for this school. "
+                        "Pick a different code or leave blank to auto-generate."
+                    ),
+                }
+
+            # Uniqueness check: (tenant, name, structure_type)
+            dup_name_q = AcademicStructure.query.filter(
+                AcademicStructure.tenant_id == tenant_id,
+                db.func.lower(AcademicStructure.name) == name.lower(),
+                AcademicStructure.structure_type == resolved_type,
+            )
+            if dup_name_q.first():
+                existing = dup_name_q.first()
+                return None, {
+                    "error": "duplicate",
+                    "field": "name",
+                    "message": (
+                        f"A {type_label} named '{name}' already exists for this school "
+                        f"(existing code: {getattr(existing, 'code', 'N/A')})."
+                    ),
+                }
 
             payload.setdefault("tenant_id", tenant_id)
+            payload.setdefault("is_active", True)
+            if payload.get("display_order") in (None, ""):
+                payload["display_order"] = AcademicStructureService._next_display_order(
+                    tenant_id, resolved_type
+                )
 
             struct = AcademicStructure(**payload)
             db.session.add(struct)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception as commit_err:
+                db.session.rollback()
+                err_text = str(getattr(commit_err, "orig", commit_err)).lower()
+                if "uq_departments_tenant_name_type" in err_text or "unique" in err_text and "name" in err_text:
+                    return None, {
+                        "error": "duplicate",
+                        "field": "name",
+                        "message": (
+                            f"A {type_label} named '{name}' already exists for this school."
+                        ),
+                    }
+                if "uq_departments_tenant_code" in err_text or ("unique" in err_text and "code" in err_text):
+                    return None, {
+                        "error": "duplicate",
+                        "field": "code",
+                        "message": (
+                            f"Code '{payload['code']}' already exists for this school."
+                        ),
+                    }
+                if "head_id" in err_text or "users_id" in err_text or "users.id" in err_text or "foreign key" in err_text and "head" in err_text:
+                    return None, {
+                        "error": "validation",
+                        "field": "head_id",
+                        "message": "Head of Department user reference is invalid.",
+                    }
+                logger.error(
+                    "create commit error: %s", commit_err, exc_info=True
+                )
+                return None, {
+                    "error": "integrity",
+                    "message": (
+                        "Could not save due to a data constraint. "
+                        "Check that all fields are valid and try again."
+                    ),
+                }
             _attach_batch_counts([struct])
-            return struct
+            return struct, None
         except SQLAlchemyError as exc:
             db.session.rollback()
             logger.error("create error: %s", exc, exc_info=True)
-            return None
+            return None, {
+                "error": "integrity",
+                "message": (
+                    "Could not create due to a database error. Check for duplicates and try again."
+                ),
+            }
         except TypeError as exc:
             db.session.rollback()
             logger.error("create TypeError (payload mismatch): %s", exc, exc_info=True)
-            return None
+            return None, {
+                "error": "validation",
+                "message": "Invalid fields provided: " + str(exc),
+            }
+
+    @staticmethod
+    def _auto_code_for_name(
+        name: str,
+        structure_type: "AcademicStructureType",
+        tenant_id,
+    ) -> str:
+        """Generate a deterministic collision-safe code for a new structure."""
+        alpha = "".join(c for c in name.upper() if c.isalpha()) or "X"
+        base = alpha[:4].ljust(3, "X")
+        type_prefix = {
+            AcademicStructureType.DISCIPLINE: "DIS",
+            AcademicStructureType.CYCLE: "CYC",
+            AcademicStructureType.OPERATIONAL: "OPS",
+        }.get(structure_type, "STR")
+        prefix = f"{type_prefix}-{base}"
+        # Count existing codes matching this tenant + prefix for uniqueness suffix
+        existing = (
+            AcademicStructure.query.filter(
+                AcademicStructure.tenant_id == tenant_id,
+                AcademicStructure.code.ilike(f"{prefix}%"),
+            ).count()
+        )
+        suffix = str(existing + 1).zfill(3)
+        return f"{prefix}{suffix}"
+
+    @staticmethod
+    def _next_display_order(tenant_id, structure_type) -> int:
+        max_order = (
+            db.session.query(func.max(AcademicStructure.display_order))
+            .filter(
+                AcademicStructure.tenant_id == tenant_id,
+                AcademicStructure.structure_type == structure_type,
+            )
+            .scalar()
+        ) or 0
+        return int(max_order) + 10
 
     @staticmethod
     def update(
@@ -455,7 +613,12 @@ class DepartmentService(AcademicStructureService):
     def create_department(data, tenant_id=None):
         payload = dict(data or {})
         payload.setdefault("structure_type", AcademicStructureType.DISCIPLINE.value)
-        return AcademicStructureService.create(payload, tenant_id=tenant_id)
+        struct, detail = AcademicStructureService.create(
+            payload, tenant_id=tenant_id
+        )
+        # Backward compat shim: return only the struct on success.
+        # Callers that want error detail should call AcademicStructureService.create directly.
+        return struct
 
     @staticmethod
     def update_department(department_id, data, tenant_id=None):
