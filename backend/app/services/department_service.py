@@ -189,10 +189,153 @@ class AcademicStructureService:
     # ── Write ──────────────────────────────────────────────────────────────────
 
     @staticmethod
+    def _strip_junk(s: str) -> str:
+        """Strip leading/trailing punctuation & whitespace from user input."""
+        if s is None:
+            return ""
+        return str(s).strip().lstrip(" :：-—_·•.,;|·").rstrip(" :：-—_·•.,;|·").strip()
+
+    @staticmethod
+    def _classify_db_commit_error(exc, name, code, type_label) -> Dict[str, Any]:
+        """Best-effort classification of a SQL commit error.
+
+        Returns a detail dict ready for the route handler to return. Handles
+        psycopg2/psycopg3 IntegrityErrors (SQLSTATE-aware) as well as whatever
+        other drivers surface through string matching. Also scans PostgreSQL
+        Diagnostic.message and DETAIL for the actual columns/constraint name,
+        because different drivers expose these through different attrs.
+        """
+        raw_parts: list[str] = []
+        for attr in ("orig", "args", "detail", "diag", "message"):
+            val = getattr(exc, attr, None)
+            if val is None:
+                continue
+            if isinstance(val, (list, tuple)):
+                raw_parts.extend(str(x) for x in val if x)
+            else:
+                # psycopg2 IntegrityError.diag has .message_detail / .constraint_name
+                if attr == "diag":
+                    try:
+                        if hasattr(val, "constraint_name"):
+                            raw_parts.append(str(val.constraint_name or ""))
+                        if hasattr(val, "message_detail"):
+                            raw_parts.append(str(val.message_detail or ""))
+                        if hasattr(val, "message_primary"):
+                            raw_parts.append(str(val.message_primary or ""))
+                        if hasattr(val, "schema_name"):
+                            raw_parts.append(str(val.schema_name or ""))
+                        if hasattr(val, "table_name"):
+                            raw_parts.append(str(val.table_name or ""))
+                        if hasattr(val, "column_name"):
+                            raw_parts.append(str(val.column_name or ""))
+                    except Exception:  # noqa: BLE001
+                        raw_parts.append(str(val))
+                else:
+                    raw_parts.append(str(val))
+        # Exception class name often includes useful info (e.g. UniqueViolation)
+        raw_parts.append(exc.__class__.__name__)
+        # sqlstate: psycopg2 exc.orig.pgcode; others keep it inline
+        pgcode = None
+        for attr in ("pgcode", "sqlstate", "sqlcode"):
+            cand = getattr(exc, attr, None) or getattr(getattr(exc, "orig", None), attr, None)
+            if cand:
+                pgcode = str(cand)
+                raw_parts.append(pgcode)
+                break
+
+        haystack = " \u0001 ".join(raw_parts).lower()
+
+        # ── SQLSTATE 23505 = unique_violation ─────────────────────────────────
+        is_unique = (
+            pgcode == "23505"
+            or "unique_violation" in haystack
+            or "unique constraint" in haystack
+            or "duplicate key value violates" in haystack
+        )
+        # ── SQLSTATE 23503 = foreign_key_violation ─────────────────────────────
+        is_fk = (
+            pgcode == "23503"
+            or "foreign_key_violation" in haystack
+            or "foreign key constraint" in haystack
+            or "violates foreign key" in haystack
+        )
+
+        def _has(*toks: str) -> bool:
+            return all(tok in haystack for tok in toks)
+
+        def _hasany(*toks: str) -> bool:
+            return any(tok in haystack for tok in toks)
+
+        if is_unique:
+            if _hasany(
+                "uq_departments_tenant_name_type",
+                "uq_academic_structures_tenant_name_type",
+            ) or _has("name", "structure_type") or _has("name, structure_type") or _has("key (tenant_id, name, structure_type)"):
+                return {
+                    "error": "duplicate",
+                    "field": "name",
+                    "message": (
+                        f"A {type_label} named '{name}' already exists for this school. "
+                        "Pick a different name."
+                    ),
+                }
+            if _hasany(
+                "uq_departments_tenant_code",
+                "uq_academic_structures_tenant_code",
+            ) or _hasany("code"):
+                return {
+                    "error": "duplicate",
+                    "field": "code",
+                    "message": (
+                        f"Code '{code}' already exists for this school. "
+                        "Pick a different code or leave blank to auto-generate."
+                    ),
+                }
+            # Generic unique but unknown which field: assume name+code collision
+            return {
+                "error": "duplicate",
+                "message": (
+                    "A conflicting record already exists for this school. "
+                    "Pick a different name or code."
+                ),
+            }
+
+        if is_fk:
+            if _hasany("head_id", "head_of_department", "users_id", "users.id") or _hasany("head"):
+                return {
+                    "error": "validation",
+                    "field": "head_id",
+                    "message": "Selected Head of Department user no longer exists.",
+                }
+            if _hasany("parent_id"):
+                return {
+                    "error": "validation",
+                    "field": "parent_id",
+                    "message": "Parent department no longer exists.",
+                }
+            if _hasany("tenant_id", "tenant"):
+                return {
+                    "error": "tenant_missing",
+                    "message": "Tenant context missing — please refresh the page.",
+                }
+            return {
+                "error": "validation",
+                "message": "One or more linked records no longer exist.",
+            }
+
+        return {
+            "error": "integrity",
+            "message": (
+                "Could not save due to a data constraint. "
+                "Check that all fields are valid and try again."
+            ),
+        }
+
+    @staticmethod
     def create(
         data: Dict[str, Any],
         tenant_id=None,
-    ) -> Optional[AcademicStructure]:
+    ):
         """
         Create a new AcademicStructure record.
 
@@ -260,15 +403,18 @@ class AcademicStructureService:
                     }
                 payload["head_id"] = head_int
 
-            # Basic field validation
-            name = (payload.get("name") or "").strip()
-            code = (payload.get("code") or "").strip()
-            if len(name) < 2:
+            # Basic field validation + strip junk punctuation that users accidentally
+            # paste (e.g. the leading colon ":Primary" seen in bug reports).
+            raw_name = AcademicStructureService._strip_junk(payload.get("name") or "")
+            raw_code = AcademicStructureService._strip_junk(payload.get("code") or "")
+            if len(raw_name) < 2:
                 return None, {
                     "error": "validation",
                     "field": "name",
                     "message": "Name must be at least 2 characters.",
                 }
+            name = raw_name
+            code = raw_code
             if not code:
                 payload["code"] = AcademicStructureService._auto_code_for_name(
                     name, resolved_type, tenant_id
@@ -327,50 +473,41 @@ class AcademicStructureService:
                 db.session.commit()
             except Exception as commit_err:
                 db.session.rollback()
-                err_text = str(getattr(commit_err, "orig", commit_err)).lower()
-                if "uq_departments_tenant_name_type" in err_text or "unique" in err_text and "name" in err_text:
-                    return None, {
-                        "error": "duplicate",
-                        "field": "name",
-                        "message": (
-                            f"A {type_label} named '{name}' already exists for this school."
-                        ),
-                    }
-                if "uq_departments_tenant_code" in err_text or ("unique" in err_text and "code" in err_text):
-                    return None, {
-                        "error": "duplicate",
-                        "field": "code",
-                        "message": (
-                            f"Code '{payload['code']}' already exists for this school."
-                        ),
-                    }
-                if "head_id" in err_text or "users_id" in err_text or "users.id" in err_text or "foreign key" in err_text and "head" in err_text:
-                    return None, {
-                        "error": "validation",
-                        "field": "head_id",
-                        "message": "Head of Department user reference is invalid.",
-                    }
-                logger.error(
-                    "create commit error: %s", commit_err, exc_info=True
+                detail = AcademicStructureService._classify_db_commit_error(
+                    commit_err, name=name, code=payload["code"], type_label=type_label
                 )
-                return None, {
-                    "error": "integrity",
-                    "message": (
-                        "Could not save due to a data constraint. "
-                        "Check that all fields are valid and try again."
-                    ),
-                }
+                logger.warning(
+                    "create commit classified: %s | orig=%r | pgcode=%r",
+                    detail,
+                    getattr(commit_err, "orig", commit_err),
+                    getattr(getattr(commit_err, "orig", None), "pgcode", None),
+                )
+                return None, detail
             _attach_batch_counts([struct])
             return struct, None
         except SQLAlchemyError as exc:
             db.session.rollback()
-            logger.error("create error: %s", exc, exc_info=True)
-            return None, {
-                "error": "integrity",
-                "message": (
-                    "Could not create due to a database error. Check for duplicates and try again."
-                ),
-            }
+            try:
+                fallback = AcademicStructureService._classify_db_commit_error(
+                    exc,
+                    name=AcademicStructureService._strip_junk(payload.get("name") if "payload" in locals() else ""),
+                    code=(payload["code"] if "payload" in locals() and payload.get("code") else ""),
+                    type_label=(
+                        resolved_type.value
+                        if "resolved_type" in locals() and isinstance(resolved_type, AcademicStructureType)
+                        else "Structure"
+                    ),
+                )
+            except Exception:  # noqa: BLE001
+                fallback = {
+                    "error": "integrity",
+                    "message": (
+                        "Could not create due to a database error. "
+                        "Check for duplicates and try again."
+                    ),
+                }
+            logger.error("create sqlalchemy error: %s", exc, exc_info=True)
+            return None, fallback
         except TypeError as exc:
             db.session.rollback()
             logger.error("create TypeError (payload mismatch): %s", exc, exc_info=True)

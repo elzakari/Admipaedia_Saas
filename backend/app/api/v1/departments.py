@@ -184,11 +184,22 @@ def create_structure():
             ),
             "validation": "One or more fields contain invalid values.",
             "integrity": (
-                "Could not create due to a data constraint. "
-                "Check for duplicates and try again."
+                "Could not save — this record conflicts with an existing one. "
+                "If the name already exists under a different code, rename it; "
+                "otherwise leave code blank to auto-generate a unique code."
             ),
         }.get(error_type, "Could not create. Please try again.")
     )
+    suggestion = error_detail.get("suggestion") or {
+        "duplicate": (
+            "Tips: you can edit the existing department instead of creating a new one, "
+            "or leave the code field blank and let the server assign one."
+        ),
+        "integrity": (
+            "Tips: refresh the page first (tenant context may have expired), "
+            "pick a different head of department, or clear the name/code before retrying."
+        ),
+    }.get(error_type, None)
     status_code = 409 if error_type == "duplicate" else 400
     payload = {
         "success": False,
@@ -197,6 +208,8 @@ def create_structure():
     }
     if field:
         payload["field"] = field
+    if suggestion:
+        payload["suggestion"] = suggestion
     if current_app.debug:
         payload["detail"] = error_detail
     return jsonify(payload), status_code
