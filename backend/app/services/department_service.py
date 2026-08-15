@@ -441,9 +441,9 @@ class AcademicStructureService:
 
         joined = " \u0001 ".join(raw_parts)
         if not pgcode:
-            m = _re.search(r"sqlstate[^\w]{0,3}([0-9A-Za-z]{5})", joined, re.IGNORECASE)
+            m = _re.search(r"sqlstate[^\w]{0,3}([0-9A-Za-z]{5})", joined, _re.IGNORECASE)
             if not m:
-                m = _re.search(r"\b([0-9A-Z]{5})\b.*(?:constraint|violation)", joined, re.IGNORECASE)
+                m = _re.search(r"\b([0-9A-Z]{5})\b.*(?:constraint|violation)", joined, _re.IGNORECASE)
             if m:
                 pgcode = m.group(1).upper()
                 raw_parts.append(pgcode)
@@ -535,7 +535,7 @@ class AcademicStructureService:
                 r"violates not-null constraint[^\w]{1,5}(\w+)",
             ]
             for pat in patterns:
-                m = _re.search(pat, hay, re.IGNORECASE)
+                m = _re.search(pat, hay, _re.IGNORECASE)
                 if m:
                     return m.group(1)
             # Column name from diagnostic struct beats regex
@@ -1276,6 +1276,43 @@ class AcademicStructureService:
                 "error": "validation",
                 "message": "Invalid fields provided: " + str(exc),
             }
+        except Exception as unexpected_exc:  # noqa: BLE001
+            # Fail-close catch-all: never leak a raw exception to Flask's
+            # generic 500 handler. This catches any NameError/AttributeError
+            # from classifier code paths we might have missed, and guarantees
+            # error_type + a diagnostic message reach the client.
+            db.session.rollback()
+            logger.critical(
+                "create UNEXPECTED non-sqlalchemy error: %s",
+                unexpected_exc,
+                exc_info=True,
+            )
+            safe_name = ""
+            safe_code = ""
+            try:
+                if "payload" in locals() and isinstance(payload.get("name"), str):
+                    safe_name = AcademicStructureService._strip_junk(payload["name"])
+                if "payload" in locals() and isinstance(payload.get("code"), str):
+                    safe_code = payload["code"]
+            except Exception:  # noqa: BLE001
+                pass
+            detail: Dict[str, Any] = {
+                "error": "validation",
+                "message": (
+                    "An unexpected server error occurred while saving this department. "
+                    f"Please try again (error class: {type(unexpected_exc).__name__})."
+                ),
+                "suggestion": (
+                    "Tips: refresh the page (tenant context may have expired), clear name/code, "
+                    "pick a different department head, or leave code blank to auto-generate."
+                ),
+            }
+            if safe_name:
+                detail["context_name"] = safe_name
+            if safe_code:
+                detail["context_code"] = safe_code
+            detail["_exc_class"] = type(unexpected_exc).__name__
+            return None, detail
 
     @staticmethod
     def _auto_code_for_name(
