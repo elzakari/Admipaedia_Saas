@@ -153,8 +153,18 @@ class AcademicStructure(db.Model):
     )
 
     # ── Polymorphic discriminator ─────────────────────────────────────────────
+    # CRITICAL: values_callable tells SQLAlchemy to use the MEMBER'S .value attribute
+    # (lowercase strings "discipline"/"cycle"/"operational") for DDL generation,
+    # DB bind parameters, and result coercion. The DEFAULT behavior of db.Enum()
+    # when given a Python enum.Enum class is to use the member's NAME (uppercase
+    # "DISCIPLINE"/"CYCLE"/"OPERATIONAL"), which caused SQLSTATE 22P02 because our
+    # Alembic migrations and pg_enum catalog contain lowercase labels only.
     structure_type = db.Column(
-        db.Enum(AcademicStructureType, name="academic_structure_type"),
+        db.Enum(
+            AcademicStructureType,
+            name="academic_structure_type",
+            values_callable=lambda members: [m.value for m in members],
+        ),
         nullable=False,
         default=AcademicStructureType.DISCIPLINE,
         index=True,
