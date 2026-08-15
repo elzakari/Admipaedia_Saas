@@ -277,7 +277,14 @@ const StaffManagement: React.FC = () => {
 
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
-  const [departmentForm, setDepartmentForm] = useState({ name: '', code: '', description: '', head_id: '', is_active: true });
+  const [departmentForm, setDepartmentForm] = useState<{
+    name: string;
+    code: string;
+    description: string;
+    head_id: string;
+    is_active: boolean;
+    structure_type: 'discipline' | 'cycle' | 'operational';
+  }>({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
 
   const createDepartmentMutation = useMutation({
     mutationFn: (payload: Partial<ApiDepartment>) => departmentService.createDepartment(payload),
@@ -286,7 +293,22 @@ const StaffManagement: React.FC = () => {
       toast.success('Department saved');
       setDepartmentDialogOpen(false);
     },
-    onError: () => toast.error('Failed to save department')
+    onError: (err: any) => {
+      const resp = err?.response?.data as Record<string, any> | undefined;
+      const fieldMsg = resp?.field
+        ? ` (${resp.field}${resp?.offending_value ? `: ${JSON.stringify(resp.offending_value)}` : ''})`
+        : '';
+      const detail = [
+        resp?.message || resp?.error || '',
+        resp?.pgcode ? `[pgcode ${resp.pgcode}]` : '',
+        resp?.enum_type_name ? `[enum ${resp.enum_type_name}]` : '',
+      ].filter(Boolean).join(' ');
+      const suggestion = resp?.suggestion ? ` — ${resp.suggestion}` : '';
+      toast.error(
+        `Failed to save department${fieldMsg}${detail ? `. ${detail}` : ''}${suggestion}`,
+        { duration: 8000, closeButton: true }
+      );
+    }
   });
 
   const updateDepartmentMutation = useMutation({
@@ -296,7 +318,18 @@ const StaffManagement: React.FC = () => {
       toast.success('Department updated');
       setDepartmentDialogOpen(false);
     },
-    onError: () => toast.error('Failed to update department')
+    onError: (err: any) => {
+      const resp = err?.response?.data as Record<string, any> | undefined;
+      const detail = [
+        resp?.message || resp?.error || '',
+        resp?.pgcode ? `[pgcode ${resp.pgcode}]` : '',
+        resp?.field ? `(field: ${resp.field}${resp?.offending_value ? ` = ${JSON.stringify(resp.offending_value)}` : ''})` : '',
+      ].filter(Boolean).join(' ');
+      toast.error(
+        `Failed to update department${detail ? `. ${detail}` : ''}${resp?.suggestion ? ` — ${resp.suggestion}` : ''}`,
+        { duration: 8000, closeButton: true }
+      );
+    }
   });
 
   const [attendanceMarkDialogOpen, setAttendanceMarkDialogOpen] = useState(false);
@@ -1226,7 +1259,7 @@ const StaffManagement: React.FC = () => {
             <Button
               onClick={() => {
                 setEditingDepartment(null);
-                setDepartmentForm({ name: '', code: '', description: '', head_id: '', is_active: true });
+                setDepartmentForm({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
                 setDepartmentDialogOpen(true);
               }}
             >
@@ -1274,7 +1307,8 @@ const StaffManagement: React.FC = () => {
                                 code: department.code || '',
                                 description: department.description || '',
                                 head_id: department.head?.id ? String(department.head.id) : '',
-                                is_active: department.is_active
+                                is_active: department.is_active,
+                                structure_type: (department as any)?.structure_type || 'discipline'
                               });
                               setDepartmentDialogOpen(true);
                             }}
@@ -1553,6 +1587,35 @@ const StaffManagement: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>{t('admin_staff.department_type_label', 'Department Type')}</Label>
+              <Select
+                value={departmentForm.structure_type}
+                onValueChange={(value) => setDepartmentForm((p) => ({
+                  ...p,
+                  structure_type: value as 'discipline' | 'cycle' | 'operational'
+                }))}
+              >
+                <SelectTrigger className="bg-white"><SelectValue placeholder={t('admin_staff.department_type_placeholder', 'Pick a type')} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discipline">
+                    {t('admin_staff.type_discipline', 'Discipline — Sciences / Math / Humanities')}
+                  </SelectItem>
+                  <SelectItem value="cycle">
+                    {t('admin_staff.type_cycle', 'School Cycle — Primary / Maternelle / Lycée')}
+                  </SelectItem>
+                  <SelectItem value="operational">
+                    {t('admin_staff.type_operational', 'Operational — Finance / HR / Admissions')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">
+                {t(
+                  'admin_staff.department_type_hint',
+                  'Tip: "Primary" is a school Cycle; "Mathematics" is a Discipline; "Finance" is Operational.'
+                )}
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Description</Label>
               <Textarea value={departmentForm.description} onChange={(e) => setDepartmentForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
             </div>
@@ -1582,7 +1645,7 @@ const StaffManagement: React.FC = () => {
                   description: departmentForm.description.trim() || undefined,
                   head_id: Number.isFinite(headId as any) ? headId : undefined,
                   is_active: departmentForm.is_active,
-                  structure_type: 'operational'
+                  structure_type: departmentForm.structure_type,
                 };
 
                 if (editingDepartment) {
