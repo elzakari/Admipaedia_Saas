@@ -33,6 +33,88 @@ class AcademicStructureType(enum.Enum):
     OPERATIONAL = "operational"  # e.g. Finance, Admissions, Maintenance, IT
 
 
+# The Postgres native enum type used in the `departments.structure_type` column.
+# Keep this in sync with the `db.Enum(..., name=...)` argument below and with
+# every Alembic migration that references the type.
+ENUM_NAME = "academic_structure_type"
+
+
+# ── Canonicalization helpers (used by service, route, model @validates) ───────
+
+STRUCTURE_TYPE_VALUE_TO_MEMBER = {e.value: e for e in AcademicStructureType}
+
+STRUCTURE_TYPE_ALIASES: dict = {
+    # English
+    "DISCIPLINE": AcademicStructureType.DISCIPLINE,
+    "DISCIPLINES": AcademicStructureType.DISCIPLINE,
+    "DEPARTMENT": AcademicStructureType.DISCIPLINE,
+    "DEPT": AcademicStructureType.DISCIPLINE,
+    "DEPARTMENTS": AcademicStructureType.DISCIPLINE,
+    "SUBJECT_AREA": AcademicStructureType.DISCIPLINE,
+    "SUBJECT_AREAS": AcademicStructureType.DISCIPLINE,
+    "CYCLE": AcademicStructureType.CYCLE,
+    "CYCLES": AcademicStructureType.CYCLE,
+    "CYLCLE": AcademicStructureType.CYCLE,  # Common typo (handled in service too)
+    "SCHOOL_CYCLE": AcademicStructureType.CYCLE,
+    "SCHOOL_CYCLES": AcademicStructureType.CYCLE,
+    "LEVEL": AcademicStructureType.CYCLE,
+    "LEVELS": AcademicStructureType.CYCLE,
+    "OPERATIONAL": AcademicStructureType.OPERATIONAL,
+    "OPERATIONAL_UNIT": AcademicStructureType.OPERATIONAL,
+    "OPERATIONS": AcademicStructureType.OPERATIONAL,
+    "OPS": AcademicStructureType.OPERATIONAL,
+    "OP": AcademicStructureType.OPERATIONAL,
+    "ADMINISTRATION": AcademicStructureType.OPERATIONAL,
+    "ADMIN": AcademicStructureType.OPERATIONAL,
+    # French / bilingual variants seen in production
+    "DISCIPLINE_FR": AcademicStructureType.DISCIPLINE,
+    "MATIERE": AcademicStructureType.DISCIPLINE,
+    "MATIERES": AcademicStructureType.DISCIPLINE,
+    "CYCLE_FR": AcademicStructureType.CYCLE,
+    "OPERATIONNEL": AcademicStructureType.OPERATIONAL,
+    "ADMINISTRATIF": AcademicStructureType.OPERATIONAL,
+}
+
+
+def canonicalize_structure_type(raw, *, default=None):
+    """Return a valid AcademicStructureType enum member or raise ValueError.
+
+    Accepts:
+      - Already a AcademicStructureType enum member → returned as-is
+      - ``None`` / empty string → ``default`` (or None)
+      - Case-insensitive match against member.value (e.g. "Operational")
+      - Any alias in STRUCTURE_TYPE_ALIASES (DEPT, OPS, CYLCLE…)
+      - Integer 0/1/2 for DISCIPLINE/CYCLE/OPERATIONAL
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return default
+    if isinstance(raw, AcademicStructureType):
+        return raw
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        try:
+            idx = int(raw)
+            members = list(AcademicStructureType)
+            if 0 <= idx < len(members):
+                return members[idx]
+        except (TypeError, ValueError):
+            pass
+    s = str(raw).strip().upper().replace("-", "_").replace(" ", "_")
+    if s in STRUCTURE_TYPE_ALIASES:
+        return STRUCTURE_TYPE_ALIASES[s]
+    lowered = s.lower()
+    if lowered in STRUCTURE_TYPE_VALUE_TO_MEMBER:
+        return STRUCTURE_TYPE_VALUE_TO_MEMBER[lowered]
+    # Final fallback: case-insensitive member.value match
+    for member in AcademicStructureType:
+        if member.value.lower() == str(raw).strip().lower():
+            return member
+    raise ValueError(
+        f"'{raw}' is not a valid AcademicStructureType. "
+        f"Use: {', '.join(e.value for e in AcademicStructureType)} "
+        f"(case-insensitive, or aliases like DEPT/OPS/CYCLE)."
+    )
+
+
 # ── Unified model ─────────────────────────────────────────────────────────────
 
 
@@ -156,6 +238,26 @@ class AcademicStructure(db.Model):
         letter = name.strip().upper()[0]
         val = ord(letter) - ord("A") + 1 if "A" <= letter <= "Z" else 0
         return format(val, "05b")
+
+    # ── Canonical validators (run BEFORE DB bind, so we never send bad values)─
+    @db.validates("structure_type")
+    def _validate_structure_type(self, key, value):
+        """
+        Always canonicalize ``structure_type`` before SQLAlchemy binds it to
+        the DB driver. Falls back to DISCIPLINE only if the value is null-ish
+        (matching column default); raises ValueError explicitly for any
+        un-parseable non-null input so the caller catches it before a PG 22P02
+        "invalid input value for enum" error bubbles up.
+        """
+        fallback = AcademicStructureType.DISCIPLINE
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return fallback
+        try:
+            return canonicalize_structure_type(value, default=fallback)
+        except ValueError as exc:
+            raise ValueError(
+                f"{key}: {exc}"
+            ) from exc
 
 
 # ── Backward-compat alias ──────────────────────────────────────────────────────

@@ -18,7 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models.department import (AcademicStructure, AcademicStructureType,
-                                   Department, department_staff)
+                                   Department, canonicalize_structure_type,
+                                   department_staff)
 from app.models.subject import Subject
 from app.models.user import User
 
@@ -174,23 +175,13 @@ def _coerce_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         raw = out["structure_type"]
         if raw is None or (isinstance(raw, str) and not raw.strip()):
             del out["structure_type"]
-        elif not isinstance(raw, AcademicStructureType):
-            s = str(raw).strip().upper()
-            allowed = {
-                **{e.value.upper(): e for e in AcademicStructureType},
-                "DEPARTMENT": AcademicStructureType.DISCIPLINE,
-                "DEPT": AcademicStructureType.DISCIPLINE,
-                "CYLCLE": AcademicStructureType.CYCLE,
-                "OP": AcademicStructureType.OPERATIONAL,
-                "OPS": AcademicStructureType.OPERATIONAL,
-            }
-            if s in allowed:
-                out["structure_type"] = allowed[s]
-            else:
+        else:
+            try:
+                out["structure_type"] = canonicalize_structure_type(raw, default=AcademicStructureType.DISCIPLINE)
+            except ValueError as exc:
                 raise ValueError(
-                    f"Structure Type value '{raw}' is not valid. "
-                    "Use: Cycle / Discipline / Operational, or refresh the page."
-                )
+                    f"Structure Type: {exc}. Valid values: discipline / cycle / operational (or aliases accepted). Try a different spelling, refresh the dropdown if it is stale, or leave it blank to default to Discipline."
+                ) from exc
 
     # Strings: strip junk punctuation (name/code got _strip_junk already; here
     # we just ensure empty literals map to None for nullable description/short_name)
@@ -724,6 +715,76 @@ class AcademicStructureService:
             field = col or None
             suggestion = "Clear the field and enter a valid value, or refresh the page to reload options."
             category = code_category or (pgcode or "data_exception")
+
+            # ── ENUM-specific short-circuit: 22P02 invalid input value for enum
+            #    academic_structure_type: "X"  → match enum name + value
+            import re as _re_inner
+            enum_matches: list[tuple[str, str]] = []
+            combined_text = (
+                (message_detail or "")
+                + "\n"
+                + (message_primary or "")
+                + "\n"
+                + joined
+            )
+            for _m in _re_inner.finditer(
+                r"invalid input value for enum[^\w]{0,3}[\"']{0,1}(\w+)[\"']{0,1}[^\w]{0,3}[:]{0,1}[^\w\"']{0,3}[\"']([^\"']+)[\"']",
+                combined_text,
+                _re_inner.IGNORECASE,
+            ):
+                enum_matches.append((_m.group(1), _m.group(2)))
+            if not enum_matches:
+                for _m in _re_inner.finditer(
+                    r"invalid input syntax for enum[^\w]{0,3}[\"']{0,1}(\w+)[\"']{0,1}[^\w]{0,3}[:]{0,1}[^\w\"']{0,3}[\"']{0,1}([^\"',\s]+)",
+                    combined_text,
+                    _re_inner.IGNORECASE,
+                ):
+                    enum_matches.append((_m.group(1), _m.group(2)))
+            if enum_matches:
+                enum_name, enum_value = enum_matches[0]
+                if "academic_structure_type" in enum_name.lower() or "academic_structure_type" in (constraint_name or "").lower():
+                    allowed = ", ".join(e.value for e in AcademicStructureType)
+                    suggestion = (
+                        f"Department Type value '{enum_value}' is not yet known by the "
+                        f"Postgres enum ({enum_name}). Allowed: {allowed}. Refresh the page, "
+                        "select from the dropdown (Cycle / Discipline / Operational), or leave "
+                        "the field blank and it will default to Discipline."
+                    )
+                    out = {
+                        "error": "validation",
+                        "field": "structure_type",
+                        "message": (
+                            f"Department Type value '{enum_value}' is not currently "
+                            f"registered in the server type catalog. Server currently accepts: "
+                            f"{allowed}. Select one of those options or leave the field empty."
+                        ),
+                        "suggestion": suggestion,
+                        "pgcode": pgcode,
+                        "enum_type_name": enum_name,
+                        "offending_value": enum_value,
+                    }
+                    if constraint_name:
+                        out["constraint"] = constraint_name
+                    return out
+                # Fallback for any other enum in this schema
+                suggestion = (
+                    f"Value '{enum_value}' is invalid for field type ({enum_name}). "
+                    "Clear the field and select a valid option from the dropdown."
+                )
+                out = {
+                    "error": "validation",
+                    "message": (
+                        f"Invalid value '{enum_value}' provided for type '{enum_name}'."
+                    ),
+                    "suggestion": suggestion,
+                    "pgcode": pgcode,
+                    "enum_type_name": enum_name,
+                    "offending_value": enum_value,
+                }
+                if col:
+                    out["field"] = col
+                return out
+
             # Map data-type detection: UUID / integer / enum / date by column_name or message
             looks_like_uuid = any(s in haystack for s in ("type\"uuid\"", "type 'uuid'", "invalid input syntax for type uuid"))
             looks_like_int  = any(s in haystack for s in ("invalid input syntax for type integer", "invalid input syntax for integer", "type integer"))
