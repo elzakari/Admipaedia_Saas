@@ -249,6 +249,22 @@ def create_structure():
         payload["pgcode"] = pgcode
     if constraint:
         payload["constraint"] = constraint
+
+    # Additional classifier-derived keys that should also flow to the client.
+    # If the classifier starts attaching more keys, this whitelist automatically
+    # surfaces them without further route edits.
+    PASSTHROUGH_KEYS = (
+        "enum_type_name",
+        "offending_value",
+        "context_name",
+        "context_code",
+        "context_type",
+    )
+    for extra_key in PASSTHROUGH_KEYS:
+        extra_val = error_detail.get(extra_key)
+        if extra_val not in (None, ""):
+            payload[extra_key] = extra_val
+
     if db_detail and current_app.debug:
         payload["db_detail"] = db_detail
     if current_app.debug:

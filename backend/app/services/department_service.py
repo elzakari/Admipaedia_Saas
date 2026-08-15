@@ -320,7 +320,18 @@ class AcademicStructureService:
         structure_type: Optional[AcademicStructureType] = None,
     ) -> Optional[AcademicStructure]:
         try:
-            q = AcademicStructure.query.filter(AcademicStructure.code == code)
+            # Case-insensitive match. The unique index on (tenant_id, code) may
+            # be a functional index on LOWER(code) or a citext column — in
+            # either case a raw `code == value` check will miss case-mismatched
+            # duplicates, causing `create()` prechecks to pass while the actual
+            # `db.session.commit()` raises IntegrityError 23505.
+            normalized = (code or "").strip()
+            if normalized:
+                q = AcademicStructure.query.filter(
+                    db.func.lower(AcademicStructure.code) == normalized.lower()
+                )
+            else:
+                q = AcademicStructure.query.filter(AcademicStructure.code == code)
             if tenant_id is not None:
                 q = q.filter(AcademicStructure.tenant_id == tenant_id)
             if structure_type is not None:
@@ -1104,18 +1115,16 @@ class AcademicStructureService:
             return struct, None
         except SQLAlchemyError as exc:
             db.session.rollback()
-            try:
-                fallback = AcademicStructureService._classify_db_commit_error(
-                    exc,
-                    name=AcademicStructureService._strip_junk(payload.get("name") if "payload" in locals() else ""),
-                    code=(payload["code"] if "payload" in locals() and payload.get("code") else ""),
-                    type_label=(
-                        resolved_type.value
-                        if "resolved_type" in locals() and isinstance(resolved_type, AcademicStructureType)
-                        else "Structure"
-                    ),
-                )
-            except Exception:  # noqa: BLE001
+
+            def _rich_fallback(exc, name, code, type_label):
+                """Inline diagnostic extractor — always succeeds, never raises.
+
+                Runs when the main classifier function itself threw for any
+                reason. Bypasses all regex heuristics and pulls raw pgcode/
+                constraint / message fields directly off the SQLAlchemy error.
+                """
+                import re as _re
+
                 fallback = {
                     "error": "integrity",
                     "message": (
@@ -1123,6 +1132,141 @@ class AcademicStructureService:
                         "Check for duplicates and try again."
                     ),
                 }
+                if name:
+                    fallback["context_name"] = name
+                if code:
+                    fallback["context_code"] = code
+                if type_label:
+                    fallback["context_type"] = type_label
+
+                orig = getattr(exc, "orig", None)
+                pgcode = None
+                diag = getattr(orig, "diag", None)
+                if diag is not None:
+                    pgcode = getattr(diag, "sqlstate", None)
+                if not pgcode and orig is not None:
+                    pgcode = getattr(orig, "pgcode", None)
+                if not pgcode:
+                    pgcode = getattr(exc, "pgcode", None)
+                if pgcode:
+                    fallback["pgcode"] = pgcode
+
+                # Try to surface a raw constraint name
+                str_exc = str(exc)
+                str_orig = str(orig) if orig is not None else ""
+                haystack = "\n".join([str_exc, str_orig])
+                constraint_match = _re.search(
+                    r"constraint\s+(?:[\"`])([^\"`\s]+)[\"`]", haystack, _re.I
+                ) or _re.search(r'"([^"]+)"\s*violates\s+foreign\s+key\s+constraint', haystack, _re.I)
+                if constraint_match:
+                    fallback["constraint"] = constraint_match.group(1)
+                else:
+                    uc_match = _re.search(r"unique\s+constraint\s+[\"`]([^\"`]+)[\"`]", haystack, _re.I)
+                    if uc_match:
+                        fallback["constraint"] = uc_match.group(1)
+
+                # 22P02 enum patterns (classifier gap path)
+                if pgcode == "22P02" or "22P02" in haystack:
+                    m = _re.search(
+                        r'invalid\s+input\s+value\s+for\s+enum\s+([:"\s]+)?(\w+)\s*:\s*"([^"]+)"',
+                        haystack,
+                        _re.I,
+                    )
+                    if m:
+                        fallback["error"] = "validation"
+                        fallback["field"] = "structure_type" if "academic_structure_type" in m.group(2).lower() else f"enum:{m.group(2)}"
+                        fallback["enum_type_name"] = m.group(2)
+                        fallback["offending_value"] = m.group(3)
+                        fallback["message"] = (
+                            f"{type_label or 'Structure'} type value '{m.group(3)}' is not registered "
+                            f"in server enum '{m.group(2)}' yet. Run flask db upgrade on the database."
+                        )
+
+                # Class 23 integrity pattern → derive field from constraint-name heuristics
+                uc_name_lower = (fallback.get("constraint") or "").lower()
+                if (pgcode or "").startswith("23") or "duplicate" in haystack.lower() or "unique" in haystack.lower():
+                    fallback["error"] = "integrity"
+                    if "name" in uc_name_lower and "structure" in uc_name_lower:
+                        fallback["field"] = "name"
+                        if name:
+                            fallback["message"] = (
+                                f"A {type_label or 'Structure'} named '{name}' already exists "
+                                "for this school. Edit that one, pick a different name, or change "
+                                "the type."
+                            )
+                    elif "code" in uc_name_lower and "structure" in uc_name_lower:
+                        fallback["field"] = "code"
+                        if code:
+                            fallback["message"] = (
+                                f"Code '{code}' is already in use. Pick a different code or "
+                                "leave blank to auto-generate."
+                            )
+                    elif "head" in uc_name_lower or "fk" in uc_name_lower and "head" in haystack.lower():
+                        fallback["field"] = "head_id"
+                        fallback["message"] = "Invalid department head selected."
+                    elif "tenant" in uc_name_lower:
+                        fallback["field"] = "tenant_id"
+                        fallback["message"] = (
+                            "Tenant context has expired. Please refresh the page and sign in again."
+                        )
+                # FK violation (23503) → derive field
+                elif pgcode == "23503" or "foreign key constraint" in haystack.lower():
+                    fallback["error"] = "integrity"
+                    if (
+                        "head" in haystack.lower()
+                        or "user_id" in haystack.lower()
+                        or uc_name_lower and "head" in uc_name_lower
+                    ):
+                        fallback["field"] = "head_id"
+                        fallback["message"] = (
+                            "The selected Department Head does not exist yet. Create the staff "
+                            "record first, then assign as department head."
+                        )
+                    elif "tenant" in haystack.lower():
+                        fallback["field"] = "tenant_id"
+                        fallback["message"] = "Tenant context has expired. Please refresh the page."
+
+                fallback["suggestion"] = (
+                    "Tips: refresh the page first (tenant context may have expired), pick a "
+                    "different head of department, or clear the name/code before retrying."
+                )
+                return fallback
+
+            try:
+                safe_name = ""
+                if "payload" in locals() and isinstance(payload.get("name"), str):
+                    safe_name = AcademicStructureService._strip_junk(payload["name"])
+                safe_code = ""
+                if "payload" in locals() and isinstance(payload.get("code"), str):
+                    safe_code = payload["code"]
+                safe_type_label = (
+                    resolved_type.value
+                    if "resolved_type" in locals() and isinstance(resolved_type, AcademicStructureType)
+                    else "Structure"
+                )
+                fallback = AcademicStructureService._classify_db_commit_error(
+                    exc,
+                    name=safe_name,
+                    code=safe_code,
+                    type_label=safe_type_label,
+                )
+                if not isinstance(fallback, dict):
+                    fallback = _rich_fallback(exc, safe_name, safe_code, safe_type_label)
+            except Exception as inner_exc:  # noqa: BLE001
+                safe_name = ""
+                safe_code = ""
+                safe_type_label = "Structure"
+                try:
+                    if "payload" in locals() and isinstance(payload.get("name"), str):
+                        safe_name = AcademicStructureService._strip_junk(payload["name"])
+                    if "payload" in locals() and isinstance(payload.get("code"), str):
+                        safe_code = payload["code"]
+                    if "resolved_type" in locals() and isinstance(resolved_type, AcademicStructureType):
+                        safe_type_label = resolved_type.value
+                except Exception:  # noqa: BLE001
+                    pass
+                fallback = _rich_fallback(exc, safe_name, safe_code, safe_type_label)
+                fallback["_classifier_raised"] = type(inner_exc).__name__
             logger.error("create sqlalchemy error: %s", exc, exc_info=True)
             return None, fallback
         except TypeError as exc:
