@@ -255,6 +255,26 @@ const StaffManagement: React.FC = () => {
     enabled: !!selectedStaff && selectedStaffType === 'staff',
     staleTime: 30_000
   });
+
+  // ── Department state MUST be declared BEFORE any useMemo that reads it ────
+  // (Temporal Dead Zone: useMemo's init function runs synchronously on first
+  //  render, so any binding it closes over must already be initialized.)
+  const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [departmentTypeFilter, setDepartmentTypeFilter] = useState<'all' | 'discipline' | 'cycle' | 'operational'>('all');
+  const [departmentForm, setDepartmentForm] = useState<{
+    name: string;
+    code: string;
+    description: string;
+    head_id: string;
+    is_active: boolean;
+    structure_type: 'discipline' | 'cycle' | 'operational';
+  }>({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
+  // Per-field errors keyed by backend field name (name, code, head_id,
+  // structure_type, is_active/status, tenant_id, display_order, etc.).
+  // Set from mutation.onError by reading resp.field; cleared the moment the
+  // user edits the field or opens a new dialog.
+  const [departmentFormErrors, setDepartmentFormErrors] = useState<Record<string, string>>({});
   
   const { data: departmentsData, isLoading: isLoadingDepartments, error: departmentsError } = useQuery({
     queryKey: ['departments', 'all'],
@@ -281,23 +301,6 @@ const StaffManagement: React.FC = () => {
   const directoryRows: StaffDirectoryItem[] = useMemo(() => {
     return directoryResponse?.directory || [];
   }, [directoryResponse?.directory]);
-
-  const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
-  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
-  const [departmentTypeFilter, setDepartmentTypeFilter] = useState<'all' | 'discipline' | 'cycle' | 'operational'>('all');
-  const [departmentForm, setDepartmentForm] = useState<{
-    name: string;
-    code: string;
-    description: string;
-    head_id: string;
-    is_active: boolean;
-    structure_type: 'discipline' | 'cycle' | 'operational';
-  }>({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
-  // Per-field errors keyed by backend field name (name, code, head_id,
-  // structure_type, is_active/status, tenant_id, display_order, etc.).
-  // Set from mutation.onError by reading resp.field; cleared the moment the
-  // user edits the field or opens a new dialog.
-  const [departmentFormErrors, setDepartmentFormErrors] = useState<Record<string, string>>({});
 
   const createDepartmentMutation = useMutation({
     mutationFn: (payload: Partial<ApiDepartment>) => departmentService.createDepartment(payload),
