@@ -29,19 +29,30 @@ interface SubjectFormModalProps {
 }
 
 // Safe translation helper — returns the fallback string if t() returns an object
-// (e.g. i18next backend misconfigured for that namespace/key).
+// (e.g. i18next backend misconfigured, or key points at a nested object such as
+// `common.status` being a parent with {active,inactive}). Always passes fallback
+// via `defaultValue` option to suppress i18next "returned an object instead of
+// string" warnings for object-typed keys.
 function tStr(tFn: any, key: string, fallback: string, opts?: any): string {
   try {
-    const val = tFn(key, opts ?? fallback);
+    const tOpts = Object.assign(
+      { defaultValue: fallback, returnObjects: false },
+      typeof opts === 'object' && opts != null ? opts : {}
+    );
+    const val = tFn(key, tOpts);
     if (typeof val === 'string') return val;
     if (val == null) return fallback;
     if (typeof val === 'object') {
-      // some backends return { value, label }
       const anyObj: any = val;
       if (typeof anyObj.label === 'string') return anyObj.label;
       if (typeof anyObj.value === 'string') return anyObj.value;
       if (typeof anyObj.message === 'string') return anyObj.message;
       if (typeof anyObj.text === 'string') return anyObj.text;
+      // Last-ditch: if the value is a locale keyed object like {en, fr},
+      // pick the first non-empty string entry.
+      for (const candidate of ['en', 'fr', 'en-US', 'fr-FR']) {
+        if (typeof anyObj[candidate] === 'string' && anyObj[candidate].length > 0) return anyObj[candidate];
+      }
     }
   } catch {
     /* noop */
@@ -464,7 +475,7 @@ export function SubjectFormModal({ isOpen, onClose, subjectData, onSuccess }: Su
                 />
               </FormField>
 
-              <FormField label={tStr(t, 'common.status', 'Status')} htmlFor="is_active">
+              <FormField label={tStr(t, 'common.status_label', 'Status')} htmlFor="is_active">
                 <div className="flex items-center space-x-3">
                   {formData.is_active
                     ? <ToggleRight className="h-5 w-5 text-green-600" />

@@ -110,6 +110,7 @@ interface Department {
   staff_count?: number;
   head?: { id: number; name?: string; email?: string };
   is_active: boolean;
+  structure_type?: 'discipline' | 'cycle' | 'operational';
 }
 
 interface AttendanceRecord {
@@ -256,20 +257,26 @@ const StaffManagement: React.FC = () => {
   });
   
   const { data: departmentsData, isLoading: isLoadingDepartments, error: departmentsError } = useQuery({
-    queryKey: ['departments'],
-    queryFn: () => departmentService.getOperationalDepartments(),
+    queryKey: ['departments', 'all'],
+    queryFn: () => departmentService.getAll(),
     staleTime: 60_000
   });
 
-  const departments: Department[] = ((departmentsData || []) as ApiDepartment[]).map((d: any) => ({
+  const allDepartments: Department[] = ((departmentsData || []) as ApiDepartment[]).map((d: any) => ({
     id: d.id,
     name: d.name,
     code: d.code,
     description: d.description,
     staff_count: d.staff_count,
     head: d.head,
-    is_active: !!d.is_active
+    is_active: !!d.is_active,
+    structure_type: (d as any)?.structure_type as Department['structure_type'],
   }));
+
+  const departments = useMemo(() => {
+    if (departmentTypeFilter === 'all') return allDepartments;
+    return allDepartments.filter((d) => d.structure_type === departmentTypeFilter);
+  }, [allDepartments, departmentTypeFilter]);
   
   const directoryRows: StaffDirectoryItem[] = useMemo(() => {
     return directoryResponse?.directory || [];
@@ -277,6 +284,7 @@ const StaffManagement: React.FC = () => {
 
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
+  const [departmentTypeFilter, setDepartmentTypeFilter] = useState<'all' | 'discipline' | 'cycle' | 'operational'>('all');
   const [departmentForm, setDepartmentForm] = useState<{
     name: string;
     code: string;
@@ -411,13 +419,13 @@ const StaffManagement: React.FC = () => {
     return {
       totalStaff,
       activeStaff,
-      departments: departments.length,
+      departments: allDepartments.length,
       avgAttendance,
       teachingStaff,
       administrativeStaff,
       message: 'Staff data loaded successfully'
     };
-  }, [departments.length, directoryRows, monthlyAttendanceQuery.data?.summary]);
+  }, [allDepartments.length, directoryRows, monthlyAttendanceQuery.data?.summary]);
 
   const markAttendanceMutation = useMutation({
     mutationFn: async (payload: { entityType: DirectoryEntityType; entityId: number; date: string; status: AttendanceStatus; note?: string }) => {
@@ -1298,19 +1306,43 @@ const StaffManagement: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="departments" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">{t('admin_staff.operational_departments', 'Départements opérationnels')}</h3>
-            <Button
-              onClick={() => {
-                setEditingDepartment(null);
-                setDepartmentForm({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
-                setDepartmentFormErrors({});
-                setDepartmentDialogOpen(true);
-              }}
-            >
-              <PlusCircle className="mr-2 h-4 w-4" />
-              {t('admin_staff.add_department', 'Ajouter un département')}
-            </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+            <div className="space-y-1">
+              <h3 className="text-lg font-medium">{t('admin_staff.all_departments', 'Départements')}</h3>
+              <p className="text-xs text-slate-500">
+                {t(
+                  'admin_staff.departments_filter_hint',
+                  'Filter by type below. Disciplines (Sciences/Maths), Cycles (Primary/Lycée), Operational (Finance/HR).'
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select
+                value={departmentTypeFilter}
+                onValueChange={(v) => setDepartmentTypeFilter(v as 'all' | 'discipline' | 'cycle' | 'operational')}
+              >
+                <SelectTrigger className="w-48 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('admin_staff.type_all', 'All departments')}</SelectItem>
+                  <SelectItem value="discipline">{t('admin_staff.type_discipline_short', 'Disciplines')}</SelectItem>
+                  <SelectItem value="cycle">{t('admin_staff.type_cycle_short', 'Cycles')}</SelectItem>
+                  <SelectItem value="operational">{t('admin_staff.type_operational_short', 'Operational')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => {
+                  setEditingDepartment(null);
+                  setDepartmentForm({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
+                  setDepartmentFormErrors({});
+                  setDepartmentDialogOpen(true);
+                }}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {t('admin_staff.add_department', 'Ajouter un département')}
+              </Button>
+            </div>
           </div>
           
           {isLoadingDepartments ? (
@@ -1353,7 +1385,7 @@ const StaffManagement: React.FC = () => {
                                 description: department.description || '',
                                 head_id: department.head?.id ? String(department.head.id) : '',
                                 is_active: department.is_active,
-                                structure_type: (department as any)?.structure_type || 'discipline'
+                                structure_type: department.structure_type || 'discipline'
                               });
                               setDepartmentFormErrors({});
                               setDepartmentDialogOpen(true);
@@ -1363,7 +1395,17 @@ const StaffManagement: React.FC = () => {
                           </Button>
                         </div>
                       </div>
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(function renderTypeBadge() {
+                          const typeValue = department.structure_type ?? 'operational';
+                          const labelMap: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' }> = {
+                            discipline: { label: t('admin_staff.type_discipline_short', 'Discipline'), variant: 'secondary' },
+                            cycle: { label: t('admin_staff.type_cycle_short', 'Cycle'), variant: 'default' },
+                            operational: { label: t('admin_staff.type_operational_short', 'Operational'), variant: 'outline' },
+                          };
+                          const cfg = labelMap[typeValue] ?? labelMap.operational;
+                          return <Badge variant={cfg.variant as any}>{cfg.label}</Badge>;
+                        })()}
                         <Badge variant={department.is_active ? 'default' : 'secondary'}>
                           {department.is_active ? t('common.active', 'Actif') : t('common.inactive', 'Inactif')}
                         </Badge>
@@ -1372,8 +1414,16 @@ const StaffManagement: React.FC = () => {
                   </Card>
                 ))
               ) : (
-                <div className="col-span-3 text-center py-8 text-gray-500">
-                  {t('admin_staff.no_departments', 'Aucun département trouvé')}
+                <div className="col-span-3 text-center py-8 text-gray-500 space-y-1">
+                  <div>{t('admin_staff.no_departments', 'Aucun département trouvé')}</div>
+                  {departmentTypeFilter !== 'all' ? (
+                    <div className="text-xs text-slate-400">
+                      {t(
+                        'admin_staff.no_departments_for_filter_hint',
+                        'Tip: change the type filter (above) to « All departments » to see all rows.'
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

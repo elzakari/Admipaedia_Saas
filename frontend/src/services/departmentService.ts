@@ -86,6 +86,9 @@ export const academicStructureService = {
 
 export const departmentService = {
   getAllDepartments: () => academicStructureService.getDisciplines(),
+  /** List ALL departments across all structure types (discipline / cycle / operational). */
+  getAll: (filters?: Parameters<typeof academicStructureService.getAll>[0]) =>
+    academicStructureService.getAll(filters),
   getOperationalDepartments: () => academicStructureService.getOperational(),
   getDepartmentById: (id: number) => academicStructureService.getById(id),
   createDepartment: (d: AcademicStructureCreate) => academicStructureService.create(d),
