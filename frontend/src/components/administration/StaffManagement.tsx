@@ -285,6 +285,11 @@ const StaffManagement: React.FC = () => {
     is_active: boolean;
     structure_type: 'discipline' | 'cycle' | 'operational';
   }>({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
+  // Per-field errors keyed by backend field name (name, code, head_id,
+  // structure_type, is_active/status, tenant_id, display_order, etc.).
+  // Set from mutation.onError by reading resp.field; cleared the moment the
+  // user edits the field or opens a new dialog.
+  const [departmentFormErrors, setDepartmentFormErrors] = useState<Record<string, string>>({});
 
   const createDepartmentMutation = useMutation({
     mutationFn: (payload: Partial<ApiDepartment>) => departmentService.createDepartment(payload),
@@ -292,9 +297,29 @@ const StaffManagement: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department saved');
       setDepartmentDialogOpen(false);
+      setDepartmentFormErrors({});
     },
     onError: (err: any) => {
       const resp = err?.response?.data as Record<string, any> | undefined;
+      setDepartmentFormErrors((prev) => {
+        const next: Record<string, string> = { ...prev };
+        if (resp?.field && resp?.message) {
+          // Normalise backend aliases to our form fields
+          const key: string = (
+            {
+              status: 'is_active',
+              type: 'structure_type',
+              tenant: 'tenant_id',
+              sort: 'display_order',
+              budget: 'allocated_budget',
+              head: 'head_id',
+              parent: 'parent_id',
+            } as Record<string, string>
+          )[String(resp.field)] ?? String(resp.field);
+          next[key] = String(resp.message);
+        }
+        return next;
+      });
       const fieldMsg = resp?.field
         ? ` (${resp.field}${resp?.offending_value ? `: ${JSON.stringify(resp.offending_value)}` : ''})`
         : '';
@@ -317,9 +342,28 @@ const StaffManagement: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['departments'] });
       toast.success('Department updated');
       setDepartmentDialogOpen(false);
+      setDepartmentFormErrors({});
     },
     onError: (err: any) => {
       const resp = err?.response?.data as Record<string, any> | undefined;
+      setDepartmentFormErrors((prev) => {
+        const next: Record<string, string> = { ...prev };
+        if (resp?.field && resp?.message) {
+          const key: string = (
+            {
+              status: 'is_active',
+              type: 'structure_type',
+              tenant: 'tenant_id',
+              sort: 'display_order',
+              budget: 'allocated_budget',
+              head: 'head_id',
+              parent: 'parent_id',
+            } as Record<string, string>
+          )[String(resp.field)] ?? String(resp.field);
+          next[key] = String(resp.message);
+        }
+        return next;
+      });
       const detail = [
         resp?.message || resp?.error || '',
         resp?.pgcode ? `[pgcode ${resp.pgcode}]` : '',
@@ -1260,6 +1304,7 @@ const StaffManagement: React.FC = () => {
               onClick={() => {
                 setEditingDepartment(null);
                 setDepartmentForm({ name: '', code: '', description: '', head_id: '', is_active: true, structure_type: 'discipline' });
+                setDepartmentFormErrors({});
                 setDepartmentDialogOpen(true);
               }}
             >
@@ -1310,6 +1355,7 @@ const StaffManagement: React.FC = () => {
                                 is_active: department.is_active,
                                 structure_type: (department as any)?.structure_type || 'discipline'
                               });
+                              setDepartmentFormErrors({});
                               setDepartmentDialogOpen(true);
                             }}
                           >
@@ -1561,18 +1607,58 @@ const StaffManagement: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Name</Label>
-                <Input className="bg-white" value={departmentForm.name} onChange={(e) => setDepartmentForm((p) => ({ ...p, name: e.target.value }))} />
+                <Label className={departmentFormErrors.name ? 'text-red-600' : ''}>Name</Label>
+                <Input
+                  className={`bg-white ${departmentFormErrors.name ? 'border-red-500 focus-visible:ring-red-500 ring-2 ring-red-200' : ''}`}
+                  value={departmentForm.name}
+                  onChange={(e) => {
+                    setDepartmentForm((p) => ({ ...p, name: e.target.value }));
+                    setDepartmentFormErrors((prev) => {
+                      if (!prev.name) return prev;
+                      const { name: _gone, ...rest } = prev;
+                      return rest;
+                    });
+                  }}
+                />
+                {departmentFormErrors.name ? (
+                  <p className="text-xs text-red-600">{departmentFormErrors.name}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
-                <Label>Code</Label>
-                <Input className="bg-white" value={departmentForm.code} onChange={(e) => setDepartmentForm((p) => ({ ...p, code: e.target.value }))} />
+                <Label className={departmentFormErrors.code ? 'text-red-600' : ''}>Code</Label>
+                <Input
+                  className={`bg-white ${departmentFormErrors.code ? 'border-red-500 focus-visible:ring-red-500 ring-2 ring-red-200' : ''}`}
+                  value={departmentForm.code}
+                  onChange={(e) => {
+                    setDepartmentForm((p) => ({ ...p, code: e.target.value }));
+                    setDepartmentFormErrors((prev) => {
+                      if (!prev.code) return prev;
+                      const { code: _gone, ...rest } = prev;
+                      return rest;
+                    });
+                  }}
+                />
+                {departmentFormErrors.code ? (
+                  <p className="text-xs text-red-600">{departmentFormErrors.code}</p>
+                ) : null}
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Department Head</Label>
-              <Select value={departmentForm.head_id || 'none'} onValueChange={(value) => setDepartmentForm((p) => ({ ...p, head_id: value === 'none' ? '' : value }))}>
-                <SelectTrigger className="bg-white"><SelectValue placeholder="Optional" /></SelectTrigger>
+              <Label className={departmentFormErrors.head_id ? 'text-red-600' : ''}>Department Head</Label>
+              <Select
+                value={departmentForm.head_id || 'none'}
+                onValueChange={(value) => {
+                  setDepartmentForm((p) => ({ ...p, head_id: value === 'none' ? '' : value }));
+                  setDepartmentFormErrors((prev) => {
+                    if (!prev.head_id) return prev;
+                    const { head_id: _gone, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+              >
+                <SelectTrigger className={`bg-white ${departmentFormErrors.head_id ? 'border-red-500 ring-2 ring-red-200' : ''}`}>
+                  <SelectValue placeholder="Optional" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No department head</SelectItem>
                   {(teachersData?.teachers || []).map((teacher: Teacher) => {
@@ -1585,17 +1671,31 @@ const StaffManagement: React.FC = () => {
                   })}
                 </SelectContent>
               </Select>
+              {departmentFormErrors.head_id ? (
+                <p className="text-xs text-red-600">{departmentFormErrors.head_id}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
-              <Label>{t('admin_staff.department_type_label', 'Department Type')}</Label>
+              <Label className={departmentFormErrors.structure_type ? 'text-red-600' : ''}>
+                {t('admin_staff.department_type_label', 'Department Type')}
+              </Label>
               <Select
                 value={departmentForm.structure_type}
-                onValueChange={(value) => setDepartmentForm((p) => ({
-                  ...p,
-                  structure_type: value as 'discipline' | 'cycle' | 'operational'
-                }))}
+                onValueChange={(value) => {
+                  setDepartmentForm((p) => ({
+                    ...p,
+                    structure_type: value as 'discipline' | 'cycle' | 'operational'
+                  }));
+                  setDepartmentFormErrors((prev) => {
+                    if (!prev.structure_type) return prev;
+                    const { structure_type: _gone, ...rest } = prev;
+                    return rest;
+                  });
+                }}
               >
-                <SelectTrigger className="bg-white"><SelectValue placeholder={t('admin_staff.department_type_placeholder', 'Pick a type')} /></SelectTrigger>
+                <SelectTrigger className={`bg-white ${departmentFormErrors.structure_type ? 'border-red-500 ring-2 ring-red-200' : ''}`}>
+                  <SelectValue placeholder={t('admin_staff.department_type_placeholder', 'Pick a type')} />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="discipline">
                     {t('admin_staff.type_discipline', 'Discipline — Sciences / Math / Humanities')}
@@ -1608,33 +1708,69 @@ const StaffManagement: React.FC = () => {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">
-                {t(
-                  'admin_staff.department_type_hint',
-                  'Tip: "Primary" is a school Cycle; "Mathematics" is a Discipline; "Finance" is Operational.'
-                )}
-              </p>
+              {departmentFormErrors.structure_type ? (
+                <p className="text-xs text-red-600">{departmentFormErrors.structure_type}</p>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  {t(
+                    'admin_staff.department_type_hint',
+                    'Tip: "Primary" is a school Cycle; "Mathematics" is a Discipline; "Finance" is Operational.'
+                  )}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={departmentForm.description} onChange={(e) => setDepartmentForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+              <Textarea
+                value={departmentForm.description}
+                onChange={(e) => {
+                  setDepartmentForm((p) => ({ ...p, description: e.target.value }));
+                  setDepartmentFormErrors((prev) => {
+                    if (!prev.description) return prev;
+                    const { description: _gone, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+                rows={3}
+              />
+              {departmentFormErrors.description ? (
+                <p className="text-xs text-red-600">{departmentFormErrors.description}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={departmentForm.is_active ? 'active' : 'inactive'} onValueChange={(v) => setDepartmentForm((p) => ({ ...p, is_active: v === 'active' }))}>
-                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+              <Label className={departmentFormErrors.is_active ? 'text-red-600' : ''}>Status</Label>
+              <Select
+                value={departmentForm.is_active ? 'active' : 'inactive'}
+                onValueChange={(v) => {
+                  setDepartmentForm((p) => ({ ...p, is_active: v === 'active' }));
+                  setDepartmentFormErrors((prev) => {
+                    if (!prev.is_active) return prev;
+                    const { is_active: _gone, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+              >
+                <SelectTrigger className={`bg-white ${departmentFormErrors.is_active ? 'border-red-500 ring-2 ring-red-200' : ''}`}>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+              {departmentFormErrors.is_active ? (
+                <p className="text-xs text-red-600">{departmentFormErrors.is_active}</p>
+              ) : null}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDepartmentDialogOpen(false)}>Close</Button>
             <Button
               className="glass-button"
+              disabled={createDepartmentMutation.isPending || updateDepartmentMutation.isPending}
               onClick={() => {
+                if (createDepartmentMutation.isPending || updateDepartmentMutation.isPending) return;
+                setDepartmentFormErrors({});
                 const name = departmentForm.name.trim();
                 const code = departmentForm.code.trim();
                 if (!name || !code) return;
@@ -1655,7 +1791,17 @@ const StaffManagement: React.FC = () => {
                 }
               }}
             >
-              Save
+              {(() => {
+                const pending = createDepartmentMutation.isPending || updateDepartmentMutation.isPending;
+                return pending ? (
+                  <>
+                    <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Saving…
+                  </>
+                ) : 'Save';
+              })()}
             </Button>
           </DialogFooter>
         </DialogContent>
