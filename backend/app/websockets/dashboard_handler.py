@@ -114,7 +114,15 @@ class DashboardNamespace(Namespace):
             return False
 
         # 4) load user and validate existence / status
-        user = User.query.get(user_id)
+        #
+        # NOTE: We explicitly bypass the ORM-level tenant auto-filter for
+        # identity / membership / bootstrap queries in socket.io handlers:
+        # Flask-SocketIO DOES NOT run the Flask app's global before_request
+        # hooks, so g.tenant_id is never populated here. These queries ARE
+        # the mechanism that derives tenant context in the first place —
+        # filtering them by tenant would give zero rows and lock every user
+        # out of realtime telemetry.
+        user = User.query.without_tenant_filter().get(user_id)
         if user is None:
             logger.warning("dashboard_connect_rejected",
                            reason="nonexistent_user", sid=sid, user_id=user_id)
@@ -196,9 +204,14 @@ class DashboardNamespace(Namespace):
         For school-level admins we require or derive an active tenant
         membership and reject cross-tenant requests.
         """
-        memberships = TenantMembership.query.filter_by(
-            user_id=user.id, status="active"
-        ).all()
+        # Membership lookup is a BOOTSTRAP query — it must NOT be auto-scoped
+        # by the before_compile listener because g.tenant_id isn't populated
+        # in socket.io handlers (Flask-SocketIO skips before_request).
+        memberships = (
+            TenantMembership.query.without_tenant_filter()
+            .filter_by(user_id=user.id, status="active")
+            .all()
+        )
 
         if is_platform:
             if raw_tenant_id:
@@ -208,9 +221,13 @@ class DashboardNamespace(Namespace):
                                    reason="invalid_tenant", sid=sid,
                                    user_id=user.id, role=role)
                     return None, True
-                # platform impersonation: tenant must exist and be active
+                # Platform impersonation bootstrap lookup: skip auto-scoping.
                 from app.models.tenant import Tenant
-                tenant = Tenant.query.filter_by(id=requested).first()
+                tenant = (
+                    Tenant.query.without_tenant_filter()
+                    .filter_by(id=requested)
+                    .first()
+                )
                 if tenant is None or tenant.status != "active":
                     logger.warning("dashboard_connect_rejected",
                                    reason="nonexistent_tenant", sid=sid,
@@ -256,7 +273,13 @@ class DashboardNamespace(Namespace):
                            reason="invalid_branch", sid=sid,
                            user_id=user_id)
             return None, True
-        branch = Branch.query.filter_by(id=branch_uuid).first()
+        # Bootstrap lookup — skip auto-scoping since g.tenant_id comes from
+        # this very derivation flow in socket.io handlers.
+        branch = (
+            Branch.query.without_tenant_filter()
+            .filter_by(id=branch_uuid)
+            .first()
+        )
         if branch is None:
             logger.warning("dashboard_connect_rejected",
                            reason="nonexistent_branch", sid=sid,

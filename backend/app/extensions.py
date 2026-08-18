@@ -53,6 +53,31 @@ class TenantScopedQuery(_BaseQuery):
         return clone
 
 
+# ---------------------------------------------------------------------------
+# Monkey-patch: make .without_tenant_filter() available on the BASE Query
+# class too so that Flask-SQLAlchemy 3.x (which saves query_class onto each
+# Model at DECLARATION time — BEFORE db.Query = TenantScopedQuery runs)
+# continues to have the method in tests and during hot-reload.
+#
+# This also makes the before_compile listener's hasattr check for
+# `_tenant_scoped_skip` always work regardless of how a Query was created.
+# ---------------------------------------------------------------------------
+def _base_without_tenant_filter(self):
+    """Monkey-patched opt-out — see TenantScopedQuery.without_tenant_filter."""
+    clone = self._clone()
+    clone._tenant_scoped_skip = True
+    return clone
+
+if not hasattr(_BaseQuery, "without_tenant_filter"):
+    _BaseQuery.without_tenant_filter = _base_without_tenant_filter
+
+if not hasattr(_BaseQuery, "_tenant_scoped_skip"):
+    _BaseQuery._tenant_scoped_skip = False
+
+if not hasattr(_BaseQuery, "_tenant_scoped_debug"):
+    _BaseQuery._tenant_scoped_debug = False
+
+
 # Override the db.Model.query_class with our tenant-scoped variant so that
 # Model.query / db.session.query(Model) automatically inherit the opt-out.
 db.Query = TenantScopedQuery
@@ -70,6 +95,38 @@ db.Query = TenantScopedQuery
 # [] instead of returning every row across every tenant.
 # ---------------------------------------------------------------------------
 NULL_TENANT_ID = _uuid.UUID("00000000-0000-0000-0000-000000000000")
+
+# ---------------------------------------------------------------------------
+# Model classes that are EXPLICITLY excluded from automatic tenant scoping.
+#
+# These are the "bootstrap / identity / global" tables whose queries are the
+# mechanism that *determine* the active tenant in the first place:
+#   - Tenant / TenantMembership / Branch: used by on_connect and
+#     resolve_tenant_for_request to derive g.tenant_id BEFORE it is set.
+#   - User / Teacher / Student / Parent: used by auth flows to load the
+#     current identity, again BEFORE tenant context is available.
+#
+# Without this exclusion, the auto-injector injects tenant_id == 0-UUID on
+# these queries during socket.io on_connect (where before_request hooks do
+# not run), returning zero rows and making every login appear to have no
+# memberships — the exact symptom behind the 7 failing dashboard tests.
+#
+# Application code can still opt back IN to scoping these tables explicitly
+# via Model.query.filter(Model.tenant_id == g.tenant_id) when needed.
+# ---------------------------------------------------------------------------
+_TENANT_SCOPE_AUTO_EXCLUDE: frozenset = frozenset({
+    "Tenant",
+    "TenantMembership",
+    "Branch",
+    "User",
+    "Teacher",
+    "Student",
+    "Parent",
+    "PlatformIntegration",
+    "ServiceToken",
+    "SaaSSubscription",
+    "SaaSBillingEvent",
+})
 
 
 @event.listens_for(_BaseQuery, "before_compile", retval=True)
@@ -127,6 +184,15 @@ def before_compile_query(query):
                 if not entity:
                     continue
 
+                # ── Class-name allowlist: skip global/bootstrap tables. ──
+                entity_name = (
+                    getattr(entity, "__name__", None)
+                    or getattr(getattr(entity, "__table__", None), "name", None)
+                    or ""
+                )
+                if entity_name in _TENANT_SCOPE_AUTO_EXCLUDE:
+                    continue
+
                 has_tenant_col = hasattr(entity, "tenant_id")
                 has_branch_col = hasattr(entity, "branch_id")
 
@@ -164,7 +230,7 @@ def before_compile_query(query):
                                         "tenant.missing_context_fail_closed",
                                         path=getattr(_req, "path", None),
                                         method=getattr(_req, "method", None),
-                                        entity=getattr(entity, "__name__", repr(entity)),
+                                        entity=entity_name or getattr(entity, "__name__", repr(entity)),
                                     )
                                 except Exception:
                                     pass
