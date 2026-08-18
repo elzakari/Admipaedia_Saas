@@ -1,10 +1,11 @@
 from datetime import datetime
+import uuid as _uuid
 
 from flask import g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from sqlalchemy.orm import joinedload
 
-from app.extensions import db
+from app.extensions import db, NULL_TENANT_ID
 from app.models.admission import AdmissionApplication
 from app.models.class_ import Class
 from app.models.parent import Parent
@@ -15,6 +16,7 @@ from app.schemas.admission import (AdmissionApplicationSchema, BuyFormSchema,
                                    SubmitFormSchema)
 from app.utils.auth_utils import (ADMIN_COMPATIBLE_ROLES, admin_required,
                                   parent_required)
+from app.utils.tenant_context import tenant_required
 
 EDITABLE_PARENT_STATUSES = ("draft", "returned")
 DISCARDABLE_PARENT_STATUSES = ("draft", "returned", "rejected")
@@ -55,11 +57,13 @@ def _base_admission_query():
         joinedload(AdmissionApplication.target_class),
         joinedload(AdmissionApplication.parent).joinedload(Parent.user),
     )
-    tenant_id = getattr(g, "tenant_id", None)
-    if tenant_id:
-        query = query.join(Parent, AdmissionApplication.parent_id == Parent.id).filter(
-            Parent.tenant_id == tenant_id
-        )
+    # ── FAIL-CLOSED: always scope by tenant_id, even when g.tenant_id is None.
+    #    Unprotected routes → NULL_TENANT_ID filter → ZERO rows returned
+    #    instead of leaking every tenant's admission forms.
+    effective_tenant_id = getattr(g, "tenant_id", None) or NULL_TENANT_ID
+    query = query.join(
+        Parent, AdmissionApplication.parent_id == Parent.id
+    ).filter(Parent.tenant_id == effective_tenant_id)
     return query
 
 
@@ -68,6 +72,7 @@ def _normalize_name(value):
 
 
 @jwt_required()
+@tenant_required
 @admin_required
 def get_all_applications():
     """List all applications (admin only)."""
@@ -89,6 +94,7 @@ def get_all_applications():
 
 
 @jwt_required()
+@tenant_required
 @parent_required
 def get_my_applications():
     """List applications for the logged-in parent."""
@@ -126,6 +132,7 @@ def get_my_applications():
 
 
 @jwt_required()
+@tenant_required
 def buy_admission_form():
     """Initialize a form purchase for a potential student."""
     user_id = get_jwt_identity()
@@ -270,6 +277,7 @@ def buy_admission_form():
 
 
 @jwt_required()
+@tenant_required
 def get_application_details(id):
     """Get details of a specific application."""
     user_id = get_jwt_identity()
@@ -300,6 +308,7 @@ def get_application_details(id):
 
 
 @jwt_required()
+@tenant_required
 def submit_admission_form(id):
     """Submit the filled admission form data."""
     user_id = get_jwt_identity()
@@ -350,6 +359,7 @@ def submit_admission_form(id):
 
 
 @jwt_required()
+@tenant_required
 def save_admission_draft(id):
     """Save draft form data without submitting (parent only)."""
     user_id = get_jwt_identity()
@@ -416,6 +426,7 @@ def save_admission_draft(id):
 
 
 @jwt_required()
+@tenant_required
 def discard_application(id):
     """Soft-discard an editable application (parent only)."""
     user_id = get_jwt_identity()
@@ -476,6 +487,7 @@ def discard_application(id):
 
 
 @jwt_required()
+@tenant_required
 @admin_required
 def review_application(id):
     """Admin review actions: mark under_review/approved/rejected."""

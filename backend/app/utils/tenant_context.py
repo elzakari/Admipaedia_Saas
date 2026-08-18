@@ -175,15 +175,38 @@ def tenant_required(
                 require_explicit=True, load_full_user=load_full_user
             )
             if err:
-                if err == "Tenant context required":
+                # ------------------------------------------------------------------
+                # FAIL-CLOSED — no more silent pass-through to inner_fn with null
+                # tenant context. With the ORM-level auto-filter returning ZERO
+                # rows for null g.tenant_id we could still pass through, but:
+                #   1. join-style queries (e.g. admissions' _base_admission_query
+                #      which joins Parent to infer tenant) still need an explicit
+                #      tenant_id to filter on — without one they can leak.
+                #   2. routes may have other side effects that don't go through
+                #      the ORM (raw SQL, external service calls, etc).
+                # So we strictly return 400/403 for EVERY err case EXCEPT when
+                # the caller explicitly opts in via the legacy `allow_bootstrap`
+                # kwarg (only the initial bootstrap/super_admin routes should
+                # ever set this).
+                # ------------------------------------------------------------------
+                allow_bootstrap = bool(getattr(inner_fn, "_tenant_required_allow_bootstrap", False))
+                if allow_bootstrap and err == "Tenant context required":
                     tenant_exists = (
-                        Tenant.query.with_entities(Tenant.id).first() is not None
+                        Tenant.query.with_entities(Tenant.id)
+                        .execution_options(include_deleted=True)
+                        .first() is not None
                     )
                     if not tenant_exists:
+                        import structlog as _sl
+                        _sl.get_logger().warning(
+                            "tenant.bootstrap_null_context",
+                            handler=getattr(inner_fn, "__name__", repr(inner_fn)),
+                        )
                         g.tenant_id = None
                         g.current_user = None
                         g.branch_id = None
                         return inner_fn(*args, **kwargs)
+                # Default: return explicit error to client.
                 return jsonify({"success": False, "message": err}), (
                     400 if err == "Tenant context required" else 403
                 )

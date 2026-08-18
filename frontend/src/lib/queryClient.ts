@@ -1,6 +1,35 @@
 import { QueryClient, DefaultOptions } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 
+// ---------------------------------------------------------------------------
+// Tenant-aware cache isolation helpers.
+//
+// The #1 cause of apparent cross-tenant leaks on SPAs is the TanStack Query
+// cache (in-memory + localStorage persistence) not being reset between
+// different users / different tenants reusing the same browser tab. We have
+// two layers:
+//   1. AuthProvider.tsx watches (user.id + active_tenant_id) via
+//      `getActiveTenantSalt` and calls queryClient.clear() on change.
+//   2. `getActiveTenantSalt` is exported here so per-page queryKey factories
+//      can OPTIONALLY bake tenant_id into the queryKey tuple when they need
+//      per-tenant granular caches (not required given #1, but useful if a
+//      page ever wants to retain caches across tenant switches for perf).
+// ---------------------------------------------------------------------------
+export function getActiveTenantSalt(): string {
+  try {
+    const override = localStorage.getItem('saas_current_tenant_id');
+    if (override && typeof override === 'string' && override.trim().length > 0) {
+      return override.trim();
+    }
+  } catch {
+    /* ignore storage access failures */
+  }
+  // Fallback to a static session marker when no explicit tenant is set — any
+  // marker is fine because AuthProvider will always clear() on identity
+  // changes anyway.
+  return 'global';
+}
+
 // Enhanced default options for better performance
 const queryConfig: DefaultOptions = {
   queries: {

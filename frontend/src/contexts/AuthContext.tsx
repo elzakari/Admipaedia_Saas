@@ -1,8 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/services';
 import { User, AuthResponse } from '@/services/authService';
 import { getJwtExpirationMs } from '@/utils/jwt';
+import { queryClient } from '@/lib/queryClient';
+
+/**
+ * Returns the currently active tenant identifier for cache scoping purposes.
+ * Priority:
+ *   1. Explicit user-set active tenant (saas_current_tenant_id in localStorage)
+ *   2. Authenticated user's tenant_id / tenant.id
+ *   3. Null sentinel when none available (public routes)
+ */
+function getActiveTenantSalt(user: User | null): string | null {
+  try {
+    const override = localStorage.getItem('saas_current_tenant_id');
+    if (override && typeof override === 'string' && override.trim().length > 0) {
+      return override.trim();
+    }
+  } catch {
+    /* ignore storage access failures */
+  }
+  if (!user) return null;
+  const fromUser =
+    (user as any)?.tenant_id ??
+    (user as any)?.tenant?.id ??
+    (user as any)?.school_id ??
+    (user as any)?.school?.id ??
+    null;
+  return fromUser != null ? String(fromUser) : null;
+}
 
 type AuthContextType = {
   user: User | null;
@@ -22,10 +49,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
 
-  const authChecked = React.useRef(false);
+  const authChecked = useRef(false);
+  const lastSeenCacheKeySalt = useRef<string>('');
+
+  // ── Cross-tenant cache isolation ────────────────────────────────────────
+  // Any time the authenticated user identity or the active tenant switches
+  // (e.g. school admin switches between 2 different schools on same browser)
+  // we WIPE the entire TanStack query cache. Otherwise stale cached data
+  // from the previous tenant would be displayed — causing the exact "data
+  // from another tenant is showing" bug the user reported.
+  useEffect(() => {
+    const nextSalt = `u:${user?.id ?? ''}|t:${getActiveTenantSalt(user) ?? ''}`;
+    if (lastSeenCacheKeySalt.current === '') {
+      lastSeenCacheKeySalt.current = nextSalt;
+      return;
+    }
+    if (nextSalt !== lastSeenCacheKeySalt.current) {
+      try {
+        queryClient.clear();
+      } catch (err) {
+        console.warn('[Auth] Failed to clear query cache on identity/tenant switch:', err);
+      }
+      lastSeenCacheKeySalt.current = nextSalt;
+    }
+  }, [user, user?.id]);
 
   useEffect(() => {
-    // Check if user is already logged in
     const checkAuth = async () => {
       if (authChecked.current) return;
       authChecked.current = true;
@@ -182,6 +231,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('saas_current_tenant_id');
+      // Wipe cached data so the NEXT user/tenant that logs in on this
+      // browser absolutely cannot see the previous tenant's cached rows.
+      try { queryClient.clear(); } catch (_) { /* noop */ }
+      lastSeenCacheKeySalt.current = '';
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);

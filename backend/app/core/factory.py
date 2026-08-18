@@ -134,6 +134,85 @@ def create_app(config_name=None):
     # Initialize extensions
     init_extensions(app)
 
+    # ------------------------------------------------------------------
+    # Global Tenant + Branch Context Resolver (before_request)
+    #
+    # Runs tenant-resolution logic for every inbound request BEFORE any
+    # route handler executes. This means:
+    #   1. Even if a module forgets the @tenant_required decorator (and
+    #      19+ modules currently do), g.tenant_id STILL gets populated
+    #      → ORM auto-filter works → no cross-tenant data leak.
+    #   2. Routes that DO use @tenant_required still benefit from the
+    #      decorator's explicit error messages + branch resolution extras.
+    #
+    # WHITELIST: paths that legitimately need to run without tenant
+    # context: auth endpoints, public webhooks, invitation accept-links,
+    # super_admin cross-tenant platform routes, static assets.
+    # ------------------------------------------------------------------
+    def _register_global_tenant_context_hook(app: Flask):
+        import re as _re
+        from flask import request, g, jsonify
+        from app.utils.tenant_context import resolve_tenant_for_request, resolve_branch_for_request
+
+        # Whitelist regex patterns (tested against request.path). Any match
+        # short-circuits the enforcement entirely.
+        _PUBLIC_WHITELIST = tuple(
+            _re.compile(p, _re.IGNORECASE)
+            for p in (
+                r"^/static(/.*)?$",
+                r"^/healthz/?$",
+                r"^/readyz/?$",
+                r"^/api/v1/auth(/.*)?$",
+                r"^/api/v1/webhooks(/.*)?$",
+                r"^/api/v1/invitations/[^/]+/accept/?$",  # public accept-link
+                r"^/api/v1/invitations/public(/.*)?$",
+                r"^/api/v1/super_admin(/.*)?$",           # cross-tenant platform ops
+                r"^/api/v1/service_tokens(/.*)?$",
+                r"^/api/v1/platform_integrations(/.*)?$",
+                r"^/_debug_toolbar(/.*)?$",
+            )
+        )
+
+        # Exempt HTTP methods: OPTIONS preflight must be tenant-less.
+        _SAFE_METHODS = {"OPTIONS", "HEAD"}
+
+        @app.before_request
+        def _global_resolve_tenant_context():
+            if request.method in _SAFE_METHODS:
+                return None
+
+            path = request.path or ""
+            for pat in _PUBLIC_WHITELIST:
+                if pat.match(path):
+                    return None  # whitelisted: no enforcement
+
+            # Always attempt resolution — silent (no HTTP response here).
+            # If the token is missing / invalid we still won't raise from the
+            # before_request hook; let the route's @jwt_required handle auth
+            # with the correct error body. This keeps existing auth flows unchanged.
+            try:
+                tenant_id, user, _err = resolve_tenant_for_request(
+                    require_explicit=False, load_full_user=False
+                )
+            except Exception:
+                tenant_id, user = None, None
+
+            if not getattr(g, "tenant_id", None) and tenant_id:
+                g.tenant_id = tenant_id
+            if not getattr(g, "current_user", None) and user:
+                g.current_user = user
+
+            # Branch resolver (cheap if both already set)
+            try:
+                if getattr(g, "branch_id", None) is None and tenant_id:
+                    g.branch_id = resolve_branch_for_request(tenant_id, user)
+            except Exception:
+                pass
+
+            return None  # always proceed — never short-circuit request here
+
+    _register_global_tenant_context_hook(app)
+
     # Register blueprints
     register_blueprints(app)
 
