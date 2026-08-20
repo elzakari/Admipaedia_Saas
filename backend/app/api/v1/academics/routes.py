@@ -684,7 +684,8 @@ def delete_standard_grade_level(level_id):
         import uuid as _uuid
 
         from app.models.educational_system import GradeLevel
-        from app.models.grading_system import GradeBoundary, GradeTrack
+        from app.models.grade_track import GradeTrack
+        from app.models.grading_system import GradeBoundary
         from app.models.student import Student as StudentModel
 
         try:

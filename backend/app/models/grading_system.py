@@ -8,6 +8,34 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.extensions import db
 
 
+# ---------------------------------------------------------------------------
+# Backward-compatible re-exports.
+#
+# Historically some modules imported GradeTrack from app.models.grading_system
+# even though the class actually lives in app.models.grade_track.  Importing
+# here keeps those modules working after deploy without source edits.
+# We use a lazy __getattr__ on this module to avoid circular imports at the
+# top of grading_system.py (which is imported very early in the model chain).
+# ---------------------------------------------------------------------------
+def __getattr__(name):
+    if name == "GradeTrack":
+        from app.models.grade_track import GradeTrack as _GradeTrack
+        globals()["GradeTrack"] = _GradeTrack
+        return _GradeTrack
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "AssessmentType",
+    "EnhancedGrade",
+    "FinalGrade",
+    "GradingScheme",
+    "GradingStandard",
+    "GradeBoundary",
+    "GradeTrack",
+]
+
+
 class GradingStandard(Enum):
     """Ghana Educational Service Grading Standards"""
 
