@@ -1061,7 +1061,15 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
           id: student.id,
           data: transformedData
         });
-        savedStudentId = Number(updateResponse?.data?.id || student.id);
+        const rawUpdate: any = updateResponse;
+        savedStudentId = Number(
+          rawUpdate?.id ??
+          rawUpdate?.data?.id ??
+          rawUpdate?.data?.data?.id ??
+          rawUpdate?.data?.student?.id ??
+          rawUpdate?.student?.id ??
+          student.id
+        );
 
         if (photoFile && savedStudentId) {
           const formDataUpload = new FormData();
@@ -1097,7 +1105,14 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         };
 
         const createResponse = await createStudentAsync(createData);
-        savedStudentId = Number(createResponse?.data?.id ?? createResponse?.data?.data?.id ?? createResponse?.data?.student?.id);
+        const rawCreate: any = createResponse;
+        savedStudentId = Number(
+          rawCreate?.id ??
+          rawCreate?.data?.id ??
+          rawCreate?.data?.data?.id ??
+          rawCreate?.data?.student?.id ??
+          rawCreate?.student?.id
+        );
 
         if (photoFile && savedStudentId) {
           const formDataUpload = new FormData();
