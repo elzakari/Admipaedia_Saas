@@ -127,9 +127,16 @@ def _resolve_student_profile_picture(obj):
             or obj.get("profile_picture_url")
             or obj.get("profile_image")
             or obj.get("profileImage")
+            or obj.get("photo")
+            or obj.get("avatar_url")
         )
     else:
-        raw_value = getattr(obj, "profile_picture", None)
+        raw_value = (
+            getattr(obj, "profile_picture", None)
+            or getattr(obj, "profile_picture_url", None)
+            or getattr(obj, "profile_image", None)
+            or getattr(obj, "avatar_url", None)
+        )
 
     if not raw_value:
         return None
@@ -138,13 +145,26 @@ def _resolve_student_profile_picture(obj):
     if not picture:
         return None
 
-    if picture.startswith(("http://", "https://", "/api/", "/uploads/")):
+    if picture.startswith(("http://", "https://", "/api/", "/_storage/", "/uploads/")):
         return picture
 
-    normalized = picture.replace("\\", "/")
+    normalized = picture.replace("\\", "/").lstrip("/")
+
     if normalized.startswith("uploads/profile_pictures/"):
         filename = normalized.split("uploads/profile_pictures/", 1)[1]
         return f"/api/v1/enhanced-students/profile-picture/{filename}"
+
+    if normalized.startswith("profile_pictures/"):
+        filename = normalized.split("profile_pictures/", 1)[1]
+        return f"/api/v1/enhanced-students/profile-picture/{filename}"
+
+    if normalized.startswith("uploads/avatars/"):
+        filename = normalized.split("uploads/avatars/", 1)[1]
+        return f"/api/v1/profile/avatar/{filename}"
+
+    if normalized.startswith("avatars/"):
+        filename = normalized.split("avatars/", 1)[1]
+        return f"/api/v1/profile/avatar/{filename}"
 
     return picture
 

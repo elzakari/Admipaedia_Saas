@@ -66,13 +66,15 @@ def create_student_with_user():
 @admin_required
 @tenant_required
 def upload_profile_picture(student_id):
-    """Upload profile picture for a student."""
+    """Upload profile picture for a student.
+
+    Accepts both 'file' and 'profile_picture' form field names for
+    backwards/forwards compatibility with various frontend implementations.
+    """
     try:
-        if "file" not in request.files:
+        file = request.files.get("file") or request.files.get("profile_picture")
+        if file is None or file.filename == "":
             return error_response("No file provided", 400)
-        file = request.files["file"]
-        if file.filename == "":
-            return error_response("No file selected", 400)
 
         student = Student.query.get(student_id)
         if not student or getattr(student, "tenant_id", None) != getattr(

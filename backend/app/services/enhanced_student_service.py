@@ -58,11 +58,29 @@ class EnhancedStudentService(StudentService):
         path_value = str(stored_path).replace("\\", "/").strip()
         if not path_value:
             return None
-        if path_value.startswith(("http://", "https://", "/api/")):
+        if path_value.startswith(
+            ("http://", "https://", "/api/", "/_storage/", "/uploads/")
+        ):
             return path_value
-        if path_value.startswith("uploads/profile_pictures/"):
-            filename = path_value.split("uploads/profile_pictures/", 1)[1]
+
+        normalized = path_value.lstrip("/")
+
+        if normalized.startswith("uploads/profile_pictures/"):
+            filename = normalized.split("uploads/profile_pictures/", 1)[1]
             return f"/api/v1/enhanced-students/profile-picture/{filename}"
+
+        if normalized.startswith("profile_pictures/"):
+            filename = normalized.split("profile_pictures/", 1)[1]
+            return f"/api/v1/enhanced-students/profile-picture/{filename}"
+
+        if normalized.startswith("uploads/avatars/"):
+            filename = normalized.split("uploads/avatars/", 1)[1]
+            return f"/api/v1/profile/avatar/{filename}"
+
+        if normalized.startswith("avatars/"):
+            filename = normalized.split("avatars/", 1)[1]
+            return f"/api/v1/profile/avatar/{filename}"
+
         return path_value
 
     @staticmethod

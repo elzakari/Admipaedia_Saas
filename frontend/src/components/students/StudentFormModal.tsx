@@ -1066,10 +1066,20 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         if (photoFile && savedStudentId) {
           const formDataUpload = new FormData();
           formDataUpload.append('profile_picture', photoFile);
+          formDataUpload.append('file', photoFile);
           const uploadResponse = await api.post(`/students/${savedStudentId}/profile-picture`, formDataUpload, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
-          setPhotoPreview(resolveAvatarUrl((uploadResponse?.data as any)?.profile_picture_url || (uploadResponse as any)?.profile_picture_url) || '');
+          const rawPayload: any = uploadResponse?.data;
+          const resolvedUrl =
+            rawPayload?.profile_picture_url ??
+            rawPayload?.data?.profile_picture_url ??
+            rawPayload?.student?.profile_picture ??
+            rawPayload?.student?.profile_picture_url ??
+            rawPayload?.profile_picture ??
+            rawPayload?.photo ??
+            null;
+          setPhotoPreview(resolveAvatarUrl(resolvedUrl) || '');
           setPhotoFile(null);
           setPhotoRemoved(false);
         }
@@ -1087,15 +1097,25 @@ const StudentFormModalContent: React.FC<StudentFormModalProps> = (props) => {
         };
 
         const createResponse = await createStudentAsync(createData);
-        savedStudentId = Number(createResponse?.data?.id);
+        savedStudentId = Number(createResponse?.data?.id ?? createResponse?.data?.data?.id ?? createResponse?.data?.student?.id);
 
         if (photoFile && savedStudentId) {
           const formDataUpload = new FormData();
           formDataUpload.append('profile_picture', photoFile);
+          formDataUpload.append('file', photoFile);
           const uploadResponse = await api.post(`/students/${savedStudentId}/profile-picture`, formDataUpload, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
-          setPhotoPreview(resolveAvatarUrl((uploadResponse?.data as any)?.profile_picture_url || (uploadResponse as any)?.profile_picture_url) || '');
+          const rawPayload: any = uploadResponse?.data;
+          const resolvedUrl =
+            rawPayload?.profile_picture_url ??
+            rawPayload?.data?.profile_picture_url ??
+            rawPayload?.student?.profile_picture ??
+            rawPayload?.student?.profile_picture_url ??
+            rawPayload?.profile_picture ??
+            rawPayload?.photo ??
+            null;
+          setPhotoPreview(resolveAvatarUrl(resolvedUrl) || '');
           setPhotoFile(null);
           setPhotoRemoved(false);
         }

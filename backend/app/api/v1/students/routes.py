@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from flask import current_app, g, jsonify, request
@@ -6,6 +7,7 @@ from marshmallow import ValidationError
 
 from app.api.v1.students import students_bp
 from app.extensions import db
+from app.models.student import Student
 from app.schemas.student import StudentListSchema, StudentSchema
 from app.services.enhanced_student_service import \
     EnhancedStudentService  # Add this import
@@ -826,3 +828,100 @@ def generate_activation_link(student_id):
             ),
             500,
         )
+
+
+@students_bp.route("/<int:student_id>/profile-picture", methods=["POST"])
+@jwt_required()
+@admin_required
+@tenant_required
+def upload_student_profile_picture(student_id):
+    """Upload profile picture for a student.
+
+    Accepts both 'file' and 'profile_picture' form field names for
+    backwards/forwards compatibility with various frontend implementations.
+    """
+    try:
+        file = request.files.get("file") or request.files.get("profile_picture")
+        if file is None or file.filename == "":
+            return (
+                jsonify({"success": False, "message": "No file provided"}),
+                400,
+            )
+
+        student = Student.query.get(student_id)
+        if not student or getattr(student, "tenant_id", None) != getattr(
+            g, "tenant_id", None
+        ):
+            return jsonify({"success": False, "message": "Student not found"}), 404
+
+        caller = None
+        try:
+            user_id = int(get_jwt_identity())
+            from app.models.user import User
+
+            caller = User.query.filter(User.id == user_id).first() if user_id else None
+        except Exception:
+            caller = None
+        caller_role = getattr(caller, "role", "").lower() if caller else ""
+        non_admin_roles = {"teacher", "parent"}
+        if caller_role in non_admin_roles and getattr(
+            student, "profile_picture_locked", False
+        ):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Profile picture is locked and cannot be modified by non-admin users",
+                    }
+                ),
+                403,
+            )
+
+        file_path, error = EnhancedStudentService.upload_profile_picture(
+            student_id, file
+        )
+        if error:
+            return jsonify({"success": False, "message": error}), 400
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "profile_picture_url": file_path,
+                    "message": "Profile picture uploaded successfully",
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"Error uploading profile picture for student {student_id}: {str(e)}"
+        )
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "An unexpected error occurred while uploading profile picture",
+                }
+            ),
+            500,
+        )
+
+
+@students_bp.route("/profile-picture/<path:filename>", methods=["GET"])
+def serve_student_profile_picture(filename):
+    """Serve student profile picture (public GET endpoint)."""
+    from werkzeug.utils import secure_filename
+    from flask import send_from_directory
+
+    safe_name = secure_filename(filename)
+    for upload_dir in (
+        EnhancedStudentService.get_upload_directory(),
+        EnhancedStudentService.get_upload_directory(prefer_legacy=True),
+    ):
+        candidate = os.path.join(upload_dir, safe_name)
+        if os.path.isfile(candidate):
+            return send_from_directory(upload_dir, safe_name)
+    return jsonify({"success": False, "error": "Profile picture not found"}), 404
