@@ -424,6 +424,14 @@ const THEMES = {
   }
 };
 
+const safeNum = (v: unknown, fallback = 0): number => {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = typeof v === 'number'
+    ? v
+    : Number(String(v).replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : fallback;
+};
+
 const ScoresDashboard = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -791,7 +799,7 @@ const ScoresDashboard = () => {
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary?.average_attendance_rate?.toFixed(1) || 0}%</div>
+            <div className="text-2xl font-bold">{safeNum(summary?.average_attendance_rate).toFixed(1)}%</div>
             <p className="text-xs text-gray-400 mt-1">{t('scores_dashboard.stat_avg_attendance_desc', 'Current term average')}</p>
           </CardContent>
         </Card>
@@ -1063,7 +1071,7 @@ const ScoresDashboard = () => {
                           </div>
                           <div style={{ borderColor: themeColors.secondary }} className="border-[2.5px] rounded-xl bg-white text-center py-2.5 shadow-md ring-2 ring-black/5 transition-all hover:scale-[1.01]">
                             <div style={{ color: themeColors.secondary }} className="text-[22px] font-black tracking-tighter leading-none">
-                              {t('scores_dashboard.gpa_value', 'GPA: {{gpa}} / 4.00', { gpa: gradeReport.gpa.toFixed(2) })}
+                              {t('scores_dashboard.gpa_value', 'GPA: {{gpa}} / 4.00', { gpa: safeNum(gradeReport.gpa).toFixed(2) })}
                             </div>
                           </div>
                         </div>

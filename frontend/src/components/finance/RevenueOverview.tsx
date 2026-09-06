@@ -70,6 +70,14 @@ interface BranchOption {
   name: string;
 }
 
+const safeNum = (v: unknown, fallback = 0): number => {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = typeof v === 'number'
+    ? v
+    : Number(String(v).replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : fallback;
+};
+
 export const RevenueOverview: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,10 +211,10 @@ export const RevenueOverview: React.FC = () => {
   }
 
   // Active view payload
-  const activeBilled = viewMode === 'branch' ? branchData?.total_billed || 0 : globalData?.global_billed || 0;
-  const activeCollected = viewMode === 'branch' ? branchData?.total_collected || 0 : globalData?.global_collected || 0;
-  const activeOutstanding = viewMode === 'branch' ? branchData?.total_outstanding || 0 : globalData?.global_outstanding || 0;
-  const activeRate = viewMode === 'branch' ? branchData?.collection_rate || 0 : globalData?.global_collection_rate || 0;
+  const activeBilled = safeNum(viewMode === 'branch' ? branchData?.total_billed : globalData?.global_billed);
+  const activeCollected = safeNum(viewMode === 'branch' ? branchData?.total_collected : globalData?.global_collected);
+  const activeOutstanding = safeNum(viewMode === 'branch' ? branchData?.total_outstanding : globalData?.global_outstanding);
+  const activeRate = safeNum(viewMode === 'branch' ? branchData?.collection_rate : globalData?.global_collection_rate);
   const collectionsByMethod = viewMode === 'branch' ? branchData?.collections_by_method : globalData?.collections_by_method;
   const feesByStatus = viewMode === 'branch' ? branchData?.fees_by_status : globalData?.fees_by_status;
 
@@ -324,7 +332,7 @@ export const RevenueOverview: React.FC = () => {
             <TrendingUp className="h-28 w-28" />
           </div>
           <p className="text-gray-400 text-xs font-bold tracking-wider uppercase">Collection Efficiency</p>
-          <p className="text-3xl font-extrabold text-gray-900 mt-3">{activeRate.toFixed(2)}%</p>
+          <p className="text-3xl font-extrabold text-gray-900 mt-3">{safeNum(activeRate).toFixed(2)}%</p>
           <div className="mt-4 w-full bg-gray-100 rounded-full h-2">
             <div 
               className="bg-indigo-600 h-2 rounded-full transition-all duration-500" 
@@ -353,7 +361,7 @@ export const RevenueOverview: React.FC = () => {
                   <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip 
                     cursor={{ fill: '#f9fafb' }}
-                    formatter={(value: any) => [`$${value.toFixed(2)}`, 'Collected']}
+                    formatter={(value: any) => [`$${safeNum(value).toFixed(2)}`, 'Collected']}
                     contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
                   />
                   <Bar dataKey="value" fill="#4f46e5" radius={[8, 8, 0, 0]}>
@@ -449,7 +457,7 @@ export const RevenueOverview: React.FC = () => {
                       <td className="p-3 text-right text-amber-600 font-semibold">${b.total_outstanding.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="p-3 text-right">
                         <span className="bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">
-                          {b.collection_rate.toFixed(1)}%
+                          {safeNum(b.collection_rate).toFixed(1)}%
                         </span>
                       </td>
                     </tr>
