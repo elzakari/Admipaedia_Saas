@@ -1,17 +1,19 @@
 name: Deploy ADMIPAEDIA Production
 
+
 # ============================================================
 # TRIGGERS
 # ============================================================
 #
 # Automatic deployment:
-#   Any application/code change pushed or merged into main.
+#   Runs whenever application/code changes are pushed or merged
+#   into the main branch.
 #
 # Manual deployment:
-#   GitHub Actions -> Deploy ADMIPAEDIA Production -> Run workflow.
+#   Actions -> Deploy ADMIPAEDIA Production -> Run workflow
 #
-# Documentation-only and deployment-workflow-only changes are ignored
-# for automatic production deployment.
+# Documentation-only changes and changes to this deployment
+# workflow itself do not trigger an automatic production deploy.
 
 on:
   push:
@@ -26,7 +28,7 @@ on:
 
 
 # ============================================================
-# PERMISSIONS
+# WORKFLOW PERMISSIONS
 # ============================================================
 
 permissions:
@@ -37,10 +39,11 @@ permissions:
 # DEPLOYMENT CONCURRENCY
 # ============================================================
 #
-# Never intentionally run two GitHub production deployments
-# concurrently.
+# Do not intentionally run multiple production deployments
+# simultaneously.
 #
-# The production server also has its own flock protection.
+# The production server also has its own kernel-backed flock
+# protection inside update-app.sh.
 
 concurrency:
   group: admipaedia-production
@@ -48,12 +51,13 @@ concurrency:
 
 
 # ============================================================
-# PRODUCTION DEPLOYMENT
+# PRODUCTION DEPLOYMENT JOB
 # ============================================================
 
 jobs:
 
   deploy:
+
     name: Deploy to sms-prod
 
     runs-on: ubuntu-latest
@@ -69,6 +73,7 @@ jobs:
 
       - name: Deployment information
         shell: bash
+
         run: |
           set -Eeuo pipefail
 
@@ -80,7 +85,7 @@ jobs:
           echo "Commit     : $GITHUB_SHA"
           echo "Branch     : $GITHUB_REF_NAME"
           echo "Run ID     : $GITHUB_RUN_ID"
-          echo "Triggered  : $GITHUB_EVENT_NAME"
+          echo "Event      : $GITHUB_EVENT_NAME"
           echo "Actor      : $GITHUB_ACTOR"
           echo
 
@@ -89,16 +94,25 @@ jobs:
       # CONNECT GITHUB RUNNER TO TAILSCALE
       # ======================================================
       #
-      # GitHub receives temporary private-network access.
+      # The GitHub-hosted runner temporarily joins the tailnet.
       #
-      # The OAuth credential is restricted to:
+      # OAuth credential:
+      #   TS_OAUTH_CLIENT_ID
+      #   TS_OAUTH_SECRET
+      #
+      # Runner tag:
       #   tag:admipaedia-ci
       #
-      # Tailscale policy allows that tag to reach:
-      #   100.100.205.84:22
+      # Tailscale destination:
+      #   sms-prod
+      #   100.100.205.84
+      #
+      # Expected network access:
+      #   TCP/22 only
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
+
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -107,30 +121,39 @@ jobs:
 
 
       # ======================================================
-      # CONFIGURE RESTRICTED PRODUCTION SSH IDENTITY
+      # CONFIGURE RESTRICTED PRODUCTION SSH
       # ======================================================
       #
-      # PROD_SSH_KEY is NOT the normal administrator key.
+      # PROD_SSH_KEY is the restricted GitHub deployment key.
+      #
+      # It is NOT the normal sms-prod administrator key.
       #
       # Server-side authorized_keys forces this key through:
       #
       # /opt/admipaedia/scripts/github-auto-deploy.sh
       #
       # Allowed commands:
+      #
       #   check
       #   deploy
+      #
+      # No normal shell or arbitrary commands are permitted.
 
       - name: Configure production SSH
         shell: bash
+
         env:
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
 
         run: |
           set -Eeuo pipefail
 
-          echo "Configuring restricted production SSH identity..."
+          echo "============================================================"
+          echo " CONFIGURING RESTRICTED PRODUCTION SSH"
+          echo "============================================================"
 
           mkdir -p "$HOME/.ssh"
+
           chmod 700 "$HOME/.ssh"
 
           printf '%s\n' "$PROD_SSH_KEY" \
@@ -139,15 +162,18 @@ jobs:
           chmod 600 "$HOME/.ssh/admipaedia_prod"
 
           touch "$HOME/.ssh/known_hosts"
+
           chmod 600 "$HOME/.ssh/known_hosts"
 
-          echo "Adding sms-prod host key..."
+          echo
+          echo "Retrieving sms-prod SSH host key..."
 
           ssh-keyscan \
             -T 10 \
             -H 100.100.205.84 \
             >> "$HOME/.ssh/known_hosts"
 
+          echo
           echo "✅ Production SSH configuration complete."
 
 
@@ -155,16 +181,21 @@ jobs:
       # PRODUCTION PREFLIGHT
       # ======================================================
       #
-      # Runs:
+      # Restricted SSH command:
+      #
+      #   check
+      #
+      # Server-side flow:
       #
       # github-auto-deploy.sh check
-      #        ↓
+      #           ↓
       # update-app.sh --check
       #
-      # No production deployment is performed during this step.
+      # This checks production readiness without deploying.
 
       - name: Production preflight
         shell: bash
+
         run: |
           set -Eeuo pipefail
 
@@ -188,41 +219,48 @@ jobs:
 
 
       # ======================================================
-      # DEPLOY PRODUCTION
+      # PRODUCTION DEPLOYMENT
       # ======================================================
       #
-      # Server-side deployment flow:
+      # Restricted SSH command:
       #
-      # restricted SSH
-      #     ↓
+      #   deploy
+      #
+      # Server-side deployment:
+      #
       # github-auto-deploy.sh deploy
-      #     ↓
+      #           ↓
       # update-app.sh v4.1
-      #     ↓
+      #           ↓
       # deployment flock
-      #     ↓
-      # Git preflight
-      #     ↓
-      # PostgreSQL / Redis readiness
-      #     ↓
-      # DB backup
-      #     ↓
-      # ff-only Git update
-      #     ↓
-      # migration
-      #     ↓
-      # backend/frontend/worker builds
-      #     ↓
-      # app-service recreation
-      #     ↓
-      # Socket.IO runtime validation
-      #     ↓
+      #           ↓
+      # production preflight
+      #           ↓
+      # PostgreSQL readiness
+      #           ↓
+      # Redis readiness
+      #           ↓
+      # GitHub SSH validation
+      #           ↓
+      # database backup
+      #           ↓
+      # verified ff-only Git update
+      #           ↓
+      # Alembic migration
+      #           ↓
+      # Docker builds
+      #           ↓
+      # backend/frontend/worker recreation
+      #           ↓
+      # Socket.IO runtime verification
+      #           ↓
       # NPM refresh
-      #     ↓
-      # public API readiness
+      #           ↓
+      # public API readiness verification
 
       - name: Deploy production
         shell: bash
+
         run: |
           set -Eeuo pipefail
 
@@ -246,57 +284,41 @@ jobs:
 
 
       # ======================================================
-      # EXTERNAL PUBLIC API VERIFICATION
+      # POST-DEPLOYMENT PRODUCTION VERIFICATION
       # ======================================================
       #
-      # The deployment script already performs public readiness
-      # checks. This provides an additional independent check
-      # from the GitHub runner after deployment.
+      # We intentionally run verification from sms-prod instead
+      # of curling the public API directly from GitHub.
+      #
+      # GitHub-hosted runner IP addresses can receive Cloudflare
+      # HTTP 403 responses even when ADMIPAEDIA itself is healthy.
+      #
+      # The server-side `check` command verifies production from
+      # the trusted production environment.
 
-      - name: Verify public production API
+      - name: Post-deployment production verification
         shell: bash
+
         run: |
           set -Eeuo pipefail
 
           echo "============================================================"
-          echo " VERIFYING PUBLIC PRODUCTION API"
+          echo " POST-DEPLOYMENT PRODUCTION VERIFICATION"
           echo "============================================================"
 
-          API_URL="https://admipaedia.easymsdigit.com/api/"
-          MAX_ATTEMPTS=12
-
-          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-
-            echo "API verification attempt $attempt/$MAX_ATTEMPTS..."
-
-            if curl \
-              --fail \
-              --silent \
-              --show-error \
-              --connect-timeout 5 \
-              --max-time 15 \
-              "$API_URL" \
-              > /tmp/admipaedia-api-response
-            then
-              echo
-              echo "✅ ADMIPAEDIA public API is reachable."
-              echo
-              echo "Response:"
-              cat /tmp/admipaedia-api-response || true
-              echo
-              exit 0
-            fi
-
-            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-              echo "API not ready yet. Retrying in 5 seconds..."
-              sleep 5
-            fi
-
-          done
+          ssh \
+            -i "$HOME/.ssh/admipaedia_prod" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            admin@100.100.205.84 \
+            check
 
           echo
-          echo "❌ Public production API verification failed."
-          exit 1
+          echo "✅ ADMIPAEDIA post-deployment verification passed."
 
 
       # ======================================================
@@ -305,17 +327,30 @@ jobs:
 
       - name: Deployment success
         if: success()
+
         shell: bash
+
         run: |
+          set -Eeuo pipefail
+
           echo "============================================================"
           echo " ✅ ADMIPAEDIA PRODUCTION DEPLOYMENT SUCCESSFUL"
           echo "============================================================"
           echo
+          echo "Repository:"
+          echo "$GITHUB_REPOSITORY"
+          echo
           echo "Commit:"
           echo "$GITHUB_SHA"
           echo
+          echo "Branch:"
+          echo "$GITHUB_REF_NAME"
+          echo
           echo "Production:"
           echo "https://admipaedia.easymsdigit.com"
+          echo
+          echo "GitHub Run ID:"
+          echo "$GITHUB_RUN_ID"
           echo
 
 
@@ -325,14 +360,25 @@ jobs:
 
       - name: Deployment failure notice
         if: failure()
+
         shell: bash
+
         run: |
           echo "============================================================"
           echo " ❌ ADMIPAEDIA PRODUCTION DEPLOYMENT FAILED"
           echo "============================================================"
           echo
-          echo "Repository : $GITHUB_REPOSITORY"
-          echo "Commit     : $GITHUB_SHA"
-          echo "Run ID     : $GITHUB_RUN_ID"
+          echo "Repository:"
+          echo "$GITHUB_REPOSITORY"
           echo
-          echo "Review the failed step above before retrying."
+          echo "Commit:"
+          echo "$GITHUB_SHA"
+          echo
+          echo "Branch:"
+          echo "$GITHUB_REF_NAME"
+          echo
+          echo "GitHub Run ID:"
+          echo "$GITHUB_RUN_ID"
+          echo
+          echo "Review the failed workflow step above before retrying."
+          echo
