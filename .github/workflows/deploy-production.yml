@@ -1,0 +1,77 @@
+name: Deploy ADMIPAEDIA Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: admipaedia-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to sms-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Deployment information
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Commit:     $GITHUB_SHA"
+          echo "Branch:     $GITHUB_REF_NAME"
+          echo "Run ID:     $GITHUB_RUN_ID"
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:admipaedia-ci
+          ping: 100.100.205.84
+
+      - name: Configure production SSH
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          set -Eeuo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/admipaedia_prod
+          chmod 600 ~/.ssh/admipaedia_prod
+
+          ssh-keyscan \
+            -T 10 \
+            -H 100.100.205.84 \
+            >> ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Production preflight
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i ~/.ssh/admipaedia_prod \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            admin@100.100.205.84 \
+            check
+
+      - name: Deploy production
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i ~/.ssh/admipaedia_prod \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            admin@100.100.205.84 \
+            deploy
