@@ -17,6 +17,7 @@ from app.models.tenant import TenantMembership
 from app.models.user import User
 from app.services.invitation_service import (create_invitation_link,
                                              enforce_create_rate_limit,
+                                             lookup_invitation_for_bootstrap,
                                              mark_expired_if_needed,
                                              verify_invitation_signature)
 from app.utils.billing_access import school_admin_required
@@ -83,6 +84,29 @@ def _tenant_user_active_role_names(user_id: int) -> list[str]:
         if name:
             names.append(str(name))
     return names
+
+
+def _establish_tenant_context_from_invitation(inv: "InvitationLink") -> None:
+    """Establish g.tenant_id + g.branch_id from a bootstrap InvitationLink row.
+
+    Run this immediately after a successful unscoped lookup of a valid
+    invitation, BEFORE any downstream ORM queries, db.session.flush(), or
+    event commit. This ensures scoped tables (everything except bootstrap
+    tables) resolve to the invitee's tenant rather than the NULL_TENANT_ID
+    fail-closed filter.
+
+    The values come ONLY from the persisted invitation DB row. We never
+    read request headers / query params / body for tenant discovery on
+    anonymous public routes.
+    """
+    from flask import g as _g
+    from app.utils.tenant_context import resolve_branch_for_request
+
+    _g.tenant_id = inv.tenant_id
+    try:
+        _g.branch_id = resolve_branch_for_request(inv.tenant_id, None)
+    except Exception:
+        _g.branch_id = None
 
 
 @invitations_bp.route("/admin/invitations", methods=["POST"])
@@ -313,9 +337,11 @@ def public_validate_invitation(invite_id: str):
     except Exception:
         exp_ts = 0
 
-    inv = InvitationLink.query.filter_by(id=iid).first()
+    inv = lookup_invitation_for_bootstrap(iid, for_update=False)
     if not inv:
         return jsonify({"success": False, "message": "Invitation not found"}), 404
+
+    _establish_tenant_context_from_invitation(inv)
 
     changed = mark_expired_if_needed(inv)
     if changed:
@@ -453,9 +479,11 @@ def public_register_with_invitation(invite_id: str):
     from app.services.invitation_service import _event
 
     try:
-        inv = InvitationLink.query.filter_by(id=iid).with_for_update().first()
+        inv = lookup_invitation_for_bootstrap(iid, for_update=True)
         if not inv:
             return jsonify({"success": False, "message": "Invitation not found"}), 404
+
+        _establish_tenant_context_from_invitation(inv)
 
         mark_expired_if_needed(inv)
         if inv.status != "active":

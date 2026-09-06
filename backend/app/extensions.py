@@ -126,6 +126,8 @@ _TENANT_SCOPE_AUTO_EXCLUDE: frozenset = frozenset({
     "ServiceToken",
     "SaaSSubscription",
     "SaaSBillingEvent",
+    "InvitationLink",
+    "InvitationEvent",
 })
 
 

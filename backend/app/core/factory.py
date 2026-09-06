@@ -164,7 +164,9 @@ def create_app(config_name=None):
                 r"^/readyz/?$",
                 r"^/api/v1/auth(/.*)?$",
                 r"^/api/v1/webhooks(/.*)?$",
-                r"^/api/v1/invitations/[^/]+/accept/?$",  # public accept-link
+                r"^/api/v1/invitations/[^/]+/validate/?$",  # public signed-URL validation
+                r"^/api/v1/invitations/[^/]+/accept/?$",    # public accept-link
+                r"^/api/v1/invitations/[^/]+/register/?$",  # public sign-up with invite
                 r"^/api/v1/invitations/public(/.*)?$",
                 r"^/api/v1/super_admin(/.*)?$",           # cross-tenant platform ops
                 r"^/api/v1/service_tokens(/.*)?$",

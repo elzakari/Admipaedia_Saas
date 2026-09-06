@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -12,6 +13,31 @@ from app.middleware.security_middleware import rate_limiter
 from app.models.invitation import (INVITATION_EVENT_TYPES,
                                    INVITATION_INVITEE_TYPES, InvitationEvent,
                                    InvitationLink)
+
+
+def lookup_invitation_for_bootstrap(
+    invite_uuid: uuid.UUID,
+    *,
+    for_update: bool = False,
+) -> Optional[InvitationLink]:
+    """Unscoped bootstrap lookup of an InvitationLink row.
+
+    USE ONLY in anonymous public invite routes (validate / register) while
+    g.tenant_id is still null — i.e. before the invitation row itself has
+    been used to establish tenant context for the rest of the request.
+
+    Never use this helper in admin flows.  Admin endpoints already have
+    g.tenant_id from the JWT + X-Tenant-ID chain, and should add an explicit
+    .filter_by(tenant_id=g.tenant_id) to their queries.
+    """
+    if invite_uuid is None:
+        return None
+    query = InvitationLink.query.without_tenant_filter().filter_by(
+        id=invite_uuid
+    )
+    if for_update:
+        query = query.with_for_update()
+    return query.first()
 
 
 def _secret_bytes() -> bytes:
