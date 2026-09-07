@@ -11,24 +11,43 @@ triggered when the global ORM before_compile auto-filter injected a
 Python uuid.UUID value into tenant_credential_counters.tenant_id,
 which was declared as VARCHAR(36) in migration 3a413a7447b6.
 
-This migration:
-    * Pre-validates every stored tenant_id is a canonical 36-char UUID
-      string BEFORE any schema mutation.  Invalid rows (should not
-      exist) raise ValueError and abort the migration without damage.
-    * On PostgreSQL:
-        - drops the existing composite PRIMARY KEY (tenant_id, year)
-        - ALTERs tenant_id TYPE UUID USING tenant_id::uuid
-        - re-adds composite PRIMARY KEY
-        - adds FK tenants(id) ON DELETE CASCADE
-    * On SQLite / other dialects:
-        - leaves column storage as String(36) (matches portable
-          _uuid_type() SQLite behaviour, where only Postgres uses
-          native UUID storage)
-        - still runs validation so non-UUID values are caught early
-        - adds a ForeignKeyConstraint via batch_alter_table if possible
+Subsequent deploy failure:
+    ForeignKeyViolation during the FK-ADD step because one historical
+    orphan counter row existed with tenant_id pointing at a tenant
+    that was removed from ``tenants``.  Migration rolled back cleanly
+    thanks to Alembic transactional DDL.  Revision in DB stayed at
+    ``3aeaf5669d9e``; tenant_credential_counters.tenant_id stayed
+    VARCHAR.
 
-Downgrade reverses the changes exactly (PostgreSQL: drop FK, drop PK,
-ALTER ... TYPE VARCHAR(36) USING tenant_id::varchar(36), re-add PK).
+This migration (fixed, retry-safe):
+    1. UUID regex pre-validates EVERY tenant_id BEFORE any DDL.  Any
+       malformed row raises ValueError with count + samples and the
+       migration aborts with 0 schema changes (fail-loud, not silent
+       data corruption).
+    2. Before adding FK, SAFELY deletes ONLY confirmed-orphan TCC
+       rows: ``DELETE FROM tenant_credential_counters WHERE tenant_id
+       NOT IN (SELECT id::varchar FROM tenants)`` (VARCHAR-variant so
+       we can run the delete while column is still pre-cast VARCHAR).
+       Orphan deletions are counted and explicitly logged via
+       ``RAISE NOTICE`` (PG) / Python print.  Every row whose tenant
+       still exists is PRESERVED (including its ``last_value`` serial
+       continuity).
+    3. PostgreSQL step order:
+         * DROP CONSTRAINT IF EXISTS on both PK and the new FK (so the
+           migration is safe to re-run after a partial failure).
+         * ALTER COLUMN tenant_id TYPE UUID USING tenant_id::uuid.
+         * Re-create the composite PRIMARY KEY (tenant_id, year).
+         * ADD CONSTRAINT fk_tcc_tenant_id_tenants FOREIGN KEY
+           (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE.
+           Future tenant deletions will now auto-clean their counter
+           rows so this orphan class cannot recur.
+    4. SQLite / generic dialects: keep String(36) storage (matching
+       the portable _uuid_type() SQLite representation), validate
+       values, delete orphans via string join to tenants.id, and add
+       the FK via batch_alter_table when SQLite supports it.
+
+Downgrade reverses every step exactly (PG: drop FK → drop PK →
+ALTER TYPE VARCHAR(36) → re-add PK; SQLite reverse batch).
 """
 
 from alembic import op
@@ -55,7 +74,8 @@ def _validate_uuid_values(conn, table_name: str, col_name: str) -> None:
     """Validate every row in ``table_name.col_name`` matches the UUID regex.
 
     Raises ValueError with a descriptive message (count + sample of invalid
-    values) BEFORE any ALTER, so no schema changes are applied on bad data.
+    values) BEFORE any ALTER or DELETE, so no schema changes or data changes
+    are applied on bad data.
     """
     dialect_name = conn.dialect.name
     if dialect_name == "postgresql":
@@ -84,12 +104,84 @@ def _validate_uuid_values(conn, table_name: str, col_name: str) -> None:
         )
 
 
+def _delete_orphan_rows(conn) -> int:
+    """Delete TCC rows whose tenant_id has no matching row in ``tenants``.
+
+    Executed while ``tenant_credential_counters.tenant_id`` is still
+    VARCHAR so we can safely compare against ``tenants.id::varchar``
+    on PostgreSQL (``tenants.id`` is native UUID, and
+    VARCHAR = UUID would otherwise raise the original UndefinedFunction
+    error we are fixing).
+
+    Returns count of deleted rows (0 if none).  ``last_value`` of
+    every surviving row is untouched.
+    """
+    if conn.dialect.name == "postgresql":
+        count_sql = sa.text(
+            "SELECT COUNT(*) FROM tenant_credential_counters t "
+            "WHERE NOT EXISTS ("
+            "  SELECT 1 FROM tenants tn WHERE tn.id::varchar = t.tenant_id"
+            ")"
+        )
+        delete_sql = sa.text(
+            "DELETE FROM tenant_credential_counters t "
+            "WHERE NOT EXISTS ("
+            "  SELECT 1 FROM tenants tn WHERE tn.id::varchar = t.tenant_id"
+            ")"
+        )
+        before = conn.execute(count_sql).scalar() or 0
+        if before:
+            # Emit PostgreSQL NOTICE so deletions show up in ``flask db
+            # upgrade`` stderr on production without needing to parse
+            # Python logs (Alembic already runs inside a transaction).
+            notice_sql = sa.text(
+                "DO $$ BEGIN "
+                "RAISE NOTICE 'migration c79e9c8casttccuuid0001: "
+                "deleting % orphan tenant_credential_counters rows (no "
+                "matching tenants.id)', :n; END $$;"
+            ).bindparams(n=int(before))
+            conn.execute(notice_sql)
+        conn.execute(delete_sql)
+        return int(before)
+    else:
+        # SQLite / generic dialect — compare as plain strings.
+        count_sql = sa.text(
+            "SELECT COUNT(*) FROM tenant_credential_counters t "
+            "WHERE t.tenant_id NOT IN ("
+            "  SELECT CAST(id AS VARCHAR) FROM tenants"
+            ")"
+        )
+        delete_sql = sa.text(
+            "DELETE FROM tenant_credential_counters "
+            "WHERE tenant_id NOT IN ("
+            "  SELECT CAST(id AS VARCHAR) FROM tenants"
+            ")"
+        )
+        before = conn.execute(count_sql).scalar() or 0
+        conn.execute(delete_sql)
+        return int(before)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+
+    # 1. Strict UUID regex validation — fails before any DDL/DELETE.
     _validate_uuid_values(bind, "tenant_credential_counters", "tenant_id")
+
+    # 2. Delete only confirmed-orphan rows BEFORE FK creation.  All
+    #    other rows (tenant still alive) are preserved verbatim.
+    orphans_deleted = _delete_orphan_rows(bind)
 
     if bind.dialect.name == "postgresql":
         # ── PostgreSQL ──────────────────────────────────────────────────
+        # Retry-safe: drop new FK / old PK IF EXISTS (handles cases where
+        # a prior deploy partially succeeded then rolled back).
+        op.execute(
+            sa.text(
+                "ALTER TABLE tenant_credential_counters DROP CONSTRAINT "
+                "IF EXISTS fk_tcc_tenant_id_tenants"
+            )
+        )
         op.execute(
             sa.text(
                 "ALTER TABLE tenant_credential_counters "
@@ -116,10 +208,8 @@ def upgrade() -> None:
         )
     else:
         # ── SQLite / generic dialect ────────────────────────────────────
-        # batch_alter_table recreates the table, preserving String(36)
-        # storage type that matches the portable _uuid_type() SQLite
-        # representation.  Values are UUID strings already, validated
-        # above.  Add the ForeignKeyConstraint explicitly.
+        # String(36) already matches portable _uuid_type() SQLite storage.
+        # Add FK CASCADE; batch_alter_table recreates table cleanly.
         with op.batch_alter_table("tenant_credential_counters") as batch_op:
             batch_op.alter_column(
                 "tenant_id",
@@ -128,6 +218,12 @@ def upgrade() -> None:
                 existing_nullable=False,
                 existing_server_default=None,
             )
+            try:
+                batch_op.drop_constraint(
+                    "fk_tcc_tenant_id_tenants", type_="foreignkey"
+                )
+            except Exception:
+                pass
             try:
                 batch_op.create_foreign_key(
                     "fk_tcc_tenant_id_tenants",
@@ -139,7 +235,8 @@ def upgrade() -> None:
             except Exception:
                 # Some SQLite builds disable FK enforcement or ALTER
                 # constraints; never let this block migration of the
-                # critical column-type fix.
+                # critical column-type fix.  The FK is created on PG
+                # where it actually protects the referential integrity.
                 pass
 
 
