@@ -113,6 +113,9 @@ def get_my_applications():
         if not parent:
             return jsonify({"success": True, "data": []}), 200
 
+    if parent.tenant_id:
+        g.tenant_id = getattr(g, "tenant_id", None) or parent.tenant_id
+
     applications = (
         _base_admission_query()
         .filter(AdmissionApplication.parent_id == parent.id)

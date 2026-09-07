@@ -52,6 +52,16 @@ def _get_requested_tenant_id() -> Optional[uuid.UUID]:
                     profile = Student.query.filter_by(user_id=user.id).first()
                     if profile and profile.tenant_id:
                         return _parse_uuid(profile.tenant_id)
+
+                # Direct lookup if user is a parent — symmetric with the
+                # teacher/student branches above.  Production Parent users
+                # often have NO TenantMembership rows, only Parent.tenant_id.
+                elif user.role == "parent":
+                    from app.models import Parent
+
+                    profile = Parent.query.filter_by(user_id=user.id).first()
+                    if profile and profile.tenant_id:
+                        return _parse_uuid(profile.tenant_id)
     except Exception:
         pass
 
@@ -100,6 +110,12 @@ def resolve_tenant_for_request(
         ).all()
         if len(memberships) == 1:
             return memberships[0].tenant_id, user, None
+        if user.role == "parent":
+            from app.models import Parent
+
+            profile = Parent.query.filter_by(user_id=user.id).first()
+            if profile and profile.tenant_id:
+                return _parse_uuid(profile.tenant_id), user, None
         return None, user, "Tenant context required"
 
     if user.role in ("admin", "school_admin", "super_admin", "super_manager"):
@@ -112,6 +128,12 @@ def resolve_tenant_for_request(
         user_id=user.id, tenant_id=requested, status="active"
     ).first()
     if not membership:
+        if user.role == "parent":
+            from app.models import Parent
+
+            profile = Parent.query.filter_by(user_id=user.id).first()
+            if profile and profile.tenant_id and _parse_uuid(profile.tenant_id) == requested:
+                return requested, user, None
         return None, user, "Tenant access denied"
     return requested, user, None
 
@@ -144,6 +166,14 @@ def resolve_branch_for_request(
             from app.models.student import Student
 
             profile = Student.query.filter_by(
+                user_id=user.id, tenant_id=tenant_id
+            ).first()
+            if profile and profile.branch_id:
+                return profile.branch_id
+        elif user.role == "parent":
+            from app.models.parent import Parent
+
+            profile = Parent.query.filter_by(
                 user_id=user.id, tenant_id=tenant_id
             ).first()
             if profile and profile.branch_id:
