@@ -15,6 +15,11 @@ db = SQLAlchemy()
 from flask import g, has_app_context, current_app
 from sqlalchemy import event
 import uuid as _uuid
+import sqlalchemy.types as _sa_types
+try:
+    from sqlalchemy.dialects.postgresql import UUID as _PGUUID
+except Exception:  # pragma: no cover - Postgres-specific import guard
+    _PGUUID = None
 
 # ---------------------------------------------------------------------------
 # Tenant-scoped Query subclass — adds .without_tenant_filter() opt-out so
@@ -95,6 +100,65 @@ db.Query = TenantScopedQuery
 # [] instead of returning every row across every tenant.
 # ---------------------------------------------------------------------------
 NULL_TENANT_ID = _uuid.UUID("00000000-0000-0000-0000-000000000000")
+
+
+def _is_string_tenant_column(col) -> bool:
+    """Return True if the mapped column is stored as a string/VARCHAR family.
+
+    When the ORM auto-filter binds a UUID python value against a
+    string-typed tenant_id column, PostgreSQL raises::
+
+        UndefinedFunction: operator does not exist:
+            character varying = uuid
+
+    because psycopg2 renders the RHS parameter with an explicit ``::UUID``
+    cast and no implicit equality operator exists between the two types.
+
+    This helper detects string-family columns so the caller can coerce the
+    RHS value to a canonical dashed 36-character string before binding.
+    Portable ``_uuid_type()`` columns that declare a PostgreSQL ``UUID``
+    dialect variant report as ``String`` on generic/SQLite dialects, which
+    the ORM then binds safely.
+    """
+    col_type = getattr(col, "type", None)
+    if col_type is None:
+        return False
+    # Portable dialect-variant TypeEngine may have variant_collection.
+    # Walk the declared types of the column and treat as string-family if
+    # *any* declared representation is string-like (the generic/base type).
+    types_to_check = [col_type]
+    variant_map = getattr(col_type, "variant_collection", None)
+    if variant_map:
+        types_to_check.extend(variant_map.values())
+    for t in types_to_check:
+        if isinstance(
+            t,
+            (
+                _sa_types.String,
+                _sa_types.Text,
+                _sa_types.Unicode,
+                _sa_types.UnicodeText,
+                _sa_types.CHAR,
+                _sa_types.NCHAR,
+                _sa_types.VARCHAR,
+                _sa_types.NVARCHAR,
+            ),
+        ):
+            return True
+    return False
+
+
+def _coerce_rhs_for_tenant_column(col, rhs_uuid) -> Any:
+    """Return ``rhs_uuid`` bound to the correct python type for ``col``.
+
+    * UUID-family columns (``UUID`` / PGUUID): return the UUID object as-is.
+    * String-family columns: return ``str(rhs_uuid)`` (canonical dashed 36-char).
+    """
+    if rhs_uuid is None:
+        return None
+    if _is_string_tenant_column(col):
+        return str(rhs_uuid)
+    return rhs_uuid
 
 # ---------------------------------------------------------------------------
 # Model classes that are EXPLICITLY excluded from automatic tenant scoping.
@@ -216,7 +280,12 @@ def before_compile_query(query):
                         # returns [] instead of leaking every tenant row.
                         # -----------------------------------------------------
                         try:
-                            query = query.filter(entity.tenant_id == NULL_TENANT_ID)
+                            query = query.filter(
+                                entity.tenant_id
+                                == _coerce_rhs_for_tenant_column(
+                                    entity.tenant_id, NULL_TENANT_ID
+                                )
+                            )
                         except Exception:
                             pass
                         # WARN log once per request so devs notice the leak.
@@ -241,7 +310,12 @@ def before_compile_query(query):
                     else:
                         # Happy path: only rows belonging to g.tenant_id.
                         try:
-                            query = query.filter(entity.tenant_id == g_tenant_id)
+                            query = query.filter(
+                                entity.tenant_id
+                                == _coerce_rhs_for_tenant_column(
+                                    entity.tenant_id, g_tenant_id
+                                )
+                            )
                         except Exception:
                             pass
 

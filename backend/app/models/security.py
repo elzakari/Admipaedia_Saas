@@ -8,6 +8,11 @@ from datetime import datetime, timedelta, timezone
 
 from app.extensions import db
 
+try:
+    from sqlalchemy.dialects.postgresql import UUID as PGUUID
+except Exception:  # pragma: no cover - Postgres-specific dialect import guard
+    PGUUID = None  # type: ignore[assignment,misc]
+
 
 def _as_utc_aware(dt) -> datetime:
     if isinstance(dt, str):
@@ -405,7 +410,11 @@ class TenantCredentialCounter(db.Model):
 
     __tablename__ = "tenant_credential_counters"
 
-    tenant_id = db.Column(db.String(36), primary_key=True)
+    tenant_id = db.Column(
+        db.String(36).with_variant(PGUUID(as_uuid=True), "postgresql"),
+        db.ForeignKey("tenants.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
     year = db.Column(db.Integer, primary_key=True)
     last_value = db.Column(db.Integer, default=0, nullable=False)
 
