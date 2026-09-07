@@ -160,7 +160,7 @@ def resolve_branch_for_request(
             profile = Teacher.query.filter_by(
                 user_id=user.id, tenant_id=tenant_id
             ).first()
-            if profile and profile.branch_id:
+            if profile and getattr(profile, "branch_id", None):
                 return profile.branch_id
         elif user.role == "student":
             from app.models.student import Student
@@ -168,7 +168,7 @@ def resolve_branch_for_request(
             profile = Student.query.filter_by(
                 user_id=user.id, tenant_id=tenant_id
             ).first()
-            if profile and profile.branch_id:
+            if profile and getattr(profile, "branch_id", None):
                 return profile.branch_id
         elif user.role == "parent":
             from app.models.parent import Parent
@@ -176,7 +176,7 @@ def resolve_branch_for_request(
             profile = Parent.query.filter_by(
                 user_id=user.id, tenant_id=tenant_id
             ).first()
-            if profile and profile.branch_id:
+            if profile and getattr(profile, "branch_id", None):
                 return profile.branch_id
 
     default_branch = (
