@@ -1,7 +1,7 @@
 """cast tenant_credential_counters.tenant_id from VARCHAR to UUID (PostgreSQL)
 
-Revision ID: 20260907_cast_tcc_tenant_id_uuid
-Revises: 20260815_ensure_academic_structure_type_enum
+Revision ID: c79e9c8casttccuuid0001
+Revises: 20260815_ensure_acad_struct_enum
 Create Date: 2026-09-07 19:31:00.000000
 
 Production regression:
@@ -39,8 +39,8 @@ import re
 import uuid as _uuid_mod
 
 
-revision = "20260907_cast_tcc_tenant_id_uuid"
-down_revision = "20260815_ensure_academic_structure_type_enum"
+revision = "c79e9c8casttccuuid0001"
+down_revision = "20260815_ensure_acad_struct_enum"
 branch_labels = None
 depends_on = None
 
