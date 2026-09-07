@@ -345,6 +345,19 @@ def submit_admission_form(id):
         )
 
     try:
+        preliminary_data = request.json or {}
+        preliminary_fd = preliminary_data.get("form_data") if isinstance(preliminary_data, dict) else None
+        if isinstance(preliminary_fd, dict):
+            adm_no_val = preliminary_fd.get("admission_number")
+            if isinstance(adm_no_val, str) and adm_no_val.strip():
+                return (
+                    jsonify({"success": False, "message": "Admission Number cannot be set by parents"}),
+                    400,
+                )
+    except Exception:
+        pass
+
+    try:
         data = submit_form_schema.load(request.json)
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400
@@ -375,6 +388,19 @@ def save_admission_draft(id):
             jsonify({"success": False, "message": "Only parents can save drafts"}),
             403,
         )
+
+    try:
+        preliminary_data = request.json or {}
+        preliminary_fd = preliminary_data.get("form_data") if isinstance(preliminary_data, dict) else None
+        if isinstance(preliminary_fd, dict):
+            adm_no_val = preliminary_fd.get("admission_number")
+            if isinstance(adm_no_val, str) and adm_no_val.strip():
+                return (
+                    jsonify({"success": False, "message": "Admission Number cannot be set by parents"}),
+                    400,
+                )
+    except Exception:
+        pass
 
     parent = Parent.query.filter_by(user_id=user_id).first()
     if not parent or application.parent_id != parent.id:
@@ -413,6 +439,36 @@ def save_admission_draft(id):
 
     if "form_data" in data:
         application.form_data = data["form_data"]
+
+    fd = data.get("form_data") if isinstance(data, dict) else None
+    if isinstance(fd, dict):
+        def _is_blank(v):
+            if v is None:
+                return True
+            if isinstance(v, str) and not v.strip():
+                return True
+            return False
+
+        if _is_blank(getattr(application, "student_first_name", None)):
+            fd_first = fd.get("first_name")
+            if isinstance(fd_first, str) and fd_first.strip():
+                application.student_first_name = fd_first.strip()
+
+        if _is_blank(getattr(application, "student_last_name", None)):
+            fd_last = fd.get("last_name")
+            if isinstance(fd_last, str) and fd_last.strip():
+                application.student_last_name = fd_last.strip()
+
+        if getattr(application, "target_class_id", None) is None:
+            fd_class_raw = fd.get("class_id")
+            try:
+                fd_class_id = int(fd_class_raw)
+            except (ValueError, TypeError):
+                fd_class_id = None
+            if fd_class_id is not None:
+                fd_target_class = Class.query.get(fd_class_id)
+                if fd_target_class:
+                    application.target_class_id = fd_target_class.id
 
     db.session.commit()
 

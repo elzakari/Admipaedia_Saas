@@ -41,10 +41,96 @@ const formatPreviewUsername = (firstName: string, lastName: string, serialNum: n
   const fnClean = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const lnInitial = lastName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').charAt(0) || 'x';
   
-  const yy = new Date().getFullYear().toString().slice(-2); // '26'
-  const serialPadded = String(serialNum).padStart(6, '0'); // '000010'
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const serialPadded = String(serialNum).padStart(6, '0');
   
   return `${fnClean}${lnInitial}${yy}${serialPadded}`;
+};
+
+const EMPTY_FORM_DATA_SHAPE = {
+  first_name: '',
+  last_name: '',
+  middle_name: '',
+  admission_number: '',
+  dob: '',
+  gender: '',
+  blood_group: '',
+  religion: '',
+  nationality: '',
+  place_of_birth: '',
+  surname: '',
+  email: '',
+  phone: '',
+  telephone: '',
+  whatsapp: '',
+  home_address: '',
+  residential_address: '',
+  postal_address: '',
+  digital_address: '',
+  city: '',
+  country: '',
+  state: '',
+  local_landmark: '',
+  allergies: '',
+  medication: '',
+  medical_conditions: '',
+  special_circumstance: '',
+  physician_name: '',
+  physician_phone: '',
+  class_id: '',
+  enrollment_date: '',
+  prev_school_name: '',
+  prev_school_class: '',
+  prev_school_team: '',
+  prev_school_year: '',
+  leaving_reason: '',
+  fatherName: '',
+  fatherContact: '',
+  fatherEmail: '',
+  fatherAddress: '',
+  fatherProfession: '',
+  fatherWorkplace: '',
+  motherName: '',
+  motherContact: '',
+  motherEmail: '',
+  motherAddress: '',
+  motherProfession: '',
+  motherWorkplace: '',
+  guardianName: '',
+  guardianContact: '',
+  guardianEmail: '',
+  guardianAddress: '',
+  guardian_occupation: '',
+  emergency_contact: '',
+  profile_picture_locked: false
+};
+
+export const hydrateFormData = (application: any, shape: any) => {
+  const merged: any = { ...shape, ...(application?.form_data || {}) };
+  if (merged.first_name === null || merged.first_name === undefined || !String(merged.first_name).trim()) {
+    merged.first_name = application?.student_first_name ?? '';
+  }
+  if (merged.last_name === null || merged.last_name === undefined || !String(merged.last_name).trim()) {
+    merged.last_name = application?.student_last_name ?? '';
+  }
+  if (merged.class_id === null || merged.class_id === undefined || !String(merged.class_id).trim()) {
+    merged.class_id = String(application?.target_class_id ?? '');
+  } else {
+    merged.class_id = String(merged.class_id);
+  }
+  if (merged.admission_number === null || merged.admission_number === undefined) {
+    merged.admission_number = '';
+  }
+  return merged;
+};
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  draft: 'bg-indigo-600/10 text-indigo-700 hover:bg-indigo-600/10 border-indigo-200',
+  submitted: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200',
+  under_review: 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200',
+  approved: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200',
+  rejected: 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200',
+  returned: 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200',
 };
 
 const AdmissionFormPage: React.FC = () => {
@@ -58,69 +144,7 @@ const AdmissionFormPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState('');
-  const [formData, setFormData] = useState<any>({
-    // Step 1 Personal
-    first_name: '',
-    last_name: '',
-    middle_name: '',
-    admission_number: '',
-    dob: '',
-    gender: '',
-    blood_group: '',
-    religion: '',
-    nationality: '',
-    place_of_birth: '',
-    surname: '',
-    // Step 2 Contact
-    email: '',
-    phone: '',
-    telephone: '',
-    whatsapp: '',
-    home_address: '',
-    residential_address: '',
-    postal_address: '',
-    digital_address: '',
-    city: '',
-    country: '',
-    state: '',
-    local_landmark: '',
-    // Step 3 Medical
-    allergies: '',
-    medication: '',
-    medical_conditions: '',
-    special_circumstance: '',
-    physician_name: '',
-    physician_phone: '',
-    // Step 4 Enrollment
-    class_id: '',
-    enrollment_date: '',
-    prev_school_name: '',
-    prev_school_class: '',
-    prev_school_team: '',
-    prev_school_year: '',
-    leaving_reason: '',
-    // Step 5 Parent/Guardian
-    fatherName: '',
-    fatherContact: '',
-    fatherEmail: '',
-    fatherAddress: '',
-    fatherProfession: '',
-    fatherWorkplace: '',
-    motherName: '',
-    motherContact: '',
-    motherEmail: '',
-    motherAddress: '',
-    motherProfession: '',
-    motherWorkplace: '',
-    guardianName: '',
-    guardianContact: '',
-    guardianEmail: '',
-    guardianAddress: '',
-    guardian_occupation: '',
-    emergency_contact: '',
-    // Admin lock
-    profile_picture_locked: false
-  });
+  const [formData, setFormData] = useState<any>(() => hydrateFormData(undefined, EMPTY_FORM_DATA_SHAPE));
 
   // Fetch application details
   const { data: application, isLoading } = useQuery({
@@ -135,9 +159,13 @@ const AdmissionFormPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (application?.form_data) {
-      setFormData(application.form_data);
-    }
+    setFormData(prev => {
+      const hydrated = hydrateFormData(application, EMPTY_FORM_DATA_SHAPE);
+      if (JSON.stringify(prev) === JSON.stringify(hydrated)) {
+        return prev;
+      }
+      return hydrated;
+    });
   }, [application]);
 
   const isSubmitted = application?.status !== 'draft' && application?.status !== 'returned';
@@ -240,6 +268,13 @@ const AdmissionFormPage: React.FC = () => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
+              <Label>Applying for (Target Class)</Label>
+              <Input
+                value={application?.target_class_name || '--'}
+                disabled={true}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>{t('students_page.form.first_name', 'First Name')}</Label>
               <Input placeholder={t('students_page.form.first_name_placeholder', 'Enter first name')} value={formData.first_name} onChange={(e) => handleInputChange('first_name', e.target.value)} disabled={isReadOnly} />
             </div>
@@ -254,16 +289,18 @@ const AdmissionFormPage: React.FC = () => {
             <div className="space-y-2">
               <Label>{t('common.admission_number', 'Admission Number')}</Label>
               <Input
-                placeholder="ADM-YYYY-NNNNN"
+                placeholder={isParent && !formData.admission_number ? 'Assigned after admission approval' : 'ADM-YYYY-NNNNN'}
                 value={formData.admission_number}
                 onChange={(e) => {
                   const val = e.target.value;
                   handleInputChange('admission_number', val);
-                  if (val && !validateAdmissionNumber(val)) {
-                    toast.error('Must be in format ADM-YYYY-NNNNN');
+                  if (!isParent) {
+                    if (val && !validateAdmissionNumber(val)) {
+                      toast.error('Must be in format ADM-YYYY-NNNNN');
+                    }
                   }
                 }}
-                disabled={isReadOnly || Boolean(isAdmin && formData.admission_number?.startsWith?.('ADM'))}
+                disabled={isReadOnly || isParent || Boolean(isAdmin && formData.admission_number?.startsWith?.('ADM'))}
               />
             </div>
             <div className="space-y-2">
@@ -393,7 +430,7 @@ const AdmissionFormPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
               <Label>{t('common.class', 'Class')}</Label>
-              <Input placeholder="Select or enter class ID" value={formData.class_id} onChange={(e) => handleInputChange('class_id', e.target.value)} disabled={isReadOnly} />
+              <Input placeholder="Select or enter class ID" value={formData.class_id} onChange={(e) => handleInputChange('class_id', e.target.value)} disabled={isReadOnly || isParent} />
             </div>
             <div className="space-y-2">
               <Label>{t('admission_form.step_titles.enrollment', 'Enrollment Date')}</Label>
@@ -573,19 +610,58 @@ const AdmissionFormPage: React.FC = () => {
           </h1>
           <p className="text-gray-500">{t('parent_admissions.application_id', 'Application ID: #{{id}}', { id })}</p>
         </div>
-        {isSubmitted && (
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 px-4 py-1.5 text-sm flex items-center gap-2 border-green-200">
-            <CheckCircle2 size={16} />
-            {t('parent_admissions.form_submitted', 'Form Submitted')}
-          </Badge>
-        )}
-        {application?.status === 'returned' && (
-          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 px-4 py-1.5 text-sm flex items-center gap-2 border-amber-200">
-            <AlertTriangle size={16} />
-            {t('parent_admissions.returned_for_changes', 'Returned for changes')}
+        {application?.status && (
+          <Badge className={`${STATUS_BADGE_CLASSES[application.status] || STATUS_BADGE_CLASSES.draft} px-4 py-1.5 text-sm flex items-center gap-2 border`}>
+            {application.status === 'returned' ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+            {application.status === 'draft' ? 'Draft' :
+              application.status === 'submitted' ? t('parent_admissions.form_submitted', 'Form Submitted') :
+              application.status === 'under_review' ? 'Under Review' :
+              application.status === 'approved' ? 'Approved' :
+              application.status === 'rejected' ? 'Rejected' :
+              application.status === 'returned' ? t('parent_admissions.returned_for_changes', 'Returned for changes') :
+              application.status}
           </Badge>
         )}
       </div>
+
+      <Card className="border-slate-200 bg-gradient-to-r from-slate-50 to-white shadow-sm">
+        <CardContent className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Student</Label>
+              <p className="text-sm font-semibold text-slate-900">
+                {application?.student_first_name || '--'} {application?.student_last_name || ''}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Applying for</Label>
+              <p className="text-sm font-semibold text-slate-900">
+                {application?.target_class_name || '--'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Application ID</Label>
+              <p className="text-sm font-semibold text-slate-900">
+                #{id || '--'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Status</Label>
+              <div>
+                <Badge className={`${STATUS_BADGE_CLASSES[application?.status] || STATUS_BADGE_CLASSES.draft} border text-xs px-3 py-1`}>
+                  {application?.status === 'draft' ? 'Draft' :
+                    application?.status === 'submitted' ? 'Submitted' :
+                    application?.status === 'under_review' ? 'Under Review' :
+                    application?.status === 'approved' ? 'Approved' :
+                    application?.status === 'rejected' ? 'Rejected' :
+                    application?.status === 'returned' ? 'Returned' :
+                    (application?.status || 'Draft')}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!isSubmitted && renderStepIndicator()}
 
