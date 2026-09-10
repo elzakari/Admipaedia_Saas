@@ -528,7 +528,14 @@ const studentService = {
     }
   },
 
-  generateActivationLink: async (studentId: number): Promise<{ success: boolean; url: string }> => {
+  generateActivationLink: async (
+    studentId: number
+  ): Promise<{
+    success: boolean;
+    url: string;
+    email_queued?: boolean;
+    email_suppressed?: boolean;
+  }> => {
     try {
       const response = await api.post(`/students/${studentId}/generate-activation`);
       return response.data;

@@ -789,6 +789,74 @@ def send_user_invitation_email(
     return bool(result)
 
 
+
+def send_student_account_claim_email(
+    user_email: str,
+    student_username: str,
+    activation_url: str,
+    expires_at: Optional[str] = None,
+    async_send: bool = False,
+) -> bool:
+    """Email the existing student account-claim link without changing token semantics."""
+
+    subject = "ADMIPAEDIA - Student Account Activation"
+
+    expiry_text = ""
+    if expires_at:
+        expiry_text = f"\n\nThis activation link expires on: {expires_at}"
+
+    text_body = (
+        "Hello,\n\n"
+        "Your ADMIPAEDIA student account is ready to be activated.\n\n"
+        f"Username: {student_username}\n"
+        f"Activation Link: {activation_url}"
+        f"{expiry_text}\n\n"
+        "Use the secure activation link above to create your password and activate "
+        "your account.\n\n"
+        "If you did not expect this email, please ignore it."
+    )
+
+    html_body = f"""
+    <p>Hello,</p>
+    <p>Your ADMIPAEDIA student account is ready to be activated.</p>
+
+    <p>
+        <strong>Username:</strong> {student_username}
+    </p>
+
+    <p>
+        <a href="{activation_url}">
+            Activate Student Account
+        </a>
+    </p>
+
+    {f"<p><strong>Expires on:</strong> {expires_at}</p>" if expires_at else ""}
+
+    <p>
+        Use the secure activation link above to create your password
+        and activate your account.
+    </p>
+
+    <p>If you did not expect this email, please ignore it.</p>
+    """
+
+    if async_send:
+        return _send_email_background(
+            subject=subject,
+            recipients=[user_email],
+            text_body=text_body,
+            html_body=html_body,
+        )
+
+    result = send_email(
+        subject=subject,
+        recipients=[user_email],
+        text_body=text_body,
+        html_body=html_body,
+    )
+
+    return bool(result)
+
 def send_student_activation_email(
     parent_email: str,
     student_username: str,
