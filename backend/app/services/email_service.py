@@ -728,6 +728,67 @@ def send_school_registration_email(
     return bool(result)
 
 
+def send_user_invitation_email(
+    user_email: str,
+    invitation_url: str,
+    invitee_type: str,
+    expires_at: Optional[str] = None,
+    async_send: bool = False,
+) -> bool:
+    """Email an existing signed invitation without changing invitation semantics."""
+
+    invite_type = (invitee_type or "general").strip().lower()
+
+    labels = {
+        "parent": "Parent",
+        "teacher": "Teacher",
+        "general": "Staff",
+    }
+    role_label = labels.get(invite_type, "User")
+
+    subject = f"ADMIPAEDIA - {role_label} Invitation"
+
+    expires_text = ""
+    if expires_at:
+        expires_text = f"\n\nThis invitation expires on: {expires_at}"
+
+    text_body = (
+        f"You have been invited to join ADMIPAEDIA as {role_label}.\n\n"
+        f"Use this secure, single-use invitation link to complete your registration:\n"
+        f"{invitation_url}"
+        f"{expires_text}\n\n"
+        "If you did not expect this invitation, please ignore this email."
+    )
+
+    html_body = f"""
+    <p>You have been invited to join ADMIPAEDIA as <strong>{role_label}</strong>.</p>
+    <p>
+        <a href="{invitation_url}">
+            Complete {role_label} Registration
+        </a>
+    </p>
+    {f"<p><strong>Expires on:</strong> {expires_at}</p>" if expires_at else ""}
+    <p>This invitation link is secure and single-use.</p>
+    <p>If you did not expect this invitation, please ignore this email.</p>
+    """
+
+    if async_send:
+        return _send_email_background(
+            subject=subject,
+            recipients=[user_email],
+            text_body=text_body,
+            html_body=html_body,
+        )
+
+    result = send_email(
+        subject=subject,
+        recipients=[user_email],
+        text_body=text_body,
+        html_body=html_body,
+    )
+    return bool(result)
+
+
 def send_student_activation_email(
     parent_email: str,
     student_username: str,

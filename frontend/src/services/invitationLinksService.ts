@@ -43,9 +43,23 @@ export type InvitationEvent = {
 }
 
 export const invitationLinksService = {
-  async adminCreateInvite(params: { invitee_type: InviteeType; expires_in_days?: number }) {
+  async adminCreateInvite(params: {
+    invitee_type: InviteeType
+    expires_in_days?: number
+    email?: string
+    send_email?: boolean
+  }) {
     const res = await api.post('/admin/invitations', params)
-    return res.data as { success: boolean; invite?: InvitationLink; signed_url?: string; message?: string; retry_after?: number }
+    return res.data as {
+      success: boolean
+      invite?: InvitationLink
+      signed_url?: string
+      recipient_email?: string | null
+      email_sent?: boolean
+      email_queued?: boolean
+      message?: string
+      retry_after?: number
+    }
   },
 
   async adminListInvites(params?: { status?: InviteStatus; invitee_type?: InviteeType }) {
