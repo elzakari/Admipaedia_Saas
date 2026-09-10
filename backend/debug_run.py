@@ -14,10 +14,6 @@ from pathlib import Path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-# Import and apply eventlet patch BEFORE other imports
-import eventlet_patch
-import eventlet
-eventlet.monkey_patch()
 
 # Configure logging before importing Flask app
 def setup_debug_logging():
@@ -45,7 +41,6 @@ def setup_debug_logging():
         'sqlalchemy.pool': logging.DEBUG,   # Connection pool
         'socketio': logging.DEBUG,
         'engineio': logging.DEBUG,
-        'eventlet': logging.INFO,
         'app': logging.DEBUG,  # Our application logger
     }
     
@@ -60,9 +55,9 @@ def setup_environment():
     debug_env = {
         'FLASK_ENV': 'development',
         'FLASK_DEBUG': '1',
-        'WERKZEUG_DEBUG_PIN': 'off',  # Disable PIN for easier debugging
         'PYTHONUNBUFFERED': '1',      # Ensure immediate output
         'SQLALCHEMY_ECHO': '0',       # Disable SQL logging for performance
+        'SOCKETIO_ASYNC_MODE': 'threading',
     }
     
     for key, value in debug_env.items():
@@ -147,7 +142,7 @@ def main():
         socketio.run(
             app,
             debug=True,
-            host='0.0.0.0',
+            host='127.0.0.1',
             port=5000,
             use_reloader=True,
             log_output=True
