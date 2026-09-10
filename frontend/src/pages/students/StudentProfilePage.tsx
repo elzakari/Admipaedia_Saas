@@ -96,11 +96,34 @@ const StudentProfilePage: React.FC = () => {
     if (!student) return;
     try {
       setGeneratingLink(true);
-      const res: any = await studentService.generateActivationLink(parseInt(student.id));
+      const res = await studentService.generateActivationLink(parseInt(student.id));
       if (res && res.success && res.url) {
         await navigator.clipboard.writeText(res.url);
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
+
+        if (res.email_queued) {
+          alert(
+            t(
+              'students_page.activation_email_queued',
+              'Activation link copied and activation email queued successfully.'
+            )
+          );
+        } else if (res.email_suppressed) {
+          alert(
+            t(
+              'students_page.activation_email_suppressed',
+              'Activation link copied. No deliverable student email is available, so the email was not sent.'
+            )
+          );
+        } else {
+          alert(
+            t(
+              'students_page.activation_email_not_queued',
+              'Activation link copied. The email could not be queued, so you can share the copied link manually.'
+            )
+          );
+        }
       } else {
         alert(res?.message || t('students_page.failed_activation', 'Failed to generate activation link'));
       }

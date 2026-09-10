@@ -15,6 +15,7 @@ from app.services.student_service import StudentService
 from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.rbac_decorators import require_permission, require_role
 from app.utils.tenant_context import tenant_required
+from app.utils.url_helpers import get_frontend_base_url
 
 # Initialize schemas
 student_schema = StudentSchema()
@@ -811,10 +812,55 @@ def generate_activation_link(student_id):
 
         db.session.commit()
 
-        activation_url = (
-            f"https://admipaedia.easymsdigit.com/auth/claim-account?token={raw_token}"
+        frontend_url = get_frontend_base_url(
+            current_app.config.get("FRONTEND_URL")
         )
-        return jsonify({"success": True, "url": activation_url}), 200
+        activation_url = (
+            f"{frontend_url}/auth/claim-account?token={raw_token}"
+        )
+
+        # Email the exact existing account-claim URL without altering the
+        # token, hashing, expiry, or account-claim mechanism.
+        recipient_email = (getattr(user, "email", None) or "").strip()
+        email_queued = False
+        email_suppressed = (
+            not recipient_email
+            or recipient_email.lower().endswith("@admipaedia.local")
+        )
+
+        if not email_suppressed:
+            try:
+                from app.services.email_service import (
+                    send_student_account_claim_email,
+                )
+
+                email_queued = bool(
+                    send_student_account_claim_email(
+                        user_email=recipient_email,
+                        student_username=getattr(user, "username", "") or "",
+                        activation_url=activation_url,
+                        expires_at=expires_at.isoformat(),
+                        async_send=True,
+                    )
+                )
+            except Exception:
+                current_app.logger.exception(
+                    "Student activation link created, but activation email "
+                    "could not be queued for student_id=%s",
+                    student_id,
+                )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "url": activation_url,
+                    "email_queued": bool(email_queued),
+                    "email_suppressed": bool(email_suppressed),
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()

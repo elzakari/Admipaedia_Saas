@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added - Onboarding Email Delivery
+- Added email delivery for Parent, Teacher, and existing General-to-Staff invitation links while preserving the current signed invitation workflow.
+- Added email delivery for Student account activation links while preserving the existing SHA-256 token, 48-hour expiry, and `/auth/claim-account` flow.
+- Preserved manual copy/share behavior for invitation and activation links.
+- Student activation links now use the configured frontend URL, allowing local links in development and the canonical ADMIPAEDIA URL in production.
+
+### Fixed - Local Development Runtime
+- Removed Eventlet monkey patching from the local debug runner and standardized local Socket.IO on `threading` mode.
+- Load the canonical local `.env` before application configuration so the correct development database settings are available at startup.
+- Disabled the Werkzeug auto-reloader to prevent duplicate application startup and repeated startup database work.
+
+
 ### Security (High Priority: Socket.IO Multi-Tenant Auth & Isolation)
 - **Permanent fix for the production websocket upgrade `AttributeError: 'Response' object has no attribute 'status_code'` incident**: Flask-SocketIO `async_mode` is now **explicitly** `threading` by default (`backend/app/extensions.py`). Eventlet/gevent are never auto-selected merely because the package is installed; only `threading|eventlet|gevent` are whitelisted, anything else (or unset) → `threading`.
 - **`/dashboard` namespace hardened**: `backend/app/websockets/dashboard_handler.py` now rejects unauthenticated, missing-token, invalid/expired/malformed-JWT, missing-sub, malformed-sub, nonexistent-user, inactive-user, disabled-user, and unauthorized-role connections before any connection state is recorded or any background telemetry is started. Uses centralized `ADMIN_COMPATIBLE_ROLES` (admin/school_admin/super_admin/superadmin/super_manager). Unauthorized role is never logged-in but always rejected.

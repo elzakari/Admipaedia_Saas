@@ -34,6 +34,7 @@ export default function AdminInvitationsPage() {
   const navigate = useNavigate()
   const [inviteeType, setInviteeType] = useState<InviteeType>('parent')
   const [expiresInDays, setExpiresInDays] = useState<string>('7')
+  const [recipientEmail, setRecipientEmail] = useState('')
   const [creating, setCreating] = useState(false)
   const [lastUrl, setLastUrl] = useState<string | null>(null)
 
@@ -101,13 +102,28 @@ export default function AdminInvitationsPage() {
     setCreating(true)
     try {
       const days = Math.max(1, Math.min(30, Number(expiresInDays || '7')))
-      const res = await invitationLinksService.adminCreateInvite({ invitee_type: inviteeType, expires_in_days: days })
+      const res = await invitationLinksService.adminCreateInvite({
+        invitee_type: inviteeType,
+        expires_in_days: days,
+        email: recipientEmail.trim() || undefined,
+        send_email: Boolean(recipientEmail.trim()),
+      })
       if (!res.success) {
         toast({ variant: 'destructive', title: t('admin_invitations.create_failed', 'Failed to create invite'), description: res.message || t('common.try_again', 'Please try again') })
         return
       }
       if (res.signed_url) setLastUrl(res.signed_url)
-      toast({ title: t('admin_invitations.link_created', 'Invitation link created'), description: t('admin_invitations.copy_share_desc', 'Copy and share the single-use link.') })
+      if (res.email_queued) {
+        toast({
+          title: t('admin_invitations.email_queued', 'Invitation created and email queued'),
+          description: recipientEmail.trim(),
+        })
+      } else {
+        toast({
+          title: t('admin_invitations.link_created', 'Invitation link created'),
+          description: t('admin_invitations.copy_share_desc', 'Copy and share the single-use link.'),
+        })
+      }
       await loadInvites()
     } catch (err: unknown) {
       const e = err as AxiosError<{ message?: string }>
@@ -247,7 +263,7 @@ export default function AdminInvitationsPage() {
           <CardTitle className="text-base">{t('admin_invitations.create_invite_link', 'Create invite link')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <div className="text-sm font-medium mb-1">{t('admin_invitations.invite_type', 'Invite type')}</div>
               <Select value={inviteeType} onValueChange={(v) => setInviteeType(v as InviteeType)}>
@@ -261,6 +277,25 @@ export default function AdminInvitationsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <div className="text-sm font-medium mb-1">
+                {t('admin_invitations.recipient_email', 'Recipient email')}
+              </div>
+              <Input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="name@example.com"
+              />
+              <div className="text-xs text-muted-foreground mt-1">
+                {t(
+                  'admin_invitations.recipient_email_hint',
+                  'Optional. If provided, the invitation link is also emailed automatically.'
+                )}
+              </div>
+            </div>
+
             <div>
               <div className="text-sm font-medium mb-1">{t('admin_invitations.expiry_days', 'Expiry (days)')}</div>
               <Input value={expiresInDays} onChange={(e) => setExpiresInDays(e.target.value)} inputMode="numeric" />

@@ -14,10 +14,12 @@ from pathlib import Path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-# Import and apply eventlet patch BEFORE other imports
-import eventlet_patch
-import eventlet
-eventlet.monkey_patch()
+# Load the canonical local environment before importing app configuration.
+# DevelopmentConfig reads DATABASE_URL at import time, so dotenv must be
+# hydrated first. Existing process-level environment values keep precedence.
+from dotenv import load_dotenv
+load_dotenv(Path(project_root) / '.env', override=False)
+
 
 # Configure logging before importing Flask app
 def setup_debug_logging():
@@ -45,7 +47,6 @@ def setup_debug_logging():
         'sqlalchemy.pool': logging.DEBUG,   # Connection pool
         'socketio': logging.DEBUG,
         'engineio': logging.DEBUG,
-        'eventlet': logging.INFO,
         'app': logging.DEBUG,  # Our application logger
     }
     
@@ -60,9 +61,9 @@ def setup_environment():
     debug_env = {
         'FLASK_ENV': 'development',
         'FLASK_DEBUG': '1',
-        'WERKZEUG_DEBUG_PIN': 'off',  # Disable PIN for easier debugging
         'PYTHONUNBUFFERED': '1',      # Ensure immediate output
         'SQLALCHEMY_ECHO': '0',       # Disable SQL logging for performance
+        'SOCKETIO_ASYNC_MODE': 'threading',
     }
     
     for key, value in debug_env.items():
@@ -88,7 +89,7 @@ def print_debug_info():
     print("   • SocketIO: ws://localhost:5000")
     print("="*60)
     print("🛠️  Debug Features Enabled:")
-    print("   • Real-time code reloading")
+    print("   • Deterministic single-process debugging")
     print("   • Enhanced error messages")
     print("   • SQL query logging")
     print("   • Performance monitoring")
@@ -141,15 +142,15 @@ def main():
         
         print("🎯 Starting ADMIPAEDIA in DEBUG mode...")
         print("💡 Press Ctrl+C to stop the server")
-        print("🔄 Auto-reload enabled - code changes will restart the server")
+        print("🔄 Auto-reload disabled for deterministic debugging")
         
         # Start the application with enhanced debugging
         socketio.run(
             app,
             debug=True,
-            host='0.0.0.0',
+            host='127.0.0.1',
             port=5000,
-            use_reloader=True,
+            use_reloader=False,
             log_output=True
         )
         

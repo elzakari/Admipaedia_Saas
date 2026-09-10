@@ -118,6 +118,11 @@ def admin_create_invitation():
     tenant_id = g.tenant_id
     payload = request.get_json() or {}
 
+    recipient_email = (
+        payload.get("email") or payload.get("recipient_email") or ""
+    ).strip().lower()
+    send_email_flag = bool(payload.get("send_email", True))
+
     invitee_type = (
         (payload.get("invitee_type") or payload.get("type") or "").strip().lower()
     )
@@ -159,6 +164,36 @@ def admin_create_invitation():
             500,
         )
 
+    signed_url = _frontend_invite_url(str(invite.id), exp_ts, sig)
+
+    email_sent = False
+    email_queued = False
+
+    if send_email_flag and recipient_email:
+        try:
+            from app.services.email_service import send_user_invitation_email
+
+            email_sent = bool(
+                send_user_invitation_email(
+                    user_email=recipient_email,
+                    invitation_url=signed_url,
+                    invitee_type=invite.invitee_type,
+                    expires_at=(
+                        invite.expires_at.isoformat()
+                        if invite.expires_at
+                        else None
+                    ),
+                    async_send=True,
+                )
+            )
+            email_queued = email_sent
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Invitation created, but email dispatch could not be queued"
+            )
+
     return (
         jsonify(
             {
@@ -175,7 +210,10 @@ def admin_create_invitation():
                         invite.created_at.isoformat() if invite.created_at else None
                     ),
                 },
-                "signed_url": _frontend_invite_url(str(invite.id), exp_ts, sig),
+                "signed_url": signed_url,
+                "recipient_email": recipient_email or None,
+                "email_sent": bool(email_sent),
+                "email_queued": bool(email_queued),
             }
         ),
         201,
