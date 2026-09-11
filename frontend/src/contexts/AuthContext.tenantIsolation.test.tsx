@@ -71,16 +71,18 @@ describe(
           JSON.stringify([{ id: 1 }])
         )
 
-        localStorage.setItem(
-          'saas_current_tenant_id',
-          'tenant-b'
-        )
-
-        window.dispatchEvent(
-          new Event(
-            'local-storage-change'
+        act(() => {
+          localStorage.setItem(
+            'saas_current_tenant_id',
+            'tenant-b'
           )
-        )
+
+          window.dispatchEvent(
+            new Event(
+              'local-storage-change'
+            )
+          )
+        })
 
         await waitFor(() => {
           expect(
