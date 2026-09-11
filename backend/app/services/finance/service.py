@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import structlog
 from flask import g, has_app_context
-from sqlalchemy import func, or_
+from sqlalchemy import func
 
 from app.extensions import db
 from app.models.academic_calendar import AcademicYear, Term
@@ -164,10 +164,7 @@ class FeeService:
         ).filter(
             FeeStructure.academic_year == academic_year,
             FeeStructure.term.in_(term_aliases),
-            or_(
-                FeeStructure.class_id.is_(None),
-                FeeStructure.class_id == student.class_id,
-            ),
+            FeeStructure.class_id == student.class_id,
         ).all()
         if not structures:
             return 0
