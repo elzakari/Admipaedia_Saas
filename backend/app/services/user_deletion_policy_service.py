@@ -141,16 +141,20 @@ class UserDeletionPolicyService:
         orphan_status = OrphanCleanupService.get_orphan_user_status(user_id)
         is_true_orphan = not memberships and not target_profile_tenant_ids
         if is_true_orphan:
+            # Orphan accounts are platform-level objects because they have
+            # no tenant relationship that a school administrator could own.
+            if actor_role != "super_admin":
+                status["reasons"] = [
+                    "Only a Super Admin can delete an orphan user"
+                ]
+                return status
+
             if orphan_status.get("can_delete"):
                 status["can_delete"] = True
                 status["mode"] = "orphan"
                 status["reasons"] = []
                 return status
-            if actor_role != "super_admin":
-                status["reasons"] = orphan_status.get("reasons") or [
-                    "User is not eligible for deletion"
-                ]
-                return status
+
             # Super Admin: true-orphan users may still carry soft FK references
             # (session tokens, login history, password history, audit logs,
             # computed-grade authorship, ...).  The lightweight "orphan" path

@@ -59,6 +59,11 @@ class MessageService:
         user_id, folder="inbox", is_read=None, page=1, per_page=20, tenant_id=None
     ):
         """Get messages for a user with pagination and filtering"""
+        logger.warning(
+            "message_reads_suppressed_pending_tenant_ownership"
+        )
+        return [], 0
+
         try:
             query = Message.query
 
@@ -131,6 +136,11 @@ class MessageService:
     @staticmethod
     def get_message_by_id(message_id, user_id, tenant_id=None):
         """Get a specific message by ID if user has access"""
+        logger.warning(
+            "message_detail_suppressed_pending_tenant_ownership"
+        )
+        return None
+
         try:
             message = Message.query.filter(
                 and_(
@@ -154,6 +164,13 @@ class MessageService:
     @staticmethod
     def create_message(data, tenant_id=None):
         """Create a new message"""
+        logger.warning(
+            "message_creation_suppressed_pending_tenant_ownership"
+        )
+        raise RuntimeError(
+            "MESSAGE_TENANT_OWNERSHIP_REQUIRED"
+        )
+
         try:
             if not MessageService._user_has_tenant_membership(
                 data["sender_id"], tenant_id
@@ -308,6 +325,13 @@ class MessageService:
     @staticmethod
     def create_bulk_message(data, tenant_id=None):
         """Create messages to multiple recipients"""
+        logger.warning(
+            "bulk_message_creation_suppressed_pending_tenant_ownership"
+        )
+        raise RuntimeError(
+            "MESSAGE_TENANT_OWNERSHIP_REQUIRED"
+        )
+
         try:
             if not MessageService._user_has_tenant_membership(
                 data["sender_id"], tenant_id
@@ -707,6 +731,11 @@ class MessageService:
     @staticmethod
     def mark_as_read(message_id):
         """Mark a message as read"""
+        logger.warning(
+            "message_mark_read_suppressed_pending_tenant_ownership"
+        )
+        return False
+
         try:
             message = Message.query.get(message_id)
             if message:
@@ -721,6 +750,11 @@ class MessageService:
     @staticmethod
     def get_attachment_path(message_id, attachment_name):
         """Get the full path to a message attachment"""
+        logger.warning(
+            "message_attachment_access_suppressed_pending_tenant_ownership"
+        )
+        return None
+
         try:
             message = Message.query.get(message_id)
             if not message or not message.attachments:

@@ -197,7 +197,22 @@ def create_app(config_name=None):
                     require_explicit=False, load_full_user=False
                 )
             except Exception:
-                tenant_id, user = None, None
+                tenant_id, user, _err = None, None, None
+
+            # SECURITY: an explicitly requested tenant that the authenticated
+            # user is not authorized to access must be rejected here as well
+            # as by @tenant_required. This protects legacy routes that forgot
+            # to apply the decorator or operate on ownership-less models.
+            if _err in ("Tenant access denied", "Tenant not found"):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Tenant access denied",
+                        }
+                    ),
+                    403,
+                )
 
             if not getattr(g, "tenant_id", None) and tenant_id:
                 g.tenant_id = tenant_id

@@ -191,6 +191,21 @@ def _update_notification_states(db, user, notification_ids, updater):
 @notifications_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_notifications():
+    # SECURITY CONTAINMENT:
+    # Notification has no tenant_id/branch_id. A multi-tenant user
+    # cannot safely distinguish direct/global notifications by school.
+    return (
+        jsonify(
+            {
+                "success": True,
+                "data": [],
+                "degraded": True,
+                "code": "notification_tenant_ownership_pending",
+            }
+        ),
+        200,
+    )
+
     try:
         import structlog
 
@@ -307,6 +322,20 @@ def update_preferences():
 @notifications_bp.route("/test-send", methods=["POST"])
 @jwt_required()
 def test_send():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification creation is temporarily unavailable "
+                    "while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Test endpoint to trigger a notification to self."""
     user_id = get_jwt_identity()
     data = request.json
@@ -321,6 +350,20 @@ def test_send():
 @notifications_bp.route("/mark-read", methods=["PATCH"])
 @jwt_required()
 def mark_read():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     from app.extensions import db
     from app.models.user import User
 
@@ -361,6 +404,20 @@ def mark_read():
 @notifications_bp.route("/mark-unread", methods=["PATCH"])
 @jwt_required()
 def mark_unread():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     from app.extensions import db
     from app.models.user import User
 
@@ -401,6 +458,20 @@ def mark_unread():
 @notifications_bp.route("/star", methods=["PATCH"])
 @jwt_required()
 def star_notifications():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     from app.extensions import db
     from app.models.user import User
 
@@ -442,6 +513,20 @@ def star_notifications():
 @notifications_bp.route("/archive", methods=["PATCH"])
 @jwt_required()
 def archive_notifications():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     from app.extensions import db
     from app.models.user import User
 
@@ -483,6 +568,20 @@ def archive_notifications():
 @notifications_bp.route("/delete", methods=["DELETE"])
 @jwt_required()
 def delete_notifications():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     from app.extensions import db
     from app.models.user import User
 

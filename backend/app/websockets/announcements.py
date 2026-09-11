@@ -95,6 +95,21 @@ class AnnouncementsNamespace(Namespace):
             logger.error(f"Disconnect error: {str(e)}")
 
     def on_subscribe_to_class(self, data):
+        logger.warning(
+            "announcement_socket_subscription_suppressed_pending_tenant_rooms"
+        )
+        emit(
+            "error",
+            {
+                "message": (
+                    "Realtime announcement subscriptions are temporarily "
+                    "unavailable while tenant isolation is being upgraded."
+                ),
+                "code": "ANNOUNCEMENT_SOCKET_TENANT_CONTEXT_REQUIRED",
+            },
+        )
+        return False
+
         """Handle subscription to a class room"""
         try:
             sid = getattr(request, "sid", None)
@@ -129,6 +144,21 @@ class AnnouncementsNamespace(Namespace):
             return False
 
     def on_subscribe_to_role(self, data):
+        logger.warning(
+            "announcement_socket_subscription_suppressed_pending_tenant_rooms"
+        )
+        emit(
+            "error",
+            {
+                "message": (
+                    "Realtime announcement subscriptions are temporarily "
+                    "unavailable while tenant isolation is being upgraded."
+                ),
+                "code": "ANNOUNCEMENT_SOCKET_TENANT_CONTEXT_REQUIRED",
+            },
+        )
+        return False
+
         """Handle subscription to a role-based room"""
         try:
             sid = getattr(request, "sid", None)
@@ -169,6 +199,11 @@ announcements_namespace = AnnouncementsNamespace("/ws/announcements")
 
 # Helper function to broadcast announcement to specific rooms
 def broadcast_announcement(announcement_data, target_rooms):
+    logger.warning(
+        "announcement_socket_broadcast_suppressed_pending_tenant_rooms"
+    )
+    return False
+
     """Broadcast announcement to specified rooms
 
     Args:

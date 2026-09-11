@@ -26,11 +26,34 @@ except ModuleNotFoundError:
 academic_term_schema = AcademicTermSchema()
 
 
+def _calendar_ownership_upgrade_required():
+    """
+    CalendarEvent has no tenant ownership in the current schema.
+    Event operations are temporarily unavailable rather than risking
+    cross-tenant reads, writes, exports, imports, or notifications.
+    """
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Calendar events are temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "CALENDAR_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
+
 @calendar_bp.route("/events", methods=["POST"])
 @jwt_required()
 @teacher_required
 def create_event():
     """Create a new calendar event."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         data = request.json
 
@@ -84,6 +107,8 @@ def create_event():
 @jwt_required()
 def get_events():
     """Get calendar events for the current user."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         user_id = get_jwt_identity()
         start_date = request.args.get("start_date")
@@ -109,6 +134,8 @@ def get_events():
 @teacher_required
 def update_event(event_id):
     """Update an existing calendar event."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         data = request.json
 
@@ -147,6 +174,8 @@ def update_event(event_id):
 @teacher_required
 def delete_event(event_id):
     """Delete a calendar event."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         CalendarService.delete_event(event_id)
 
@@ -163,6 +192,8 @@ def delete_event(event_id):
 @jwt_required()
 def get_shared_events():
     """Get calendar events shared with the current user."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         user_id = get_jwt_identity()
         start_date = request.args.get("start_date")
@@ -186,6 +217,8 @@ def get_shared_events():
 @jwt_required()
 def export_events():
     """Export calendar events as iCalendar (.ics) file."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         user_id = get_jwt_identity()
         start_date = request.args.get("start_date")
@@ -242,6 +275,8 @@ def export_events():
 @teacher_required
 def import_events():
     """Import calendar events from iCalendar (.ics) file."""
+    return _calendar_ownership_upgrade_required()
+
     try:
         if "file" not in request.files:
             return jsonify({"success": False, "message": "No file provided"}), 400

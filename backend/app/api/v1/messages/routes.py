@@ -27,6 +27,27 @@ message_create_schema = MessageCreateSchema()
 message_update_schema = MessageUpdateSchema()
 
 
+@messages_bp.before_request
+def _message_tenant_ownership_required():
+    """
+    Message rows do not currently carry tenant ownership.
+    Fail closed rather than infer ownership from participant memberships.
+    """
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Messaging is temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "MESSAGE_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
+
 @messages_bp.route("/recipients", methods=["GET"])
 @jwt_required()
 @tenant_required

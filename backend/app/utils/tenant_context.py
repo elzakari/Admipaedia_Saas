@@ -95,47 +95,137 @@ def _load_request_user(user_id, *, load_full_user: bool = True) -> Optional[User
 def resolve_tenant_for_request(
     require_explicit: bool = True, *, load_full_user: bool = True
 ) -> Tuple[Optional[uuid.UUID], Optional[User], Optional[str]]:
+    """
+    Resolve and authorize the tenant for the authenticated request.
+
+    Security rules:
+      * Platform super administrators may explicitly target any existing tenant.
+      * All ordinary tenant users must have an ACTIVE TenantMembership for
+        the requested tenant.
+      * Legacy parent/teacher/student profiles may prove ownership through
+        their profile tenant_id when a TenantMembership does not yet exist.
+      * When no tenant is explicitly supplied, a single active membership
+        can be selected automatically.
+      * Ambiguous tenant context fails closed.
+    """
     verify_jwt_in_request()
     user_id = get_jwt_identity()
     user = _load_request_user(user_id, load_full_user=load_full_user)
+
     if not user:
         return None, None, "Authentication required"
 
     requested = _get_requested_tenant_id()
-    if requested is None:
-        if not require_explicit:
-            return None, user, None
-        memberships = TenantMembership.query.filter_by(
-            user_id=user.id, status="active"
+
+    user_role = str(getattr(user, "role", "") or "").strip().lower()
+    platform_roles = {
+        "super_admin",
+        "super_manager",
+    }
+
+    def _active_memberships():
+        return TenantMembership.query.filter_by(
+            user_id=user.id,
+            status="active",
         ).all()
+
+    def _legacy_profile_tenant():
+        """
+        Compatibility path for legacy tenant users that may pre-date
+        TenantMembership creation.
+
+        The profile itself must belong to the authenticated user and
+        provides the exact tenant_id. No caller-supplied tenant is trusted.
+        """
+        try:
+            if user_role == "parent":
+                from app.models import Parent
+
+                profile = Parent.query.filter_by(
+                    user_id=user.id
+                ).first()
+
+            elif user_role == "teacher":
+                from app.models import Teacher
+
+                profile = Teacher.query.filter_by(
+                    user_id=user.id
+                ).first()
+
+            elif user_role == "student":
+                from app.models import Student
+
+                profile = Student.query.filter_by(
+                    user_id=user.id
+                ).first()
+
+            else:
+                return None
+
+            if profile and getattr(profile, "tenant_id", None):
+                return _parse_uuid(profile.tenant_id)
+
+        except Exception:
+            return None
+
+        return None
+
+    # ----------------------------------------------------------
+    # No explicit tenant supplied.
+    # ----------------------------------------------------------
+    if requested is None:
+        memberships = _active_memberships()
+
         if len(memberships) == 1:
             return memberships[0].tenant_id, user, None
-        if user.role == "parent":
-            from app.models import Parent
 
-            profile = Parent.query.filter_by(user_id=user.id).first()
-            if profile and profile.tenant_id:
-                return _parse_uuid(profile.tenant_id), user, None
+        # Preserve legacy parent/teacher/student operation where profile
+        # ownership exists but TenantMembership has not yet been created.
+        profile_tenant_id = _legacy_profile_tenant()
+        if profile_tenant_id is not None:
+            return profile_tenant_id, user, None
+
+        # The global before_request hook uses require_explicit=False.
+        # It may continue without a tenant when tenant selection is
+        # genuinely ambiguous; tenant_required routes will still reject it.
+        if not require_explicit:
+            return None, user, None
+
         return None, user, "Tenant context required"
 
-    if user.role in ("admin", "school_admin", "super_admin", "super_manager"):
+    # ----------------------------------------------------------
+    # Explicit tenant supplied.
+    # ----------------------------------------------------------
+
+    # Cross-tenant selection belongs only to platform-level roles.
+    if user_role in platform_roles:
         exists = Tenant.query.get(requested)
         if not exists:
             return None, user, "Tenant not found"
+
         return requested, user, None
 
+    # Ordinary users, including legacy User.role == "admin" and
+    # User.role == "school_admin", must prove active tenant membership.
     membership = TenantMembership.query.filter_by(
-        user_id=user.id, tenant_id=requested, status="active"
+        user_id=user.id,
+        tenant_id=requested,
+        status="active",
     ).first()
-    if not membership:
-        if user.role == "parent":
-            from app.models import Parent
 
-            profile = Parent.query.filter_by(user_id=user.id).first()
-            if profile and profile.tenant_id and _parse_uuid(profile.tenant_id) == requested:
-                return requested, user, None
-        return None, user, "Tenant access denied"
-    return requested, user, None
+    if membership:
+        return requested, user, None
+
+    # Exact legacy profile ownership fallback only.
+    profile_tenant_id = _legacy_profile_tenant()
+
+    if (
+        profile_tenant_id is not None
+        and profile_tenant_id == requested
+    ):
+        return requested, user, None
+
+    return None, user, "Tenant access denied"
 
 
 def resolve_branch_for_request(

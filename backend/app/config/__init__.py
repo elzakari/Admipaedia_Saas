@@ -190,11 +190,11 @@ class TestingConfig(BaseConfig):
     ALLOW_PUBLIC_REGISTRATION = True
 
     # Database (separate test database)
-    url = (
-        os.environ.get("TEST_DB_URL")
-        or os.environ.get("DATABASE_URL")
-        or "sqlite:///:memory:"
-    )
+    # SECURITY / TEST SAFETY:
+    # Never inherit the application's normal DATABASE_URL here.
+    # PostgreSQL tests must opt in explicitly through TEST_DB_URL.
+    # Otherwise pytest always uses an isolated in-memory SQLite database.
+    url = os.environ.get("TEST_DB_URL") or "sqlite:///:memory:"
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     SQLALCHEMY_DATABASE_URI = url

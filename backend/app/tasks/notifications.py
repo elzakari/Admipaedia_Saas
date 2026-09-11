@@ -16,6 +16,11 @@ logger = structlog.get_logger()
 
 @celery_app.task
 def generate_attendance_notifications():
+    logger.warning(
+        "attendance_notifications_suppressed_pending_tenant_ownership"
+    )
+    return False
+
     """Generate notifications for absent students."""
     try:
         # Get yesterday's date
@@ -64,6 +69,11 @@ def generate_attendance_notifications():
 
 @celery_app.task
 def generate_grade_notifications():
+    logger.warning(
+        "grade_notifications_suppressed_pending_tenant_ownership"
+    )
+    return False
+
     """Generate notifications for new grades."""
     try:
         # Get grades added in the last 24 hours
@@ -121,6 +131,11 @@ def generate_grade_notifications():
 
 @celery_app.task
 def generate_calendar_event_reminders():
+    logger.warning(
+        "calendar_event_reminders_suppressed_pending_tenant_ownership"
+    )
+    return False
+
     """Generate reminders for upcoming calendar events."""
     try:
         # Get events happening in the next 24 hours
@@ -189,6 +204,11 @@ def generate_calendar_event_reminders():
 
 @celery_app.task
 def notify_event_changes(event_id, change_type):
+    logger.warning(
+        "calendar_event_change_notifications_suppressed_pending_tenant_ownership"
+    )
+    return False
+
     """Notify users about changes to calendar events.
 
     Args:

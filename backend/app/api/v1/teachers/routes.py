@@ -343,22 +343,41 @@ def get_own_profile():
 def get_teacher_classes(teacher_id):
     """Get classes taught by a specific teacher."""
     try:
-        from app.utils.rbac_decorators import get_current_user, has_permission
+        from app.utils.rbac_decorators import (
+            get_current_user,
+            get_request_effective_roles,
+            has_permission,
+        )
 
         user = get_current_user()
         if not user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin/superadmin
-        is_authorized = has_permission(user, "teacher.read") or getattr(
-            user, "role", ""
-        ).lower() in ("admin", "superadmin", "super_admin", "super_manager")
+        # General access is determined by tenant-effective permissions.
+        # Global User.role must not grant authority inside another tenant.
+        effective_roles = get_request_effective_roles(user)
+        is_authorized = has_permission(user, "teacher.read")
 
-        # 2. Or, authorize if the user is a teacher and this is their own record
+        # Teachers may access their own record, but only when that teacher
+        # profile belongs to the current tenant.
         teacher_record = TeacherService.get_teacher_by_user_id(user.id)
-        if not is_authorized:
-            if teacher_record and teacher_record.id == teacher_id:
-                is_authorized = True
+
+        if (
+            teacher_record
+            and getattr(teacher_record, "tenant_id", None)
+            != getattr(g, "tenant_id", None)
+        ):
+            teacher_record = None
+
+        is_current_tenant_teacher = "teacher" in effective_roles
+
+        if (
+            not is_authorized
+            and is_current_tenant_teacher
+            and teacher_record
+            and teacher_record.id == teacher_id
+        ):
+            is_authorized = True
 
         if not is_authorized:
             return (
@@ -366,10 +385,10 @@ def get_teacher_classes(teacher_id):
                 403,
             )
 
-        # Scope query dynamically by matching the active authenticated teacher's identifier if they are a teacher
-        if getattr(user, "role", "").lower() == "teacher":
-            if teacher_record:
-                teacher_id = teacher_record.id
+        # A tenant-effective teacher is always scoped to their own
+        # teacher profile for this tenant.
+        if is_current_tenant_teacher and teacher_record:
+            teacher_id = teacher_record.id
 
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -742,22 +761,41 @@ def get_teacher_ai_insights(teacher_id):
 def get_teacher_schedule_assets(teacher_id):
     """Aggregate recurring timetable slots and date-bound events for a teacher."""
     try:
-        from app.utils.rbac_decorators import get_current_user, has_permission
+        from app.utils.rbac_decorators import (
+            get_current_user,
+            get_request_effective_roles,
+            has_permission,
+        )
 
         user = get_current_user()
         if not user:
             return jsonify({"error": "Authentication required"}), 401
 
-        # 1. Access Control: Authorize if user has general teacher.read permission OR is admin/superadmin
-        is_authorized = has_permission(user, "teacher.read") or getattr(
-            user, "role", ""
-        ).lower() in ("admin", "superadmin", "super_admin", "super_manager")
+        # General access is determined by tenant-effective permissions.
+        # Global User.role must not grant authority inside another tenant.
+        effective_roles = get_request_effective_roles(user)
+        is_authorized = has_permission(user, "teacher.read")
 
-        # 2. Or, authorize if the user is a teacher and this is their own record
+        # Teachers may access their own record, but only when that teacher
+        # profile belongs to the current tenant.
         teacher_record = TeacherService.get_teacher_by_user_id(user.id)
-        if not is_authorized:
-            if teacher_record and teacher_record.id == teacher_id:
-                is_authorized = True
+
+        if (
+            teacher_record
+            and getattr(teacher_record, "tenant_id", None)
+            != getattr(g, "tenant_id", None)
+        ):
+            teacher_record = None
+
+        is_current_tenant_teacher = "teacher" in effective_roles
+
+        if (
+            not is_authorized
+            and is_current_tenant_teacher
+            and teacher_record
+            and teacher_record.id == teacher_id
+        ):
+            is_authorized = True
 
         if not is_authorized:
             return (
@@ -769,10 +807,10 @@ def get_teacher_schedule_assets(teacher_id):
                 403,
             )
 
-        # Scope query dynamically by matching the active authenticated teacher's identifier if they are a teacher
-        if getattr(user, "role", "").lower() == "teacher":
-            if teacher_record:
-                teacher_id = teacher_record.id
+        # A tenant-effective teacher is always scoped to their own
+        # teacher profile for this tenant.
+        if is_current_tenant_teacher and teacher_record:
+            teacher_id = teacher_record.id
 
         from sqlalchemy.orm import joinedload
 
@@ -824,11 +862,19 @@ def get_teacher_schedule_assets(teacher_id):
                 }
             )
 
-        # 2. Fetch date-bound calendar events
-        user_id = get_jwt_identity()
-        from app.services.calendar_service import CalendarService
+        # 2. SECURITY CONTAINMENT:
+        # CalendarEvent ownership is not currently tenant-safe.
+        # Suppress calendar rows rather than risk returning another
+        # tenant's events through the teacher schedule endpoint.
+        events = []
 
-        events = CalendarService.get_events_for_user(user_id=user_id)
+        current_app.logger.warning(
+            "teacher_calendar_events_suppressed_pending_tenant_ownership",
+            extra={
+                "teacher_id": teacher_id,
+                "tenant_id": str(getattr(g, "tenant_id", None)),
+            },
+        )
 
         return (
             jsonify(

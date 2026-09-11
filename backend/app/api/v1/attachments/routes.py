@@ -25,6 +25,17 @@ attachments_bp = Blueprint("attachments", __name__)
 
 def _authorize_attachment_access(attachment, current_user_id):
     """Return True if current_user_id is authorized to access the attachment."""
+
+    # SECURITY CONTAINMENT:
+    # Message and Notification rows currently have no authoritative
+    # tenant ownership. Do not authorize files by traversing those
+    # ownerless entities.
+    if getattr(attachment, "entity_type", None) in ("message", "notification"):
+        logger.warning(
+            "message_notification_attachment_access_suppressed_pending_tenant_ownership"
+        )
+        return False
+
     if attachment.uploader_id == current_user_id:
         return True
 

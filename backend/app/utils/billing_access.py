@@ -45,14 +45,23 @@ def school_admin_required(fn):
                 400,
             )
 
-        legacy_role = getattr(user, "role", None)
-        if legacy_role == "admin":
+        legacy_role = str(
+            getattr(user, "role", "") or ""
+        ).strip().lower()
+
+        # Platform administrators retain explicit cross-tenant support.
+        if legacy_role in ("super_admin", "super_manager"):
             g.current_user = user
             return fn(*args, **kwargs)
 
+        # Tenant administration is determined by the membership belonging
+        # to THIS tenant, not by the user's global legacy role.
         membership = TenantMembership.query.filter_by(
-            user_id=user.id, tenant_id=tenant_id, status="active"
+            user_id=user.id,
+            tenant_id=tenant_id,
+            status="active",
         ).first()
+
         if not membership or membership.role != "school_admin":
             return (
                 jsonify(

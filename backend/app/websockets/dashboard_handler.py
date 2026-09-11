@@ -22,7 +22,7 @@ from app.utils.auth_utils import ADMIN_COMPATIBLE_ROLES
 
 logger = structlog.get_logger()
 
-_PLATFORM_ROLES = frozenset({"super_admin", "superadmin", "super_manager"})
+_PLATFORM_ROLES = frozenset({"super_admin", "super_manager"})
 
 
 def _utcnow() -> datetime:

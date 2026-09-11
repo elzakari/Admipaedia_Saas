@@ -17,11 +17,60 @@ from app.models.user import User
 from app.services.rbac_service import RBACService
 from app.utils.rbac_decorators import (audit_access, require_permission,
                                        require_role)
+from app.utils.platform_access import get_current_user as get_platform_user
 from app.utils.response import (error_response, paginated_response,
                                 success_response)
 
 logger = structlog.get_logger()
 rbac_bp = Blueprint("rbac", __name__, url_prefix="/api/v1/rbac")
+
+
+@rbac_bp.before_request
+def _platform_only_legacy_rbac():
+    """
+    SECURITY CONTAINMENT
+
+    Legacy enhanced-RBAC assignments and grants are global and currently
+    have no tenant_id. Until tenant-specific ownership is implemented,
+    only platform administrators may access this management surface.
+    """
+    user = get_platform_user()
+
+    if not user:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Authentication required",
+                }
+            ),
+            401,
+        )
+
+    role = str(getattr(user, "role", "") or "").strip().lower()
+
+    if role not in ("super_admin", "super_manager"):
+        logger.warning(
+            "tenant_user_blocked_from_global_rbac",
+            user_id=getattr(user, "id", None),
+            role=role,
+        )
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "Tenant role management is temporarily unavailable "
+                        "while tenant-scoped RBAC is being upgraded."
+                    ),
+                    "code": "TENANT_RBAC_UPGRADE_REQUIRED",
+                }
+            ),
+            403,
+        )
+
+    g.current_user = user
+    return None
 
 
 # Schemas for request validation

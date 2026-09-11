@@ -10,6 +10,12 @@ from app.models.academic_calendar import AcademicYear, Term
 from app.models.administration import Transaction, TransactionType
 from app.models.finance import (FeeCategory, FeeDiscount, FeeStructure,
                                 Payment, PaymentAllocation, StudentFee)
+from app.utils.finance_scope import (
+    scoped_classes,
+    scoped_fee_structures,
+    scoped_student_fees,
+    scoped_students,
+)
 from app.models.student import Student
 
 logger = structlog.get_logger()
@@ -111,9 +117,18 @@ class FeeService:
         created_count = 0
         for student in students:
             for structure in structures:
-                existing = StudentFee.query.filter_by(
-                    student_id=student.id, fee_structure_id=structure.id
-                ).first()
+                existing = (
+                    scoped_student_fees(
+                        tenant_id=getattr(student, "tenant_id", None),
+                        branch_id=getattr(student, "branch_id", None),
+                        include_branch=getattr(student, "branch_id", None) is not None,
+                    )
+                    .filter(
+                        StudentFee.student_id == student.id,
+                        StudentFee.fee_structure_id == structure.id,
+                    )
+                    .first()
+                )
                 if existing:
                     continue
                 db.session.add(FeeService._build_student_fee(structure, student))
@@ -140,13 +155,14 @@ class FeeService:
         if not academic_year or not term_aliases:
             return 0
 
-        structures = FeeStructure.query.filter(
+        structures = scoped_fee_structures(
+            tenant_id=getattr(student, "tenant_id", None),
+            branch_id=getattr(student, "branch_id", None),
+            include_branch=getattr(student, "branch_id", None) is not None,
+        ).filter(
             FeeStructure.academic_year == academic_year,
             FeeStructure.term.in_(term_aliases),
-            or_(
-                FeeStructure.class_id == student.class_id,
-                FeeStructure.class_id.is_(None),
-            ),
+            FeeStructure.class_id == student.class_id,
         ).all()
         if not structures:
             return 0
@@ -159,6 +175,30 @@ class FeeService:
     def create_fee_structure(data):
         """Create a new fee structure."""
         try:
+            data = dict(data or {})
+            class_id = data.get("class_id")
+
+            if class_id in (None, "", 0, "0"):
+                return (
+                    None,
+                    "All Classes fee templates are temporarily unavailable "
+                    "while tenant ownership is being upgraded.",
+                )
+
+            try:
+                class_id = int(class_id)
+            except (TypeError, ValueError):
+                return None, "Invalid class_id"
+
+            owned_class = (
+                scoped_classes()
+                .filter_by(id=class_id)
+                .first()
+            )
+            if not owned_class:
+                return None, "Class not found"
+
+            data["class_id"] = class_id
             structure = FeeStructure(**data)
             db.session.add(structure)
             db.session.commit()
@@ -174,12 +214,16 @@ class FeeService:
         Generate StudentFee records for all eligible students for a given structure.
         """
         try:
-            structure = FeeStructure.query.get(fee_structure_id)
+            structure = (
+                scoped_fee_structures()
+                .filter(FeeStructure.id == fee_structure_id)
+                .first()
+            )
             if not structure:
                 return None, "Fee structure not found"
 
             # Find eligible students
-            query = Student.query.filter_by(is_active=True)
+            query = scoped_students().filter(Student.is_active == True)
             if structure.class_id:
                 query = query.filter_by(class_id=structure.class_id)
             # Add educational_level filter logic if needed
@@ -189,9 +233,14 @@ class FeeService:
 
             for student in students:
                 # Check if already assigned
-                existing = StudentFee.query.filter_by(
-                    student_id=student.id, fee_structure_id=structure.id
-                ).first()
+                existing = (
+                    scoped_student_fees()
+                    .filter(
+                        StudentFee.student_id == student.id,
+                        StudentFee.fee_structure_id == structure.id,
+                    )
+                    .first()
+                )
 
                 if not existing:
                     db.session.add(FeeService._build_student_fee(structure, student))
@@ -208,10 +257,24 @@ class FeeService:
     def record_payment(data, user_id=None):
         """Record a payment and allocate it to outstanding fees."""
         try:
+            student_id = data.get("student_id")
+            try:
+                student_id = int(student_id)
+            except (TypeError, ValueError):
+                return None, "Invalid student_id"
+
+            student = (
+                scoped_students()
+                .filter(Student.id == student_id)
+                .first()
+            )
+            if not student:
+                return None, "Student not found"
+
             # 1. Create Payment Record
             payment = Payment(
                 transaction_id=data.get("transaction_id", str(uuid.uuid4())),
-                student_id=data["student_id"],
+                student_id=student.id,
                 amount=data["amount"],
                 payment_method=data["payment_method"],
                 payment_provider=data.get("payment_provider", "manual"),
@@ -227,8 +290,9 @@ class FeeService:
 
             # Get outstanding fees ordered by due date/creation
             outstanding_fees = (
-                StudentFee.query.filter(
-                    StudentFee.student_id == data["student_id"], StudentFee.balance > 0
+                scoped_student_fees().filter(
+                    StudentFee.student_id == student.id,
+                    StudentFee.balance > 0,
                 )
                 .join(FeeStructure)
                 .order_by(FeeStructure.due_date.asc(), StudentFee.created_at.asc())
@@ -260,50 +324,17 @@ class FeeService:
                 logger.info(
                     "Payment has excess amount",
                     excess=remaining_amount,
-                    student_id=data["student_id"],
+                    student_id=student.id,
                 )
                 # TODO: Add logic for wallet/credit
 
-            try:
-                student_id_val = data.get("student_id")
-                student_obj = Student.query.get(int(student_id_val)) if student_id_val else None
-                student_label = (
-                    f"{getattr(student_obj, 'first_name', '')} {getattr(student_obj, 'last_name', '')}".strip()
-                    if student_obj else f"student#{student_id_val}"
-                )
-                raw_ref = getattr(payment, "transaction_id", None) or str(uuid.uuid4())
-                tx_ref = str(raw_ref)[:50]
-                if Transaction.query.filter_by(reference_number=tx_ref).first():
-                    tx_ref = f"TX-{str(raw_ref)[:47]}"
-                paid_at_val = getattr(payment, "paid_at", None) or datetime.utcnow()
-                tx_date = paid_at_val.date() if hasattr(paid_at_val, "date") else date.today()
-                pay_method = str(data.get("payment_method") or "manual")[:50]
-                tx_category = "fee_collection"
-                tx_description = f"Fee payment - {student_label} - legacy allocation"[:255]
-                amount_decimal = (
-                    Decimal(str(data["amount"]))
-                    if not isinstance(data.get("amount"), Decimal)
-                    else data["amount"]
-                )
-                tx_creator = int(user_id) if (user_id is not None and str(user_id).isdigit()) else 1
-                mirror_tx = Transaction(
-                    transaction_type=getattr(TransactionType, "INCOME", "income"),
-                    category=tx_category,
-                    description=tx_description,
-                    amount=amount_decimal,
-                    transaction_date=tx_date,
-                    reference_number=tx_ref,
-                    payment_method=pay_method,
-                    created_by=tx_creator,
-                    approved_by=tx_creator,
-                )
-                db.session.add(mirror_tx)
-            except Exception as _tx_err:
-                logger.warning(
-                    "Could not create mirror Transaction for legacy fee payment",
-                    error=str(_tx_err),
-                    payment_id=getattr(payment, "id", None),
-                )
+            # SECURITY: Transaction currently has no tenant_id.
+            # Suppress creation until durable tenant ownership exists.
+            logger.info(
+                "fee_payment_transaction_mirror_suppressed_pending_tenant_ownership",
+                payment_id=getattr(payment, "id", None),
+                student_id=student.id,
+            )
 
             db.session.commit()
             return payment, None

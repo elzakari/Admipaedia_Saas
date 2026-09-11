@@ -14,6 +14,7 @@ from app.models.administration import (Budget, BudgetCategory, Transaction,
                                        TransactionType)
 from app.models.finance import (FeeCategory, FeeStructure, Payment,
                                 PaymentAllocation, StudentFee)
+from app.models.class_ import Class
 from app.models.student import Student
 from app.models.system_setting import SystemSetting
 from app.models.tenant import Tenant
@@ -27,6 +28,13 @@ from app.services.administration_service import AdministrationService
 from app.services.finance.service import FeeService
 from app.utils.entitlements import require_any_feature
 from app.utils.rbac_decorators import require_role
+from app.utils.finance_scope import (
+    scoped_classes,
+    scoped_fee_structures,
+    scoped_payments,
+    scoped_student_fees,
+    scoped_students,
+)
 from app.utils.tenant_context import tenant_required
 
 # Initialize schemas
@@ -171,6 +179,22 @@ def _get_school_currency(fallback="USD"):
     return str(fallback or "USD").upper()
 
 
+def _tenant_ownership_upgrade_required(resource_name):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    f"{resource_name} is temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "TENANT_OWNERSHIP_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
+
 def _serialize_fee_template_group(group_rows, category_by_id):
     first = group_rows[0]
     academic_year = str(getattr(first, "academic_year", None) or "unknown")
@@ -220,7 +244,7 @@ def _parse_group_id(group_id: str):
 
 def _get_fee_structure_group_rows(academic_year: str, term: str, class_id):
     return (
-        FeeStructure.query.filter(
+        scoped_fee_structures().filter(
             FeeStructure.academic_year == academic_year,
             FeeStructure.term == term,
             FeeStructure.class_id == class_id,
@@ -234,7 +258,9 @@ def _get_student_fees_for_structures(structures):
     structure_ids = [item.id for item in structures if getattr(item, "id", None)]
     if not structure_ids:
         return []
-    return StudentFee.query.filter(StudentFee.fee_structure_id.in_(structure_ids)).all()
+    return scoped_student_fees().filter(
+        StudentFee.fee_structure_id.in_(structure_ids)
+    ).all()
 
 
 def _student_fees_have_payment_activity(student_fees):
@@ -302,6 +328,34 @@ def _persist_fee_structure_group(data, existing_rows=None):
             class_id = int(class_id)
         except Exception:
             return False, ({"success": False, "message": "Invalid class_id"}, 400)
+
+    # SECURITY CONTAINMENT:
+    # FeeStructure currently has no tenant_id. A class_id=NULL template has
+    # no reliable school owner and must remain unavailable until explicit
+    # tenant ownership is added to the schema.
+    if class_id is None:
+        return False, (
+            {
+                "success": False,
+                "message": (
+                    "All Classes fee templates are temporarily unavailable "
+                    "while tenant ownership is being upgraded. "
+                    "Please select a specific class."
+                ),
+            },
+            409,
+        )
+
+    owned_class = (
+        scoped_classes()
+        .filter(Class.id == class_id)
+        .first()
+    )
+    if not owned_class:
+        return False, (
+            {"success": False, "message": "Class not found"},
+            404,
+        )
 
     normalized_items = []
     seen_categories = set()
@@ -402,7 +456,7 @@ def get_fee_structure_groups():
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
 
-        query = FeeStructure.query
+        query = scoped_fee_structures()
         if academic_year:
             query = query.filter(FeeStructure.academic_year == academic_year)
         if term:
@@ -593,7 +647,7 @@ def assign_fee_structure_group(group_id):
     data = request.get_json() or {}
     student_id = data.get("student_id")
     try:
-        q = FeeStructure.query.filter(
+        q = scoped_fee_structures().filter(
             FeeStructure.academic_year == academic_year,
             FeeStructure.term == term,
             (FeeStructure.class_id == class_id),
@@ -610,9 +664,11 @@ def assign_fee_structure_group(group_id):
                 404,
             )
 
-        student_query = Student.query
+        student_query = scoped_students()
         if student_id:
             student_query = student_query.filter(Student.id == int(student_id))
+            if class_id:
+                student_query = student_query.filter(Student.class_id == class_id)
         elif class_id:
             student_query = student_query.filter(Student.class_id == class_id)
 
@@ -634,14 +690,18 @@ def assign_fee_structure_group(group_id):
 @administration_access_required
 def get_fee_record_payments(fee_record_id):
     try:
-        fee = StudentFee.query.get(fee_record_id)
+        fee = (
+            scoped_student_fees()
+            .filter(StudentFee.id == fee_record_id)
+            .first()
+        )
         if not fee:
             return jsonify({"success": False, "message": "Fee record not found"}), 404
 
         allocations = PaymentAllocation.query.filter_by(student_fee_id=fee.id).all()
         payment_ids = [a.payment_id for a in allocations]
         payments = (
-            Payment.query.filter(Payment.id.in_(payment_ids)).all()
+            scoped_payments().filter(Payment.id.in_(payment_ids)).all()
             if payment_ids
             else []
         )
@@ -684,7 +744,7 @@ def list_fee_payments():
         per_page = request.args.get("per_page", 20, type=int)
         student_id = request.args.get("student_id", type=int)
 
-        query = Payment.query
+        query = scoped_payments()
         if student_id:
             query = query.filter(Payment.student_id == student_id)
 
@@ -693,7 +753,7 @@ def list_fee_payments():
         )
         student_ids = [p.student_id for p in paginated.items]
         students = (
-            Student.query.filter(Student.id.in_(student_ids)).all()
+            scoped_students().filter(Student.id.in_(student_ids)).all()
             if student_ids
             else []
         )
@@ -770,7 +830,11 @@ def create_fee_payment_v2():
                 400,
             )
 
-        fee = StudentFee.query.get(int(fee_record_id))
+        fee = (
+            scoped_student_fees()
+            .filter(StudentFee.id == int(fee_record_id))
+            .first()
+        )
         if not fee:
             return jsonify({"success": False, "message": "Fee record not found"}), 404
 
@@ -907,44 +971,12 @@ def create_fee_payment_v2():
             )
         fee.update_balance()
 
-        try:
-            student = Student.query.get(int(fee.student_id)) if fee.student_id else None
-            student_label = (
-                f"{getattr(student, 'first_name', '')} {getattr(student, 'last_name', '')}".strip()
-                if student else f"student#{fee.student_id}"
-            )
-            tx_ref = reference_number
-            existing_tx = Transaction.query.filter_by(reference_number=tx_ref).first()
-            if existing_tx:
-                tx_ref = f"TX-{reference_number}"
-            tx_category = "fee_collection"
-            tx_description = (
-                f"Fee payment - {student_label} - "
-                f"{getattr(getattr(fee, 'structure', None), 'fee_category', 'Tuition') or 'Tuition'}"
-            )
-            tx_created_by = user_id_int or 1
-            fee_structure = getattr(fee, "structure", None)
-            tx_date = (
-                paid_at.date()
-                if paid_at
-                else (fee_structure and getattr(fee_structure, "due_date", None)) or date.today()
-            )
-            tx = Transaction(
-                transaction_type=getattr(TransactionType, "INCOME", "income"),
-                category=tx_category,
-                description=tx_description[:255],
-                amount=amount_decimal,
-                transaction_date=tx_date,
-                reference_number=tx_ref[:50],
-                payment_method=payment_method,
-                created_by=tx_created_by,
-                approved_by=tx_created_by,
-            )
-            db.session.add(tx)
-        except Exception as _tx_err:
-            current_app.logger.warning(
-                f"Could not create mirror Transaction for fee payment: {str(_tx_err)}"
-            )
+        # SECURITY: Transaction has no persistent tenant owner yet.
+        # Do not create another ambiguous ledger row until tenant_id exists.
+        current_app.logger.info(
+            "fee_payment_transaction_mirror_suppressed_pending_tenant_ownership "
+            f"payment_id={payment.id} student_id={fee.student_id}"
+        )
 
         db.session.commit()
 
@@ -1004,36 +1036,17 @@ def get_overdue_fees_v2():
 
         today = date.today()
 
-        # Security: add tenant + branch scoping (back-compat with NULL branch_id for
-        # historical rows written before the create_fee_record branch_id fix). Without
-        # this filter, the reminders tab and overdue-fees API leak cross-branch /
-        # cross-tenant student PII (names, classes, balances).
-        try:
-            from flask import g as _g
-
-            _tenant_id = getattr(_g, "tenant_id", None)
-            _branch_id = getattr(_g, "branch_id", None)
-        except Exception:
-            _tenant_id = None
-            _branch_id = None
-
+        # SECURITY: derive StudentFee ownership strictly through Student.
+        # Unknown/legacy ownership must never be exposed as a compatibility fallback.
         query = (
-            StudentFee.query.join(FeeStructure)
-            .join(Student)
+            scoped_student_fees()
+            .join(FeeStructure)
             .filter(
                 StudentFee.balance > 0,
                 FeeStructure.due_date.isnot(None),
                 FeeStructure.due_date < today,
             )
         )
-        if _tenant_id is not None:
-            query = query.filter(
-                (StudentFee.tenant_id == _tenant_id) | (StudentFee.tenant_id.is_(None))
-            )
-        if _branch_id is not None:
-            query = query.filter(
-                (StudentFee.branch_id == _branch_id) | (StudentFee.branch_id.is_(None))
-            )
         if class_id:
             query = query.filter(Student.class_id == class_id)
         if academic_year:
@@ -1136,35 +1149,17 @@ def send_fee_reminders():
 
         today = date.today()
 
-        # Security: scope to current tenant/branch (back-compat with NULL branch_id for
-        # pre-20260809 rows). Without this, a branch-scoped admin sending reminders can
-        # trigger SMS/email to students belonging to OTHER branches.
-        try:
-            from flask import g as _g
-
-            _tenant_id = getattr(_g, "tenant_id", None)
-            _branch_id = getattr(_g, "branch_id", None)
-        except Exception:
-            _tenant_id = None
-            _branch_id = None
-
+        # SECURITY: reminder recipients must be proven to belong to the
+        # authenticated tenant before any preview/delivery operation.
         q = (
-            StudentFee.query.join(FeeStructure)
-            .join(Student)
+            scoped_student_fees()
+            .join(FeeStructure)
             .filter(
                 StudentFee.balance > 0,
-                FeeStructure.due_date != None,
+                FeeStructure.due_date.isnot(None),
                 FeeStructure.due_date < today,
             )
         )
-        if _tenant_id is not None:
-            q = q.filter(
-                (StudentFee.tenant_id == _tenant_id) | (StudentFee.tenant_id.is_(None))
-            )
-        if _branch_id is not None:
-            q = q.filter(
-                (StudentFee.branch_id == _branch_id) | (StudentFee.branch_id.is_(None))
-            )
 
         overdue_records = (
             q.order_by(FeeStructure.due_date.asc(), StudentFee.balance.desc())
@@ -1273,6 +1268,9 @@ def send_fee_reminders():
 @administration_access_required
 def get_budgets():
     """Get all budgets with pagination and filtering."""
+    return _tenant_ownership_upgrade_required("Budget management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -1318,6 +1316,9 @@ def get_budgets():
 @administration_access_required
 def get_budget(budget_id):
     """Get a specific budget by ID."""
+    return _tenant_ownership_upgrade_required("Budget management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         budget = administration_service.get_budget_by_id(budget_id)
 
@@ -1343,6 +1344,9 @@ def get_budget(budget_id):
 @administration_access_required
 def create_budget():
     """Create a new budget."""
+    return _tenant_ownership_upgrade_required("Budget management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         data = request.get_json() or {}
         category = _parse_budget_category(data.get("category") or data.get("name"))
@@ -1426,6 +1430,9 @@ def create_budget():
 @administration_access_required
 def update_budget(budget_id):
     """Update a budget."""
+    return _tenant_ownership_upgrade_required("Budget management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         budget = Budget.query.get(budget_id)
         if not budget:
@@ -1494,6 +1501,9 @@ def update_budget(budget_id):
 @administration_access_required
 def delete_budget(budget_id):
     """Delete a budget."""
+    return _tenant_ownership_upgrade_required("Budget management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         success, error = administration_service.delete_budget(budget_id)
 
@@ -1521,6 +1531,9 @@ def delete_budget(budget_id):
 @administration_access_required
 def get_transactions():
     """Get all transactions with pagination and filtering."""
+    return _tenant_ownership_upgrade_required("Transaction management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -1581,6 +1594,9 @@ def get_transactions():
 @administration_access_required
 def get_transaction(transaction_id):
     """Get a specific transaction by ID."""
+    return _tenant_ownership_upgrade_required("Transaction management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         transaction = administration_service.get_transaction_by_id(transaction_id)
 
@@ -1613,6 +1629,9 @@ def get_transaction(transaction_id):
 @administration_access_required
 def create_transaction():
     """Create a new transaction."""
+    return _tenant_ownership_upgrade_required("Transaction management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         data = request.get_json() or {}
         amount = Decimal(str(data.get("amount") or 0))
@@ -1899,22 +1918,57 @@ def create_fee_record():
                 400,
             )
 
-        structure = FeeStructure.query.get(int(fee_structure_id))
+        structure = (
+            scoped_fee_structures()
+            .filter(FeeStructure.id == int(fee_structure_id))
+            .first()
+        )
         if not structure:
             return (
                 jsonify({"success": False, "message": "Fee structure not found"}),
                 404,
             )
 
-        existing = StudentFee.query.filter_by(
-            student_id=int(student_id), fee_structure_id=structure.id
-        ).first()
+        existing = (
+            scoped_student_fees()
+            .filter(
+                StudentFee.student_id == int(student_id),
+                StudentFee.fee_structure_id == structure.id,
+            )
+            .first()
+        )
         if existing:
             return jsonify({"success": True, "fee_record": {"id": existing.id}}), 200
 
         amt = float(structure.amount or 0)
 
-        student = Student.query.get(int(student_id))
+        student = (
+            scoped_students()
+            .filter(Student.id == int(student_id))
+            .first()
+        )
+        if not student:
+            return (
+                jsonify({"success": False, "message": "Student not found"}),
+                404,
+            )
+
+        if (
+            structure.class_id is not None
+            and student.class_id != structure.class_id
+        ):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": (
+                            "Fee structure does not belong to the student's class"
+                        ),
+                    }
+                ),
+                400,
+            )
+
         branch_id = None
         if student:
             if getattr(student, "branch_id", None):
@@ -1927,7 +1981,7 @@ def create_fee_record():
                 branch_id = g.branch_id
 
         fee = StudentFee(
-            student_id=int(student_id),
+            student_id=student.id,
             fee_structure_id=structure.id,
             original_amount=amt,
             discount_amount=0.0,
@@ -2016,6 +2070,9 @@ def get_financial_summary():
 @administration_access_required
 def get_facilities():
     """Get all facilities with pagination and filtering."""
+    return _tenant_ownership_upgrade_required("Facility management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -2060,6 +2117,9 @@ def get_facilities():
 @administration_access_required
 def get_facility(facility_id):
     """Get a specific facility by ID."""
+    return _tenant_ownership_upgrade_required("Facility management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         facility = administration_service.get_facility_by_id(facility_id)
 
@@ -2088,6 +2148,9 @@ def get_facility(facility_id):
 @administration_access_required
 def create_facility():
     """Create a new facility."""
+    return _tenant_ownership_upgrade_required("Facility management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(f"Create facility request data: {request.json}")
 
@@ -2135,6 +2198,9 @@ def create_facility():
 @administration_access_required
 def update_facility(facility_id):
     """Update an existing facility."""
+    return _tenant_ownership_upgrade_required("Facility management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(
             f"Update facility {facility_id} request data: {request.json}"
@@ -2184,6 +2250,9 @@ def update_facility(facility_id):
 @administration_access_required
 def delete_facility(facility_id):
     """Delete a facility."""
+    return _tenant_ownership_upgrade_required("Facility management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         success, error = administration_service.delete_facility(facility_id)
 
@@ -2214,6 +2283,9 @@ def delete_facility(facility_id):
 @administration_access_required
 def get_maintenance_requests():
     """Get all maintenance requests with pagination and filtering."""
+    return _tenant_ownership_upgrade_required("Maintenance management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -2261,6 +2333,9 @@ def get_maintenance_requests():
 @administration_access_required
 def get_maintenance_request(request_id):
     """Get a specific maintenance request by ID."""
+    return _tenant_ownership_upgrade_required("Maintenance management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         maintenance_request = administration_service.get_maintenance_request_by_id(
             request_id
@@ -2303,6 +2378,9 @@ def get_maintenance_request(request_id):
 @administration_access_required
 def create_maintenance_request():
     """Create a new maintenance request."""
+    return _tenant_ownership_upgrade_required("Maintenance management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(f"Create maintenance request data: {request.json}")
 
@@ -2353,6 +2431,9 @@ def create_maintenance_request():
 @administration_access_required
 def update_maintenance_request(request_id):
     """Update an existing maintenance request."""
+    return _tenant_ownership_upgrade_required("Maintenance management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(
             f"Update maintenance request {request_id} data: {request.json}"
@@ -2403,6 +2484,9 @@ def update_maintenance_request(request_id):
 @administration_access_required
 def delete_maintenance_request(request_id):
     """Delete a maintenance request."""
+    return _tenant_ownership_upgrade_required("Maintenance management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         success, error = administration_service.delete_maintenance_request(request_id)
 
@@ -2437,6 +2521,9 @@ def delete_maintenance_request(request_id):
 @administration_access_required
 def get_assets():
     """Get all assets with pagination and filtering."""
+    return _tenant_ownership_upgrade_required("Asset management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 20, type=int)
@@ -2482,6 +2569,9 @@ def get_assets():
 @administration_access_required
 def get_asset(asset_id):
     """Get a specific asset by ID."""
+    return _tenant_ownership_upgrade_required("Asset management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         asset = administration_service.get_asset_by_id(asset_id)
 
@@ -2507,6 +2597,9 @@ def get_asset(asset_id):
 @administration_access_required
 def create_asset():
     """Create a new asset."""
+    return _tenant_ownership_upgrade_required("Asset management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(f"Create asset request data: {request.json}")
 
@@ -2553,6 +2646,9 @@ def create_asset():
 @administration_access_required
 def update_asset(asset_id):
     """Update an existing asset."""
+    return _tenant_ownership_upgrade_required("Asset management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         current_app.logger.debug(
             f"Update asset {asset_id} request data: {request.json}"
@@ -2599,6 +2695,9 @@ def update_asset(asset_id):
 @administration_access_required
 def delete_asset(asset_id):
     """Delete an asset."""
+    return _tenant_ownership_upgrade_required("Asset management")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         success, error = administration_service.delete_asset(asset_id)
 
@@ -2626,6 +2725,9 @@ def delete_asset(asset_id):
 @administration_access_required
 def get_infrastructure_summary():
     """Get comprehensive infrastructure summary."""
+    return _tenant_ownership_upgrade_required("Infrastructure reporting")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         summary = administration_service.get_infrastructure_summary()
 
@@ -2658,6 +2760,9 @@ def get_infrastructure_summary():
 @administration_access_required
 def get_overdue_maintenance_requests():
     """Get all overdue maintenance requests."""
+    return _tenant_ownership_upgrade_required("Maintenance reporting")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         overdue_requests = administration_service.get_overdue_maintenance_requests()
 
@@ -2692,6 +2797,9 @@ def get_overdue_maintenance_requests():
 @administration_access_required
 def get_assets_needing_service():
     """Get all assets that need service."""
+    return _tenant_ownership_upgrade_required("Asset reporting")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         assets_needing_service = administration_service.get_assets_needing_service()
 
@@ -2724,6 +2832,9 @@ def get_assets_needing_service():
 @administration_access_required
 def get_assets_with_expired_warranty():
     """Get all assets with expired warranty."""
+    return _tenant_ownership_upgrade_required("Asset reporting")
+
+    # Unreachable until explicit tenant ownership is deployed.
     try:
         expired_warranty_assets = (
             administration_service.get_assets_with_expired_warranty()
@@ -2760,6 +2871,9 @@ def get_assets_with_expired_warranty():
 @administration_access_required
 def get_system_settings():
     """Get all system settings."""
+    return _tenant_ownership_upgrade_required("System settings")
+
+    # Unreachable until platform-vs-tenant settings ownership is resolved.
     try:
         keys = request.args.getlist("keys")
         if keys:
@@ -2788,6 +2902,9 @@ def get_system_settings():
 @administration_access_required
 def update_system_settings():
     """Update system settings."""
+    return _tenant_ownership_upgrade_required("System settings")
+
+    # Unreachable until platform-vs-tenant settings ownership is resolved.
     try:
         data = request.json
         if not data:

@@ -128,25 +128,40 @@ def auth_headers(app):
     from app.models.user import User
     from app.extensions import bcrypt
     from flask_jwt_extended import create_access_token
-    with app.app_context():
-        user = _db.session.query(User).filter_by(email='test@example.com').first()
-        if not user:
-            user = User(
-                username='testuser',
-                email='test@example.com',
-                password_hash=bcrypt.generate_password_hash('password').decode('utf-8'),
-                role='admin',
-                status='active'
-            )
-            _db.session.add(user)
-            _db.session.flush()
-        else:
-            user.password_hash = bcrypt.generate_password_hash('password').decode('utf-8')
-            user.role = 'admin'
-            user.status = 'active'
-            _db.session.flush()
-        token = create_access_token(identity=user.id)
-    return {'Authorization': f'Bearer {token}'}
+
+    # Use the autouse app_context/db_isolation fixtures directly.
+    # Opening a nested app context here creates a different scoped
+    # SQLAlchemy session which is removed on context exit, causing the
+    # flushed test user to disappear before the test executes.
+    user = _db.session.query(User).filter_by(
+        email='test@example.com'
+    ).first()
+
+    if not user:
+        user = User(
+            username='testuser',
+            email='test@example.com',
+            password_hash=bcrypt.generate_password_hash(
+                'password'
+            ).decode('utf-8'),
+            role='admin',
+            status='active'
+        )
+        _db.session.add(user)
+    else:
+        user.password_hash = bcrypt.generate_password_hash(
+            'password'
+        ).decode('utf-8')
+        user.role = 'admin'
+        user.status = 'active'
+
+    _db.session.flush()
+
+    token = create_access_token(identity=user.id)
+
+    return {
+        'Authorization': f'Bearer {token}'
+    }
 
 @pytest.fixture(scope='function')
 def sample_student(app, sample_tenant):
