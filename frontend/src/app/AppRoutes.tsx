@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantAuthority } from '@/hooks/useTenantAuthority';
 import type { User } from '@/services/authService';
 import { getJwtExpirationMs } from '@/utils/jwt';
 import AppLayout from './AppLayout';
@@ -185,7 +186,11 @@ function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader 
   componentName?: string;
   hideHeader?: boolean;
 }) {
-  const { user, isAuthenticated, isLoading, refreshToken } = useAuth();
+  const { isAuthenticated, isLoading, refreshToken } = useAuth();
+  const {
+    hasRole: hasAuthorityRole,
+    isLoading: isAuthorityLoading,
+  } = useTenantAuthority();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -204,7 +209,7 @@ function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader 
     }
   }, [isAuthenticated, refreshToken]);
 
-  if (isLoading) {
+  if (isLoading || isAuthorityLoading) {
     return <LoadingFallback componentName="Authentication" />;
   }
 
@@ -212,7 +217,12 @@ function ProtectedRoute({ element, allowedRoles = [], componentName, hideHeader 
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+  if (
+    allowedRoles.length > 0 &&
+    !allowedRoles.some((role) =>
+      hasAuthorityRole(role)
+    )
+  ) {
     return <Navigate to="/unauthorized" replace />;
   }
 
@@ -234,7 +244,11 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
   allowedRoles?: Array<UserRole>;
   componentName?: string;
 }) {
-  const { user, isAuthenticated, isLoading, refreshToken } = useAuth();
+  const { isAuthenticated, isLoading, refreshToken } = useAuth();
+  const {
+    hasRole: hasAuthorityRole,
+    isLoading: isAuthorityLoading,
+  } = useTenantAuthority();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -253,7 +267,7 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
     }
   }, [isAuthenticated, refreshToken]);
 
-  if (isLoading) {
+  if (isLoading || isAuthorityLoading) {
     return <LoadingFallback componentName={componentName || 'Loading'} />;
   }
 
@@ -261,7 +275,12 @@ function BareProtectedRoute({ element, allowedRoles = [], componentName }: {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+  if (
+    allowedRoles.length > 0 &&
+    !allowedRoles.some((role) =>
+      hasAuthorityRole(role)
+    )
+  ) {
     return <Navigate to="/unauthorized" replace />;
   }
 
@@ -289,7 +308,10 @@ function CanonicalSaasRouteRedirect() {
 }
 
 export default function AppRoutes() {
-  const { user } = useAuth();
+  const {
+    primaryRole: authorityRole,
+    isPlatform,
+  } = useTenantAuthority();
 
   return (
     <Routes>
@@ -677,7 +699,7 @@ export default function AppRoutes() {
       <Route 
         path="/academics" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -692,7 +714,7 @@ export default function AppRoutes() {
       <Route 
         path="/students" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -707,7 +729,7 @@ export default function AppRoutes() {
       <Route
         path="/students/new"
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute
@@ -778,7 +800,7 @@ export default function AppRoutes() {
       <Route 
         path="/attendance" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -804,7 +826,7 @@ export default function AppRoutes() {
       <Route 
         path="/exams" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -819,7 +841,7 @@ export default function AppRoutes() {
       <Route 
         path="/classes" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -856,11 +878,11 @@ export default function AppRoutes() {
       <Route 
         path="/calendar" 
         element={
-          user?.role === 'student'
+          authorityRole === 'student'
             ? <Navigate to="/student/calendar" replace />
-            : user?.role === 'teacher'
+            : authorityRole === 'teacher'
               ? <Navigate to="/teacher/calendar" replace />
-            : user?.role === 'parent'
+            : authorityRole === 'parent'
               ? <Navigate to="/parent/calendar" replace />
             : (
               <ProtectedRoute 
@@ -886,7 +908,7 @@ export default function AppRoutes() {
       <Route 
         path="/library" 
         element={
-          user?.role === 'teacher'
+          authorityRole === 'teacher'
             ? <Navigate to="/teacher/classes" replace />
             : (
               <ProtectedRoute 
@@ -901,11 +923,11 @@ export default function AppRoutes() {
       <Route 
         path="/schedule" 
         element={
-          user?.role === 'student'
+          authorityRole === 'student'
             ? <Navigate to="/student/timetable" replace />
-            : user?.role === 'teacher'
+            : authorityRole === 'teacher'
               ? <Navigate to="/teacher/timetable" replace />
-            : user?.role === 'parent'
+            : authorityRole === 'parent'
               ? <Navigate to="/parent/schedule" replace />
             : (
               <ProtectedRoute 
@@ -920,9 +942,9 @@ export default function AppRoutes() {
       <Route 
         path="/notifications" 
         element={
-          user?.role === 'student'
+          authorityRole === 'student'
             ? <Navigate to="/student/notifications" replace />
-            : user?.role === 'teacher'
+            : authorityRole === 'teacher'
               ? <Navigate to="/teacher/notifications" replace />
             : (
               <ProtectedRoute 
@@ -937,9 +959,9 @@ export default function AppRoutes() {
       <Route 
         path="/messages" 
         element={
-          user?.role === 'student'
+          authorityRole === 'student'
             ? <Navigate to="/student/messages" replace />
-            : user?.role === 'teacher'
+            : authorityRole === 'teacher'
               ? <Navigate to="/teacher/messages" replace />
             : (
               <ProtectedRoute 
@@ -998,7 +1020,7 @@ export default function AppRoutes() {
       <Route 
         path="/administration/settings" 
         element={
-          user?.role === 'super_admin'
+          authorityRole === 'super_admin'
             ? (
               <ProtectedRoute
                 element={<SystemSettingsPage />}
@@ -1024,7 +1046,7 @@ export default function AppRoutes() {
       <Route 
         path="/settings" 
         element={
-          user?.role === 'super_admin'
+          authorityRole === 'super_admin'
             ? <Navigate to="/super-admin/settings" replace />
             : (
               <ProtectedRoute 
@@ -1050,9 +1072,9 @@ export default function AppRoutes() {
       <Route 
         path="/announcements" 
         element={
-          user?.role === 'student'
+          authorityRole === 'student'
             ? <Navigate to="/student/notifications" replace />
-            : user?.role === 'teacher'
+            : authorityRole === 'teacher'
               ? <Navigate to="/teacher/notifications" replace />
             : (
               <ProtectedRoute 
@@ -1114,13 +1136,11 @@ export default function AppRoutes() {
         element={
           <Navigate
             to={
-              user?.role === 'super_admin'
+              isPlatform
                 ? '/super-admin'
-                : user?.role === 'school_admin'
-                  ? '/admin/dashboard'
-                  : user?.role
-                    ? `/${user.role}/dashboard`
-                    : '/login'
+                : authorityRole
+                  ? `/${authorityRole}/dashboard`
+                  : '/login'
             }
             replace
           />

@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { useAuth } from '../../contexts/AuthContext';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useSaasTenant } from '@/hooks/useSaasTenant';
+import { useTenantAuthority } from '@/hooks/useTenantAuthority';
 import { canAccessAdministration } from '@/lib/administrationAccess';
 import {
   LayoutDashboard,
@@ -114,16 +114,16 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { isMobile } = useResponsive();
   const { current } = useSaasTenant();
+  const { primaryRole: authorityRole } = useTenantAuthority();
   const { hasFeature, isLoading: entitlementsLoading } = useEntitlements();
   const [isActionsOpen, setIsActionsOpen] = useState(false);
-  const userRole = user?.role === 'school_admin' ? 'admin' : (user?.role || 'user');
+  const userRole = authorityRole || 'user';
 
   // Dynamic Dashboard path based on user role context
   const dashboardPath =
-    user?.role === 'super_admin' || user?.role === 'super_manager' ? '/super-admin' :
+    authorityRole === 'super_admin' || authorityRole === 'super_manager' ? '/super-admin' :
     userRole === 'admin' ? '/admin/dashboard' :
     userRole === 'teacher' ? '/teacher/dashboard' :
     userRole === 'student' ? '/student/dashboard' :
@@ -219,13 +219,13 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
 
       if (path === '/admin/administration') {
         return canAccessAdministration({
-          role: user?.role,
+          role: authorityRole,
           planSlug: current?.tenant?.plan || null,
           enabledFeatures: current?.tenant?.enabled_features || [],
         });
       }
 
-      if (user?.role === 'super_admin' || user?.role === 'super_manager') {
+      if (authorityRole === 'super_admin' || authorityRole === 'super_manager') {
         return true;
       }
 
@@ -248,7 +248,7 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({ 
 
       return hasFeature(featureKey);
     };
-  }, [current?.tenant?.enabled_features, current?.tenant?.plan, entitlementsLoading, hasFeature, user?.role]);
+  }, [authorityRole, current?.tenant?.enabled_features, current?.tenant?.plan, entitlementsLoading, hasFeature]);
 
   const mobileNavItems = useMemo(() => {
     const baseItems = navItemsByRole[userRole] ?? navItemsByRole.user;

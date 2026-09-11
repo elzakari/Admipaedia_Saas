@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import saasService, { SaaSTenantItem, SaaSTenant } from '@/services/saasService'
+import { useAuth } from '@/contexts/AuthContext'
 import { purgeTenantScopedBrowserState } from '@/lib/tenantIsolation'
 
 const STORAGE_KEY = 'saas_current_tenant_id'
@@ -13,12 +14,85 @@ function isActiveMembership(item: SaaSTenantItem): boolean {
     .toLowerCase() === 'active'
 }
 
+function isPlatformRole(role: unknown): boolean {
+  const normalized = String(role ?? '')
+    .trim()
+    .toLowerCase()
+
+  return (
+    normalized === 'super_admin' ||
+    normalized === 'super_manager'
+  )
+}
+
+function asPlatformTenantItem(
+  tenant: SaaSTenant
+): SaaSTenantItem {
+  return {
+    tenant,
+    membership: {
+      // Browser-only neutral membership shape.
+      // Platform authority remains global.
+      role: null,
+      status: 'active',
+    },
+  }
+}
+
+async function listAllPlatformTenantItems(): Promise<SaaSTenantItem[]> {
+  const first =
+    await saasService.platformListTenants({
+      page: 1,
+      per_page: 200,
+      sort: 'name_asc',
+    })
+
+  const tenants = [
+    ...(first.items || []),
+  ]
+
+  const totalPages = Math.max(
+    1,
+    Number(
+      first.pagination?.total_pages || 1
+    )
+  )
+
+  for (
+    let page = 2;
+    page <= totalPages;
+    page += 1
+  ) {
+    const response =
+      await saasService.platformListTenants({
+        page,
+        per_page: 200,
+        sort: 'name_asc',
+      })
+
+    tenants.push(
+      ...(response.items || [])
+    )
+  }
+
+  return tenants.map(
+    asPlatformTenantItem
+  )
+}
+
 export function useSaasTenant() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(() => {
     return localStorage.getItem(STORAGE_KEY)
   })
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+
+  const platformIdentity =
+    isPlatformRole(user?.role)
+
+  const tenantsQueryEnabled =
+    Boolean(token && user?.id)
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -41,21 +115,38 @@ export function useSaasTenant() {
     }
   }, [token, currentTenantId])
   const tenantsQuery = useQuery({
-    queryKey: ['saas', 'tenants', token],
+    queryKey: [
+      'saas',
+      'tenants',
+      platformIdentity
+        ? 'platform'
+        : 'membership',
+      token,
+    ],
     queryFn: async () => {
-      const res = await saasService.listMyTenants()
+      if (platformIdentity) {
+        return listAllPlatformTenantItems()
+      }
+
+      const res =
+        await saasService.listMyTenants()
+
       return res.items
     },
-    enabled: !!token,
+    enabled: tenantsQueryEnabled,
     staleTime: 2 * 60 * 1000,
   })
 
-  const items = token ? (tenantsQuery.data ?? null) : null
+  const items = tenantsQueryEnabled
+    ? (tenantsQuery.data ?? null)
+    : null
   const activeItems = useMemo(
     () => (items ? items.filter(isActiveMembership) : null),
     [items]
   )
-  const isLoading = !!token && tenantsQuery.isLoading
+  const isLoading =
+    tenantsQueryEnabled &&
+    tenantsQuery.isLoading
   const error = useMemo(() => {
     if (!tenantsQuery.error) return null
     const e = tenantsQuery.error as AxiosError<{ message?: string }>
@@ -63,12 +154,22 @@ export function useSaasTenant() {
   }, [tenantsQuery.error])
 
   const refresh = useCallback(async () => {
-    if (!localStorage.getItem('token')) {
-      queryClient.removeQueries({ queryKey: ['saas', 'tenants'] })
+    if (
+      !localStorage.getItem('token') ||
+      !user?.id
+    ) {
+      queryClient.removeQueries({
+        queryKey: ['saas', 'tenants'],
+      })
       return
     }
+
     await tenantsQuery.refetch()
-  }, [queryClient, tenantsQuery])
+  }, [
+    queryClient,
+    tenantsQuery,
+    user?.id,
+  ])
 
   useEffect(() => {
     if (!token) {

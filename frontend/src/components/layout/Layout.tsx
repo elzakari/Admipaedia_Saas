@@ -28,6 +28,7 @@ import { useMobileNavigation } from '../../hooks/useMobileNavigation';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useHeader } from '../../contexts/HeaderContext';
 import { useSaasTenant } from '../../hooks/useSaasTenant';
+import { useTenantAuthority } from '@/hooks/useTenantAuthority';
 import OnboardingWizard from '../onboarding/OnboardingWizard';
 import { resolveAvatarUrl } from '../../utils/avatar';
 
@@ -52,20 +53,21 @@ export function Layout({ children, hideHeader }: LayoutProps) {
   const effectiveHideHeader = hideHeader || hideGlobalHeader;
   
   const { current, refresh: refreshTenant } = useSaasTenant();
-  const isSchoolAdmin = user?.role === 'admin' || user?.role === 'school_admin';
+  const { primaryRole: authorityRole } = useTenantAuthority();
+  const isSchoolAdmin = authorityRole === 'admin';
   const showOnboarding = isSchoolAdmin && current && current.tenant && !current.tenant.is_setup_completed;
   
   const dashboardHref =
-    (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
-    user?.role === 'admin' ? '/admin/dashboard' :
-    user?.role === 'teacher' ? '/teacher/dashboard' :
-    user?.role === 'student' ? '/student/dashboard' :
-    user?.role === 'parent' ? '/parent/dashboard' :
+    (authorityRole === 'super_admin' || authorityRole === 'super_manager') ? '/super-admin' :
+    authorityRole === 'admin' ? '/admin/dashboard' :
+    authorityRole === 'teacher' ? '/teacher/dashboard' :
+    authorityRole === 'student' ? '/student/dashboard' :
+    authorityRole === 'parent' ? '/parent/dashboard' :
     '/dashboard';
   const avatarUrl = resolveAvatarUrl(user?.avatar_url);
 
   const navigation = useMemo(() => {
-    switch (user?.role) {
+    switch (authorityRole) {
       case 'super_admin':
         return [
           { name: 'Dashboard', labelKey: 'navigation.dashboard', href: dashboardHref, icon: Home },
@@ -128,7 +130,7 @@ export function Layout({ children, hideHeader }: LayoutProps) {
           { name: 'Settings', labelKey: 'navigation.settings', href: '/settings', icon: Settings }
         ];
     }
-  }, [dashboardHref, user?.role]);
+  }, [authorityRole, dashboardHref]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
