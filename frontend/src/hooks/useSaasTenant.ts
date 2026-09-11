@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AxiosError } from 'axios'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import saasService, { SaaSTenantItem, SaaSTenant } from '@/services/saasService'
+import { purgeTenantScopedBrowserState } from '@/lib/tenantIsolation'
 
 const STORAGE_KEY = 'saas_current_tenant_id'
 const COUNTRY_KEY = 'saas_current_tenant_country_code'
+
+function isActiveMembership(item: SaaSTenantItem): boolean {
+  return String(item.membership?.status ?? '')
+    .trim()
+    .toLowerCase() === 'active'
+}
 
 export function useSaasTenant() {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
@@ -44,6 +51,10 @@ export function useSaasTenant() {
   })
 
   const items = token ? (tenantsQuery.data ?? null) : null
+  const activeItems = useMemo(
+    () => (items ? items.filter(isActiveMembership) : null),
+    [items]
+  )
   const isLoading = !!token && tenantsQuery.isLoading
   const error = useMemo(() => {
     if (!tenantsQuery.error) return null
@@ -65,21 +76,30 @@ export function useSaasTenant() {
       return
     }
 
+    // Do not invalidate a legitimate stored tenant while the membership
+    // list is still loading/refetching after a tenant cache boundary reset.
+    if (activeItems === null) {
+      return
+    }
+
     const stored = localStorage.getItem(STORAGE_KEY)
-    const first = items?.[0]?.tenant?.id || null
-    const next = stored && items?.some((i) => i.tenant.id === stored) ? stored : first
+    const first = activeItems[0]?.tenant?.id || null
+    const next =
+      stored && activeItems.some((i) => i.tenant.id === stored)
+        ? stored
+        : first
     if (next && stored !== next) {
       localStorage.setItem(STORAGE_KEY, next)
     } else if (!next && stored) {
       localStorage.removeItem(STORAGE_KEY)
     }
     setCurrentTenantId(next)
-  }, [items, token])
+  }, [activeItems, token])
 
   const current = useMemo(() => {
-    if (!items || !currentTenantId) return null
-    return items.find((i) => i.tenant.id === currentTenantId) || null
-  }, [items, currentTenantId])
+    if (!activeItems || !currentTenantId) return null
+    return activeItems.find((i) => i.tenant.id === currentTenantId) || null
+  }, [activeItems, currentTenantId])
 
   useEffect(() => {
     const cc = current?.tenant?.country_code
@@ -88,14 +108,38 @@ export function useSaasTenant() {
   }, [current?.tenant?.country_code])
 
   const setCurrentTenant = useCallback((tenantId: string) => {
-    localStorage.setItem(STORAGE_KEY, tenantId)
-    setCurrentTenantId(tenantId)
-  }, [])
+    const normalizedTenantId = tenantId.trim()
 
-  const tenants: SaaSTenant[] = useMemo(() => (items ? items.map((i) => i.tenant) : []), [items])
+    if (!normalizedTenantId || normalizedTenantId === currentTenantId) {
+      return
+    }
+
+    if (
+      !activeItems ||
+      !activeItems.some((item) => item.tenant.id === normalizedTenantId)
+    ) {
+      console.warn(
+        '[Tenant] Refusing to select a tenant without an active membership.'
+      )
+      return
+    }
+
+    // Clear tenant/branch-scoped browser state BEFORE components react to
+    // the new tenant identifier.
+    purgeTenantScopedBrowserState()
+    queryClient.clear()
+
+    localStorage.setItem(STORAGE_KEY, normalizedTenantId)
+    setCurrentTenantId(normalizedTenantId)
+  }, [currentTenantId, activeItems, queryClient])
+
+  const tenants: SaaSTenant[] = useMemo(
+    () => (activeItems ? activeItems.map((i) => i.tenant) : []),
+    [activeItems]
+  )
 
   return {
-    items,
+    items: activeItems,
     tenants,
     current,
     currentTenantId,
