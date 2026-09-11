@@ -558,3 +558,94 @@ def test_calendar_event_api_is_fail_closed(
         payload.get("code")
         == "CALENDAR_TENANT_OWNERSHIP_REQUIRED"
     )
+
+
+
+def test_access_context_endpoint_uses_selected_tenant_membership(
+    app,
+    client,
+    db_session,
+):
+    tenant_a, tenant_b = _setup_two_tenants(db_session)
+
+    user = _make_user(
+        db_session,
+        role="admin",
+        prefix="access_context_membership",
+    )
+
+    _membership(db_session, tenant_a, user, "school_admin")
+    _membership(db_session, tenant_b, user, "teacher")
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/access-context",
+        headers=_headers(user.id, tenant_b.id),
+    )
+
+    assert response.status_code == 200
+
+    payload = response.get_json()
+    assert payload["success"] is True
+
+    data = payload["data"]
+    assert data["tenant_id"] == str(tenant_b.id)
+    assert "teacher" in data["roles"]
+    assert "school_admin" not in data["roles"]
+    assert "admin" not in data["roles"]
+    assert "*" not in data["permissions"]
+
+
+def test_access_context_endpoint_rejects_foreign_tenant(
+    app,
+    client,
+    db_session,
+):
+    tenant_a, tenant_b = _setup_two_tenants(db_session)
+
+    user = _make_user(
+        db_session,
+        role="teacher",
+        prefix="access_context_spoof",
+    )
+
+    _membership(db_session, tenant_a, user, "teacher")
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/access-context",
+        headers=_headers(user.id, tenant_b.id),
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["message"] == "Tenant access denied"
+
+
+def test_access_context_endpoint_preserves_platform_authority_without_tenant(
+    app,
+    client,
+    db_session,
+):
+    from flask_jwt_extended import create_access_token
+
+    user = _make_user(
+        db_session,
+        role="super_admin",
+        prefix="access_context_platform",
+    )
+    db_session.commit()
+
+    with app.app_context():
+        token = create_access_token(identity=user.id)
+
+    response = client.get(
+        "/api/v1/access-context",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()["data"]
+    assert data["tenant_id"] is None
+    assert data["roles"] == ["super_admin"]
+    assert data["permissions"] == ["*"]

@@ -268,19 +268,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Define hasRole function inside the component where user is in scope
+  // AuthContext knows global identity, not school-tenant authority.
+  // Only explicit platform roles may authorize globally here.
   const hasRole = (roles: string | string[]) => {
     if (!user) return false;
 
-    const effectiveRoles = Array.isArray(user.effective_roles) ? user.effective_roles : [];
-    const assignedRoles = Array.isArray(user.roles) ? user.roles : [];
-    const availableRoles = new Set([user.role, ...effectiveRoles, ...assignedRoles].filter(Boolean));
+    const globalRole = String(user.role || '')
+      .trim()
+      .toLowerCase();
 
-    if (typeof roles === 'string') {
-      return availableRoles.has(roles);
+    if (
+      globalRole !== 'super_admin' &&
+      globalRole !== 'super_manager'
+    ) {
+      return false;
     }
 
-    return roles.some((role) => availableRoles.has(role));
+    const requestedRoles = (
+      typeof roles === 'string' ? [roles] : roles
+    ).map((role) => String(role).trim().toLowerCase());
+
+    return requestedRoles.includes(globalRole);
   };
 
   return (
