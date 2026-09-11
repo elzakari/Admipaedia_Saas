@@ -30,6 +30,7 @@ from app.utils.entitlements import require_any_feature
 from app.utils.rbac_decorators import require_role
 from app.utils.finance_scope import (
     scoped_classes,
+    scoped_fee_categories,
     scoped_fee_structures,
     scoped_payments,
     scoped_student_fees,
@@ -329,33 +330,29 @@ def _persist_fee_structure_group(data, existing_rows=None):
         except Exception:
             return False, ({"success": False, "message": "Invalid class_id"}, 400)
 
-    # SECURITY CONTAINMENT:
-    # FeeStructure currently has no tenant_id. A class_id=NULL template has
-    # no reliable school owner and must remain unavailable until explicit
-    # tenant ownership is added to the schema.
-    if class_id is None:
+    tenant_id = getattr(g, "tenant_id", None)
+    if tenant_id is None:
         return False, (
             {
                 "success": False,
-                "message": (
-                    "All Classes fee templates are temporarily unavailable "
-                    "while tenant ownership is being upgraded. "
-                    "Please select a specific class."
-                ),
+                "message": "Tenant context required",
             },
-            409,
+            403,
         )
 
-    owned_class = (
-        scoped_classes()
-        .filter(Class.id == class_id)
-        .first()
-    )
-    if not owned_class:
-        return False, (
-            {"success": False, "message": "Class not found"},
-            404,
+    # class_id=NULL is now a valid tenant-wide "All Classes" template.
+    # Class-bound templates must still prove ownership through Class.
+    if class_id is not None:
+        owned_class = (
+            scoped_classes()
+            .filter(Class.id == class_id)
+            .first()
         )
+        if not owned_class:
+            return False, (
+                {"success": False, "message": "Class not found"},
+                404,
+            )
 
     normalized_items = []
     seen_categories = set()
@@ -418,15 +415,19 @@ def _persist_fee_structure_group(data, existing_rows=None):
     created = []
     school_currency = _get_school_currency()
     for item in normalized_items:
-        category = FeeCategory.query.filter(
+        category = scoped_fee_categories().filter(
             func.lower(FeeCategory.name) == item["category"].lower()
         ).first()
         if not category:
-            category = FeeCategory(name=item["category"])
+            category = FeeCategory(
+                tenant_id=tenant_id,
+                name=item["category"],
+            )
             db.session.add(category)
             db.session.flush()
 
         structure = FeeStructure(
+            tenant_id=tenant_id,
             fee_category_id=category.id,
             class_id=class_id,
             academic_year=academic_year,
@@ -440,7 +441,7 @@ def _persist_fee_structure_group(data, existing_rows=None):
 
     db.session.commit()
 
-    categories = FeeCategory.query.all()
+    categories = scoped_fee_categories().all()
     category_by_id = {c.id: c.name for c in categories}
     return True, _serialize_fee_template_group(created, category_by_id)
 
@@ -465,7 +466,7 @@ def get_fee_structure_groups():
             query = query.filter(FeeStructure.class_id == class_id)
 
         rows = query.order_by(FeeStructure.id.desc()).all()
-        categories = FeeCategory.query.all()
+        categories = scoped_fee_categories().all()
         category_by_id = {c.id: c.name for c in categories}
 
         grouped = {}

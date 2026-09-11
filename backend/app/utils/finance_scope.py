@@ -1,10 +1,10 @@
-﻿import uuid
+import uuid
 
 from flask import g, has_app_context
-from sqlalchemy import false
+from sqlalchemy import false, or_
 
 from app.models.class_ import Class
-from app.models.finance import FeeStructure, Payment, StudentFee
+from app.models.finance import FeeCategory, FeeDiscount, FeeStructure, Payment, StudentFee
 from app.models.student import Student
 
 
@@ -136,6 +136,47 @@ def scoped_classes(
     return query
 
 
+
+def scoped_fee_categories(
+    query=None,
+    *,
+    tenant_id=None,
+):
+    """
+    Strict tenant boundary for FeeCategory.
+
+    Fee categories are tenant-owned definitions. Category ownership must
+    never be inferred from name, branch, user role, or request payload.
+    """
+    query = query if query is not None else FeeCategory.query
+    tenant_id, _ = _resolve_scope(tenant_id, None)
+
+    if tenant_id is None:
+        return query.filter(false())
+
+    return query.filter(FeeCategory.tenant_id == tenant_id)
+
+
+
+def scoped_fee_discounts(
+    query=None,
+    *,
+    tenant_id=None,
+):
+    """
+    Strict tenant boundary for FeeDiscount.
+    """
+    query = query if query is not None else FeeDiscount.query
+    tenant_id, _ = _resolve_scope(tenant_id, None)
+
+    if tenant_id is None:
+        return query.filter(false())
+
+    return query.filter(
+        FeeDiscount.tenant_id == tenant_id
+    )
+
+
 def scoped_fee_structures(
     query=None,
     *,
@@ -144,18 +185,24 @@ def scoped_fee_structures(
     include_branch=True,
 ):
     """
-    Temporary containment for FeeStructure.
+    Strict tenant boundary for FeeStructure.
 
-    FeeStructure currently has no tenant_id, therefore ownership is only
-    considered provable when the row points to a tenant-owned Class.
+    FeeStructure.tenant_id is the authoritative school owner.
 
-    class_id=NULL structures are deliberately excluded until the schema
-    gains explicit tenant ownership.
+    Class-bound templates additionally require their Class to belong to
+    the same tenant. When a branch context exists, class-bound templates
+    must belong to that branch.
+
+    class_id=NULL represents a tenant-wide "All Classes" template and is
+    valid because the template itself has explicit tenant ownership.
     """
     query = query if query is not None else FeeStructure.query
     tenant_id, branch_id = _resolve_scope(tenant_id, branch_id)
 
     query = query.join(
+        FeeCategory,
+        FeeCategory.id == FeeStructure.fee_category_id,
+    ).outerjoin(
         Class,
         Class.id == FeeStructure.class_id,
     )
@@ -163,9 +210,21 @@ def scoped_fee_structures(
     if tenant_id is None:
         return query.filter(false())
 
-    query = query.filter(Class.tenant_id == tenant_id)
+    query = query.filter(
+        FeeStructure.tenant_id == tenant_id,
+        FeeCategory.tenant_id == tenant_id,
+        or_(
+            FeeStructure.class_id.is_(None),
+            Class.tenant_id == tenant_id,
+        ),
+    )
 
     if include_branch and branch_id is not None:
-        query = query.filter(Class.branch_id == branch_id)
+        query = query.filter(
+            or_(
+                FeeStructure.class_id.is_(None),
+                Class.branch_id == branch_id,
+            )
+        )
 
     return query

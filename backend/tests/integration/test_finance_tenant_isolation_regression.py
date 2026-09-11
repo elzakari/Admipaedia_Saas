@@ -1,11 +1,12 @@
 """
 P0 finance tenant-isolation regression tests.
 
-Finance models that do not yet carry tenant_id must prove ownership
-through an authoritative tenant-owned parent model.
+Finance definition models use explicit tenant ownership.
+StudentFee and Payment ownership remains authoritative through Student.
 
-These tests intentionally preserve fail-closed containment until the
-durable finance schema gains explicit tenant ownership.
+These tests prove that tenant-owned finance definitions cannot cross
+school boundaries and that tenant-wide All Classes templates remain
+isolated to their owner tenant.
 """
 
 import uuid
@@ -17,6 +18,7 @@ from flask_jwt_extended import create_access_token
 from app.models.class_ import Class
 from app.models.finance import (
     FeeCategory,
+    FeeDiscount,
     FeeStructure,
     Payment,
     StudentFee,
@@ -24,7 +26,10 @@ from app.models.finance import (
 from app.models.student import Student
 from app.models.tenant import Branch, Tenant, TenantMembership
 from app.models.user import User
+from app.services.finance.service import FeeService
 from app.utils.finance_scope import (
+    scoped_fee_categories,
+    scoped_fee_discounts,
     scoped_fee_structures,
     scoped_payments,
     scoped_student_fees,
@@ -137,9 +142,20 @@ def _student(
     return student
 
 
-def _category(db_session, prefix):
+def _category(
+    db_session,
+    tenant,
+    prefix,
+    *,
+    name=None,
+):
     category = FeeCategory(
-        name=f"{prefix}-{uuid.uuid4().hex[:8]}",
+        tenant_id=tenant.id,
+        name=(
+            name
+            if name is not None
+            else f"{prefix}-{uuid.uuid4().hex[:8]}"
+        ),
         description="Finance tenant isolation regression",
         is_optional=False,
     )
@@ -150,12 +166,14 @@ def _category(db_session, prefix):
 
 def _structure(
     db_session,
+    tenant,
     category,
     *,
     class_id,
     amount=100,
 ):
     structure = FeeStructure(
+        tenant_id=tenant.id,
         fee_category_id=category.id,
         class_id=class_id,
         academic_year="2026-2027",
@@ -317,22 +335,26 @@ def test_scoped_fees_and_payments_reject_foreign_tenant(
 
     category_a = _category(
         db_session,
+        tenant_a,
         "Tuition-A",
     )
 
     category_b = _category(
         db_session,
+        tenant_b,
         "Tuition-B",
     )
 
     structure_a = _structure(
         db_session,
+        tenant_a,
         category_a,
         class_id=class_a.id,
     )
 
     structure_b = _structure(
         db_session,
+        tenant_b,
         category_b,
         class_id=class_b.id,
     )
@@ -420,7 +442,7 @@ def test_branch_scope_is_exact_and_can_be_intentionally_disabled(
         }
 
 
-def test_fee_structures_are_owned_through_class_and_classless_are_hidden(
+def test_fee_structures_use_explicit_tenant_ownership_and_classless_are_isolated(
     app,
     db_session,
 ):
@@ -448,33 +470,39 @@ def test_fee_structures_are_owned_through_class_and_classless_are_hidden(
 
     category_a = _category(
         db_session,
+        tenant_a,
         "StructureCategoryA",
     )
 
     category_b = _category(
         db_session,
+        tenant_b,
         "StructureCategoryB",
     )
 
     category_global = _category(
         db_session,
+        tenant_a,
         "Classless",
     )
 
     structure_a = _structure(
         db_session,
+        tenant_a,
         category_a,
         class_id=class_a.id,
     )
 
     structure_b = _structure(
         db_session,
+        tenant_b,
         category_b,
         class_id=class_b.id,
     )
 
     classless = _structure(
         db_session,
+        tenant_a,
         category_global,
         class_id=None,
     )
@@ -491,8 +519,21 @@ def test_fee_structures_are_owned_through_class_and_classless_are_hidden(
         assert structure_a.id in ids
         assert structure_b.id not in ids
 
-        # No authoritative tenant owner yet.
-        assert classless.id not in ids
+        # Explicit tenant ownership makes All Classes safe.
+        assert classless.id in ids
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_b.id
+        g.branch_id = None
+
+        tenant_b_ids = {
+            row.id
+            for row in scoped_fee_structures().all()
+        }
+
+        assert structure_b.id in tenant_b_ids
+        assert structure_a.id not in tenant_b_ids
+        assert classless.id not in tenant_b_ids
 
 
 def test_finance_scope_fails_closed_without_tenant_context(
@@ -519,11 +560,13 @@ def test_finance_scope_fails_closed_without_tenant_context(
 
     category = _category(
         db_session,
+        tenant,
         "ContextCategory",
     )
 
     structure = _structure(
         db_session,
+        tenant,
         category,
         class_id=class_.id,
     )
@@ -547,8 +590,242 @@ def test_finance_scope_fails_closed_without_tenant_context(
         assert scoped_students().count() == 0
         assert scoped_student_fees().count() == 0
         assert scoped_payments().count() == 0
+        assert scoped_fee_categories().count() == 0
         assert scoped_fee_structures().count() == 0
 
+
+
+
+def test_fee_discounts_are_isolated_by_tenant(
+    app,
+    db_session,
+):
+    tenant_a = _tenant(
+        db_session,
+        "DiscountA",
+    )
+    tenant_b = _tenant(
+        db_session,
+        "DiscountB",
+    )
+
+    category_a = _category(
+        db_session,
+        tenant_a,
+        "DiscountCategoryA",
+    )
+    category_b = _category(
+        db_session,
+        tenant_b,
+        "DiscountCategoryB",
+    )
+
+    discount_a = FeeDiscount(
+        tenant_id=tenant_a.id,
+        name="Scholarship",
+        discount_type="percentage",
+        value=10,
+        fee_category_id=category_a.id,
+        is_active=True,
+    )
+
+    discount_b = FeeDiscount(
+        tenant_id=tenant_b.id,
+        name="Scholarship",
+        discount_type="percentage",
+        value=15,
+        fee_category_id=category_b.id,
+        is_active=True,
+    )
+
+    db_session.add_all(
+        [
+            discount_a,
+            discount_b,
+        ]
+    )
+    db_session.flush()
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_a.id
+        g.branch_id = None
+
+        ids = {
+            row.id
+            for row in scoped_fee_discounts().all()
+        }
+
+        assert discount_a.id in ids
+        assert discount_b.id not in ids
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_b.id
+        g.branch_id = None
+
+        ids = {
+            row.id
+            for row in scoped_fee_discounts().all()
+        }
+
+        assert discount_b.id in ids
+        assert discount_a.id not in ids
+
+    with app.test_request_context("/"):
+        g.tenant_id = None
+        g.branch_id = None
+
+        assert scoped_fee_discounts().count() == 0
+
+def test_same_fee_category_name_isolated_per_tenant(
+    app,
+    db_session,
+):
+    tenant_a = _tenant(db_session, "CategoryA")
+    tenant_b = _tenant(db_session, "CategoryB")
+
+    category_a = _category(
+        db_session,
+        tenant_a,
+        "SharedA",
+        name="Tuition",
+    )
+
+    category_b = _category(
+        db_session,
+        tenant_b,
+        "SharedB",
+        name="Tuition",
+    )
+
+    assert category_a.id != category_b.id
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_a.id
+        g.branch_id = None
+
+        ids = {
+            row.id
+            for row in scoped_fee_categories().all()
+        }
+
+        assert category_a.id in ids
+        assert category_b.id not in ids
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_b.id
+        g.branch_id = None
+
+        ids = {
+            row.id
+            for row in scoped_fee_categories().all()
+        }
+
+        assert category_b.id in ids
+        assert category_a.id not in ids
+
+
+def test_fee_service_uses_server_tenant_and_rejects_foreign_owners(
+    app,
+    db_session,
+):
+    tenant_a = _tenant(db_session, "ServiceA")
+    tenant_b = _tenant(db_session, "ServiceB")
+
+    category_a = _category(
+        db_session,
+        tenant_a,
+        "ServiceCategoryA",
+    )
+
+    category_b = _category(
+        db_session,
+        tenant_b,
+        "ServiceCategoryB",
+    )
+
+    class_a = _class(
+        db_session,
+        tenant_a,
+        "ServiceClassA",
+    )
+
+    class_b = _class(
+        db_session,
+        tenant_b,
+        "ServiceClassB",
+    )
+
+    with app.test_request_context("/"):
+        g.tenant_id = tenant_a.id
+        g.branch_id = None
+
+        created, error = FeeService.create_fee_structure(
+            {
+                # Must never override server context.
+                "tenant_id": str(tenant_b.id),
+                "fee_category_id": category_a.id,
+                "class_id": None,
+                "academic_year": "2026-2027",
+                "term": "Term 1",
+                "amount": 250,
+                "currency": "GHS",
+            }
+        )
+
+        assert error is None
+        assert created is not None
+        assert created.tenant_id == tenant_a.id
+        assert created.class_id is None
+
+        foreign_category, error = (
+            FeeService.create_fee_structure(
+                {
+                    "fee_category_id": category_b.id,
+                    "class_id": None,
+                    "academic_year": "2026-2027",
+                    "term": "Term 1",
+                    "amount": 250,
+                    "currency": "GHS",
+                }
+            )
+        )
+
+        assert foreign_category is None
+        assert error == "Fee category not found"
+
+        foreign_class, error = (
+            FeeService.create_fee_structure(
+                {
+                    "fee_category_id": category_a.id,
+                    "class_id": class_b.id,
+                    "academic_year": "2026-2027",
+                    "term": "Term 1",
+                    "amount": 250,
+                    "currency": "GHS",
+                }
+            )
+        )
+
+        assert foreign_class is None
+        assert error == "Class not found"
+
+        same_tenant_class, error = (
+            FeeService.create_fee_structure(
+                {
+                    "fee_category_id": category_a.id,
+                    "class_id": class_a.id,
+                    "academic_year": "2026-2027",
+                    "term": "Term 2",
+                    "amount": 300,
+                    "currency": "GHS",
+                }
+            )
+        )
+
+        assert error is None
+        assert same_tenant_class is not None
+        assert same_tenant_class.tenant_id == tenant_a.id
+        assert same_tenant_class.class_id == class_a.id
 
 def test_global_admin_role_cannot_bypass_tenant_finance_role(
     client,

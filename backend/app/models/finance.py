@@ -16,13 +16,27 @@ class FeeCategory(db.Model):
     __tablename__ = "fee_categories"
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True)
+    tenant_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
+    )
+    name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     is_optional = db.Column(
         db.Boolean, default=False
     )  # e.g., Transport might be optional
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "tenant_id",
+            "name",
+            name="uq_fee_categories_tenant_name",
+        ),
+    )
 
     def __repr__(self):
         return f"<FeeCategory {self.name}>"
@@ -36,6 +50,12 @@ class FeeStructure(db.Model):
     __tablename__ = "fee_structures"
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
+    )
     fee_category_id = db.Column(
         db.Integer, db.ForeignKey("fee_categories.id"), nullable=False
     )
@@ -74,6 +94,12 @@ class FeeDiscount(db.Model):
     __tablename__ = "fee_discounts"
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("tenants.id"),
+        nullable=False,
+        index=True,
+    )
     name = db.Column(
         db.String(100), nullable=False
     )  # e.g., "Staff Child", "Scholarship"

@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 import structlog
+from flask import g, has_app_context
 from sqlalchemy import func, or_
 
 from app.extensions import db
@@ -12,6 +13,7 @@ from app.models.finance import (FeeCategory, FeeDiscount, FeeStructure,
                                 Payment, PaymentAllocation, StudentFee)
 from app.utils.finance_scope import (
     scoped_classes,
+    scoped_fee_categories,
     scoped_fee_structures,
     scoped_student_fees,
     scoped_students,
@@ -162,7 +164,10 @@ class FeeService:
         ).filter(
             FeeStructure.academic_year == academic_year,
             FeeStructure.term.in_(term_aliases),
-            FeeStructure.class_id == student.class_id,
+            or_(
+                FeeStructure.class_id.is_(None),
+                FeeStructure.class_id == student.class_id,
+            ),
         ).all()
         if not structures:
             return 0
@@ -173,39 +178,70 @@ class FeeService:
 
     @staticmethod
     def create_fee_structure(data):
-        """Create a new fee structure."""
+        """Create a tenant-owned fee structure."""
         try:
             data = dict(data or {})
-            class_id = data.get("class_id")
 
-            if class_id in (None, "", 0, "0"):
-                return (
-                    None,
-                    "All Classes fee templates are temporarily unavailable "
-                    "while tenant ownership is being upgraded.",
-                )
+            # Tenant ownership is server-derived only.
+            data.pop("tenant_id", None)
 
+            tenant_id = (
+                getattr(g, "tenant_id", None)
+                if has_app_context()
+                else None
+            )
+            if tenant_id is None:
+                return None, "Tenant context required"
+
+            category_id = data.get("fee_category_id")
             try:
-                class_id = int(class_id)
+                category_id = int(category_id)
             except (TypeError, ValueError):
-                return None, "Invalid class_id"
+                return None, "Invalid fee_category_id"
 
-            owned_class = (
-                scoped_classes()
-                .filter_by(id=class_id)
+            category = (
+                scoped_fee_categories()
+                .filter(FeeCategory.id == category_id)
                 .first()
             )
-            if not owned_class:
-                return None, "Class not found"
+            if not category:
+                return None, "Fee category not found"
 
-            data["class_id"] = class_id
+            data["fee_category_id"] = category.id
+
+            class_id = data.get("class_id")
+            if class_id in (None, "", 0, "0"):
+                data["class_id"] = None
+            else:
+                try:
+                    class_id = int(class_id)
+                except (TypeError, ValueError):
+                    return None, "Invalid class_id"
+
+                owned_class = (
+                    scoped_classes()
+                    .filter_by(id=class_id)
+                    .first()
+                )
+                if not owned_class:
+                    return None, "Class not found"
+
+                data["class_id"] = class_id
+
+            data["tenant_id"] = tenant_id
+
             structure = FeeStructure(**data)
             db.session.add(structure)
             db.session.commit()
+
             return structure, None
+
         except Exception as e:
             db.session.rollback()
-            logger.error("Error creating fee structure", error=str(e))
+            logger.error(
+                "Error creating fee structure",
+                error=str(e),
+            )
             return None, str(e)
 
     @staticmethod
