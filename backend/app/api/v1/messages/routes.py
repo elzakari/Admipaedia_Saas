@@ -31,8 +31,26 @@ message_update_schema = MessageUpdateSchema()
 def _message_tenant_ownership_required():
     """
     Message rows do not currently carry tenant ownership.
-    Fail closed rather than infer ownership from participant memberships.
+
+    Recipient discovery is safe to serve because it operates only on
+    tenant-owned identity/class records and is independently protected
+    by jwt_required + tenant_required.
+
+    All routes that read, create, update, delete, download from, or
+    otherwise depend on Message rows remain fail-closed.
     """
+    endpoint_leaf = (
+        request.endpoint.rsplit(".", 1)[-1]
+        if request.endpoint
+        else None
+    )
+
+    if (
+        request.method == "GET"
+        and endpoint_leaf == "get_recipients"
+    ):
+        return None
+
     return (
         jsonify(
             {
