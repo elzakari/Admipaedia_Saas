@@ -16,7 +16,9 @@ from app.models.teacher import Teacher
 from app.models.tenant import TenantMembership
 from app.models.user import User
 from app.utils.file_utils import FileUtils
+from app.utils.path_security import resolve_upload_path
 from app.utils.response import error_response
+from app.utils.tenant_context import tenant_required
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +38,43 @@ def _authorize_attachment_access(attachment, current_user_id):
         )
         return False
 
+    active_tenant_id = getattr(g, "tenant_id", None)
+    attachment_tenant_id = getattr(attachment, "tenant_id", None)
+
+    if (
+        not active_tenant_id
+        or not attachment_tenant_id
+        or str(active_tenant_id) != str(attachment_tenant_id)
+    ):
+        logger.warning(
+            "attachment_tenant_boundary_denied",
+            extra={
+                "attachment_id": getattr(attachment, "id", None),
+                "active_tenant_id": str(active_tenant_id) if active_tenant_id else None,
+                "attachment_tenant_id": (
+                    str(attachment_tenant_id) if attachment_tenant_id else None
+                ),
+            },
+        )
+        return False
+
+    current_user = User.query.get(current_user_id)
+    current_global_role = str(
+        getattr(current_user, "role", "") or ""
+    ).strip().lower()
+    if current_global_role in ("super_admin", "super_manager"):
+        return True
+
     if attachment.uploader_id == current_user_id:
         return True
 
-    if attachment.tenant_id:
-        membership = TenantMembership.query.filter_by(
-            user_id=current_user_id, tenant_id=attachment.tenant_id
-        ).first()
-        if membership and membership.role in (
-            "admin",
-            "school_admin",
-            "super_admin",
-            "super_manager",
-        ):
-            return True
+    membership = TenantMembership.query.filter_by(
+        user_id=current_user_id,
+        tenant_id=attachment_tenant_id,
+        status="active",
+    ).first()
+    if membership and membership.role in ("admin", "school_admin"):
+        return True
 
     entity_type = attachment.entity_type
     entity_id = attachment.entity_id
@@ -187,55 +212,21 @@ def _refresh_signed_url_via_adapter(storage_key, *, expires_in=3600):
 
 @attachments_bp.route("/signed-url", methods=["POST"])
 @jwt_required()
+@tenant_required
 def refresh_signed_url():
-    """Refresh a signed URL for a storage-managed file through the adapter.
-
-    Body: {"storage_key": "path/to/blob", "expires_in": 3600}
-
-    Never calls cloud SDKs directly — the StorageProvider adapter is the
-    sole integration surface.
-    """
-    current_user_id = int(get_jwt_identity())
-    payload = request.get_json(silent=True) or {}
-
-    storage_key = payload.get("storage_key")
-    if not storage_key or not isinstance(storage_key, str) or not storage_key.strip():
-        return error_response(message="storage_key is required", status_code=400)
-
-    attachment_id = payload.get("attachment_id")
-    if attachment_id:
-        att = Attachment.query.get(attachment_id)
-        if not att:
-            return error_response(message="Attachment not found", status_code=404)
-        if not _authorize_attachment_access(att, current_user_id):
-            return error_response(
-                message="You are not authorized to access this attachment",
-                status_code=403,
-            )
-
-    try:
-        expires_in = int(payload.get("expires_in", 3600))
-    except (TypeError, ValueError):
-        expires_in = 3600
-    expires_in = max(60, min(expires_in, 86400))
-
-    signed_url = _refresh_signed_url_via_adapter(storage_key, expires_in=expires_in)
-    if not signed_url:
-        return error_response(
-            message="Unable to generate signed URL for this resource",
-            status_code=500,
-        )
-
+    """Fail closed until generic Attachment rows have authoritative storage keys."""
     return (
         jsonify(
             {
-                "success": True,
-                "storage_key": storage_key,
-                "signed_url": signed_url,
-                "expires_in": expires_in,
+                "success": False,
+                "message": (
+                    "Generic attachment signed URLs are temporarily unavailable "
+                    "until storage ownership is bound to an authorized entity."
+                ),
+                "code": "ATTACHMENT_STORAGE_OWNERSHIP_REQUIRED",
             }
         ),
-        200,
+        503,
     )
 
 
@@ -309,6 +300,7 @@ def validate_upload_prospect():
 
 @attachments_bp.route("/<id>/download", methods=["GET"])
 @jwt_required()
+@tenant_required
 def download_attachment(id):
     current_user_id = int(get_jwt_identity())
 
@@ -379,8 +371,15 @@ def download_attachment(id):
                 200,
             )
 
-    full_path = os.path.join(current_app.root_path, attachment.file_path)
-    if not os.path.exists(full_path):
+    full_path = resolve_upload_path(current_app.root_path, attachment.file_path)
+    if not full_path or not os.path.isfile(full_path):
+        logger.warning(
+            "attachment_local_path_boundary_denied",
+            extra={
+                "attachment_id": getattr(attachment, "id", None),
+                "file_path": getattr(attachment, "file_path", None),
+            },
+        )
         return error_response(message="File not found on server", status_code=404)
 
     from flask import make_response

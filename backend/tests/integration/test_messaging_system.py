@@ -2163,7 +2163,7 @@ class TestADMIWorkflowAndRelationshipAudit:
     def test_message_cannot_save_to_non_existent_recipient_id(self, db_session):
         from app.services.message_service import MessageService
         
-        with pytest.raises(ValueError, match="does not exist|not found"):
+        with pytest.raises(RuntimeError, match="MESSAGE_TENANT_OWNERSHIP_REQUIRED"):
             MessageService.create_message({
                 'sender_id': 1,
                 'recipient_ref': 'user:999999',

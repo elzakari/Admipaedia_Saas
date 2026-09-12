@@ -43,6 +43,16 @@ _SCHOOL_FINANCE_PERMISSIONS = {
     "report.export",
 }
 
+# SECURITY BOUNDARY: keep this role read-only even if the global staff
+# template is expanded in the future.
+_SCHOOL_STAFF_READONLY_PERMISSIONS = {
+    "student.read",
+    "teacher.read",
+    "class.read",
+    "subject.read",
+    "attendance.read",
+}
+
 
 def _normalized_user_role(user: User) -> str:
     return str(getattr(user, "role", "") or "").strip().lower()
@@ -193,6 +203,9 @@ def get_request_effective_permissions(user: User) -> set:
 
     if "school_finance" in effective_roles:
         return set(_SCHOOL_FINANCE_PERMISSIONS)
+
+    if "school_staff_readonly" in effective_roles:
+        return set(_SCHOOL_STAFF_READONLY_PERMISSIONS)
 
     membership_role = next(iter(effective_roles))
 
