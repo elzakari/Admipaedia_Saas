@@ -16,6 +16,8 @@ from app.utils.auth_utils import admin_required, teacher_required
 from app.utils.rbac_decorators import require_permission, require_role
 from app.utils.tenant_context import tenant_required
 from app.utils.url_helpers import get_frontend_base_url
+from app.api.v1.attendance.routes import _authorize_student_attendance_report
+from app.services.attendance_service import AttendanceService
 
 # Initialize schemas
 student_schema = StudentSchema()
@@ -971,3 +973,160 @@ def serve_student_profile_picture(filename):
         if os.path.isfile(candidate):
             return send_from_directory(upload_dir, safe_name)
     return jsonify({"success": False, "error": "Profile picture not found"}), 404
+
+@students_bp.route(
+    "/<int:student_id>/attendance-report",
+    methods=["GET"],
+)
+@jwt_required()
+@tenant_required
+def get_student_attendance_report_compat(student_id):
+    """Historical student attendance-report compatibility endpoint."""
+    from datetime import datetime
+
+    (
+        _authorized_student,
+        authorization_error,
+        authorization_status,
+    ) = _authorize_student_attendance_report(
+        student_id
+    )
+
+    if authorization_error:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": authorization_error,
+                }
+            ),
+            authorization_status,
+        )
+
+    date_from_raw = request.args.get(
+        "date_from"
+    )
+    date_to_raw = request.args.get(
+        "date_to"
+    )
+
+    class_id = request.args.get(
+        "class_id",
+        type=int,
+    )
+
+    subject_id = request.args.get(
+        "subject_id",
+        type=int,
+    )
+
+    date_from = None
+    date_to = None
+
+    if date_from_raw:
+        try:
+            date_from = datetime.strptime(
+                date_from_raw,
+                "%Y-%m-%d",
+            ).date()
+        except ValueError:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": (
+                            "Invalid date_from format. "
+                            "Use YYYY-MM-DD"
+                        ),
+                    }
+                ),
+                400,
+            )
+
+    if date_to_raw:
+        try:
+            date_to = datetime.strptime(
+                date_to_raw,
+                "%Y-%m-%d",
+            ).date()
+        except ValueError:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": (
+                            "Invalid date_to format. "
+                            "Use YYYY-MM-DD"
+                        ),
+                    }
+                ),
+                400,
+            )
+
+    report, error = (
+        AttendanceService.get_student_attendance_report(
+            student_id,
+            date_from,
+            date_to,
+            class_id,
+            subject_id,
+            tenant_id=getattr(
+                g,
+                "tenant_id",
+                None,
+            ),
+            branch_id=getattr(
+                g,
+                "branch_id",
+                None,
+            ),
+        )
+    )
+
+    if error:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": error,
+                }
+            ),
+            400,
+        )
+
+    legacy_report = dict(
+        report or {}
+    )
+
+    summary = (
+        legacy_report.pop(
+            "summary",
+            {},
+        )
+        or {}
+    )
+
+    for key in (
+        "total_days",
+        "present_days",
+        "absent_days",
+        "late_days",
+        "excused_days",
+        "attendance_rate",
+    ):
+        legacy_report[key] = (
+            summary.get(
+                key,
+                0,
+            )
+        )
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "report": legacy_report,
+            }
+        ),
+        200,
+    )

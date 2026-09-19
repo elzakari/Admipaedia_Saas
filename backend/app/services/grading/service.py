@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 import structlog
 from sqlalchemy import func
 
@@ -12,63 +14,256 @@ logger = structlog.get_logger()
 
 class GradingService:
     @staticmethod
-    def enter_grade(data):
-        """Enter a grade for a single student assessment."""
+    def _prepare_grade_data(data):
+        """Validate and normalize an EnhancedGrade payload."""
+        if not isinstance(data, dict):
+            return None, "Grade payload must be an object"
+
+        payload = dict(data)
+
+        required_fields = [
+            "student_id",
+            "subject_id",
+            "class_id",
+            "grading_scheme_id",
+            "assessment_type_id",
+            "assessment_name",
+            "assessment_date",
+            "term",
+            "academic_year",
+            "raw_score",
+            "total_marks",
+        ]
+
+        missing = [
+            field
+            for field in required_fields
+            if payload.get(field) in (None, "")
+        ]
+
+        if missing:
+            return (
+                None,
+                f"Missing required fields: {', '.join(missing)}",
+            )
+
         try:
-            # Check if grade exists
+            raw_score = float(payload["raw_score"])
+            total_marks = float(payload["total_marks"])
+        except (TypeError, ValueError):
+            return None, "raw_score and total_marks must be numeric"
+
+        if total_marks <= 0:
+            return None, "total_marks must be greater than zero"
+
+        if raw_score < 0 or raw_score > total_marks:
+            return None, "raw_score must be between 0 and total_marks"
+
+        assessment_date = payload["assessment_date"]
+
+        if isinstance(assessment_date, datetime):
+            assessment_date = assessment_date.date()
+        elif isinstance(assessment_date, str):
+            try:
+                assessment_date = date.fromisoformat(
+                    assessment_date.strip()
+                )
+            except ValueError:
+                return (
+                    None,
+                    "assessment_date must be a valid ISO date "
+                    "in YYYY-MM-DD format",
+                )
+        elif not isinstance(assessment_date, date):
+            return (
+                None,
+                "assessment_date must be a valid date",
+            )
+
+        payload["assessment_date"] = assessment_date
+        payload["raw_score"] = raw_score
+        payload["total_marks"] = total_marks
+        payload["percentage"] = round(
+            (raw_score / total_marks) * 100,
+            2,
+        )
+
+        return payload, None
+
+    @staticmethod
+    def enter_grade(data, tenant_id, commit=True):
+        """Enter a grade for a single student assessment."""
+        if not tenant_id:
+            return None, "Tenant context is required"
+
+        try:
+            payload, error = GradingService._prepare_grade_data(data)
+            if error:
+                return None, error
+
+            # All resource identifiers originate from caller input.
+            # Establish their tenant ownership before touching an
+            # ownership-less EnhancedGrade row.
+            class_obj = Class.query.without_tenant_filter().filter_by(
+                id=payload["class_id"],
+                tenant_id=tenant_id,
+            ).first()
+
+            if not class_obj:
+                return None, "Class not found"
+
+            student = Student.query.without_tenant_filter().filter_by(
+                id=payload["student_id"],
+                tenant_id=tenant_id,
+                class_id=payload["class_id"],
+            ).first()
+
+            if not student:
+                return (
+                    None,
+                    "Student not found or does not belong to the specified class",
+                )
+
+            subject = Subject.query.without_tenant_filter().filter_by(
+                id=payload["subject_id"],
+                tenant_id=tenant_id,
+            ).first()
+
+            if not subject:
+                return None, "Subject not found"
+
+            # A grading scheme may belong to this tenant or may be an
+            # intentional system/global scheme (tenant_id IS NULL).
+            # A scheme belonging to any other tenant is never accepted.
+            scheme = GradingScheme.query.without_tenant_filter().filter(
+                GradingScheme.id == payload["grading_scheme_id"],
+                GradingScheme.is_active.is_(True),
+                (
+                    (GradingScheme.tenant_id == tenant_id)
+                    | GradingScheme.tenant_id.is_(None)
+                ),
+            ).first()
+
+            if not scheme:
+                return None, "Grading scheme not found"
+
             existing_grade = EnhancedGrade.query.filter_by(
-                student_id=data["student_id"],
-                subject_id=data["subject_id"],
-                class_id=data["class_id"],
-                assessment_type_id=data["assessment_type_id"],
-                term=data["term"],
-                academic_year=data["academic_year"],
-                assessment_name=data["assessment_name"],
+                student_id=payload["student_id"],
+                subject_id=payload["subject_id"],
+                class_id=payload["class_id"],
+                assessment_type_id=payload["assessment_type_id"],
+                term=payload["term"],
+                academic_year=payload["academic_year"],
+                assessment_name=payload["assessment_name"],
             ).first()
 
             if existing_grade:
-                # Update existing
-                for key, value in data.items():
+                for key, value in payload.items():
                     setattr(existing_grade, key, value)
                 grade = existing_grade
             else:
-                # Create new
-                grade = EnhancedGrade(**data)
+                grade = EnhancedGrade(**payload)
                 db.session.add(grade)
 
-            # Calculate grade symbol/points
-            # Need to fetch the grading scheme for this class/level
-            # For now, assuming grading_scheme_id is passed or derived
-            if grade.grading_scheme_id:
-                grade.calculate_grade()
+            # Rebind even existing rows to the already-authorized scheme.
+            grade.grading_scheme = scheme
+            grade.grading_scheme_id = scheme.id
 
-            db.session.commit()
+            grade.calculate_grade()
+
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+
             return grade, None
-        except Exception as e:
+
+        except Exception as exc:
             db.session.rollback()
-            logger.error("Error entering grade", error=str(e))
-            return None, str(e)
+            logger.error(
+                "Error entering grade",
+                error=str(exc),
+            )
+            return None, str(exc)
 
     @staticmethod
-    def bulk_enter_grades(grades_data):
-        """Bulk enter grades for a class."""
+    def bulk_enter_grades(grades_data, tenant_id):
+        """
+        Enter a batch atomically inside one explicit tenant.
+
+        A batch must not report success when one or more rows failed.
+        """
+        if not tenant_id:
+            return None, "Tenant context is required"
+
+        if not isinstance(grades_data, list) or not grades_data:
+            return None, "grades_data must be a non-empty list"
+
         try:
             results = []
-            for grade_data in grades_data:
-                grade, error = GradingService.enter_grade(grade_data)
+
+            for index, grade_data in enumerate(grades_data, start=1):
+                grade, error = GradingService.enter_grade(
+                    grade_data,
+                    tenant_id=tenant_id,
+                    commit=False,
+                )
+
                 if error:
+                    db.session.rollback()
                     logger.error(
-                        "Failed to enter grade in bulk", error=error, data=grade_data
+                        "Bulk grade entry failed",
+                        item=index,
+                        error=error,
                     )
-                else:
-                    results.append(grade)
+                    return (
+                        None,
+                        f"Bulk grade entry failed at item "
+                        f"{index}: {error}",
+                    )
+
+                results.append(grade)
+
+            db.session.commit()
             return results, None
-        except Exception as e:
-            return None, str(e)
+
+        except Exception as exc:
+            db.session.rollback()
+            logger.error(
+                "Bulk grade entry failed",
+                error=str(exc),
+            )
+            return None, str(exc)
+
 
     @staticmethod
-    def get_gradebook(class_id, subject_id, term, academic_year):
-        """Fetch the gradebook for a specific class and subject."""
+    def get_gradebook(
+        class_id,
+        subject_id,
+        term,
+        academic_year,
+        tenant_id,
+    ):
+        """Fetch a tenant-scoped gradebook for one class and subject."""
+        if not tenant_id:
+            return None, "Tenant context is required"
+
+        class_obj = Class.query.without_tenant_filter().filter_by(
+            id=class_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not class_obj:
+            return None, "Class not found"
+
+        subject_obj = Subject.query.without_tenant_filter().filter_by(
+            id=subject_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not subject_obj:
+            return None, "Subject not found"
+
         grades = EnhancedGrade.query.filter_by(
             class_id=class_id,
             subject_id=subject_id,
@@ -76,27 +271,63 @@ class GradingService:
             academic_year=academic_year,
         ).all()
 
-        # Structure for frontend: keyed by a stable assessment identity so
-        # duplicate names across categories can still round-trip correctly.
+        # EnhancedGrade has no tenant_id. Resolve all referenced students
+        # through tenant + class ownership before exposing any grade row.
+        student_ids = {
+            grade.student_id
+            for grade in grades
+        }
+
+        students = (
+            Student.query.without_tenant_filter().filter(
+                Student.id.in_(student_ids),
+                Student.tenant_id == tenant_id,
+                Student.class_id == class_id,
+            ).all()
+            if student_ids
+            else []
+        )
+
+        students_by_id = {
+            student.id: student
+            for student in students
+        }
+
+        # Structure for frontend: preserve the existing response shape and
+        # stable assessment identity.
         gradebook = {}
         assessments = {}
 
         for grade in grades:
+            student = students_by_id.get(grade.student_id)
+
+            # Fail closed for stale/corrupt cross-tenant references.
+            if not student:
+                continue
+
             if grade.student_id not in gradebook:
-                student = Student.query.get(grade.student_id)
                 gradebook[grade.student_id] = {
-                    "student_name": f"{student.first_name} {student.last_name}",
+                    "student_name": (
+                        f"{student.first_name} {student.last_name}"
+                    ),
                     "admission_number": student.admission_number,
                     "grades": {},
                 }
-            assessment_key = f"{grade.assessment_type_id}:{grade.assessment_name}"
+
+            assessment_key = (
+                f"{grade.assessment_type_id}:"
+                f"{grade.assessment_name}"
+            )
+
             assessments[assessment_key] = {
                 "assessment_key": assessment_key,
                 "assessment_name": grade.assessment_name,
                 "assessment_type_id": grade.assessment_type_id,
                 "total_marks": grade.total_marks,
                 "assessment_date": (
-                    grade.assessment_date.isoformat() if grade.assessment_date else None
+                    grade.assessment_date.isoformat()
+                    if grade.assessment_date
+                    else None
                 ),
             }
 
@@ -109,7 +340,9 @@ class GradingService:
                 "assessment_name": grade.assessment_name,
                 "assessment_type_id": grade.assessment_type_id,
                 "assessment_date": (
-                    grade.assessment_date.isoformat() if grade.assessment_date else None
+                    grade.assessment_date.isoformat()
+                    if grade.assessment_date
+                    else None
                 ),
             }
 
@@ -126,19 +359,41 @@ class GradingService:
         }, None
 
     @staticmethod
-    def calculate_final_grades(class_id, subject_id, term, academic_year):
+    def calculate_final_grades(
+        class_id,
+        subject_id,
+        term,
+        academic_year,
+        tenant_id,
+        computed_by,
+    ):
         """Compute final grades for a class/subject dynamically based on active categories."""
-        from flask import g
-
         from app.models.exam import Exam
         from app.models.grade import Grade
         from app.services.academic_configuration_service import \
             AcademicConfigurationService
 
-        tenant_id = getattr(g, "tenant_id", None)
         if not tenant_id:
-            cls_obj = Class.query.get(class_id)
-            tenant_id = cls_obj.tenant_id if cls_obj else None
+            return False, "Tenant context is required"
+
+        if not computed_by:
+            return False, "Authenticated grade computation actor is required"
+
+        class_obj = Class.query.without_tenant_filter().filter_by(
+            id=class_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not class_obj:
+            return False, "Class not found in tenant"
+
+        subject_obj = Subject.query.without_tenant_filter().filter_by(
+            id=subject_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not subject_obj:
+            return False, "Subject not found in tenant"
 
         config = AcademicConfigurationService.build_harmonized_config(tenant_id)
         assessment_types = config.get("assessmentTypes") or []
@@ -161,7 +416,10 @@ class GradingService:
             is_apc = True
 
         # Get all students in class
-        students = Student.query.filter_by(class_id=class_id).all()
+        students = Student.query.without_tenant_filter().filter_by(
+            class_id=class_id,
+            tenant_id=tenant_id,
+        ).all()
 
         for student in students:
             category_scores = {}
@@ -253,19 +511,41 @@ class GradingService:
                     final_percentage += category_avg * (weight / 100.0)
 
             # Create/Update FinalGrade
-            grading_scheme = GradingScheme.query.filter_by(
-                tenant_id=tenant_id, is_active=True, is_default=True
+            grading_scheme = GradingScheme.query.without_tenant_filter().filter_by(
+                tenant_id=tenant_id,
+                is_active=True,
+                is_default=True,
             ).first()
+
+            if not grading_scheme:
+                grading_scheme = GradingScheme.query.without_tenant_filter().filter_by(
+                    tenant_id=tenant_id,
+                    is_active=True,
+                ).first()
+
+            # Intentional system/global grading schemes are represented by
+            # tenant_id IS NULL. Never fall through to another tenant.
             if not grading_scheme:
                 grading_scheme = GradingScheme.query.filter_by(
-                    tenant_id=tenant_id, is_active=True
+                    tenant_id=None,
+                    is_active=True,
+                    is_default=True,
                 ).first()
+
             if not grading_scheme:
-                grading_scheme = GradingScheme.query.first()  # Fallback grading scheme
+                grading_scheme = GradingScheme.query.filter_by(
+                    tenant_id=None,
+                    is_active=True,
+                ).first()
+
+            if not grading_scheme:
+                db.session.rollback()
+                return False, "No active grading scheme is configured"
 
             final_grade = FinalGrade.query.filter_by(
                 student_id=student.id,
                 subject_id=subject_id,
+                class_id=class_id,
                 term=term,
                 academic_year=academic_year,
             ).first()
@@ -277,11 +557,16 @@ class GradingService:
                     student_id=student.id,
                     subject_id=subject_id,
                     class_id=class_id,
-                    grading_scheme_id=grading_scheme.id if grading_scheme else 1,
+                    grading_scheme_id=grading_scheme.id,
                     term=term,
                     academic_year=academic_year,
-                    computed_by=1,
+                    computed_by=computed_by,
                 )
+
+            # Rebind existing rows as well so stale or legacy foreign-key
+            # references cannot retain a grading scheme from another tenant.
+            final_grade.grading_scheme = grading_scheme
+            final_grade.grading_scheme_id = grading_scheme.id
 
             final_grade.final_percentage = final_percentage
             final_grade.class_score_average = final_percentage  # Map final percentage
@@ -319,29 +604,95 @@ class GradingService:
         return True, None
 
     @staticmethod
-    def generate_broadsheet(class_id, term, academic_year):
-        """Generate a broadsheet (pivot table) for the class."""
-        # Get all final grades
+    def generate_broadsheet(
+        class_id,
+        term,
+        academic_year,
+        tenant_id,
+    ):
+        """Generate a tenant-scoped broadsheet for the class."""
+        if not tenant_id:
+            return None, "Tenant context is required"
+
+        class_obj = Class.query.without_tenant_filter().filter_by(
+            id=class_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not class_obj:
+            return None, "Class not found"
+
         final_grades = FinalGrade.query.filter_by(
-            class_id=class_id, term=term, academic_year=academic_year
+            class_id=class_id,
+            term=term,
+            academic_year=academic_year,
         ).all()
 
-        # Pivot: Rows=Students, Cols=Subjects
+        student_ids = {
+            fg.student_id
+            for fg in final_grades
+        }
+
+        subject_ids = {
+            fg.subject_id
+            for fg in final_grades
+        }
+
+        students = (
+            Student.query.filter(
+                Student.id.in_(student_ids),
+                Student.tenant_id == tenant_id,
+                Student.class_id == class_id,
+            ).all()
+            if student_ids
+            else []
+        )
+
+        subjects_for_tenant = (
+            Subject.query.filter(
+                Subject.id.in_(subject_ids),
+                Subject.tenant_id == tenant_id,
+            ).all()
+            if subject_ids
+            else []
+        )
+
+        students_by_id = {
+            student.id: student
+            for student in students
+        }
+
+        subjects_by_id = {
+            subject.id: subject
+            for subject in subjects_for_tenant
+        }
+
+        # Preserve current API contract:
+        # Rows=Students, Columns=Subjects.
         broadsheet = {}
         subjects = set()
 
         for fg in final_grades:
+            student = students_by_id.get(fg.student_id)
+            subject = subjects_by_id.get(fg.subject_id)
+
+            # FinalGrade itself has no tenant_id. Both parent resources must
+            # independently resolve inside the authorized tenant.
+            if not student or not subject:
+                continue
+
             if fg.student_id not in broadsheet:
-                student = Student.query.get(fg.student_id)
                 broadsheet[fg.student_id] = {
                     "student_info": {
-                        "name": f"{student.first_name} {student.last_name}",
+                        "name": (
+                            f"{student.first_name} "
+                            f"{student.last_name}"
+                        ),
                         "admission_number": student.admission_number,
                     },
                     "results": {},
                 }
 
-            subject = Subject.query.get(fg.subject_id)
             subjects.add(subject.name)
 
             broadsheet[fg.student_id]["results"][subject.name] = {
@@ -350,4 +701,7 @@ class GradingService:
                 "position": fg.class_rank,
             }
 
-        return {"broadsheet": broadsheet, "subjects": sorted(list(subjects))}, None
+        return {
+            "broadsheet": broadsheet,
+            "subjects": sorted(list(subjects)),
+        }, None

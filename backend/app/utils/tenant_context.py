@@ -234,14 +234,54 @@ def resolve_branch_for_request(
     branch_id_val = request.headers.get("X-Branch-ID") or request.headers.get(
         "X-Branch-Id"
     )
-    requested_branch_id = _parse_uuid(branch_id_val.strip()) if branch_id_val else None
+    # R13H.6: explicit branch selection is authoritative.
+    # Never silently fall back when the caller supplied a branch header.
+    if branch_id_val:
+        requested_branch_id = _parse_uuid(branch_id_val.strip())
 
-    if requested_branch_id is not None:
+        if requested_branch_id is None:
+            return None
+
         branch = Branch.query.filter_by(
-            id=requested_branch_id, tenant_id=tenant_id
+            id=requested_branch_id,
+            tenant_id=tenant_id,
         ).first()
-        if branch:
-            return branch.id
+
+        if branch is None:
+            return None
+
+        if user:
+            # Do not use global User.role to establish tenant resource
+            # scope here. A tenant-bound Teacher or Student profile is
+            # sufficient to restrict explicit branch selection.
+            from app.models.teacher import Teacher
+            from app.models.student import Student
+
+            teacher_profile = Teacher.query.filter_by(
+                user_id=user.id,
+                tenant_id=tenant_id,
+            ).first()
+
+            if (
+                teacher_profile
+                and getattr(teacher_profile, "branch_id", None)
+                and teacher_profile.branch_id != branch.id
+            ):
+                return None
+
+            student_profile = Student.query.filter_by(
+                user_id=user.id,
+                tenant_id=tenant_id,
+            ).first()
+
+            if (
+                student_profile
+                and getattr(student_profile, "branch_id", None)
+                and student_profile.branch_id != branch.id
+            ):
+                return None
+
+        return branch.id
 
     if user:
         if user.role == "teacher":

@@ -2635,6 +2635,8 @@ from app.services.adapters.storage.factory import StorageProviderFactory
 from app.utils.file_utils import FileUtils
 from app.models.student import Student
 from app.utils.auth_utils import student_required as _student_required
+from app.api.v1.attendance.routes import _authorize_attendance_analytics
+from app.services.attendance_service import AttendanceService
 
 
 @classes_bp.route("/lessons/<int:lesson_id>/homework", methods=["POST"])
@@ -2848,3 +2850,54 @@ try:
 except Exception as _reg_err_p4:
     current_app.logger.warning(f"Could not register Phase 4 homework canonical routes: {_reg_err_p4}")
 
+
+
+@classes_bp.route(
+    "/<int:class_id>/attendance-summary",
+    methods=["GET"],
+)
+@jwt_required()
+@tenant_required
+def get_class_attendance_summary_compat(class_id):
+    """Historical compatibility endpoint for class attendance summary.
+
+    Authorization delegates to the certified attendance analytics policy.
+    Data generation uses a dedicated compatibility service so canonical
+    advanced analytics remains exact-branch and structurally unchanged.
+    """
+    from flask import g
+    from app.api.v1.attendance.routes import (
+        _authorize_attendance_analytics,
+    )
+    from app.services.attendance_service import AttendanceService
+
+    authorized, auth_response = _authorize_attendance_analytics(
+        class_id=class_id
+    )
+
+    if not authorized:
+        return auth_response
+
+    summary, error = (
+        AttendanceService.get_historical_class_attendance_summary(
+            class_id=class_id,
+            tenant_id=g.tenant_id,
+            branch_id=getattr(g, "branch_id", None),
+        )
+    )
+
+    if error:
+        status = 404 if "not found" in error.lower() else 400
+        return jsonify(
+            {
+                "success": False,
+                "message": error,
+            }
+        ), status
+
+    return jsonify(
+        {
+            "success": True,
+            "summary": summary,
+        }
+    ), 200

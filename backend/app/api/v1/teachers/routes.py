@@ -244,7 +244,33 @@ def create_teacher():
 def update_teacher(teacher_id):
     """Update an existing teacher."""
     try:
-        data = teacher_schema.load(request.json, partial=True)
+        payload = dict(request.json or {})
+
+        # Keep update semantics consistent with teacher creation.
+        # These are compatibility aliases only; the canonical model
+        # remains first_name/last_name/phone_number/joining_date/status.
+        if "is_active" in payload and "status" not in payload:
+            payload["status"] = (
+                "active" if bool(payload.pop("is_active")) else "inactive"
+            )
+
+        if "phone" in payload and "phone_number" not in payload:
+            payload["phone_number"] = payload.pop("phone")
+
+        if "name" in payload:
+            name = (payload.pop("name") or "").strip()
+            parts = name.split()
+
+            if parts:
+                payload["first_name"] = parts[0]
+                payload["last_name"] = (
+                    " ".join(parts[1:]) if len(parts) > 1 else parts[0]
+                )
+
+        if "hire_date" in payload and "joining_date" not in payload:
+            payload["joining_date"] = payload.pop("hire_date")
+
+        data = teacher_schema.load(payload, partial=True)
 
         teacher, error = TeacherService.update_teacher(
             teacher_id, data, tenant_id=getattr(g, "tenant_id", None)

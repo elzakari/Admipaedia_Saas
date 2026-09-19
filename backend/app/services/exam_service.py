@@ -37,6 +37,55 @@ def normalize_exam_datetime(value):
 
 class ExamService:
     @staticmethod
+    def _apply_exam_scope(query, tenant_id=None, branch_id=None):
+        """
+        Apply authoritative Exam ownership through its parent Class.
+
+        Exam intentionally has no tenant_id or branch_id columns.
+        Tenant/branch ownership is therefore inherited from Class.
+
+        Class.tenant_id is mandatory and must match exactly.
+        When an active branch is present, Class.branch_id must also
+        match exactly. No OR-NULL compatibility is admitted here.
+        """
+        if tenant_id is None:
+            return query.filter(db.false())
+
+        query = query.join(
+            Class,
+            Exam.class_id == Class.id,
+        ).filter(
+            Class.tenant_id == tenant_id,
+        )
+
+        if branch_id is not None:
+            query = query.filter(
+                Class.branch_id == branch_id,
+            )
+
+        return query
+
+    @staticmethod
+    def _get_scoped_exam(exam_id, tenant_id=None, branch_id=None):
+        from sqlalchemy.orm import joinedload
+
+        query = Exam.query.options(
+            joinedload(Exam.class_),
+            joinedload(Exam.subject),
+            joinedload(Exam.creator),
+        ).filter(
+            Exam.id == exam_id,
+        )
+
+        query = ExamService._apply_exam_scope(
+            query,
+            tenant_id=tenant_id,
+            branch_id=branch_id,
+        )
+
+        return query.first()
+
+    @staticmethod
     def _load_exam_model(exam_id):
         from sqlalchemy.orm import joinedload
 
@@ -55,18 +104,34 @@ class ExamService:
         status=None,
         tenant_id=None,
         branch_id=None,
+        allowed_class_ids=None,
     ):
-        """Get all exams with optional filtering."""
+        """Get all exams with optional filtering and resource scope."""
         from sqlalchemy.orm import joinedload
 
         query = Exam.query.options(
-            joinedload(Exam.class_), joinedload(Exam.subject), joinedload(Exam.creator)
+            joinedload(Exam.class_),
+            joinedload(Exam.subject),
+            joinedload(Exam.creator),
         )
 
-        if tenant_id is not None and hasattr(Exam, 'tenant_id'):
-            query = query.filter((Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None)))
-        if branch_id is not None and hasattr(Exam, 'branch_id'):
-            query = query.filter((Exam.branch_id == branch_id) | (Exam.branch_id.is_(None)))
+        query = ExamService._apply_exam_scope(
+            query,
+            tenant_id=tenant_id,
+            branch_id=branch_id,
+        )
+
+        # Apply caller-specific resource scope BEFORE pagination.
+        # This prevents both row disclosure and pagination metadata leaks.
+        if allowed_class_ids is not None:
+            allowed_class_ids = set(allowed_class_ids)
+
+            if not allowed_class_ids:
+                query = query.filter(db.false())
+            else:
+                query = query.filter(
+                    Exam.class_id.in_(allowed_class_ids)
+                )
 
         # Apply filters if provided
         if class_id:
@@ -91,24 +156,17 @@ class ExamService:
         """Get a specific exam by ID."""
         from flask import g
 
-        exam = ExamService._load_exam_model(exam_id)
-        if not exam:
-            return None
-
         current_tenant_id = getattr(g, "tenant_id", None)
         current_branch_id = getattr(g, "branch_id", None)
 
-        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
-            exam_tenant_id = getattr(exam, 'tenant_id', None)
-            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
-            if not tenant_ok:
-                return None
+        exam = ExamService._get_scoped_exam(
+            exam_id,
+            tenant_id=current_tenant_id,
+            branch_id=current_branch_id,
+        )
 
-        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
-            exam_branch_id = getattr(exam, 'branch_id', None)
-            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
-            if not branch_ok:
-                return None
+        if not exam:
+            return None
 
         cache_key = f"exam:dto:{exam_id}"
         cached_exam = cache_service.get(cache_key)
@@ -128,12 +186,32 @@ class ExamService:
             db.session.rollback()
         except Exception:
             pass
-        # Verify that class and subject exist
-        class_obj = Class.query.get(data["class_id"])
-        subject_obj = Subject.query.get(data["subject_id"])
+        current_tenant_id = getattr(g, "tenant_id", None)
+        current_branch_id = getattr(g, "branch_id", None)
+
+        if current_tenant_id is None:
+            return None, "Tenant context required"
+
+        class_query = Class.query.filter(
+            Class.id == data["class_id"],
+            Class.tenant_id == current_tenant_id,
+        )
+
+        if current_branch_id is not None:
+            class_query = class_query.filter(
+                Class.branch_id == current_branch_id,
+            )
+
+        class_obj = class_query.first()
 
         if not class_obj:
             return None, "Class not found"
+
+        subject_obj = Subject.query.filter(
+            Subject.id == data["subject_id"],
+            Subject.tenant_id == current_tenant_id,
+        ).first()
+
         if not subject_obj:
             return None, "Subject not found"
 
@@ -156,11 +234,6 @@ class ExamService:
             assessment_type=data.get("assessment_type"),
         )
 
-        if hasattr(Exam, 'tenant_id') and getattr(g, 'tenant_id', None):
-            exam.tenant_id = g.tenant_id
-        if hasattr(Exam, 'branch_id') and getattr(g, 'branch_id', None):
-            exam.branch_id = g.branch_id
-
         try:
             db.session.add(exam)
             db.session.commit()
@@ -175,25 +248,17 @@ class ExamService:
         """Update an existing exam."""
         from flask import g
 
-        exam = Exam.query.get(exam_id)
-
-        if not exam:
-            return None, "Exam not found"
-
         current_tenant_id = getattr(g, "tenant_id", None)
         current_branch_id = getattr(g, "branch_id", None)
 
-        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
-            exam_tenant_id = getattr(exam, 'tenant_id', None)
-            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
-            if not tenant_ok:
-                return None, "Exam not found"
+        exam = ExamService._get_scoped_exam(
+            exam_id,
+            tenant_id=current_tenant_id,
+            branch_id=current_branch_id,
+        )
 
-        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
-            exam_branch_id = getattr(exam, 'branch_id', None)
-            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
-            if not branch_ok:
-                return None, "Exam not found"
+        if not exam:
+            return None, "Exam not found"
 
         if exam.status == "completed":
             return None, "Cannot update a completed exam"
@@ -229,25 +294,17 @@ class ExamService:
         """Delete an exam."""
         from flask import g
 
-        exam = Exam.query.get(exam_id)
-
-        if not exam:
-            return False, "Exam not found"
-
         current_tenant_id = getattr(g, "tenant_id", None)
         current_branch_id = getattr(g, "branch_id", None)
 
-        if current_tenant_id is not None and hasattr(Exam, 'tenant_id'):
-            exam_tenant_id = getattr(exam, 'tenant_id', None)
-            tenant_ok = (exam_tenant_id == current_tenant_id) or (exam_tenant_id is None)
-            if not tenant_ok:
-                return False, "Exam not found"
+        exam = ExamService._get_scoped_exam(
+            exam_id,
+            tenant_id=current_tenant_id,
+            branch_id=current_branch_id,
+        )
 
-        if current_branch_id is not None and hasattr(Exam, 'branch_id'):
-            exam_branch_id = getattr(exam, 'branch_id', None)
-            branch_ok = (exam_branch_id == current_branch_id) or (exam_branch_id is None)
-            if not branch_ok:
-                return False, "Exam not found"
+        if not exam:
+            return False, "Exam not found"
 
         from app.models.grade import Grade
 
@@ -274,7 +331,13 @@ class ExamService:
             return False, str(e)
 
     @staticmethod
-    def get_upcoming_exams(class_id=None, days=7, tenant_id=None, branch_id=None):
+    def get_upcoming_exams(
+        class_id=None,
+        days=7,
+        tenant_id=None,
+        branch_id=None,
+        allowed_class_ids=None,
+    ):
         """Get upcoming exams within the specified number of days.
 
         Returns list of Exam ORM rows (NOT pre-dumped dicts) so route handlers
@@ -286,10 +349,20 @@ class ExamService:
 
         from sqlalchemy.orm import joinedload
 
-        cache_key = f"upcoming_exams:raw:t{tenant_id}:b{branch_id}:class_{class_id}:days_{days}"
-        try:
-            cached_rows = cache_service.get(cache_key)
-        except Exception:
+        # Caller-specific class scopes must never share the coarse
+        # tenant/branch/class cache entry. Bypass cache for scoped reads.
+        use_cache = allowed_class_ids is None
+        cache_key = (
+            f"upcoming_exams:raw:t{tenant_id}:b{branch_id}:"
+            f"class_{class_id}:days_{days}"
+        )
+
+        if use_cache:
+            try:
+                cached_rows = cache_service.get(cache_key)
+            except Exception:
+                cached_rows = None
+        else:
             cached_rows = None
 
         now = datetime.now()
@@ -299,14 +372,20 @@ class ExamService:
             joinedload(Exam.class_), joinedload(Exam.subject), joinedload(Exam.creator)
         )
 
-        if tenant_id is not None and hasattr(Exam, "tenant_id"):
-            query = query.filter(
-                (Exam.tenant_id == tenant_id) | (Exam.tenant_id.is_(None))
-            )
-        if branch_id is not None and hasattr(Exam, "branch_id"):
-            query = query.filter(
-                (Exam.branch_id == branch_id) | (Exam.branch_id.is_(None))
-            )
+        # Exam does not carry tenant/branch ownership directly.
+        # Class is the authoritative ownership-bearing parent.
+        #
+        # Join explicitly so tenant and branch isolation cannot be skipped
+        # merely because Exam itself has no tenant_id / branch_id columns.
+        from app.models.class_ import Class
+
+        query = query.join(Class, Exam.class_id == Class.id)
+
+        if tenant_id is not None:
+            query = query.filter(Class.tenant_id == tenant_id)
+
+        if branch_id is not None:
+            query = query.filter(Class.branch_id == branch_id)
 
         query = query.filter(
             and_(
@@ -315,6 +394,16 @@ class ExamService:
                 Exam.status == "scheduled",
             )
         )
+
+        if allowed_class_ids is not None:
+            allowed_class_ids = set(allowed_class_ids)
+
+            if not allowed_class_ids:
+                query = query.filter(db.false())
+            else:
+                query = query.filter(
+                    Exam.class_id.in_(allowed_class_ids)
+                )
 
         if class_id:
             query = query.filter(Exam.class_id == class_id)
@@ -325,10 +414,15 @@ class ExamService:
             exams = cached_rows
         else:
             exams = query.order_by(Exam.exam_date.asc()).all()
-            try:
-                cache_service.set(cache_key, exams, ttl=cache_service.SHORT_TTL)
-            except Exception:
-                pass
+            if use_cache:
+                try:
+                    cache_service.set(
+                        cache_key,
+                        exams,
+                        ttl=cache_service.SHORT_TTL,
+                    )
+                except Exception:
+                    pass
 
         return exams
 
@@ -351,34 +445,77 @@ class ExamService:
 
         return query.order_by(Exam.exam_date).all()
 
-    @staticmethod
-    def check_exam_conflicts(class_id, exam_date, duration, exam_id=None):
-        """Check for exam scheduling conflicts."""
-        from datetime import timedelta
+    def check_exam_conflicts(
+        class_id,
+        exam_date,
+        duration,
+        exclude_exam_id=None,
+        tenant_id=None,
+        branch_id=None,
+    ):
+        """
+        Return schedule conflicts only after proving the requested
+        Class belongs to the active tenant/branch.
 
-        exam_date = normalize_exam_datetime(exam_date)
-        if exam_date is None:
-            return []
+        Exam itself has no tenant ownership columns; Class is the
+        authoritative ownership anchor.
+        """
+        from flask import g
 
-        # Calculate end time
-        end_time = exam_date + timedelta(minutes=int(duration))
-
-        lookback = exam_date - timedelta(days=1)
-        query = Exam.query.filter(
-            Exam.class_id == class_id,
-            Exam.status != "cancelled",
-            Exam.exam_date <= end_time,
-            Exam.exam_date >= lookback,
+        tenant_id = (
+            tenant_id
+            if tenant_id is not None
+            else getattr(g, "tenant_id", None)
         )
 
-        if exam_id:
-            query = query.filter(Exam.id != exam_id)
+        branch_id = (
+            branch_id
+            if branch_id is not None
+            else getattr(g, "branch_id", None)
+        )
 
-        candidates = query.order_by(Exam.exam_date.asc()).all()
+        if tenant_id is None:
+            return []
+
+        class_query = Class.query.without_tenant_filter().filter(
+            Class.id == class_id,
+            Class.tenant_id == tenant_id,
+        )
+
+        if branch_id is not None:
+            class_query = class_query.filter(
+                Class.branch_id == branch_id
+            )
+
+        authorized_class = class_query.first()
+
+        if authorized_class is None:
+            return []
+
+        end_time = exam_date + timedelta(
+            minutes=duration
+        )
+
+        query = Exam.query.filter(
+            Exam.class_id == authorized_class.id,
+        )
+
+        if exclude_exam_id is not None:
+            query = query.filter(
+                Exam.id != exclude_exam_id
+            )
+
         conflicts = []
-        for exam in candidates:
-            existing_end = exam.exam_date + timedelta(minutes=int(exam.duration))
-            if exam.exam_date < end_time and existing_end > exam_date:
+
+        for exam in query.all():
+            exam_end = exam.exam_date + timedelta(
+                minutes=exam.duration
+            )
+
+            if (
+                exam.exam_date < end_time
+                and exam_end > exam_date
+            ):
                 conflicts.append(exam)
 
         return conflicts

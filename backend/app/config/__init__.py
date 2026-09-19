@@ -25,16 +25,6 @@ class BaseConfig:
     SQLALCHEMY_RECORD_QUERIES = True
     DATABASE_QUERY_TIMEOUT = 30
     SLOW_QUERY_THRESHOLD = 1.0
-    AUTO_CREATE_DB = os.environ.get("AUTO_CREATE_DB", "False").lower() in (
-        "true",
-        "yes",
-        "1",
-    )
-    INIT_DB_ON_START = os.environ.get("INIT_DB_ON_START", "False").lower() in (
-        "true",
-        "yes",
-        "1",
-    )
 
     # JWT Configuration
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-key-change-me")
@@ -106,9 +96,7 @@ class DevelopmentConfig(BaseConfig):
     TESTING = False
 
     # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/admipaedia"
-    )
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
 
     # Security (relaxed for development)
     WTF_CSRF_ENABLED = False
@@ -133,8 +121,6 @@ class DevelopmentConfig(BaseConfig):
         ]
     )
 
-    INIT_DB_ON_START = True
-    AUTO_CREATE_DB = True
 
 
 class ProductionConfig(BaseConfig):

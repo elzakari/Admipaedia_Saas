@@ -33,6 +33,27 @@ def _verify_academic_structure_enum(app, db):
     import sqlalchemy as sa
     from app.models.department import AcademicStructureType, ENUM_NAME
 
+    # This verification queries PostgreSQL system catalogs
+    # (pg_type / pg_enum), so it must never execute against
+    # SQLite or another non-PostgreSQL dialect.
+    try:
+        dialect_name = db.engine.dialect.name
+    except Exception as exc:
+        logger.warning(
+            "Startup guard: unable to determine database dialect; "
+            "skipping AcademicStructureType enum verification (%s).",
+            type(exc).__name__,
+        )
+        return
+
+    if dialect_name != "postgresql":
+        logger.debug(
+            "Startup guard: skipping AcademicStructureType PostgreSQL "
+            "enum verification for dialect '%s'.",
+            dialect_name,
+        )
+        return
+
     expected = sorted(e.value for e in AcademicStructureType)
     try:
         with db.engine.connect() as conn:
@@ -249,21 +270,5 @@ def create_app(config_name=None):
         # only raises if STRICT_STARTUP=1 env is set for CI/deploy preflight).
         _verify_academic_structure_enum(app, db)
 
-        is_production = (
-            app.config.get("ENV") == "production"
-            or os.environ.get("FLASK_ENV") == "production"
-        )
-        if not is_production:
-            # We strictly use Alembic migrations, so we disable db.create_all()
-            # if (app.config.get('AUTO_CREATE_DB') or app.config.get('INIT_DB_ON_START')) and not app.config.get('TESTING'):
-            #     db.create_all()
-
-            if app.config.get("INIT_DB_ON_START") and not app.config.get("TESTING"):
-                try:
-                    from app.db_init import init_db
-
-                    init_db()
-                except Exception:
-                    pass
 
     return app

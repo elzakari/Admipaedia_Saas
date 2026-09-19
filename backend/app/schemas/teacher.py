@@ -5,6 +5,7 @@ from marshmallow import (Schema, ValidationError, fields, pre_load, validate,
 
 
 class TeacherSchema(Schema):
+    phone = fields.Method("get_phone")
     """Schema for serializing and deserializing Teacher objects"""
 
     id = fields.Integer(dump_only=True)
@@ -40,8 +41,21 @@ class TeacherSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
-    # Computed fields
+    # Computed/public fields
     full_name = fields.String(dump_only=True)
+    email = fields.Method("get_email", dump_only=True)
+    name = fields.Method("get_name", dump_only=True)
+
+    def get_name(self, obj, **kwargs):
+        """Backward-compatible full teacher name."""
+        return getattr(obj, "full_name", None)
+
+    def get_email(self, obj, **kwargs):
+        """Expose the canonical email stored on the linked User."""
+        try:
+            return getattr(getattr(obj, "user", None), "email", None)
+        except Exception:
+            return None
 
     @validates("joining_date")
     def validate_joining_date(self, value, **kwargs):
@@ -55,6 +69,14 @@ class TeacherSchema(Schema):
         if "employee_id" in data and data["employee_id"] == "":
             data.pop("employee_id")
         return data
+
+    def get_phone(self, obj):
+        """
+        Backward-compatible API alias for phone_number.
+
+        phone_number remains the canonical model/schema field.
+        """
+        return getattr(obj, "phone_number", None)
 
 
 class TeacherListSchema(Schema):

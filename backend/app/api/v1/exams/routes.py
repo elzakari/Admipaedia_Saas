@@ -4,6 +4,8 @@ from datetime import datetime
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.models.parent import Parent
+from app.models.student import Student
 from app.models.user import User
 from app.schemas.exam import ExamCreateSchema, ExamSchema, ExamUpdateSchema
 from app.schemas.grade import GradeSchema
@@ -11,7 +13,11 @@ from app.services.enhanced_exam_service import EnhancedExamService
 from app.services.exam_service import ExamService, normalize_exam_datetime
 from app.services.grade_service import GradeService
 from app.services.identity_resolver import IdentityResolver
-from app.utils.rbac_decorators import require_permission, require_role
+from app.utils.rbac_decorators import (
+    get_request_effective_roles,
+    require_permission,
+    require_role,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,111 @@ exam_create_schema = ExamCreateSchema()
 exam_update_schema = ExamUpdateSchema()
 grade_schema = GradeSchema()
 grades_schema = GradeSchema(many=True)
+
+
+def _exam_allowed_class_ids(current_user):
+    """
+    Resolve caller-specific exam visibility for the active tenant/branch.
+
+    None means the caller is not class-projected by this helper and may rely
+    on the normal tenant/branch scope enforced by ExamService.
+
+    A set means every exam read must be restricted to those class IDs.
+    """
+    tenant_id = getattr(g, "tenant_id", None)
+    branch_id = getattr(g, "branch_id", None)
+    effective_roles = get_request_effective_roles(current_user)
+
+    # Explicit platform/admin authority remains tenant/branch scoped by
+    # ExamService but is not projected to individual classes here.
+    if effective_roles.intersection(
+        {"super_admin", "platform_admin", "admin", "school_admin"}
+    ):
+        return None
+
+    if "teacher" in effective_roles:
+        return set(
+            IdentityResolver.resolve_teacher_class_ids(current_user.id)
+        )
+
+    if "student" in effective_roles:
+        student_query = (
+            Student.query.without_tenant_filter()
+            .filter(
+                Student.user_id == current_user.id,
+                Student.tenant_id == tenant_id,
+            )
+        )
+
+        if branch_id is not None:
+            student_query = student_query.filter(
+                Student.branch_id == branch_id
+            )
+
+        student = student_query.first()
+
+        if not student or student.class_id is None:
+            return set()
+
+        return {student.class_id}
+
+    if "parent" in effective_roles:
+        parent = (
+            Parent.query.without_tenant_filter()
+            .filter(
+                Parent.user_id == current_user.id,
+                Parent.tenant_id == tenant_id,
+            )
+            .first()
+        )
+
+        if not parent:
+            return set()
+
+        student_query = (
+            Student.query.without_tenant_filter()
+            .filter(
+                Student.parent_id == parent.id,
+                Student.tenant_id == tenant_id,
+            )
+        )
+
+        if branch_id is not None:
+            student_query = student_query.filter(
+                Student.branch_id == branch_id
+            )
+
+        return {
+            class_id
+            for (class_id,) in student_query.with_entities(
+                Student.class_id
+            ).all()
+            if class_id is not None
+        }
+
+    # exam.read without a recognized resource-bearing role fails closed.
+    return set()
+
+
+def _exam_scope_denied_response():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": "Insufficient permissions for this class context",
+            }
+        ),
+        403,
+    )
+
+
+def _exam_is_authorized_for_user(exam, current_user):
+    allowed_class_ids = _exam_allowed_class_ids(current_user)
+
+    if allowed_class_ids is None:
+        return True
+
+    return exam.class_id in allowed_class_ids
 
 
 # Handle base preflight OPTIONS for /api/v1/exams
@@ -41,7 +152,7 @@ def handle_exams_options_slash():
 @exams_bp.route("", methods=["GET"])
 @exams_bp.route("/", methods=["GET"])
 @jwt_required()
-@require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("exam.read")
 def get_exams():
     """Get all exams with optional filtering and enhanced conflict detection."""
     try:
@@ -81,29 +192,24 @@ def get_exams():
         if not current_user:
             return jsonify({"success": False, "message": "User not found"}), 404
 
+        allowed_class_ids = _exam_allowed_class_ids(current_user)
+
         if (
-            current_user.role == "teacher"
+            allowed_class_ids is not None
             and class_id
-            and not IdentityResolver.can_user_access_class(current_user.id, class_id)
+            and class_id not in allowed_class_ids
         ):
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "message": "Insufficient permissions for this class context",
-                    }
-                ),
-                403,
-            )
+            return _exam_scope_denied_response()
 
         # Get paginated exams
         paginated_exams = ExamService.get_all_exams(
             page, per_page, class_id, subject_id, date_from, date_to, status,
             tenant_id=getattr(g, "tenant_id", None),
             branch_id=getattr(g, "branch_id", None),
+            allowed_class_ids=allowed_class_ids,
         )
 
-        # Serialize exams
+        # Resource scope is applied in SQL before pagination.
         exams_data = exams_schema.dump(paginated_exams.items)
 
         # Add conflict information if requested
@@ -161,6 +267,14 @@ def get_exam(exam_id):
         if not exam:
             return jsonify({"success": False, "message": "Exam not found"}), 404
 
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        if not _exam_is_authorized_for_user(exam, current_user):
+            return _exam_scope_denied_response()
+
         exam_data = exam_schema.dump(exam)
 
         # Add enhanced analytics if requested
@@ -191,7 +305,7 @@ def get_exam(exam_id):
 @exams_bp.route("", methods=["POST"])
 @exams_bp.route("/", methods=["POST"])
 @jwt_required()
-@require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("exam.create")
 def create_exam():
     """Create a new exam with conflict detection."""
     try:
@@ -213,21 +327,14 @@ def create_exam():
                 400,
             )
 
+        # R13E: mutation class scope follows tenant-effective roles.
+        # A misleading global User.role must not expand tenant teacher authority.
+        allowed_class_ids = _exam_allowed_class_ids(current_user)
         if (
-            current_user.role == "teacher"
-            and not IdentityResolver.can_user_access_class(
-                current_user.id, data["class_id"]
-            )
+            allowed_class_ids is not None
+            and data["class_id"] not in allowed_class_ids
         ):
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "message": "Insufficient permissions for this class context",
-                    }
-                ),
-                403,
-            )
+            return _exam_scope_denied_response()
 
         # Add created_by field
         data["created_by"] = current_user_id
@@ -268,7 +375,29 @@ def create_exam():
         exam, error = ExamService.create_exam(data)
 
         if error:
-            return jsonify({"success": False, "message": error}), 400
+            if error in {
+                "Class not found",
+                "Subject not found",
+            }:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": error,
+                        }
+                    ),
+                    404,
+                )
+
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": error,
+                    }
+                ),
+                400,
+            )
 
         exam_data = exam_schema.dump(exam)
 
@@ -308,7 +437,7 @@ def create_exam():
 
 @exams_bp.route("/<int:exam_id>", methods=["PUT"])
 @jwt_required()
-@require_permission("exam.manage")
+@require_permission("exam.update")
 def update_exam(exam_id):
     """Update an existing exam with conflict detection."""
     try:
@@ -323,39 +452,74 @@ def update_exam(exam_id):
                 400,
             )
 
+        # R13E: resolve the target through tenant/branch-safe service scope
+        # and authorize the caller before conflict analysis or mutation.
+        exam = ExamService.get_exam_by_id(exam_id)
+        if not exam:
+            return jsonify(
+                {"success": False, "message": "Exam not found"}
+            ), 404
+
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify(
+                {"success": False, "message": "User not found"}
+            ), 404
+
+        if not _exam_is_authorized_for_user(exam, current_user):
+            return _exam_scope_denied_response()
+
         # Check for conflicts if date/time is being updated
         check_conflicts = request.args.get("check_conflicts", "true").lower() == "true"
         if check_conflicts and ("exam_date" in data or "duration" in data):
-            exam = ExamService.get_exam_by_id(exam_id)
-            if exam:
-                exam_date = normalize_exam_datetime(
-                    data.get("exam_date", exam.exam_date)
-                )
-                duration = data.get("duration", exam.duration)
+            exam_date = normalize_exam_datetime(
+                data.get("exam_date", exam.exam_date)
+            )
+            duration = data.get("duration", exam.duration)
 
-                conflicts = EnhancedExamService.detect_exam_conflicts(
-                    exam.class_id, exam_date, duration, exam_id
-                )
+            conflicts = EnhancedExamService.detect_exam_conflicts(
+                exam.class_id, exam_date, duration, exam_id
+            )
 
-                # If critical conflicts exist, return warning
-                if conflicts["has_conflicts"] and conflicts["severity"] == "critical":
-                    return (
-                        jsonify(
-                            {
-                                "success": False,
-                                "message": "Critical scheduling conflicts detected",
-                                "conflicts": conflicts,
-                                "action_required": "resolve_conflicts",
-                            }
-                        ),
-                        409,
-                    )
+            # If critical conflicts exist, return warning
+            if conflicts["has_conflicts"] and conflicts["severity"] == "critical":
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Critical scheduling conflicts detected",
+                            "conflicts": conflicts,
+                            "action_required": "resolve_conflicts",
+                        }
+                    ),
+                    409,
+                )
 
         # Update exam
         exam, error = ExamService.update_exam(exam_id, data)
 
         if error:
-            return jsonify({"success": False, "message": error}), 400
+            if error == "Exam not found":
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": error,
+                        }
+                    ),
+                    404,
+                )
+
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": error,
+                    }
+                ),
+                400,
+            )
 
         exam_data = exam_schema.dump(exam)
 
@@ -389,6 +553,7 @@ def update_exam(exam_id):
 
 @exams_bp.route("/<int:exam_id>", methods=["DELETE"])
 @jwt_required()
+@require_permission("exam.delete")
 def delete_exam(exam_id):
     """Delete an exam."""
     try:
@@ -398,7 +563,26 @@ def delete_exam(exam_id):
         success, error = ExamService.delete_exam(exam_id, force=force)
 
         if not success:
-            return jsonify({"success": False, "message": error}), 400
+            if error == "Exam not found":
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": error,
+                        }
+                    ),
+                    404,
+                )
+
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": error,
+                    }
+                ),
+                400,
+            )
 
         return jsonify({"success": True, "message": "Exam deleted successfully"}), 200
 
@@ -414,13 +598,34 @@ def delete_exam(exam_id):
 
 @exams_bp.route("/upcoming", methods=["GET"])
 @jwt_required()
+@require_permission("exam.read")
 def get_upcoming_exams():
     """Get upcoming exams within the specified number of days."""
     try:
         class_id = request.args.get("class_id", type=int)
         days = request.args.get("days", 7, type=int)
 
-        upcoming_exams = ExamService.get_upcoming_exams(class_id, days, tenant_id=getattr(g, "tenant_id", None), branch_id=getattr(g, "branch_id", None))
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        allowed_class_ids = _exam_allowed_class_ids(current_user)
+
+        if (
+            allowed_class_ids is not None
+            and class_id
+            and class_id not in allowed_class_ids
+        ):
+            return _exam_scope_denied_response()
+
+        upcoming_exams = ExamService.get_upcoming_exams(
+            class_id,
+            days,
+            tenant_id=getattr(g, "tenant_id", None),
+            branch_id=getattr(g, "branch_id", None),
+            allowed_class_ids=allowed_class_ids,
+        )
 
         return (
             jsonify({"success": True, "exams": exams_schema.dump(upcoming_exams)}),
@@ -456,18 +661,23 @@ def get_exam_grades(exam_id):
     if not current_user:
         return jsonify({"success": False, "message": "User not found"}), 404
 
-    if current_user.role == "teacher" and not IdentityResolver.can_user_access_class(
-        current_user.id, exam.class_id
-    ):
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "message": "Insufficient permissions for this class context",
-                }
-            ),
-            403,
+    effective_roles = get_request_effective_roles(current_user)
+
+    if "teacher" in effective_roles:
+        teacher_class_ids = set(
+            IdentityResolver.resolve_teacher_class_ids(current_user.id)
         )
+
+        if exam.class_id not in teacher_class_ids:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Insufficient permissions for this class context",
+                    }
+                ),
+                403,
+            )
 
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)
@@ -510,7 +720,15 @@ def get_exam_statistics(exam_id):
         if not exam:
             return jsonify({"success": False, "message": "Exam not found"}), 404
 
-        # Get enhanced analytics
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+        if not current_user:
+            return jsonify({"success": False, "message": "User not found"}), 404
+
+        if not _exam_is_authorized_for_user(exam, current_user):
+            return _exam_scope_denied_response()
+
+        # Get enhanced analytics only after resource authorization.
         analytics = EnhancedExamService.get_exam_analytics(exam_id)
 
         if "error" in analytics:

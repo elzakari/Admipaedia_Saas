@@ -258,6 +258,14 @@ class RBACService:
                     "category": "academic",
                 },
                 {
+                    "name": "attendance.delete",
+                    "display_name": "Delete Attendance",
+                    "description": "Delete an attendance record when correction by update is insufficient. Restricted to authorized administrative roles.",
+                    "resource_type": ResourceType.ATTENDANCE,
+                    "permission_type": PermissionType.DELETE,
+                    "category": "academic",
+                },
+                {
                     "name": "attendance.reports",
                     "display_name": "Generate Attendance Reports",
                     "resource_type": ResourceType.ATTENDANCE,
@@ -610,7 +618,7 @@ class RBACService:
                     "category": "finance",
                 },
                 {
-                    "name": "finance.collections",
+                    "name": "finance.collect",
                     "display_name": "Manage Fee Collections",
                     "description": "Record payments, send payment reminders, and view arrears collections workbench.",
                     "resource_type": ResourceType.FINANCE,
@@ -949,6 +957,27 @@ class RBACService:
                         "class.read",
                         "class.update",
                         "class.manage_students",
+                        "subject.create",
+                        "subject.read",
+                        "subject.update",
+                        "subject.delete",
+                        "subject.manage",
+                        "attendance.create",
+                        "attendance.read",
+                        "attendance.update",
+                        "attendance.delete",
+                        "attendance.reports",
+                        "attendance.approve",
+                        "grade.create",
+                        "grade.read",
+                        "grade.update",
+                        "grade.delete",
+                        "grade.approve",
+                        "exam.create",
+                        "exam.read",
+                        "exam.update",
+                        "exam.delete",
+                        "exam.manage",
                         "finance.read",
                         "finance.manage",
                         "report.generate",
@@ -1041,7 +1070,14 @@ class RBACService:
             ]
 
             for role_data in default_roles:
-                existing_role = RBACRole.query.filter_by(name=role_data["name"]).first()
+                existing_role = RBACRole.query.filter_by(
+                    name=role_data["name"]
+                ).first()
+
+                permissions = RBACPermission.query.filter(
+                    RBACPermission.name.in_(role_data["permissions"])
+                ).all()
+
                 if not existing_role:
                     role = RBACRole(
                         name=role_data["name"],
@@ -1053,14 +1089,24 @@ class RBACService:
                         is_system=True,
                         is_active=True,
                     )
-
-                    # Add permissions to role
-                    permissions = RBACPermission.query.filter(
-                        RBACPermission.name.in_(role_data["permissions"])
-                    ).all()
                     role.permissions.extend(permissions)
-
                     db.session.add(role)
+                    continue
+
+                # System defaults evolve over time. Add newly introduced
+                # permissions without removing existing/custom grants.
+                if existing_role.is_system:
+                    existing_permission_names = {
+                        permission.name
+                        for permission in existing_role.permissions
+                    }
+                    missing_permissions = [
+                        permission
+                        for permission in permissions
+                        if permission.name not in existing_permission_names
+                    ]
+                    if missing_permissions:
+                        existing_role.permissions.extend(missing_permissions)
 
             db.session.commit()
             logger.info("default_roles_initialized", count=len(default_roles))

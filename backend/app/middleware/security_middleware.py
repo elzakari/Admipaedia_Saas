@@ -352,18 +352,21 @@ def rate_limit(limit: int = 100, window: int = 3600, burst_limit: int = None):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            # In DEBUG/TESTING mode, skip rate limiting UNLESS it's currently mocked (i.e. unit tests testing rate limiting)
-            from unittest.mock import MagicMock, Mock
-
-            is_mocked = isinstance(rate_limiter, (Mock, MagicMock)) or isinstance(
-                rate_limiter.is_allowed, (Mock, MagicMock)
-            )
-            if (
-                current_app.config.get("DEBUG") or current_app.config.get("TESTING")
-            ) and not is_mocked:
-                rate_limiter.requests.clear()
-                rate_limiter.blocked_ips.clear()
+            # Security controls must be disabled explicitly.
+            #
+            # TESTING or DEBUG alone must not bypass rate limiting,
+            # otherwise integration tests cannot exercise the real
+            # security control.
+            #
+            # Set RATE_LIMITING_ENABLED=False only when a test or
+            # environment intentionally disables this protection.
+            # Production remains enabled by default.
+            if current_app.config.get(
+                "RATE_LIMITING_ENABLED",
+                True,
+            ) is False:
                 return f(*args, **kwargs)
+
 
             # Get identifier (IP + user if authenticated)
             identifier = request.remote_addr
@@ -385,7 +388,10 @@ def rate_limit(limit: int = 100, window: int = 3600, burst_limit: int = None):
 
             # Check rate limit
             is_allowed, rate_info = rate_limiter.is_allowed(
-                identifier, limit, window, burst_limit or limit * 2
+                identifier,
+                limit,
+                window,
+                burst_limit,
             )
 
             if not is_allowed:

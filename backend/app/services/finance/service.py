@@ -256,7 +256,7 @@ class FeeService:
                 return None, "Fee structure not found"
 
             # Find eligible students
-            query = scoped_students().filter(Student.is_active == True)
+            query = scoped_students().filter(Student.status == "active")
             if structure.class_id:
                 query = query.filter_by(class_id=structure.class_id)
             # Add educational_level filter logic if needed

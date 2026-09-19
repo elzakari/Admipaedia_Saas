@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+from flask import g
 from sqlalchemy import and_, func, or_, text
 
 from app.extensions import db
@@ -30,6 +31,43 @@ class EnhancedExamService:
     def detect_exam_conflicts(
         class_id: int, exam_date: datetime, duration: int, exam_id: Optional[int] = None
     ) -> Dict[str, Any]:
+
+        # R13C tenant/branch ownership guard.
+        # Class is authoritative because Exam has no tenant_id.
+        from flask import g
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
+        if tenant_id is None:
+            return {
+                "has_conflicts": False,
+                "conflicts": [],
+                "teacher_conflicts": [],
+                "student_workload": {},
+                "recommendations": [],
+                "severity": "none",
+            }
+
+        class_query = Class.query.without_tenant_filter().filter(
+            Class.id == class_id,
+            Class.tenant_id == tenant_id,
+        )
+
+        if branch_id is not None:
+            class_query = class_query.filter(
+                Class.branch_id == branch_id
+            )
+
+        if class_query.first() is None:
+            return {
+                "has_conflicts": False,
+                "conflicts": [],
+                "teacher_conflicts": [],
+                "student_workload": {},
+                "recommendations": [],
+                "severity": "none",
+            }
+
         """
         Advanced conflict detection for exam scheduling
         Returns detailed conflict analysis including:
@@ -220,6 +258,34 @@ class EnhancedExamService:
 
     @staticmethod
     def get_exam_analytics(exam_id: int) -> Dict[str, Any]:
+
+        # R13C authorize Exam through its Class before analytics.
+        from flask import g
+        tenant_id = getattr(g, "tenant_id", None)
+        branch_id = getattr(g, "branch_id", None)
+
+        if tenant_id is None:
+            return None
+
+        authorized_exam_query = (
+            Exam.query
+            .join(Class, Exam.class_id == Class.id)
+            .filter(
+                Exam.id == exam_id,
+                Class.tenant_id == tenant_id,
+            )
+        )
+
+        if branch_id is not None:
+            authorized_exam_query = (
+                authorized_exam_query.filter(
+                    Class.branch_id == branch_id
+                )
+            )
+
+        if authorized_exam_query.first() is None:
+            return None
+
         """
         Get comprehensive analytics for an exam
         """
@@ -442,6 +508,28 @@ class EnhancedExamService:
         Get comprehensive exam schedule for a class with conflict analysis
         """
         try:
+            # R13F: validate class ownership before schedule analysis.
+            tenant_id = getattr(g, "tenant_id", None)
+            branch_id = getattr(g, "branch_id", None)
+
+            if tenant_id is None:
+                return {"error": "Tenant context required"}
+
+            class_query = Class.query.without_tenant_filter().filter(
+                Class.id == class_id,
+                Class.tenant_id == tenant_id,
+            )
+
+            if branch_id is not None:
+                class_query = class_query.filter(
+                    Class.branch_id == branch_id
+                )
+
+            class_obj = class_query.first()
+
+            if not class_obj:
+                return {"error": "Class not found"}
+
             query = Exam.query.filter_by(class_id=class_id)
 
             if date_from:
@@ -565,7 +653,18 @@ class EnhancedExamService:
             }
 
             # Get subject name
-            subject = Subject.query.get(subject_id)
+            tenant_id = getattr(g, "tenant_id", None)
+
+            subject = None
+            if tenant_id is not None:
+                subject = (
+                    Subject.query.without_tenant_filter()
+                    .filter(
+                        Subject.id == subject_id,
+                        Subject.tenant_id == tenant_id,
+                    )
+                    .first()
+                )
             subject_name = subject.name if subject else "default"
 
             # Find matching factor

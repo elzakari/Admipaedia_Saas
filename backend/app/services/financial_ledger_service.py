@@ -215,7 +215,7 @@ class FinancialLedgerService:
                 func.count(BillingInvoice.id),
                 func.sum(BillingInvoice.amount_paid),
                 func.sum(BillingInvoice.balance_due),
-            )
+            ).without_tenant_filter()
             .filter(BillingInvoice.tenant_id == t_id)
             .first()
         )
@@ -225,7 +225,7 @@ class FinancialLedgerService:
         saas_balance = Decimal(str(saas_stats[2] or "0.00"))
 
         next_due_invoice = (
-            BillingInvoice.query.filter(
+            db.session.query(BillingInvoice).without_tenant_filter().filter(
                 BillingInvoice.tenant_id == t_id, BillingInvoice.status == "pending"
             )
             .order_by(BillingInvoice.due_date.asc())
@@ -237,7 +237,7 @@ class FinancialLedgerService:
             else None
         )
 
-        active_sub = SchoolPlanSubscription.query.filter_by(
+        active_sub = db.session.query(SchoolPlanSubscription).filter_by(
             school_id=t_id, status="active"
         ).first()
         active_plan_name = (

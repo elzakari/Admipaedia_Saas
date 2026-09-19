@@ -157,7 +157,7 @@ def auth_headers(app):
 
     _db.session.flush()
 
-    token = create_access_token(identity=user.id)
+    token = _create_tracked_test_access_token(user.id)
 
     return {
         'Authorization': f'Bearer {token}'
@@ -273,32 +273,164 @@ def app_context(app):
         ctx.pop()
 
 @pytest.fixture(autouse=True)
-def db_isolation(app):
+def db_isolation(app, app_context, request):
     from app.extensions import db
 
     session = db.session
+    dialect = db.engine.dialect.name
 
-    # Roll back any dirty state so we start clean
+    def clear_sqlite_database():
+        """Delete all test rows while preserving the SQLite schema."""
+        session.rollback()
+        session.remove()
+
+        raw = db.engine.raw_connection()
+        cursor = raw.cursor()
+
+        try:
+            cursor.execute("PRAGMA foreign_keys=OFF")
+
+            # SQLAlchemy metadata can retain transient test Table objects
+            # after their physical SQLite tables have been dropped.
+            # Clean only tables that actually exist in this database.
+            cursor.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type='table'
+                  AND name NOT LIKE 'sqlite_%'
+                """
+            )
+            existing_sqlite_tables = {
+                row[0]
+                for row in cursor.fetchall()
+            }
+
+            seen = set()
+            for table in reversed(db.metadata.sorted_tables):
+                table_name = table.name
+                if table_name in seen:
+                    continue
+                seen.add(table_name)
+
+                if table_name not in existing_sqlite_tables:
+                    continue
+
+                quoted = table_name.replace('"', '""')
+                cursor.execute(f'DELETE FROM "{quoted}"')
+
+            # Reset AUTOINCREMENT counters when sqlite_sequence exists.
+            cursor.execute(
+                """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type='table' AND name='sqlite_sequence'
+                """
+            )
+            if cursor.fetchone():
+                cursor.execute("DELETE FROM sqlite_sequence")
+
+            raw.commit()
+        finally:
+            try:
+                cursor.execute("PRAGMA foreign_keys=ON")
+                raw.commit()
+            finally:
+                cursor.close()
+                raw.close()
+
+    # SQLite request handlers may use another scoped SQLAlchemy Session.
+    # An uncommitted outer transaction therefore hides fixture rows from
+    # those request-side queries. Use real commits on SQLite, then wipe all
+    # rows between tests for deterministic isolation.
+    if dialect == "sqlite":
+        clear_sqlite_database()
+
+        try:
+            yield
+        finally:
+            clear_sqlite_database()
+
+        return
+
+    # ----------------------------------------------------------
+    # PostgreSQL concurrency integration mode.
+    #
+    # Tests explicitly requesting the postgresql_real_commit fixture
+    # need committed setup rows to be visible to independent database
+    # connections/HTTP request contexts.
+    #
+    # This deliberately bypasses the normal savepoint commit shim ONLY
+    # for those opt-in tests.
+    # ----------------------------------------------------------
+    if "postgresql_real_commit" in request.fixturenames:
+        if dialect != "postgresql":
+            raise RuntimeError(
+                "postgresql_real_commit requires PostgreSQL"
+            )
+
+        from sqlalchemy import text as sa_text
+
+        def clear_postgresql_committed_test_data():
+            session.rollback()
+            session.remove()
+
+            tables = list(
+                db.metadata.sorted_tables
+            )
+
+            if not tables:
+                return
+
+            preparer = (
+                db.engine.dialect.identifier_preparer
+            )
+
+            table_sql = ", ".join(
+                preparer.format_table(table)
+                for table in tables
+            )
+
+            with db.engine.begin() as connection:
+                connection.execute(
+                    sa_text(
+                        "TRUNCATE TABLE "
+                        + table_sql
+                        + " RESTART IDENTITY CASCADE"
+                    )
+                )
+
+        # Start from a deterministic empty committed state.
+        clear_postgresql_committed_test_data()
+
+        try:
+            yield
+        finally:
+            # No worker transaction should survive test completion.
+            session.rollback()
+            session.remove()
+
+            # Real commits were intentionally permitted, so explicit
+            # cleanup replaces rollback-based test isolation.
+            clear_postgresql_committed_test_data()
+
+        return
+
+    # Non-SQLite databases keep transactional test isolation.
     session.rollback()
     savepoint = session.begin_nested()
-
-    # Replace commit: flush pending work into the savepoint then rotate
-    # to a new savepoint so subsequent queries see the data, but the
-    # outer transaction is never actually committed to disk.
     orig_commit = session.commit
 
     def commit_savepoint():
         nonlocal savepoint
-        try:
-            # Flush all pending ORM state into the current savepoint
-            session.flush()
-            # Release (commit) the current SAVEPOINT so its writes become
-            # visible within the outer transaction, then open a fresh one.
-            if savepoint.is_active:
-                savepoint.commit()
-        except Exception:
-            if savepoint.is_active:
-                savepoint.rollback()
+
+        # Surface the original flush error instead of poisoning the Session
+        # and replacing it with a later PendingRollbackError.
+        session.flush()
+
+        if savepoint.is_active:
+            savepoint.commit()
+
         savepoint = session.begin_nested()
 
     session.commit = commit_savepoint
@@ -307,10 +439,7 @@ def db_isolation(app):
         yield
     finally:
         session.commit = orig_commit
-        try:
-            session.rollback()
-        except Exception:
-            pass
+        session.rollback()
 
 @pytest.fixture
 def sample_tenant(db_session):
@@ -332,19 +461,43 @@ def admin_auth_headers(auth_headers):
     return auth_headers
 
 @pytest.fixture
-def admin_headers(auth_headers):
-    return auth_headers
+def admin_headers(auth_headers, db_session, sample_tenant, rbac_defaults):
+    from app.models.user import User
+    from tests.test_production_integration import create_test_membership
+
+    user = db_session.query(User).filter_by(
+        email='test@example.com'
+    ).one()
+
+    create_test_membership(
+        db_session,
+        sample_tenant.id,
+        user.id,
+        'school_admin',
+    )
+    db_session.commit()
+
+    headers = dict(auth_headers)
+    headers['X-Tenant-ID'] = str(sample_tenant.id)
+    return headers
 
 @pytest.fixture
 def teacher_headers(db_session, client, teacher_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     from tests.test_production_integration import create_test_membership
 
     teacher = teacher_factory(sample_tenant.id)
-    create_test_membership(db_session, sample_tenant.id, teacher.user_id, 'teacher')
+    create_test_membership(
+        db_session,
+        sample_tenant.id,
+        teacher.user_id,
+        'teacher',
+    )
     db_session.commit()
 
-    token = create_access_token(identity=teacher.user_id)
+    token = _create_tracked_test_access_token(
+        teacher.user_id,
+    )
+
     return {
         'Authorization': f'Bearer {token}',
         'X-Tenant-ID': str(sample_tenant.id),
@@ -445,3 +598,175 @@ def teacher_factory(db_session, user_factory, sample_tenant):
         return t
     return _create_teacher
 
+def _create_tracked_test_access_token(user_id):
+    """
+    Create an access JWT together with its canonical SessionToken.
+
+    Tests using protected endpoints must exercise the same
+    server-side token tracking contract as production.
+
+    This helper deliberately flushes rather than commits so the
+    surrounding pytest transaction/savepoint remains authoritative.
+    """
+    from datetime import datetime, timezone
+
+    from flask_jwt_extended import (
+        create_access_token,
+        decode_token,
+    )
+
+    from app.models.session_token import SessionToken
+
+    token = create_access_token(
+        identity=user_id
+    )
+
+    payload = decode_token(token)
+
+    jti = payload.get("jti")
+
+    if not jti:
+        raise RuntimeError(
+            "Generated access JWT does not contain a JTI."
+        )
+
+    token_type = (
+        payload.get("type")
+        or "access"
+    )
+
+    exp = payload.get("exp")
+    iat = payload.get("iat")
+
+    if exp is None:
+        raise RuntimeError(
+            "Generated access JWT does not contain exp."
+        )
+
+    def _from_timestamp(value):
+        if value is None:
+            return datetime.now(timezone.utc)
+
+        return datetime.fromtimestamp(
+            value,
+            tz=timezone.utc,
+        )
+
+    # Defensive idempotency helps fixtures that may share the same
+    # helper during setup without producing duplicate-JTI rows.
+    existing = SessionToken.find_by_jti(
+        str(jti)
+    )
+
+    if existing is None:
+        session_token = SessionToken(
+            jti=str(jti),
+            user_id=user_id,
+            token_type=str(token_type),
+            expires_at=_from_timestamp(exp),
+        )
+
+        # SessionToken has a custom constructor that deliberately
+        # exposes only its canonical creation fields. issued_at is
+        # still a mapped column, so set it after construction using
+        # the actual JWT claim to keep persisted state synchronized
+        # with the encoded token.
+        session_token.issued_at = _from_timestamp(iat)
+
+        _db.session.add(session_token)
+
+        # SQLite request handlers may execute through another scoped
+        # SQLAlchemy session. A flush is not sufficient to make the
+        # SessionToken visible to the JWT blocklist callback in that
+        # request-side session.
+        #
+        # SQLite tests already use real commits plus deterministic
+        # database cleanup between tests. PostgreSQL tests retain
+        # transactional/savepoint isolation and therefore flush only.
+        if _db.engine.dialect.name == "sqlite":
+            _db.session.commit()
+        else:
+            _db.session.flush()
+
+    return token
+
+@pytest.fixture
+def postgresql_real_commit():
+    """
+    Explicit opt-in signal for tests that require genuine committed
+    PostgreSQL transactions visible across independent connections.
+
+    Ordinary tests continue using db_isolation savepoints.
+    """
+    yield
+
+@pytest.fixture
+def rbac_defaults(db_session):
+    """Seed the current immutable RBAC templates for tenant-aware tests."""
+    from app.services.rbac_service import RBACService
+
+    assert RBACService.initialize_default_permissions() is True
+    assert RBACService.initialize_default_roles() is True
+
+
+@pytest.fixture(autouse=True)
+def reset_security_rate_limiter():
+    """
+    Reset the in-memory rate limiter before and after each test.
+
+    This isolates tests without disabling rate limiting itself.
+    """
+    from app.middleware.security_middleware import rate_limiter
+
+    rate_limiter.requests.clear()
+    rate_limiter.blocked_ips.clear()
+
+    yield
+
+    rate_limiter.requests.clear()
+    rate_limiter.blocked_ips.clear()
+
+
+@pytest.fixture
+def sample_branch(
+    db_session,
+    sample_tenant,
+):
+    """Active Main Campus branch for branch-scoped tests."""
+    from app.models.tenant import Branch
+
+    branch = Branch.query.filter_by(
+        tenant_id=sample_tenant.id,
+        name="Main Campus",
+    ).first()
+
+    if branch is None:
+        branch = Branch(
+            tenant_id=sample_tenant.id,
+            name="Main Campus",
+            code="MAIN",
+            is_active=True,
+        )
+        db_session.add(branch)
+    else:
+        branch.is_active = True
+
+    db_session.commit()
+    return branch
+
+
+@pytest.fixture
+def tenant_teacher(teacher_factory, sample_tenant):
+    """Single tenant teacher shared by auth and class fixtures."""
+    return teacher_factory(sample_tenant.id)
+
+
+@pytest.fixture
+def tracked_access_token_factory():
+    """
+    Canonical factory for access JWTs used by integration tests.
+
+    Every returned JWT has a matching SessionToken record and
+    therefore exercises the same revocation contract as production.
+    """
+    return _create_tracked_test_access_token

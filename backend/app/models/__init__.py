@@ -127,3 +127,6 @@ from app.models.timetable import Period, TimetableSlot
 from app.models.user import User
 from app.models.user_preferences import UserPreferences
 from app.models.user_profile import UserProfile
+
+# V27C authentication session architecture
+from app.models.auth_session import AuthSession, RefreshToken

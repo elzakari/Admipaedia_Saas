@@ -40,7 +40,11 @@ class TenantScopedQuery(_BaseQuery):
           * bootstrap / first-tenant creation flows
           * queries on global tables (Tenant, User, TenantMembership, Branch)
             that don't have a tenant_id column anyway (harmless but explicit is
-            clearer).
+            clearer)
+          * service-layer queries that already possess an authoritative tenant
+            identifier and immediately replace implicit request scoping with an
+            explicit tenant_id predicate. Such queries must never remain
+            unscoped after this opt-out.
         """
         clone = self._clone()
         clone._tenant_scoped_skip = True
