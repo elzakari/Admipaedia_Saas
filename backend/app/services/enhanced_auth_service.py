@@ -152,12 +152,10 @@ class EnhancedAuthService:
             email = email.get("email") or email.get("username")
         identifier = str(email or "").strip().lower()
 
-        print(f"--- AUTH START: {identifier} ---")
         try:
             # Check account lockout
             is_locked, remaining_time = AccountSecurity.is_account_locked(identifier)
             if is_locked:
-                print(f"--- AUTH FAILED: ACCOUNT LOCKED ---")
                 return {
                     "success": False,
                     "error": "Account temporarily locked",
@@ -170,12 +168,8 @@ class EnhancedAuthService:
                 (db.func.lower(User.email) == identifier)
                 | (db.func.lower(User.username) == identifier)
             ).first()
-            print(
-                f"--- USER FOUND: {user}, hash={getattr(user, 'password_hash', None)} ---"
-            )
 
             if user and not user.password_hash:
-                print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")
                 return {
                     "success": False,
                     "error": "UNCLAIMED_PROFILE",
@@ -187,11 +181,9 @@ class EnhancedAuthService:
             user_agent = request.headers.get("User-Agent") if request else None
 
             # Check credentials
-            print(f"--- AUTH: CHECK PASSWORD ---")
             if not user or not user.check_password_hash(password):
                 # Record failed attempt
                 AccountSecurity.record_failed_login(identifier, ip_address, user_agent)
-                print(f"--- AUTH FAILED: INVALID CREDENTIALS ---")
                 cls._log_security_event(
                     "failed_login_attempt",
                     {
@@ -216,7 +208,6 @@ class EnhancedAuthService:
 
             # Structured guard: account awaiting school-side activation
             if user.status == "pending_activation":
-                print(f"--- AUTH FAILED: PENDING ACTIVATION ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {
@@ -231,13 +222,11 @@ class EnhancedAuthService:
             ) or (
                 not getattr(user, "email_verified", False) and user.status != "active"
             ):
-                print(f"--- AUTH FAILED: EMAIL NOT VERIFIED ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {"success": False, "error": "EMAIL_NOT_VERIFIED"}
 
             if user.status != "active":
-                print(f"--- AUTH FAILED: STATUS {user.status} ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {
@@ -459,7 +448,7 @@ class EnhancedAuthService:
             logger.error("Enhanced authentication error", error=str(e))
             return {"success": False, "error": f"Authentication failed: {str(e)}"}
         finally:
-            print(f"--- AUTH END ---")
+            pass
 
     @classmethod
     def setup_mfa(cls, user_id: int) -> Dict:

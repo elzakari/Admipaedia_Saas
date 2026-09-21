@@ -363,7 +363,7 @@ def login():
                 400,
             )
 
-        logger.info("login_attempt", email=email)
+        logger.info("login_attempt")
 
         result = EnhancedAuthService.authenticate_with_security(
             email=email,
@@ -372,7 +372,7 @@ def login():
             device_info=data.get("device_info"),
         )
 
-        logger.info("login_result", email=email, success=result.get("success", False))
+        logger.info("login_result", success=result.get("success", False))
 
         # Ensure status_code is a valid integer
         if result.get("success", False):
