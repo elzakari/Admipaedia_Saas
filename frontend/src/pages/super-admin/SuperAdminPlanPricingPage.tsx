@@ -572,8 +572,8 @@ export default function SuperAdminPlanPricingPage() {
                           {
                             validator(_, value) {
                               if (value !== null && value !== undefined && value !== '') {
-                                if (Number(value) < 0) {
-                                  return Promise.reject(new Error('Must be >= 0'));
+                                if (Number(value) <= 0) {
+                                  return Promise.reject(new Error('Price must be greater than 0'));
                                 }
                               }
                               return Promise.resolve();
@@ -582,7 +582,7 @@ export default function SuperAdminPlanPricingPage() {
                         ]}
                       >
                         <InputNumber
-                          min={0}
+                          min={0.01}
                           precision={2}
                           step={0.01}
                           style={{ width: '190px', borderRadius: '8px' }}
