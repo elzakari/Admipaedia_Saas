@@ -875,15 +875,24 @@ def school_list_plan_change_requests():
 def _resolve_academic_term_id(tenant_id, value) -> Optional[int]:
     if value is None:
         return None
-    # Try to parse as integer directly
-    try:
-        return int(float(str(value)))
-    except (ValueError, TypeError):
-        pass
 
-    # Try to find by name for the tenant
     from app.models.academic_term import AcademicTerm
 
+    # Try to parse as integer directly, but still confirm the term belongs
+    # to this tenant — a bare numeric ID must never be trusted as-is, or a
+    # caller could reference another tenant's academic term.
+    try:
+        parsed_id = int(float(str(value)))
+    except (ValueError, TypeError):
+        parsed_id = None
+
+    if parsed_id is not None:
+        term = AcademicTerm.query.filter_by(
+            id=parsed_id, tenant_id=tenant_id
+        ).first()
+        return int(term.id) if term else None
+
+    # Try to find by name for the tenant
     term = (
         AcademicTerm.query.filter_by(tenant_id=tenant_id)
         .filter(AcademicTerm.name.ilike(str(value).strip()))

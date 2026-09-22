@@ -73,9 +73,9 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const userRole = authorityRole || 'user';
 
   const brandTitle =
-    authorityRole === 'super_admin'
-      ? 'ADMIPEDIA'
-      : (current?.tenant?.slug?.toUpperCase() || current?.tenant?.name || 'ADMIPEDIA')
+    (authorityRole === 'super_admin' || authorityRole === 'super_manager')
+      ? 'ADMIPAEDIA'
+      : (current?.tenant?.slug?.toUpperCase() || current?.tenant?.name || 'ADMIPAEDIA')
 
   const brandLogoUrl = (authorityRole === 'super_admin' || authorityRole === 'super_manager') ? null : (current?.tenant?.logo_url || null)
 

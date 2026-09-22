@@ -132,7 +132,7 @@ def get_tenant_for_user(user_id: int, tenant_id):
     if not tenant:
         return None, None, "Tenant not found"
     membership = TenantMembership.query.filter_by(
-        user_id=int(user_id), tenant_id=tenant.id
+        user_id=int(user_id), tenant_id=tenant.id, status="active"
     ).first()
     return tenant, membership, None
 
