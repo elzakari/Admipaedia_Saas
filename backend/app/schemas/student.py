@@ -177,6 +177,11 @@ class StudentSchema(Schema):
     """Schema for serializing and deserializing Student objects"""
 
     id = fields.Integer(dump_only=True)
+    # Backward-compatible public student identifier.
+    # This is distinct from the database primary key `id`.
+    student_id = fields.String(
+        attribute="student_id_number", dump_only=True
+    )
     user_id = fields.Integer(required=True)
     admission_number = fields.String(
         validate=validate.Length(min=3, max=20), allow_none=True

@@ -85,6 +85,20 @@ def serialize_user(user):
 @security_headers()
 def get_users():
     """Get paginated list of users with filtering and search"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy user-management operation is temporarily "
+                    "unavailable while tenant scoping is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         # Query parameters
         page = request.args.get("page", 1, type=int)
@@ -161,6 +175,20 @@ def get_users():
 @security_headers()
 def get_user(user_id):
     """Get specific user by ID"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy user-management operation is temporarily "
+                    "unavailable while tenant scoping is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         user = User.query.get_or_404(user_id)
 
@@ -199,6 +227,20 @@ def get_user(user_id):
 @security_headers()
 def create_user():
     """Create a new user"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy user-management operation is temporarily "
+                    "unavailable while tenant scoping is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         schema = UserCreateSchema()
         data = schema.load(request.json)
@@ -307,6 +349,20 @@ def create_user():
 @security_headers()
 def update_user(user_id):
     """Update user information"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy user-management operation is temporarily "
+                    "unavailable while tenant scoping is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         user = User.query.get_or_404(user_id)
         schema = UserUpdateSchema()
@@ -492,6 +548,20 @@ def delete_user(user_id):
 @security_headers()
 def bulk_user_action():
     """Perform bulk actions on multiple users"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This user-management operation is temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         schema = BulkUserActionSchema()
         data = schema.load(request.json)
@@ -572,6 +642,20 @@ def bulk_user_action():
 @security_headers()
 def get_user_statistics():
     """Get user statistics for admin dashboard"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This user-management operation is temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         # Basic counts
         total_users = User.query.count()
@@ -631,6 +715,20 @@ def get_user_statistics():
 @security_headers()
 def admin_reset_password(user_id):
     """Admin reset user password"""
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This user-management operation is temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "TENANT_USER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     try:
         user = User.query.get_or_404(user_id)
         data = request.json

@@ -32,7 +32,13 @@ from app.models.grade import Grade
 from app.models.grading_system import GradingScheme, EnhancedGrade, FinalGrade
 from app.models.assessment_methods import AssessmentFramework, AssessmentTask, AssessmentSubmission
 from app.models.curriculum import Curriculum, CurriculumStandard
-from app.models.stem_curriculum import STEMAssessment, STEMAssessmentResult
+from app.models.stem_curriculum import (
+    LearningApproach,
+    STEMDomain,
+    STEMLearningModule,
+    STEMProject,
+    STEMSubject,
+)
 from app.models.educational_level import EducationalLevel
 
 
@@ -46,21 +52,24 @@ class TestExamManagement:
             'description': 'Mid-term examination for mathematics',
             'subject_id': test_subject.id,
             'class_id': test_class.id,
-            'exam_date': '2024-03-15',
-            'start_time': '09:00',
-            'duration_minutes': 120,
+            'exam_date': (
+                datetime.utcnow() + timedelta(days=7)
+            ).replace(
+                hour=9,
+                minute=0,
+                second=0,
+                microsecond=0,
+            ).isoformat(),
+            'duration': 120,
             'total_marks': 100,
-            'pass_marks': 40,
-            'exam_type': 'mid_term',
-            'term': 'Term 2',
-            'academic_year': '2023-2024'
+            'passing_marks': 40,
         }
         
         response = client.post('/api/v1/exams/', 
                              json=exam_data, 
                              headers=admin_headers)
         
-        assert response.status_code == 201
+        assert response.status_code == 201, response.get_json()
         data = response.get_json()
         assert data['success'] is True
         assert data['exam']['title'] == exam_data['title']
@@ -101,15 +110,17 @@ class TestExamManagement:
         assert 'statistics' in data
         stats = data['statistics']
         assert 'total_students' in stats
-        assert 'average_score' in stats
-        assert 'pass_rate' in stats
+        assert 'statistics' in stats
+        assert 'mean' in stats['statistics']
+        assert 'pass_rate' in stats['statistics']
+        assert 'grade_distribution' in stats
     
     def test_update_exam_success(self, client, admin_headers, test_exam):
         """Test successful exam update"""
         update_data = {
             'title': 'Updated Mathematics Exam',
-            'duration_minutes': 150,
-            'total_marks': 120
+            'duration': 150,
+            'total_marks': 120,
         }
         
         response = client.put(f'/api/v1/exams/{test_exam.id}', 
@@ -120,7 +131,7 @@ class TestExamManagement:
         data = response.get_json()
         assert data['success'] is True
         assert data['exam']['title'] == update_data['title']
-        assert data['exam']['duration_minutes'] == update_data['duration_minutes']
+        assert data['exam']['duration'] == update_data['duration']
     
     def test_delete_exam_success(self, client, admin_headers, test_exam):
         """Test successful exam deletion"""
@@ -140,92 +151,172 @@ class TestExamManagement:
 class TestGradingSystem:
     """Test grading system functionality"""
     
-    def test_create_enhanced_grade(self, client, teacher_headers, test_student, test_subject, test_class):
-        """Test creating enhanced grade with continuous assessment"""
-        grade_data = {
-            'student_id': test_student.id,
-            'subject_id': test_subject.id,
-            'class_id': test_class.id,
-            'assessment_name': 'Class Test 1',
-            'assessment_date': '2024-02-15',
-            'term': 'Term 2',
-            'academic_year': '2023-2024',
-            'raw_score': 85,
-            'total_marks': 100,
-            'assessment_type_id': 1
-        }
-        
-        response = client.post('/api/v1/grades/enhanced', 
-                             json=grade_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 201
-        data = response.get_json()
-        assert data['success'] is True
-        assert data['grade']['percentage'] == 85.0
-    
-    def test_calculate_final_grade(self, client, teacher_headers, test_student_with_grades):
-        """Test final grade calculation with weighted components"""
-        calculation_data = {
-            'student_id': test_student_with_grades.id,
-            'subject_id': 1,
-            'term': 'Term 2',
-            'academic_year': '2023-2024',
-            'external_exam_score': 78.5
-        }
-        
-        response = client.post('/api/v1/grades/calculate-final', 
-                             json=calculation_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data['success'] is True
-        assert 'final_grade' in data
-        assert data['final_grade']['final_percentage'] > 0
-    
-    def test_get_student_grade_report(self, client, teacher_headers, test_student_with_grades):
-        """Test retrieving comprehensive grade report for student"""
-        response = client.get(f'/api/v1/grades/student/{test_student_with_grades.id}/report?term=Term 2&academic_year=2023-2024', 
-                            headers=teacher_headers)
-        
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data['success'] is True
-        assert 'grade_report' in data
-        assert 'continuous_assessments' in data['grade_report']
-        assert 'final_grades' in data['grade_report']
-    
-    def test_bulk_grade_entry(self, client, teacher_headers, test_class_with_students):
-        """Test bulk grade entry for multiple students"""
-        bulk_grades = [
-            {
+    def test_create_enhanced_grade(
+        self,
+        client,
+        teacher_headers,
+        test_students,
+        test_subject,
+        test_class,
+        test_grading_scheme,
+    ):
+        """Test enhanced-grade creation using the current API."""
+        student = test_students[0]
+
+        response = client.post(
+            '/api/v1/enhanced-grading/create-grade',
+            json={
                 'student_id': student.id,
-                'raw_score': 80 + (i * 2),
-                'total_marks': 100
-            }
-            for i, student in enumerate(test_class_with_students.students[:5])
-        ]
-        
-        grade_data = {
-            'subject_id': 1,
-            'class_id': test_class_with_students.id,
-            'assessment_name': 'Bulk Test',
-            'assessment_date': '2024-02-20',
-            'term': 'Term 2',
-            'academic_year': '2023-2024',
-            'grades': bulk_grades
-        }
-        
-        response = client.post('/api/v1/grades/bulk-entry', 
-                             json=grade_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 201
+                'subject_id': test_subject.id,
+                'class_id': test_class.id,
+                'assessment_type_id': 1,
+                'grading_scheme_id': test_grading_scheme.id,
+                'assessment_name': 'Class Test 1',
+                'assessment_date': date.today().isoformat(),
+                'term': 'Term 2',
+                'academic_year': '2023-2024',
+                'raw_score': 85,
+                'total_marks': 100,
+            },
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 201, response.get_json()
         data = response.get_json()
         assert data['success'] is True
-        assert len(data['grades']) == 5
-    
+        assert data['data']['percentage'] == pytest.approx(85.0)
+
+    def test_calculate_final_grade(
+        self,
+        client,
+        teacher_headers,
+        admin_headers,
+        test_students,
+        test_subject,
+        test_class,
+        test_grading_scheme,
+    ):
+        """Test the current 40/60 enhanced final-grade workflow."""
+        student = test_students[0]
+
+        create_response = client.post(
+            '/api/v1/enhanced-grading/create-grade',
+            json={
+                'student_id': student.id,
+                'subject_id': test_subject.id,
+                'class_id': test_class.id,
+                'assessment_type_id': 1,
+                'grading_scheme_id': test_grading_scheme.id,
+                'assessment_name': 'Continuous Assessment',
+                'assessment_date': date.today().isoformat(),
+                'term': 'Term 2',
+                'academic_year': '2023-2024',
+                'raw_score': 85,
+                'total_marks': 100,
+            },
+            headers=teacher_headers,
+        )
+        assert create_response.status_code == 201, create_response.get_json()
+
+        # Teachers enter working assessment grades; final-grade
+        # calculation/approval requires the tenant approver role.
+        response = client.post(
+            '/api/v1/enhanced-grading/calculate-final-grade',
+            json={
+                'student_id': student.id,
+                'subject_id': test_subject.id,
+                'class_id': test_class.id,
+                'grading_scheme_id': test_grading_scheme.id,
+                'term': 'Term 2',
+                'academic_year': '2023-2024',
+                'external_exam_score': 78.5,
+            },
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['data']['class_score_average'] == pytest.approx(85.0)
+        assert data['data']['external_exam_score'] == pytest.approx(78.5)
+        assert data['data']['final_percentage'] == pytest.approx(81.1)
+
+    def test_get_student_performance_analytics(
+        self,
+        client,
+        teacher_headers,
+        test_students,
+        test_subject,
+        test_class,
+        test_grading_scheme,
+    ):
+        """Test current student performance analytics."""
+        student = test_students[0]
+
+        create_response = client.post(
+            '/api/v1/enhanced-grading/create-grade',
+            json={
+                'student_id': student.id,
+                'subject_id': test_subject.id,
+                'class_id': test_class.id,
+                'assessment_type_id': 1,
+                'grading_scheme_id': test_grading_scheme.id,
+                'assessment_name': 'Analytics Assessment',
+                'assessment_date': date.today().isoformat(),
+                'term': 'Term 2',
+                'academic_year': '2023-2024',
+                'raw_score': 88,
+                'total_marks': 100,
+            },
+            headers=teacher_headers,
+        )
+        assert create_response.status_code == 201, create_response.get_json()
+
+        response = client.get(
+            f'/api/v1/enhanced-grading/student-analytics/{student.id}'
+            '?term=Term%202&academic_year=2023-2024',
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
+        data = response.get_json()
+        assert data['success'] is True
+
+        analytics = data['data']
+        assert analytics['student_id'] == student.id
+        assert analytics['total_assessments'] == 1
+        assert analytics['average_percentage'] == pytest.approx(88.0)
+        assert test_subject.name in analytics['subject_performance']
+
+    def test_bulk_grade_entry(
+        self,
+        client,
+        teacher_headers,
+        test_exam,
+        test_students,
+    ):
+        """Test current exam-backed bulk grade entry."""
+        response = client.post(
+            '/api/v1/grades/bulk',
+            json={
+                'exam_id': test_exam.id,
+                'grades': [
+                    {
+                        'student_id': student.id,
+                        'marks_obtained': 80 + (index * 2),
+                        'remarks': 'Bulk grade test',
+                    }
+                    for index, student in enumerate(test_students)
+                ],
+            },
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['grades']) == len(test_students)
+
     def test_grade_analytics(self, client, teacher_headers, test_class_with_grades, test_subject):
         """Test grade analytics and statistics"""
         response = client.get(f'/api/v1/grades/analytics/class/{test_class_with_grades.id}?subject_id={test_subject.id}&term=Term 2', 
@@ -449,101 +540,207 @@ class TestAcademicAnalytics:
         assert 'competency_profile' in data
 
 
-class TestSTEMAssessments:
-    """Test STEM-specific assessment workflows"""
-    
-    def test_create_stem_assessment(self, client, teacher_headers, test_stem_module):
-        """Test creating STEM assessment"""
-        assessment_data = {
+@pytest.fixture
+def test_stem_module(
+    db_session,
+    test_subject,
+    test_educational_level,
+    tenant_teacher,
+):
+    """Create a valid tenant-owned STEM curriculum module."""
+    domain = STEMDomain(
+        name='Technology',
+        code='TECH',
+        description='Technology STEM domain',
+        is_active=True,
+    )
+    approach = LearningApproach(
+        name='Project Based Learning',
+        code='PBL',
+        description='Hands-on project learning',
+        is_active=True,
+    )
+
+    db_session.add_all([domain, approach])
+    db_session.flush()
+
+    stem_subject = STEMSubject(
+        subject_id=test_subject.id,
+        stem_domain_id=domain.id,
+        educational_level_id=test_educational_level.id,
+        integration_level='Intermediate',
+        practical_hours_per_week=3,
+        theory_hours_per_week=2,
+        is_active=True,
+    )
+    db_session.add(stem_subject)
+    db_session.flush()
+
+    module = STEMLearningModule(
+        stem_subject_id=stem_subject.id,
+        educational_level_id=test_educational_level.id,
+        title='Robotics Foundations',
+        description='Introduction to robotics and engineering design',
+        learning_objectives=[
+            'Apply engineering design principles',
+            'Build and test a simple robot',
+        ],
+        primary_approach_id=approach.id,
+        duration_weeks=4,
+        sequence_order=1,
+        term='Term 2',
+        formative_assessment_percentage=40.0,
+        summative_assessment_percentage=60.0,
+        is_active=True,
+        created_by=tenant_teacher.id,
+    )
+    db_session.add(module)
+    db_session.commit()
+    return module
+
+
+class TestSTEMCurriculum:
+    """Test the currently supported STEM curriculum API."""
+
+    def test_get_stem_subjects(
+        self,
+        client,
+        teacher_headers,
+        test_stem_module,
+        test_educational_level,
+        test_subject,
+    ):
+        """STEM subject lookup should return tenant-owned subject metadata."""
+        response = client.get(
+            f'/api/v1/stem/subjects/{test_educational_level.id}',
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['data']) == 1
+        assert data['data'][0]['subject_name'] == test_subject.name
+        assert data['data'][0]['stem_domain'] == 'Technology'
+
+    def test_create_stem_project(
+        self,
+        client,
+        teacher_headers,
+        test_stem_module,
+        tenant_teacher,
+    ):
+        """Create a STEM project using the current model-backed API contract."""
+        project_data = {
             'learning_module_id': test_stem_module.id,
-            'title': 'Robotics Project Assessment',
-            'description': 'Assessment for robotics project implementation',
-            'assessment_type': 'Project',
-            'scientific_method_weight': 25.0,
-            'technical_skills_weight': 30.0,
-            'innovation_creativity_weight': 25.0,
-            'communication_weight': 20.0,
-            'total_marks': 100.0,
-            'requires_presentation': True,
-            'requires_demonstration': True
+            'title': 'Robotics Design Challenge',
+            'description': 'Design and build a working classroom robot.',
+            'problem_statement': (
+                'Create a robot that can navigate a simple classroom course.'
+            ),
+            'duration_days': 14,
+            'difficulty_level': 'Intermediate',
+            'is_individual': False,
+            'is_group': True,
+            'max_group_size': 4,
+            'required_resources': [
+                'Microcontroller',
+                'Motors',
+                'Sensors',
+            ],
+            'expected_deliverables': [
+                'Working prototype',
+                'Technical report',
+            ],
+            'evaluation_criteria': [
+                'Functionality',
+                'Engineering process',
+                'Presentation',
+            ],
+            'sustainability_focus': True,
         }
-        
-        response = client.post('/api/v1/stem/assessments', 
-                             json=assessment_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 201
+
+        response = client.post(
+            '/api/v1/stem/projects',
+            json=project_data,
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 201, response.get_json()
         data = response.get_json()
         assert data['success'] is True
-        assert data['assessment']['title'] == assessment_data['title']
-    
-    def test_submit_stem_assessment_result(self, client, teacher_headers, test_stem_assessment, test_student):
-        """Test submitting STEM assessment results"""
-        result_data = {
-            'assessment_id': test_stem_assessment.id,
-            'student_id': test_student.id,
-            'scientific_method_score': 22.0,
-            'technical_skills_score': 27.0,
-            'innovation_creativity_score': 23.0,
-            'communication_score': 18.0,
-            'strengths': 'Strong technical implementation',
-            'areas_for_improvement': 'Communication could be clearer',
-            'competencies_demonstrated': [1, 2, 3]
-        }
-        
-        response = client.post('/api/v1/stem/assessment-results', 
-                             json=result_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 201
-        data = response.get_json()
-        assert data['success'] is True
-        assert data['result']['total_score'] == 90.0
+
+        project = STEMProject.query.get(data['data']['id'])
+        assert project is not None
+        assert project.learning_module_id == test_stem_module.id
+        assert project.title == project_data['title']
+        assert project.problem_statement == project_data['problem_statement']
+        assert project.duration_days == 14
+        assert project.created_by == tenant_teacher.id
 
 
 class TestAcademicIntegrationWorkflow:
     """Test end-to-end academic management workflows"""
     
-    def test_complete_assessment_workflow(self, client, admin_headers, teacher_headers, student_headers, test_class_with_students):
-        """Test complete assessment workflow from creation to grading"""
-        # Step 1: Create exam
+    def test_complete_assessment_workflow(
+        self,
+        client,
+        admin_headers,
+        teacher_headers,
+        student_headers,
+        test_class_with_students,
+        test_subject,
+    ):
+        """Test current exam creation, bulk grading, and statistics workflow."""
         exam_data = {
             'title': 'Integration Test Exam',
-            'subject_id': 1,
+            'subject_id': test_subject.id,
             'class_id': test_class_with_students.id,
-            'exam_date': '2024-03-20',
+            'exam_date': f"{(date.today() + timedelta(days=14)).isoformat()}T09:00:00",
+            'duration': 60,
             'total_marks': 100,
-            'pass_marks': 40
+            'passing_marks': 40,
         }
-        
-        exam_response = client.post('/api/v1/exams/', 
-                                  json=exam_data, 
-                                  headers=admin_headers)
-        assert exam_response.status_code == 201
+
+        exam_response = client.post(
+            '/api/v1/exams/',
+            json=exam_data,
+            headers=admin_headers,
+        )
+        assert exam_response.status_code == 201, exam_response.get_json()
         exam_id = exam_response.get_json()['exam']['id']
-        
-        # Step 2: Submit grades for students
-        for i, student in enumerate(test_class_with_students.students[:3]):
-            grade_data = {
-                'student_id': student.id,
+
+        students = test_class_with_students.students[:3]
+        grade_response = client.post(
+            '/api/v1/grades/bulk',
+            json={
                 'exam_id': exam_id,
-                'marks_obtained': 70 + (i * 5),
-                'percentage': 70 + (i * 5)
-            }
-            
-            grade_response = client.post('/api/v1/grades/', 
-                                       json=grade_data, 
-                                       headers=teacher_headers)
-            assert grade_response.status_code == 201
-        
-        # Step 3: Get exam statistics
-        stats_response = client.get(f'/api/v1/exams/{exam_id}/statistics', 
-                                  headers=teacher_headers)
-        assert stats_response.status_code == 200
+                'grades': [
+                    {
+                        'student_id': student.id,
+                        'marks_obtained': 70 + (index * 5),
+                    }
+                    for index, student in enumerate(students)
+                ],
+            },
+            headers=teacher_headers,
+        )
+
+        assert grade_response.status_code == 200, grade_response.get_json()
+        grade_payload = grade_response.get_json()
+        assert grade_payload['success'] is True
+        assert len(grade_payload['grades']) == 3
+
+        stats_response = client.get(
+            f'/api/v1/exams/{exam_id}/statistics',
+            headers=teacher_headers,
+        )
+        assert stats_response.status_code == 200, stats_response.get_json()
+
         stats = stats_response.get_json()['statistics']
         assert stats['total_students'] == 3
-        assert stats['average_score'] > 0
-    
+        assert stats['statistics']['mean'] > 0
+
     def test_curriculum_to_assessment_workflow(self, client, admin_headers, teacher_headers, test_educational_level, test_subject):
         """Test workflow from curriculum creation to assessment implementation"""
         # Step 1: Create curriculum
@@ -594,109 +791,171 @@ class TestAcademicErrorHandling:
     """Test error handling in academic management"""
     
     def test_create_exam_invalid_data(self, client, admin_headers):
-        """Test exam creation with invalid data"""
+        """Invalid exam payloads should return structured schema errors."""
         invalid_data = {
-            'title': '',  # Empty title
-            'exam_date': 'invalid-date',  # Invalid date format
-            'total_marks': -10  # Negative marks
+            'title': '',
+            'exam_date': 'invalid-date',
+            'total_marks': -10,
         }
-        
-        response = client.post('/api/v1/exams/', 
-                             json=invalid_data, 
-                             headers=admin_headers)
-        
+
+        response = client.post(
+            '/api/v1/exams/',
+            json=invalid_data,
+            headers=admin_headers,
+        )
+
         assert response.status_code == 400
         data = response.get_json()
         assert data['success'] is False
-        assert 'validation errors' in data['message'].lower()
-    
-    def test_grade_nonexistent_student(self, client, teacher_headers):
-        """Test grading non-existent student"""
-        grade_data = {
-            'student_id': 99999,  # Non-existent student
-            'exam_id': 1,
-            'marks_obtained': 85,
-            'percentage': 85
-        }
-        
-        response = client.post('/api/v1/grades/', 
-                             json=grade_data, 
-                             headers=teacher_headers)
-        
-        assert response.status_code == 404
-        data = response.get_json()
-        assert data['success'] is False
-        assert 'not found' in data['message'].lower()
-    
-    def test_unauthorized_access_to_grades(self, client, student_headers):
-        """Test unauthorized access to grade management"""
-        grade_data = {
-            'student_id': 1,
-            'exam_id': 1,
-            'marks_obtained': 85,
-            'percentage': 85
-        }
-        
-        response = client.post('/api/v1/grades/', 
-                             json=grade_data, 
-                             headers=student_headers)
-        
-        assert response.status_code == 403
-        data = response.get_json()
-        assert data['success'] is False
-        assert 'permission' in data['message'].lower()
+        assert data['message'] == 'Validation failed'
+        assert data['errors']
 
+    def test_grade_nonexistent_student(
+        self,
+        client,
+        teacher_headers,
+        test_class,
+        test_subject,
+    ):
+        """Grade entry must reject a nonexistent student explicitly."""
+        response = client.post(
+            '/api/v1/grades/entry',
+            json={
+                'student_id': 99999,
+                'subject_id': test_subject.id,
+                'class_id': test_class.id,
+                'assessment_type_id': 1,
+                'assessment_name': 'Invalid Student Test',
+                'assessment_date': date.today().isoformat(),
+                'term': 'Term 2',
+                'academic_year': '2023-2024',
+                'raw_score': 85,
+                'total_marks': 100,
+                'percentage': 85,
+            },
+            headers=teacher_headers,
+        )
+
+        assert response.status_code == 404, response.get_json()
+        data = response.get_json()
+        assert data['success'] is False
+        assert data['message'] == 'Student not found'
+
+    def test_unauthorized_access_to_grades(
+        self,
+        client,
+        student_headers,
+        test_class,
+    ):
+        """Students must not be permitted to manage grades."""
+        response = client.post(
+            '/api/v1/grades/entry',
+            json={
+                'student_id': 1,
+                'class_id': test_class.id,
+            },
+            headers=student_headers,
+        )
+
+        assert response.status_code == 403, response.get_json()
 
 class TestAcademicPerformance:
-    """Test performance aspects of academic management"""
-    
-    def test_bulk_grade_processing_performance(self, client, teacher_headers, test_large_class):
-        """Test performance of bulk grade processing"""
+    """Test performance aspects of academic management."""
+
+    def test_bulk_grade_processing_performance(
+        self,
+        client,
+        admin_headers,
+        test_large_class,
+        test_subject,
+    ):
+        """Test current exam-backed bulk grading for a large class."""
         import time
-        
-        # Create bulk grades for large class
-        bulk_grades = [
-            {
-                'student_id': student.id,
-                'raw_score': 75 + (i % 25),
-                'total_marks': 100
-            }
-            for i, student in enumerate(test_large_class.students)
-        ]
-        
-        grade_data = {
-            'subject_id': 1,
-            'class_id': test_large_class.id,
-            'assessment_name': 'Performance Test',
-            'grades': bulk_grades
+
+        students = list(test_large_class.students)
+        assert len(students) == 100
+
+        exam_response = client.post(
+            '/api/v1/exams/',
+            json={
+                'title': 'Large Class Performance Exam',
+                'subject_id': test_subject.id,
+                'class_id': test_large_class.id,
+                'exam_date': (
+                    datetime.utcnow() + timedelta(days=7)
+                ).replace(
+                    hour=9,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                ).isoformat(),
+                'duration': 90,
+                'total_marks': 100,
+                'passing_marks': 40,
+            },
+            headers=admin_headers,
+        )
+
+        assert exam_response.status_code == 201, exam_response.get_json()
+        exam_id = exam_response.get_json()['exam']['id']
+
+        grade_payload = {
+            'exam_id': exam_id,
+            'grades': [
+                {
+                    'student_id': student.id,
+                    'marks_obtained': 75 + (index % 25),
+                    'remarks': 'Performance test',
+                }
+                for index, student in enumerate(students)
+            ],
         }
-        
-        start_time = time.time()
-        response = client.post('/api/v1/grades/bulk-entry', 
-                             json=grade_data, 
-                             headers=teacher_headers)
-        end_time = time.time()
-        
-        assert response.status_code == 201
-        assert (end_time - start_time) < 5.0  # Should complete within 5 seconds
-    
-    def test_analytics_query_performance(self, client, admin_headers):
-        """Test performance of analytics queries"""
+
+        start_time = time.perf_counter()
+
+        response = client.post(
+            '/api/v1/grades/bulk',
+            json=grade_payload,
+            headers=admin_headers,
+        )
+
+        elapsed = time.perf_counter() - start_time
+
+        assert response.status_code == 200, response.get_json()
+        data = response.get_json()
+        assert data['success'] is True
+        assert len(data['grades']) == len(students)
+        assert elapsed < 5.0
+
+    def test_analytics_query_performance(
+        self,
+        client,
+        admin_headers,
+    ):
+        """Test performance of the current academic analytics summary."""
         import time
-        
-        start_time = time.time()
-        response = client.get('/api/v1/analytics/performance-summary?academic_year=2023-2024', 
-                            headers=admin_headers)
-        end_time = time.time()
-        
-        assert response.status_code == 200
-        assert (end_time - start_time) < 3.0  # Should complete within 3 seconds
+
+        start_time = time.perf_counter()
+
+        response = client.get(
+            '/api/v1/analytics/performance-summary'
+            '?academic_year=2023-2024',
+            headers=admin_headers,
+        )
+
+        elapsed = time.perf_counter() - start_time
+
+        assert response.status_code == 200, response.get_json()
+        assert elapsed < 3.0
 
 
-# Test Fixtures
 @pytest.fixture
 def test_educational_level(db_session):
-    """Create test educational level"""
+    """Reuse or create the JHS educational level for legacy academic tests."""
+    existing = EducationalLevel.query.filter_by(code='JHS').first()
+    if existing:
+        return existing
+
     level = EducationalLevel(
         level_name='Junior High School',
         level_code='JHS',
@@ -720,6 +979,55 @@ def test_subject(db_session, sample_tenant):
     db_session.add(subject)
     db_session.commit()
     return subject
+
+@pytest.fixture
+def test_grading_scheme(
+    db_session,
+    sample_tenant,
+    test_educational_level,
+):
+    """Create a valid tenant-owned grading scheme for enhanced grading tests."""
+    from app.models.grading_system import GradeBoundary, GradingStandard
+
+    scheme = GradingScheme(
+        tenant_id=sample_tenant.id,
+        name='Test Continuous Assessment Scheme',
+        standard=GradingStandard.CONTINUOUS_ASSESSMENT,
+        educational_level_id=test_educational_level.id,
+        is_active=True,
+        is_default=True,
+        class_score_weight=40.0,
+        external_exam_weight=60.0,
+    )
+    db_session.add(scheme)
+    db_session.flush()
+
+    db_session.add_all([
+        GradeBoundary(
+            grading_scheme_id=scheme.id,
+            grade_symbol='A1',
+            grade_name='Excellent',
+            min_score=80.0,
+            max_score=100.0,
+            is_passing=True,
+            grade_points=1.0,
+            sequence_order=1,
+        ),
+        GradeBoundary(
+            grading_scheme_id=scheme.id,
+            grade_symbol='F9',
+            grade_name='Needs Improvement',
+            min_score=0.0,
+            max_score=79.99,
+            is_passing=False,
+            grade_points=9.0,
+            sequence_order=2,
+        ),
+    ])
+
+    db_session.commit()
+    return scheme
+
 
 @pytest.fixture
 def test_exam(db_session, test_subject, test_class, user_factory):
@@ -770,11 +1078,13 @@ def test_assessment_framework(db_session, test_educational_level, test_subject):
 @pytest.fixture
 def test_assessment_task(db_session, test_assessment_framework):
     """Create test assessment task"""
+    from app.models.assessment_methods import AssessmentMode, AssessmentType
+
     task = AssessmentTask(
         title='Fixture Assessment Task',
         framework_id=test_assessment_framework.id,
-        assessment_type='formative',
-        assessment_mode='written',
+        assessment_type=AssessmentType.FORMATIVE,
+        assessment_mode=AssessmentMode.WRITTEN,
         scheduled_date=date.today() + timedelta(days=3),
         total_marks=50,
         pass_mark=25,
@@ -826,6 +1136,19 @@ def test_students(db_session, student_factory, sample_tenant, test_class):
 
 
 @pytest.fixture
+def test_class_with_students(test_class, test_students):
+    """Return the class after its legacy student fixtures are attached."""
+    assert all(student.class_id == test_class.id for student in test_students)
+    return test_class
+
+
+@pytest.fixture
+def test_student_with_grades(test_students, test_class_with_grades):
+    """Return a student after grade fixtures have been populated."""
+    return test_students[0]
+
+
+@pytest.fixture
 def test_class_with_grades(db_session, test_class, test_subject, test_students, test_exam):
     """Create grades attached to the legacy test class for analytics coverage."""
     for index, student in enumerate(test_students):
@@ -863,29 +1186,22 @@ def test_curriculum(db_session, test_educational_level, test_subject, user_facto
     return curriculum
 
 @pytest.fixture
-def test_large_class(db_session):
-    """Create test class with many students for performance testing"""
+def test_large_class(db_session, sample_tenant, student_factory):
+    """Create a tenant-owned class with many valid students for performance testing."""
     class_obj = Class(
+        tenant_id=sample_tenant.id,
         name='Large Test Class',
         grade_level='Grade 7',
-        academic_year='2023-2024'
+        academic_year='2023-2024',
     )
     db_session.add(class_obj)
     db_session.flush()
-    
-    # Add 100 students to the class
-    students = []
-    for i in range(100):
-        student = Student(
-            admission_number=f'LTC{i:03d}',
-            first_name=f'Student{i}',
-            last_name='Test',
-            date_of_birth=date(2010, 1, 1),
-            current_class_id=class_obj.id
+
+    for _ in range(100):
+        student_factory(
+            tenant_id=sample_tenant.id,
+            class_id=class_obj.id,
         )
-        students.append(student)
-        db_session.add(student)
-    
+
     db_session.commit()
-    class_obj.students = students
     return class_obj

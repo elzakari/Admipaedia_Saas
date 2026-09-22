@@ -1,9 +1,9 @@
 import pytest
 import json
 
-def test_register(client, db):
+def test_register(client, db, auth_test_helpers):
     """Test user registration."""
-    response = client.post('/api/v1/auth/register', json={
+    response = auth_test_helpers.register(client, {
         'username': 'newuser',
         'email': 'new@example.com',
         'password': 'Password123!',
@@ -16,10 +16,10 @@ def test_register(client, db):
     assert response.json['user']['email'] == 'new@example.com'
     assert response.json['user']['role'] == 'teacher'
 
-def test_login(client, db):
+def test_login(client, db, auth_test_helpers):
     """Test user login."""
     # First register a user
-    client.post('/api/v1/auth/register', json={
+    auth_test_helpers.register_verified(client, {
         'username': 'loginuser',
         'email': 'login@example.com',
         'password': 'Password123!',

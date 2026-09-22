@@ -18,6 +18,7 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 decode_token)
 
 from app.extensions import bcrypt, db
+from app.models.auth_session import AuthSession, RefreshToken
 from app.models.parent import Parent
 from app.models.rbac import UserRoleAssignment
 from app.models.security import LoginAttempt, PasswordHistory, SecurityEvent
@@ -151,12 +152,10 @@ class EnhancedAuthService:
             email = email.get("email") or email.get("username")
         identifier = str(email or "").strip().lower()
 
-        print(f"--- AUTH START: {identifier} ---")
         try:
             # Check account lockout
             is_locked, remaining_time = AccountSecurity.is_account_locked(identifier)
             if is_locked:
-                print(f"--- AUTH FAILED: ACCOUNT LOCKED ---")
                 return {
                     "success": False,
                     "error": "Account temporarily locked",
@@ -169,12 +168,8 @@ class EnhancedAuthService:
                 (db.func.lower(User.email) == identifier)
                 | (db.func.lower(User.username) == identifier)
             ).first()
-            print(
-                f"--- USER FOUND: {user}, hash={getattr(user, 'password_hash', None)} ---"
-            )
 
             if user and not user.password_hash:
-                print(f"--- AUTH FAILED: UNCLAIMED PROFILE ---")
                 return {
                     "success": False,
                     "error": "UNCLAIMED_PROFILE",
@@ -186,11 +181,9 @@ class EnhancedAuthService:
             user_agent = request.headers.get("User-Agent") if request else None
 
             # Check credentials
-            print(f"--- AUTH: CHECK PASSWORD ---")
             if not user or not user.check_password_hash(password):
                 # Record failed attempt
                 AccountSecurity.record_failed_login(identifier, ip_address, user_agent)
-                print(f"--- AUTH FAILED: INVALID CREDENTIALS ---")
                 cls._log_security_event(
                     "failed_login_attempt",
                     {
@@ -215,7 +208,6 @@ class EnhancedAuthService:
 
             # Structured guard: account awaiting school-side activation
             if user.status == "pending_activation":
-                print(f"--- AUTH FAILED: PENDING ACTIVATION ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {
@@ -230,13 +222,11 @@ class EnhancedAuthService:
             ) or (
                 not getattr(user, "email_verified", False) and user.status != "active"
             ):
-                print(f"--- AUTH FAILED: EMAIL NOT VERIFIED ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {"success": False, "error": "EMAIL_NOT_VERIFIED"}
 
             if user.status != "active":
-                print(f"--- AUTH FAILED: STATUS {user.status} ---")
                 login_attempt.success = False
                 db.session.commit()
                 return {
@@ -447,6 +437,7 @@ class EnhancedAuthService:
                 "csrf_token": tokens["csrf_token"],
                 "expires_in": int(session_duration.total_seconds()),
                 "session_id": tokens["session_id"],
+                "auth_session_id": tokens["auth_session_id"],
                 "tenants": tenants,
                 "default_tenant_id": default_tenant_id,
             }
@@ -457,7 +448,7 @@ class EnhancedAuthService:
             logger.error("Enhanced authentication error", error=str(e))
             return {"success": False, "error": f"Authentication failed: {str(e)}"}
         finally:
-            print(f"--- AUTH END ---")
+            pass
 
     @classmethod
     def setup_mfa(cls, user_id: int) -> Dict:
@@ -586,79 +577,243 @@ class EnhancedAuthService:
 
     @classmethod
     def _create_session_tokens(
-        cls, user: User, duration: timedelta, device_info: Dict = None
+        cls,
+        user: User,
+        duration: timedelta,
+        device_info: Dict = None,
     ) -> Dict:
-        """Create JWT tokens and session record"""
-        # Create JWT tokens
-        access_token = create_access_token(
-            identity=str(user.id), expires_delta=duration
-        )
-        refresh_token = create_refresh_token(identity=str(user.id))
+        """
+        Create one logical AuthSession plus legacy SessionToken rows.
 
-        # Generate CSRF token
-        csrf_token = secrets.token_urlsafe(32)
+        V27C-R2 migration contract
+        ---------------------------
+        AuthSession represents one logical login/device session.
 
-        # Decode tokens to get JTIs
-        decoded_access = decode_token(access_token)
-        access_jti = decoded_access["jti"]
+        Both the access and refresh JWT carry the same ``sid`` claim
+        containing AuthSession.id.
 
-        decoded_refresh = decode_token(refresh_token)
-        refresh_jti = decoded_refresh["jti"]
+        SessionToken remains the active compatibility and revocation
+        authority during this migration phase. Existing callers therefore
+        continue receiving the legacy integer ``session_id``.
 
-        # Create session record
+        RefreshToken persistence is enabled in R3A; rotation remains deferred.
+        """
+        now = datetime.utcnow()
+
+        # Resolve request/device metadata once so the logical session and
+        # legacy compatibility rows describe the same client.
+        ip_address = request.remote_addr if request else None
+        user_agent = request.headers.get("User-Agent") if request else None
+
         device_fingerprint = None
+        device_id = None
+
         if device_info:
-            device_fingerprint = device_info.get("fingerprint")
+            if isinstance(device_info, dict):
+                device_fingerprint = device_info.get("fingerprint")
+                device_id = (
+                    device_info.get("device_id")
+                    or device_info.get("id")
+                )
+
             if not device_fingerprint:
-                # If no fingerprint provided, try to generate it but handle if device_info is a dict
                 try:
-                    device_fingerprint = DeviceFingerprinting.generate_fingerprint(
-                        device_info
+                    device_fingerprint = (
+                        DeviceFingerprinting.generate_fingerprint(
+                            device_info
+                        )
                     )
                 except AttributeError:
-                    # If it's a dict and doesn't have .headers, we can't generate it this way
                     device_fingerprint = hashlib.sha256(
                         str(device_info).encode()
                     ).hexdigest()[:32]
 
+        # ------------------------------------------------------------------
+        # Logical authentication session
+        # ------------------------------------------------------------------
+        #
+        # tenant_id deliberately remains NULL here. Login may reveal
+        # available tenants, but a tenant has not yet become authoritative
+        # authorization context at token creation time.
+        #
+        # A provisional expiry is required for the initial INSERT. After
+        # the refresh JWT is generated we replace it with that token's exact
+        # encoded exp value before the surrounding transaction commits.
+        auth_session = AuthSession(
+            user_id=user.id,
+            tenant_id=None,
+            device_id=(
+                str(device_id)[:128]
+                if device_id is not None
+                else None
+            ),
+            device_fingerprint=(
+                str(device_fingerprint)[:128]
+                if device_fingerprint
+                else None
+            ),
+            ip_address=ip_address,
+            user_agent=user_agent,
+            session_version=1,
+            status="active",
+            last_seen_at=now,
+            expires_at=now + timedelta(days=30),
+        )
+
+        db.session.add(auth_session)
+
+        # AuthSession.id uses a Python/SQLAlchemy UUID default which becomes
+        # available on INSERT. Flush only; transaction ownership stays with
+        # authenticate_with_security()/verify_mfa().
+        db.session.flush()
+
+        if auth_session.id is None:
+            raise RuntimeError(
+                "AuthSession UUID was not generated"
+            )
+
+        sid = str(auth_session.id)
+
+        # ------------------------------------------------------------------
+        # JWT pair
+        # ------------------------------------------------------------------
+        #
+        # sid identifies the logical login session. It is contextual state,
+        # not a role/permission/tenant authorization grant.
+        claims = {
+            "sid": sid,
+        }
+
+        access_token = create_access_token(
+            identity=str(user.id),
+            expires_delta=duration,
+            additional_claims=claims,
+        )
+
+        refresh_token = create_refresh_token(
+            identity=str(user.id),
+            additional_claims=claims,
+        )
+
+        csrf_token = secrets.token_urlsafe(32)
+
+        decoded_access = decode_token(access_token)
+        decoded_refresh = decode_token(refresh_token)
+
+        access_jti = decoded_access["jti"]
+        refresh_jti = decoded_refresh["jti"]
+
+        access_expires_at = datetime.utcfromtimestamp(
+            int(decoded_access["exp"])
+        )
+
+        refresh_expires_at = datetime.utcfromtimestamp(
+            int(decoded_refresh["exp"])
+        )
+
+        # The logical session lives for the refresh-token lifetime rather
+        # than the shorter access-token lifetime.
+        auth_session.expires_at = refresh_expires_at
+
+        # ------------------------------------------------------------------
+        # Legacy compatibility rows
+        # ------------------------------------------------------------------
         session_token = SessionToken(
             jti=access_jti,
             user_id=user.id,
             token_type="access",
-            expires_at=datetime.utcnow() + duration,
-            ip_address=request.remote_addr if request else None,
-            user_agent=request.headers.get("User-Agent") if request else None,
+            expires_at=access_expires_at,
+            ip_address=ip_address,
+            user_agent=user_agent,
             device_fingerprint=device_fingerprint,
         )
-        session_token.last_used_at = datetime.utcnow()
+
+        session_token.last_used_at = now
 
         db.session.add(session_token)
-        db.session.flush()  # Ensure ID is generated
 
-        refresh_expires_at = datetime.utcfromtimestamp(int(decoded_refresh.get("exp")))
+        # Existing API contracts expose this integer SessionToken ID.
+        db.session.flush()
+
         refresh_session = SessionToken(
             jti=refresh_jti,
             user_id=user.id,
             token_type="refresh",
             expires_at=refresh_expires_at,
-            ip_address=request.remote_addr if request else None,
-            user_agent=request.headers.get("User-Agent") if request else None,
+            ip_address=ip_address,
+            user_agent=user_agent,
             device_fingerprint=device_fingerprint,
         )
+
         db.session.add(refresh_session)
+
+        # ------------------------------------------------------------------
+        # Durable refresh-token generation
+        # ------------------------------------------------------------------
+        #
+        # Never persist the raw refresh JWT or its raw JTI in the new
+        # refresh-token architecture. The legacy SessionToken compatibility
+        # row above continues to carry the JTI temporarily while V27C is
+        # migrated.
+        #
+        # This is generation zero of a future rotating family, therefore it
+        # has no parent, has not been consumed, and has no replacement yet.
+        refresh_jti_hash = hashlib.sha256(
+            refresh_jti.encode("utf-8")
+        ).hexdigest()
+
+        refresh_generation = RefreshToken(
+            # Attach through the ORM relationship instead of assigning only
+            # the raw FK. AuthSession has already been flushed above, so its
+            # UUID exists; the relationship also makes the parent/child
+            # dependency explicit to SQLAlchemy's unit of work.
+            session=auth_session,
+            jti_hash=refresh_jti_hash,
+            issued_at=now,
+            expires_at=refresh_expires_at,
+            parent_jti_hash=None,
+            used_at=None,
+            revoked_at=None,
+            replaced_by_id=None,
+        )
+
+        db.session.add(refresh_generation)
+
+        # Generate the UUID-backed family_id/defaults now while retaining
+        # transaction ownership in the caller. No commit occurs here.
+        db.session.flush()
+
+        if refresh_generation.id is None:
+            raise RuntimeError(
+                "RefreshToken UUID was not generated"
+            )
+
+        if refresh_generation.family_id is None:
+            raise RuntimeError(
+                "RefreshToken family UUID was not generated"
+            )
 
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "csrf_token": csrf_token,
+
+            # Backward-compatible public session ID.
             "session_id": session_token.id,
+
+            # Internal migration metadata. Existing consumers may ignore it.
+            "auth_session_id": sid,
         }
 
     @classmethod
     def _manage_concurrent_sessions(cls, user_id: int):
         """Manage concurrent sessions by revoking oldest sessions if limit exceeded"""
         active_sessions = (
-            SessionToken.query.filter_by(user_id=user_id, is_revoked=False)
+            SessionToken.query.filter_by(
+                user_id=user_id,
+                is_revoked=False,
+                token_type="access",
+            )
             .order_by(SessionToken.issued_at.desc())
             .all()
         )
@@ -753,7 +908,11 @@ class EnhancedAuthService:
     def get_user_sessions(cls, user_id: int) -> List[Dict]:
         """Get all active sessions for a user"""
         sessions = (
-            SessionToken.query.filter_by(user_id=user_id, is_revoked=False)
+            SessionToken.query.filter_by(
+                user_id=user_id,
+                is_revoked=False,
+                token_type="access",
+            )
             .order_by(SessionToken.issued_at.desc())
             .all()
         )

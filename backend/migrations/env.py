@@ -41,7 +41,10 @@ def get_engine_url():
     except Exception:
         return ''
 
-config.set_main_option('sqlalchemy.url', get_engine_url() or "")
+# Alembic Config uses ConfigParser interpolation. Percent-encoded credentials
+# therefore require literal percent signs to be escaped before assignment.
+_engine_url = get_engine_url() or ""
+config.set_main_option('sqlalchemy.url', _engine_url.replace('%', '%%'))
 
 # Target metadata: try to import SQLAlchemy db instance without needing Flask app
 try:

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security - Tenant File Access Hardening
+- Hardened tenant-scoped attachment and class-resource downloads with canonical path containment and owner validation.
+- Disabled generic arbitrary storage-key signing until attachments have authoritative storage ownership.
+- Added fail-closed handling for ownerless messaging attachments and immutable read-only permissions for `school_staff_readonly`.
+- Added regression coverage for traversal, cross-tenant downloads, ownerless files, signed URLs, and read-only staff authority.
+
 ### Added - Onboarding Email Delivery
 - Added email delivery for Parent, Teacher, and existing General-to-Staff invitation links while preserving the current signed invitation workflow.
 - Added email delivery for Student account activation links while preserving the existing SHA-256 token, 48-hour expiry, and `/auth/claim-account` flow.

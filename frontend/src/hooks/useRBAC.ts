@@ -2,13 +2,12 @@
  * React hooks for RBAC functionality
  */
 
-import { useState, useEffect, useCallback, useContext } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
+import { useAccessContext } from './useAccessContext';
 import { rbacApi } from '../services/rbacApi';
 import {
   RBACRole,
   RBACPermission,
-  UserWithRBAC,
   ResourceType,
   UseRBACReturn,
   UseRolesReturn,
@@ -26,123 +25,91 @@ import {
  * Main RBAC hook for permission and role checking
  */
 export const useRBAC = (): UseRBACReturn => {
-  const { user } = useAuth();
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchUserRBAC = useCallback(async () => {
-    if (!user?.id) {
-      setUserPermissions([]);
-      setUserRoles([]);
-      setLoading(false);
-      return;
-    }
-
-    const authPermissions = Array.isArray(user.effective_permissions) ? user.effective_permissions : null;
-    const authRoles = Array.isArray(user.effective_roles) ? user.effective_roles : null;
-    if (authPermissions && authRoles) {
-      setUserPermissions(authPermissions);
-      setUserRoles(authRoles);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [permissionsResponse, rolesResponse] = await Promise.all([
-        rbacApi.getUserPermissions(user.id),
-        rbacApi.getUserRoles(user.id)
-      ]);
-
-      if (permissionsResponse.success) {
-        setUserPermissions(permissionsResponse.data || []);
-      }
-
-      if (rolesResponse.success) {
-        setUserRoles(rolesResponse.data?.map(r => r.role?.name || '') || []);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch RBAC data');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    fetchUserRBAC();
-  }, [fetchUserRBAC]);
+  const {
+    permissions: userPermissions,
+    roles: userRoles,
+    loading,
+    error,
+    refresh,
+  } = useAccessContext();
 
   const hasPermission = useCallback((
     permission: string,
     resourceType?: ResourceType,
     resourceId?: string
   ): boolean => {
-    if (!user?.id || loading) return false;
+    if (loading) return false;
 
-    // Check if user has the specific permission
-    if (userPermissions.includes(permission)) {
-      return true;
+    // Resource-specific ACL rows are still global and have no tenant_id.
+    // Any resource-aware permission check therefore fails closed for
+    // ordinary tenant users. Platform wildcard remains authoritative.
+    if (resourceType || resourceId) {
+      return userPermissions.includes('*');
     }
 
-    // Check for admin permissions that override specific permissions
-    if (userPermissions.includes('system.admin')) {
-      return true;
-    }
-
-    // Resource-specific permission checking would require additional API call
-    // For now, we'll use the general permission check
-    return false;
-  }, [user?.id, userPermissions, loading]);
+    return (
+      userPermissions.includes('*') ||
+      userPermissions.includes(permission)
+    );
+  }, [loading, userPermissions]);
 
   const hasRole = useCallback((role: string): boolean => {
-    if (!user?.id || loading) return false;
+    if (loading) return false;
     return userRoles.includes(role);
-  }, [user?.id, userRoles, loading]);
+  }, [loading, userRoles]);
 
   const hasAnyRole = useCallback((roles: string[]): boolean => {
-    if (!user?.id || loading) return false;
-    return roles.some(role => userRoles.includes(role));
-  }, [user?.id, userRoles, loading]);
+    if (loading) return false;
+    return roles.some((role) => userRoles.includes(role));
+  }, [loading, userRoles]);
 
   const hasAllRoles = useCallback((roles: string[]): boolean => {
-    if (!user?.id || loading) return false;
-    return roles.every(role => userRoles.includes(role));
-  }, [user?.id, userRoles, loading]);
+    if (loading) return false;
+    return roles.every((role) => userRoles.includes(role));
+  }, [loading, userRoles]);
 
-  const hasAnyPermission = useCallback((permissions: string[]): boolean => {
-    if (!user?.id || loading) return false;
-    return permissions.some(permission => userPermissions.includes(permission));
-  }, [user?.id, userPermissions, loading]);
+  const hasAnyPermission = useCallback((
+    permissions: string[]
+  ): boolean => {
+    if (loading) return false;
 
-  const hasAllPermissions = useCallback((permissions: string[]): boolean => {
-    if (!user?.id || loading) return false;
-    return permissions.every(permission => userPermissions.includes(permission));
-  }, [user?.id, userPermissions, loading]);
+    if (
+      permissions.length > 0 &&
+      userPermissions.includes('*')
+    ) {
+      return true;
+    }
+
+    return permissions.some(
+      (permission) => userPermissions.includes(permission)
+    );
+  }, [loading, userPermissions]);
+
+  const hasAllPermissions = useCallback((
+    permissions: string[]
+  ): boolean => {
+    if (loading) return false;
+
+    if (userPermissions.includes('*')) {
+      return true;
+    }
+
+    return permissions.every(
+      (permission) => userPermissions.includes(permission)
+    );
+  }, [loading, userPermissions]);
 
   const canAccessResource = useCallback(async (
-    resourceType: ResourceType,
-    resourceId: string,
-    permission: string
+    _resourceType: ResourceType,
+    _resourceId: string,
+    _permission: string
   ): Promise<boolean> => {
-    if (!user?.id) return false;
+    if (loading) return false;
 
-    try {
-      const response = await rbacApi.checkResourceAccess(
-        user.id,
-        resourceType,
-        resourceId,
-        permission
-      );
-      return response.success && response.data === true;
-    } catch {
-      return false;
-    }
-  }, [user?.id]);
+    // Legacy ACL rows have no tenant_id and cannot authorize
+    // ordinary tenant resource access.
+    return userPermissions.includes('*');
+  }, [loading, userPermissions]);
 
   return {
     userPermissions,
@@ -156,7 +123,7 @@ export const useRBAC = (): UseRBACReturn => {
     canAccessResource,
     loading,
     error,
-    refresh: fetchUserRBAC
+    refresh,
   };
 };
 

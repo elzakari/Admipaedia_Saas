@@ -4,6 +4,7 @@ import { authService } from '@/services';
 import { User, AuthResponse } from '@/services/authService';
 import { getJwtExpirationMs } from '@/utils/jwt';
 import { queryClient } from '@/lib/queryClient';
+import { purgeTenantScopedBrowserState } from '@/lib/tenantIsolation';
 
 /**
  * Returns the currently active tenant identifier for cache scoping purposes.
@@ -51,6 +52,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const authChecked = useRef(false);
   const lastSeenCacheKeySalt = useRef<string>('');
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(() =>
+    getActiveTenantSalt(null)
+  );
+
+  // Keep tenant state reactive when localStorage changes in this tab
+  // or another browser tab.
+  useEffect(() => {
+    const syncActiveTenant = () => {
+      setActiveTenantId(getActiveTenantSalt(user));
+    };
+
+    syncActiveTenant();
+
+    window.addEventListener('local-storage-change', syncActiveTenant);
+    window.addEventListener('storage', syncActiveTenant);
+
+    return () => {
+      window.removeEventListener('local-storage-change', syncActiveTenant);
+      window.removeEventListener('storage', syncActiveTenant);
+    };
+  }, [user]);
 
   // ── Cross-tenant cache isolation ────────────────────────────────────────
   // Any time the authenticated user identity or the active tenant switches
@@ -59,20 +81,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // from the previous tenant would be displayed — causing the exact "data
   // from another tenant is showing" bug the user reported.
   useEffect(() => {
-    const nextSalt = `u:${user?.id ?? ''}|t:${getActiveTenantSalt(user) ?? ''}`;
+    const nextSalt = `u:${user?.id ?? ''}|t:${activeTenantId ?? ''}`;
     if (lastSeenCacheKeySalt.current === '') {
       lastSeenCacheKeySalt.current = nextSalt;
       return;
     }
     if (nextSalt !== lastSeenCacheKeySalt.current) {
+      purgeTenantScopedBrowserState();
+
       try {
         queryClient.clear();
       } catch (err) {
         console.warn('[Auth] Failed to clear query cache on identity/tenant switch:', err);
       }
+
       lastSeenCacheKeySalt.current = nextSalt;
     }
-  }, [user, user?.id]);
+  }, [user?.id, activeTenantId]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -233,27 +258,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('saas_current_tenant_id');
       // Wipe cached data so the NEXT user/tenant that logs in on this
       // browser absolutely cannot see the previous tenant's cached rows.
+      purgeTenantScopedBrowserState();
       try { queryClient.clear(); } catch (_) { /* noop */ }
       lastSeenCacheKeySalt.current = '';
+      setActiveTenantId(null);
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  // Define hasRole function inside the component where user is in scope
+  // AuthContext knows global identity, not school-tenant authority.
+  // Only explicit platform roles may authorize globally here.
   const hasRole = (roles: string | string[]) => {
     if (!user) return false;
 
-    const effectiveRoles = Array.isArray(user.effective_roles) ? user.effective_roles : [];
-    const assignedRoles = Array.isArray(user.roles) ? user.roles : [];
-    const availableRoles = new Set([user.role, ...effectiveRoles, ...assignedRoles].filter(Boolean));
+    const globalRole = String(user.role || '')
+      .trim()
+      .toLowerCase();
 
-    if (typeof roles === 'string') {
-      return availableRoles.has(roles);
+    if (
+      globalRole !== 'super_admin' &&
+      globalRole !== 'super_manager'
+    ) {
+      return false;
     }
 
-    return roles.some((role) => availableRoles.has(role));
+    const requestedRoles = (
+      typeof roles === 'string' ? [roles] : roles
+    ).map((role) => String(role).trim().toLowerCase());
+
+    return requestedRoles.includes(globalRole);
   };
 
   return (

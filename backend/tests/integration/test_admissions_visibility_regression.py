@@ -105,7 +105,7 @@ def _make_tenant(slug_suffix: str) -> Tenant:
         slug=f"test-{slug_suffix}",
         name=f"Test School {slug_suffix}",
         country_code="GH",
-        schema_name="public",
+        schema_name=f"test_{slug_suffix.replace('-', '_')}",
         currency="GHS",
     )
     db.session.add(tenant)

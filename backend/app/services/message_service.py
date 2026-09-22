@@ -59,6 +59,11 @@ class MessageService:
         user_id, folder="inbox", is_read=None, page=1, per_page=20, tenant_id=None
     ):
         """Get messages for a user with pagination and filtering"""
+        logger.warning(
+            "message_reads_suppressed_pending_tenant_ownership"
+        )
+        return [], 0
+
         try:
             query = Message.query
 
@@ -131,6 +136,11 @@ class MessageService:
     @staticmethod
     def get_message_by_id(message_id, user_id, tenant_id=None):
         """Get a specific message by ID if user has access"""
+        logger.warning(
+            "message_detail_suppressed_pending_tenant_ownership"
+        )
+        return None
+
         try:
             message = Message.query.filter(
                 and_(
@@ -154,6 +164,13 @@ class MessageService:
     @staticmethod
     def create_message(data, tenant_id=None):
         """Create a new message"""
+        logger.warning(
+            "message_creation_suppressed_pending_tenant_ownership"
+        )
+        raise RuntimeError(
+            "MESSAGE_TENANT_OWNERSHIP_REQUIRED"
+        )
+
         try:
             if not MessageService._user_has_tenant_membership(
                 data["sender_id"], tenant_id
@@ -308,6 +325,13 @@ class MessageService:
     @staticmethod
     def create_bulk_message(data, tenant_id=None):
         """Create messages to multiple recipients"""
+        logger.warning(
+            "bulk_message_creation_suppressed_pending_tenant_ownership"
+        )
+        raise RuntimeError(
+            "MESSAGE_TENANT_OWNERSHIP_REQUIRED"
+        )
+
         try:
             if not MessageService._user_has_tenant_membership(
                 data["sender_id"], tenant_id
@@ -707,6 +731,11 @@ class MessageService:
     @staticmethod
     def mark_as_read(message_id):
         """Mark a message as read"""
+        logger.warning(
+            "message_mark_read_suppressed_pending_tenant_ownership"
+        )
+        return False
+
         try:
             message = Message.query.get(message_id)
             if message:
@@ -721,6 +750,11 @@ class MessageService:
     @staticmethod
     def get_attachment_path(message_id, attachment_name):
         """Get the full path to a message attachment"""
+        logger.warning(
+            "message_attachment_access_suppressed_pending_tenant_ownership"
+        )
+        return None
+
         try:
             message = Message.query.get(message_id)
             if not message or not message.attachments:
@@ -928,16 +962,26 @@ class MessageService:
 
         if current_role == "teacher":
             assigned_class_ids = set()
-            teacher_profile = Teacher.query.filter_by(user_id=current_user_id).first()
+            teacher_profile = Teacher.query.filter_by(
+                user_id=current_user_id,
+                tenant_id=tenant_id,
+            ).first()
             if teacher_profile:
                 primary_classes = Class.query.filter_by(
-                    teacher_id=teacher_profile.id
+                    teacher_id=teacher_profile.id,
+                    tenant_id=tenant_id,
                 ).all()
                 for c in primary_classes:
                     assigned_class_ids.add(c.id)
-            mappings = ClassTeacherMapping.query.filter_by(
-                teacher_id=current_user_id
-            ).all()
+            mappings = (
+                ClassTeacherMapping.query
+                .join(Class, Class.id == ClassTeacherMapping.class_id)
+                .filter(
+                    ClassTeacherMapping.teacher_id == current_user_id,
+                    Class.tenant_id == tenant_id,
+                )
+                .all()
+            )
             for m in mappings:
                 assigned_class_ids.add(m.class_id)
 
@@ -1027,10 +1071,16 @@ class MessageService:
                 return admin_query.all()
 
         elif current_role == "parent":
-            parent_profile = Parent.query.filter_by(user_id=current_user_id).first()
+            parent_profile = Parent.query.filter_by(
+                user_id=current_user_id,
+                tenant_id=tenant_id,
+            ).first()
             child_class_ids = set()
             if parent_profile:
-                children = Student.query.filter_by(parent_id=parent_profile.id).all()
+                children = Student.query.filter_by(
+                    parent_id=parent_profile.id,
+                    tenant_id=tenant_id,
+                ).all()
                 child_class_ids = {s.class_id for s in children if s.class_id}
 
             if type_filter == "teacher":
@@ -1038,9 +1088,15 @@ class MessageService:
                     Class.tenant_id == tenant_id, Class.id.in_(child_class_ids)
                 ).all()
                 teacher_ids = {c.teacher_id for c in class_teachers if c.teacher_id}
-                mappings = ClassTeacherMapping.query.filter(
-                    ClassTeacherMapping.class_id.in_(child_class_ids)
-                ).all()
+                mappings = (
+                    ClassTeacherMapping.query
+                    .join(Class, Class.id == ClassTeacherMapping.class_id)
+                    .filter(
+                        ClassTeacherMapping.class_id.in_(child_class_ids),
+                        Class.tenant_id == tenant_id,
+                    )
+                    .all()
+                )
                 mapped_user_ids = {m.teacher_id for m in mappings}
 
                 teacher_query = Teacher.query.filter(
@@ -1080,17 +1136,31 @@ class MessageService:
                 return admin_query.all()
 
         elif current_role == "student":
-            student_profile = Student.query.filter_by(user_id=current_user_id).first()
+            student_profile = Student.query.filter_by(
+                user_id=current_user_id,
+                tenant_id=tenant_id,
+            ).first()
             class_id = student_profile.class_id if student_profile else None
 
             if type_filter == "teacher" and class_id:
-                class_obj = Class.query.get(class_id)
+                class_obj = Class.query.filter_by(
+                    id=class_id,
+                    tenant_id=tenant_id,
+                ).first()
                 teacher_ids = (
                     {class_obj.teacher_id}
                     if class_obj and class_obj.teacher_id
                     else set()
                 )
-                mappings = ClassTeacherMapping.query.filter_by(class_id=class_id).all()
+                mappings = (
+                    ClassTeacherMapping.query
+                    .join(Class, Class.id == ClassTeacherMapping.class_id)
+                    .filter(
+                        ClassTeacherMapping.class_id == class_id,
+                        Class.tenant_id == tenant_id,
+                    )
+                    .all()
+                )
                 mapped_user_ids = {m.teacher_id for m in mappings}
 
                 teacher_query = Teacher.query.filter(

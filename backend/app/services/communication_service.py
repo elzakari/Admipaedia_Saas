@@ -498,6 +498,21 @@ class CommunicationService:
 # WebSocket event handlers for real-time communication
 @socketio.on("join_communication_room", namespace="/communications")
 def handle_join_communication_room(data):
+    logger.warning(
+        "communication_room_join_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy communication rooms are temporarily unavailable "
+                "while tenant isolation is being upgraded."
+            ),
+            "code": "COMMUNICATION_ROOM_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle user joining communication rooms."""
     try:
         user_id = data.get("user_id")
@@ -525,6 +540,21 @@ def handle_join_communication_room(data):
 
 @socketio.on("leave_communication_room", namespace="/communications")
 def handle_leave_communication_room(data):
+    logger.warning(
+        "communication_room_leave_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy communication rooms are temporarily unavailable "
+                "while tenant isolation is being upgraded."
+            ),
+            "code": "COMMUNICATION_ROOM_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle user leaving communication rooms."""
     try:
         user_id = data.get("user_id")
@@ -552,6 +582,25 @@ def handle_leave_communication_room(data):
 @socketio.on("send_real_time_message", namespace="/communications")
 def handle_real_time_message(data):
     """Handle real-time message sending with durable database transaction."""
+
+    # SECURITY CONTAINMENT:
+    # This legacy socket accepts sender_id from client payload and has
+    # no authoritative tenant context.
+    logger.warning(
+        "communication_realtime_message_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Realtime messaging is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "MESSAGE_TENANT_OWNERSHIP_REQUIRED",
+        },
+    )
+    return
+
     try:
         sender_id = data.get("sender_id")
         recipient_id = data.get("recipient_id")
@@ -1237,6 +1286,21 @@ class CommunicationService:
 # WebSocket event handlers
 @socketio.on("join_chat", namespace="/chat")
 def handle_join_chat(data):
+    logger.warning(
+        "legacy_chat_join_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy realtime chat is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "CHAT_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle user joining a chat room."""
     chat_id = data.get("chat_id")
     user_id = data.get("user_id")
@@ -1250,6 +1314,21 @@ def handle_join_chat(data):
 
 @socketio.on("leave_chat", namespace="/chat")
 def handle_leave_chat(data):
+    logger.warning(
+        "legacy_chat_leave_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy realtime chat is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "CHAT_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle user leaving a chat room."""
     chat_id = data.get("chat_id")
     user_id = data.get("user_id")
@@ -1262,6 +1341,21 @@ def handle_leave_chat(data):
 
 @socketio.on("typing_start", namespace="/chat")
 def handle_typing_start(data):
+    logger.warning(
+        "legacy_chat_typing_start_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy realtime chat is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "CHAT_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle typing start event."""
     chat_id = data.get("chat_id")
     user_id = data.get("user_id")
@@ -1271,6 +1365,21 @@ def handle_typing_start(data):
 
 @socketio.on("typing_stop", namespace="/chat")
 def handle_typing_stop(data):
+    logger.warning(
+        "legacy_chat_typing_stop_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy realtime chat is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "CHAT_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle typing stop event."""
     chat_id = data.get("chat_id")
     user_id = data.get("user_id")
@@ -1280,6 +1389,21 @@ def handle_typing_stop(data):
 
 @socketio.on("add_reaction", namespace="/chat")
 def handle_add_reaction(data):
+    logger.warning(
+        "legacy_chat_reaction_suppressed_pending_tenant_context"
+    )
+    emit(
+        "error",
+        {
+            "message": (
+                "Legacy realtime chat is temporarily unavailable while "
+                "tenant isolation is being upgraded."
+            ),
+            "code": "CHAT_TENANT_CONTEXT_REQUIRED",
+        },
+    )
+    return False
+
     """Handle message reaction."""
     message_id = data.get("message_id")
     user_id = data.get("user_id")

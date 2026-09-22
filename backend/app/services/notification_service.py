@@ -154,6 +154,11 @@ class NotificationService:
 
     @staticmethod
     def get_user_notifications(user_id, page=1, per_page=20, unread_only=False):
+        logger.warning(
+            "notification_reads_suppressed_pending_tenant_ownership"
+        )
+        return [], 0
+
         """Get notifications for a user, including class-scoped announcements if user is a parent or student."""
         from sqlalchemy import or_
 

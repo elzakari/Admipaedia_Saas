@@ -1,27 +1,286 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
+from marshmallow import ValidationError
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.extensions import db
+from app.models.class_ import Class
 from app.models.exam import Exam
 from app.models.grade import Grade
 from app.models.grading_system import EnhancedGrade, FinalGrade
 from app.models.student import Student
 from app.models.subject import Subject
 from app.models.user import User
-from app.schemas.grade import GradeSchema
+from app.schemas.grade import GradeCreateSchema, GradeSchema
 from app.services.grading.service import GradingService
 from app.services.identity_resolver import IdentityResolver
 from app.utils.rbac_decorators import require_permission, require_role
+from app.utils.tenant_context import tenant_required
 
 grades_bp = Blueprint("grades", __name__)
 
 grade_schema = GradeSchema()
 grades_schema = GradeSchema(many=True)
+grade_create_schema = GradeCreateSchema()
+
+
+
+@grades_bp.route("", methods=["POST"])
+@grades_bp.route("/", methods=["POST"])
+@jwt_required()
+@tenant_required
+@require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.create")
+def create_grade():
+    """
+    Create one traditional exam-linked grade.
+
+    This endpoint intentionally serves the legacy/simple Grade model.
+    EnhancedGrade creation remains handled by /entry.
+
+    Client-calculated values such as percentage, grade_letter,
+    total_marks, and graded_by are not trusted. They are derived
+    server-side from the authenticated user and authoritative Exam.
+    """
+    user_id = get_jwt_identity()
+
+    payload = request.get_json(silent=True)
+
+    if not isinstance(payload, dict):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "A valid grade object is required",
+                }
+            ),
+            400,
+        )
+
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "User not found",
+                }
+            ),
+            404,
+        )
+
+    student_id = payload.get("student_id")
+    exam_id = payload.get("exam_id")
+
+    if not student_id:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "student_id is required",
+                }
+            ),
+            400,
+        )
+
+    if not exam_id:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "exam_id is required",
+                }
+            ),
+            400,
+        )
+
+    tenant_id = g.tenant_id
+
+    # Student is tenant-owned and must resolve inside the authenticated
+    # tenant independently of ambient query state.
+    student = Student.query.without_tenant_filter().filter_by(
+        id=student_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not student:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Student not found",
+                }
+            ),
+            404,
+        )
+
+    # Exam has no tenant_id. Its tenant authority therefore comes from
+    # both tenant-bearing parent resources.
+    exam = Exam.query.get(exam_id)
+
+    if not exam:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Exam not found",
+                }
+            ),
+            404,
+        )
+
+    class_obj = Class.query.without_tenant_filter().filter_by(
+        id=exam.class_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not class_obj:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Exam not found",
+                }
+            ),
+            404,
+        )
+
+    subject_obj = Subject.query.without_tenant_filter().filter_by(
+        id=exam.subject_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not subject_obj:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Exam not found",
+                }
+            ),
+            404,
+        )
+
+    # A student may only receive a grade for an exam belonging
+    # to the student's current class.
+    if student.class_id != exam.class_id:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "Student does not belong to the class "
+                        "associated with this exam"
+                    ),
+                }
+            ),
+            400,
+        )
+
+    # Teachers must remain scoped to classes they are authorized to manage.
+    if (
+        current_user.role == "teacher"
+        and not IdentityResolver.can_user_access_class(
+            current_user.id,
+            exam.class_id,
+        )
+    ):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "Insufficient permissions for this class context"
+                    ),
+                }
+            ),
+            403,
+        )
+
+    # POST is creation semantics, not an implicit overwrite.
+    existing_grade = Grade.query.filter_by(
+        student_id=student.id,
+        exam_id=exam.id,
+    ).first()
+
+    if existing_grade:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "A grade already exists for this student "
+                        "and exam"
+                    ),
+                }
+            ),
+            409,
+        )
+
+    # Explicit allow-list.
+    #
+    # Do not pass the raw request to Marshmallow because older clients may
+    # still send derived fields such as percentage, grade_letter and
+    # total_marks. Those values must not be authoritative.
+    create_payload = {
+        "student_id": student.id,
+        "exam_id": exam.id,
+        "marks_obtained": payload.get("marks_obtained"),
+        "remarks": payload.get("remarks"),
+        "graded_by": current_user.id,
+    }
+
+    try:
+        validated = grade_create_schema.load(create_payload)
+    except ValidationError as exc:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Invalid grade data",
+                    "errors": exc.messages,
+                }
+            ),
+            400,
+        )
+
+    grade = Grade(
+        student_id=validated["student_id"],
+        exam_id=validated["exam_id"],
+        marks_obtained=validated["marks_obtained"],
+        percentage=validated["percentage"],
+        grade_letter=validated["grade_letter"],
+        remarks=validated.get("remarks"),
+        graded_by=current_user.id,
+        subject_id=exam.subject_id,
+        class_id=exam.class_id,
+        assessment_type="exam",
+    )
+
+    try:
+        db.session.add(grade)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "grade": grade_schema.dump(grade),
+                "message": "Grade recorded successfully",
+            }
+        ),
+        201,
+    )
 
 
 @grades_bp.route("/bulk", methods=["POST"])
 @jwt_required()
+@tenant_required
 @require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.create")
+@require_permission("grade.update")
 def bulk_enter_exam_grades():
     user_id = get_jwt_identity()
     payload = request.get_json() or {}
@@ -34,8 +293,28 @@ def bulk_enter_exam_grades():
             400,
         )
 
+    tenant_id = g.tenant_id
+
     exam = Exam.query.get(exam_id)
     if not exam:
+        return jsonify({"success": False, "message": "Exam not found"}), 404
+
+    # Exam is ownership-less, so independently anchor its class and
+    # subject to the authenticated tenant.
+    exam_class = Class.query.without_tenant_filter().filter_by(
+        id=exam.class_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not exam_class:
+        return jsonify({"success": False, "message": "Exam not found"}), 404
+
+    exam_subject = Subject.query.without_tenant_filter().filter_by(
+        id=exam.subject_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not exam_subject:
         return jsonify({"success": False, "message": "Exam not found"}), 404
 
     current_user = User.query.get(user_id)
@@ -67,8 +346,15 @@ def bulk_enter_exam_grades():
         if marks_obtained < 0 or marks_obtained > float(exam.total_marks or 0):
             continue
 
-        student = Student.query.get(student_id)
+        student = Student.query.without_tenant_filter().filter_by(
+            id=student_id,
+            tenant_id=tenant_id,
+            class_id=exam.class_id,
+        ).first()
+
         if not student:
+            # Preserve the historical bulk-row skip contract while refusing
+            # students from another class or tenant.
             continue
 
         percentage = (
@@ -143,7 +429,9 @@ def bulk_enter_exam_grades():
 
 @grades_bp.route("/gradebook", methods=["GET"])
 @jwt_required()
+@tenant_required
 @require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.read")
 def get_gradebook():
     """Get the gradebook for a class/subject."""
     user_id = get_jwt_identity()
@@ -175,7 +463,11 @@ def get_gradebook():
         )
 
     gradebook, error = GradingService.get_gradebook(
-        class_id, subject_id, term, academic_year
+        class_id,
+        subject_id,
+        term,
+        academic_year,
+        tenant_id=g.tenant_id,
     )
 
     if error:
@@ -186,7 +478,9 @@ def get_gradebook():
 
 @grades_bp.route("/entry", methods=["POST"])
 @jwt_required()
+@tenant_required
 @require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.create")
 def enter_grades():
     """Enter grades (single or bulk)."""
     user_id = get_jwt_identity()
@@ -221,6 +515,17 @@ def enter_grades():
         )
 
     class_id = next(iter(class_ids))
+
+    request_tenant_id = g.tenant_id
+
+    class_obj = Class.query.without_tenant_filter().filter_by(
+        id=class_id,
+        tenant_id=request_tenant_id,
+    ).first()
+
+    if not class_obj:
+        return jsonify({"success": False, "message": "Class not found"}), 404
+
     if current_user.role == "teacher" and not IdentityResolver.can_user_access_class(
         current_user.id, class_id
     ):
@@ -234,10 +539,56 @@ def enter_grades():
             403,
         )
 
+    for item in payload_items:
+        if not isinstance(item, dict):
+            return jsonify(
+                {"success": False, "message": "Invalid grade entry payload"}
+            ), 400
+
+        student_id = item.get("student_id")
+        if not student_id:
+            return jsonify(
+                {"success": False, "message": "student_id is required for grade entry"}
+            ), 400
+
+        student = Student.query.without_tenant_filter().filter_by(
+            id=student_id,
+            tenant_id=request_tenant_id,
+        ).first()
+
+        if not student:
+            return jsonify({"success": False, "message": "Student not found"}), 404
+
+        if student.class_id != class_id:
+            return jsonify(
+                {
+                    "success": False,
+                    "message": "Student does not belong to the specified class",
+                }
+            ), 400
+
+        subject_id = item.get("subject_id")
+        if subject_id:
+            subject = Subject.query.without_tenant_filter().filter_by(
+                id=subject_id,
+                tenant_id=request_tenant_id,
+            ).first()
+
+            if not subject:
+                return jsonify(
+                    {"success": False, "message": "Subject not found"}
+                ), 404
+
     if isinstance(data, list):
-        grades, error = GradingService.bulk_enter_grades(data)
+        grades, error = GradingService.bulk_enter_grades(
+            data,
+            tenant_id=g.tenant_id,
+        )
     else:
-        grade, error = GradingService.enter_grade(data)
+        grade, error = GradingService.enter_grade(
+            data,
+            tenant_id=g.tenant_id,
+        )
         grades = [grade] if grade else []
 
     if error:
@@ -248,47 +599,144 @@ def enter_grades():
 
 @grades_bp.route("/calculate-final", methods=["POST"])
 @jwt_required()
+@tenant_required
 @require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.create")
 def calculate_final_grades():
-    """Trigger calculation of final grades."""
-    user_id = get_jwt_identity()
-    data = request.json
-    class_id = data.get("class_id")
-    subject_id = data.get("subject_id")
-    term = data.get("term")
-    academic_year = data.get("academic_year")
+    """
+    Calculate and persist final grades for one tenant-owned
+    class/subject/academic-period combination.
 
-    current_user = User.query.get(user_id)
-    if not current_user:
-        return jsonify({"success": False, "message": "User not found"}), 404
-    if current_user.role == "teacher" and not IdentityResolver.can_user_access_class(
-        current_user.id, class_id
-    ):
+    Tenant authority is established by the request context. Resource IDs
+    supplied by the caller are never used to infer tenant authorization.
+    """
+    user_id = get_jwt_identity()
+    tenant_id = getattr(g, "tenant_id", None)
+
+    if not tenant_id:
         return (
             jsonify(
                 {
                     "success": False,
-                    "message": "Insufficient permissions for this class context",
+                    "message": "Tenant context is required",
                 }
             ),
             403,
         )
 
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "A valid request object is required",
+                }
+            ),
+            400,
+        )
+
+    class_id = data.get("class_id")
+    subject_id = data.get("subject_id")
+    term = data.get("term")
+    academic_year = data.get("academic_year")
+
+    missing = [
+        field
+        for field, value in (
+            ("class_id", class_id),
+            ("subject_id", subject_id),
+            ("term", term),
+            ("academic_year", academic_year),
+        )
+        if value in (None, "")
+    ]
+
+    if missing:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": (
+                        "Missing required fields: "
+                        + ", ".join(missing)
+                    ),
+                }
+            ),
+            400,
+        )
+
+    # Class is the authoritative tenant anchor for this operation.
+    class_obj = Class.query.without_tenant_filter().filter_by(
+        id=class_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not class_obj:
+        # Do not disclose whether the supplied class exists in another
+        # tenant.
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Class not found",
+                }
+            ),
+            404,
+        )
+
+    # Subject must independently belong to the same tenant.  Do not rely
+    # on class_id alone to establish subject ownership.
+    subject_obj = Subject.query.without_tenant_filter().filter_by(
+        id=subject_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not subject_obj:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Subject not found",
+                }
+            ),
+            404,
+        )
+
     success, error = GradingService.calculate_final_grades(
-        class_id, subject_id, term, academic_year
+        class_id=class_obj.id,
+        subject_id=subject_obj.id,
+        term=term,
+        academic_year=academic_year,
+        tenant_id=tenant_id,
+        computed_by=user_id,
     )
 
-    if error:
-        return jsonify({"success": False, "message": error}), 400
+    if not success:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": error or "Failed to calculate final grades",
+                }
+            ),
+            400,
+        )
 
     return (
-        jsonify({"success": True, "message": "Final grades calculated successfully"}),
+        jsonify(
+            {
+                "success": True,
+                "message": "Final grades calculated successfully",
+            }
+        ),
         200,
     )
 
-
 @grades_bp.route("/broadsheet", methods=["GET"])
 @jwt_required()
+@tenant_required
 @require_permission("grade.reports")
 def get_broadsheet():
     """Get class broadsheet."""
@@ -296,7 +744,12 @@ def get_broadsheet():
     term = request.args.get("term")
     academic_year = request.args.get("academic_year")
 
-    data, error = GradingService.generate_broadsheet(class_id, term, academic_year)
+    data, error = GradingService.generate_broadsheet(
+        class_id,
+        term,
+        academic_year,
+        tenant_id=g.tenant_id,
+    )
 
     if error:
         return jsonify({"success": False, "message": error}), 400
@@ -306,12 +759,36 @@ def get_broadsheet():
 
 @grades_bp.route("/analytics/class/<int:class_id>", methods=["GET"])
 @jwt_required()
+@tenant_required
 @require_role(["admin", "school_admin", "super_admin", "teacher"])
+@require_permission("grade.read")
 def get_class_grade_analytics(class_id):
     """Legacy compatibility endpoint for class grade analytics."""
     subject_id = request.args.get("subject_id", type=int)
     term = request.args.get("term")
     academic_year = request.args.get("academic_year")
+
+    tenant_id = g.tenant_id
+
+    # FinalGrade, EnhancedGrade and Grade do not own tenant_id.
+    # Establish the supplied tenant-bearing parent resources before any
+    # ownership-less grading table is queried.
+    class_obj = Class.query.without_tenant_filter().filter_by(
+        id=class_id,
+        tenant_id=tenant_id,
+    ).first()
+
+    if not class_obj:
+        return jsonify({"success": False, "message": "Class not found"}), 404
+
+    if subject_id:
+        subject_obj = Subject.query.without_tenant_filter().filter_by(
+            id=subject_id,
+            tenant_id=tenant_id,
+        ).first()
+
+        if not subject_obj:
+            return jsonify({"success": False, "message": "Subject not found"}), 404
 
     current_user = User.query.get(get_jwt_identity())
     if not current_user:

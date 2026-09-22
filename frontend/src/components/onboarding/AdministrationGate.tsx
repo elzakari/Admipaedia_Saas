@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSaasTenant } from '@/hooks/useSaasTenant';
 import { usePlanContext } from '@/hooks/usePlanContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useTenantAuthority } from '@/hooks/useTenantAuthority';
 import UltimateUpgradeScreen from './UltimateUpgradeScreen';
 import { canAccessAdministration } from '@/lib/administrationAccess';
 
@@ -12,9 +12,12 @@ interface AdministrationGateProps {
 export default function AdministrationGate({ element }: AdministrationGateProps) {
   const { current, isLoading } = useSaasTenant();
   const { data: planContext, isLoading: isPlanContextLoading } = usePlanContext();
-  const { user } = useAuth();
+  const {
+    primaryRole: authorityRole,
+    isLoading: isAuthorityLoading,
+  } = useTenantAuthority();
 
-  if (isLoading || isPlanContextLoading) {
+  if (isLoading || isAuthorityLoading || isPlanContextLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px] bg-slate-50 dark:bg-slate-950">
         <div className="text-center space-y-4">
@@ -25,14 +28,14 @@ export default function AdministrationGate({ element }: AdministrationGateProps)
     );
   }
 
-  // Gracefully handle null tenant states when the user holds administrative credentials
-  const isUserAdmin = user?.role === 'admin' || user?.role === 'school_admin' || user?.role === 'super_admin';
-  if (!current && isUserAdmin) {
+  // Ordinary school administrators require a validated active tenant.
+  // Preserve the existing platform super-admin compatibility path.
+  if (!current && authorityRole === 'super_admin') {
     return element;
   }
 
   const hasAdministrationAccess = canAccessAdministration({
-    role: user?.role,
+    role: authorityRole || undefined,
     planSlug: current?.tenant?.plan || planContext?.plan?.slug || 'trial',
     enabledFeatures: current?.tenant?.enabled_features || [],
     featureFlags: planContext?.features || null,

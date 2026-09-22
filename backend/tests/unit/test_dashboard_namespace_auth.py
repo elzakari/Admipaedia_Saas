@@ -564,3 +564,38 @@ class TestDashboardBackgroundTask:
         assert len(started) == 2, (
             f"expected restart after drain; started count={len(started)}"
         )
+
+
+def test_legacy_superadmin_alias_is_not_platform_authority(
+    app,
+    db_session,
+):
+    """
+    The historical `superadmin` spelling must not carry platform
+    authority. Only super_admin and super_manager are platform roles.
+    """
+    user = _make_user(
+        db_session,
+        "superadmin",
+    )
+
+    tenant = _make_tenant(
+        db_session,
+        status="active",
+    )
+
+    token = _make_token(user.id)
+    ns = DashboardNamespace("/dashboard")
+
+    result = _call_with_sid(
+        app,
+        "s-reject-legacy-superadmin",
+        lambda: ns.on_connect(
+            {
+                "token": token,
+                "tenant_id": str(tenant.id),
+            }
+        ),
+    )
+
+    assert result is False

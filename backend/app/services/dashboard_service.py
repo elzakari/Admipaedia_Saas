@@ -22,6 +22,16 @@ class DashboardService:
     @staticmethod
     def get_statistics(user_role=None, filters=None):
         """Get dashboard statistics based on user role and filters."""
+
+        # SECURITY CONTAINMENT:
+        # Legacy DashboardStatistic / recalculated statistics are not
+        # reliably tenant-owned. Modern tenant-scoped dashboard metrics
+        # remain available through their dedicated endpoints.
+        logger.warning(
+            "legacy_dashboard_statistics_suppressed_pending_tenant_scope"
+        )
+        return []
+
         try:
             if filters and (
                 "startDate" in filters or "endDate" in filters or "category" in filters
@@ -128,6 +138,14 @@ class DashboardService:
     @staticmethod
     def get_calendar_events(month=None, year=None, start_date=None, end_date=None):
         """Get calendar events for a specific month and year."""
+
+        # SECURITY CONTAINMENT:
+        # CalendarEvent currently has no tenant_id/branch_id.
+        logger.warning(
+            "dashboard_calendar_events_suppressed_pending_tenant_ownership"
+        )
+        return []
+
         try:
             query = CalendarEvent.query
 
@@ -166,6 +184,11 @@ class DashboardService:
 
     @staticmethod
     def get_notifications(user_id=None, limit=10, start_date=None, end_date=None):
+        logger.warning(
+            "dashboard_notifications_suppressed_pending_tenant_ownership"
+        )
+        return []
+
         """Get notifications for a user with optional limit and date range."""
         try:
             from sqlalchemy import or_

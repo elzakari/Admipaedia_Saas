@@ -4,9 +4,11 @@ Security-related database models for ADMIPAEDIA
 
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.extensions import db
+from sqlalchemy.exc import IntegrityError
 
 try:
     from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -411,7 +413,7 @@ class TenantCredentialCounter(db.Model):
     __tablename__ = "tenant_credential_counters"
 
     tenant_id = db.Column(
-        db.String(36).with_variant(PGUUID(as_uuid=True), "postgresql"),
+        PGUUID(as_uuid=True),
         db.ForeignKey("tenants.id", ondelete="CASCADE"),
         primary_key=True,
     )
@@ -420,27 +422,52 @@ class TenantCredentialCounter(db.Model):
 
     @classmethod
     def get_next_serial(cls, tenant_id, year: int) -> int:
-        tenant_str = str(tenant_id)
-        # 1. Lock row using SELECT FOR UPDATE
+        tenant_uuid = (
+            tenant_id
+            if isinstance(tenant_id, uuid.UUID)
+            else uuid.UUID(str(tenant_id))
+        )
+
+        # Lock an existing counter row. This lookup deliberately bypasses the
+        # ambient tenant query filter because tenant_uuid is already the
+        # authoritative tenant identifier supplied by the caller.
         counter = (
-            cls.query.filter_by(tenant_id=tenant_str, year=year)
+            cls.query.without_tenant_filter()
+            .filter_by(tenant_id=tenant_uuid, year=year)
             .with_for_update()
             .first()
         )
-        if not counter:
-            # Row doesn't exist, create it.
-            # To handle concurrency, try-except integrity errors during initial insert
-            counter = cls(tenant_id=tenant_str, year=year, last_value=0)
-            db.session.add(counter)
+
+        if counter is None:
+            # Counter creation can race when two transactions initialize the
+            # same tenant/year simultaneously. Isolate only the INSERT in a
+            # SAVEPOINT so an expected uniqueness conflict cannot roll back
+            # the caller's surrounding transaction.
             try:
-                db.session.flush()
-            except Exception:
-                db.session.rollback()
+                with db.session.begin_nested():
+                    counter = cls(
+                        tenant_id=tenant_uuid,
+                        year=year,
+                        last_value=0,
+                    )
+                    db.session.add(counter)
+                    db.session.flush()
+            except IntegrityError:
+                # The SAVEPOINT has been rolled back by begin_nested(); never
+                # roll back the caller's outer transaction here. Re-read and
+                # lock the row created by the concurrent winner.
                 counter = (
-                    cls.query.filter_by(tenant_id=tenant_str, year=year)
+                    cls.query.without_tenant_filter()
+                    .filter_by(tenant_id=tenant_uuid, year=year)
                     .with_for_update()
                     .first()
                 )
+
+                if counter is None:
+                    raise RuntimeError(
+                        "Tenant credential counter initialization race "
+                        "did not produce a recoverable counter row"
+                    )
 
         counter.last_value += 1
         db.session.add(counter)

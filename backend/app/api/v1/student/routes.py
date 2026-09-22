@@ -699,6 +699,22 @@ def get_student_subject_lessons(subject_id):
 @require_role(["student"])
 @tenant_required
 def get_student_calendar_events():
+    # SECURITY CONTAINMENT:
+    # CalendarEvent has no tenant ownership in the current schema.
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Calendar events are temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "CALENDAR_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     user_id = get_jwt_identity()
     student = Student.query.filter_by(user_id=int(user_id)).first()
     if not student:
@@ -747,6 +763,18 @@ def get_student_calendar_events():
 @require_role(["student"])
 @tenant_required
 def get_student_notifications():
+    return (
+        jsonify(
+            {
+                "success": True,
+                "notifications": [],
+                "degraded": True,
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        200,
+    )
+
     user_id = get_jwt_identity()
     student = Student.query.filter_by(user_id=int(user_id)).first()
     if not student:
@@ -786,6 +814,20 @@ def get_student_notifications():
 @require_role(["student"])
 @tenant_required
 def mark_student_notification_read(notification_id):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     user_id = get_jwt_identity()
     from app.models.dashboard import Notification
 
@@ -806,6 +848,20 @@ def mark_student_notification_read(notification_id):
 @require_role(["student"])
 @tenant_required
 def mark_all_student_notifications_read():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     user_id = get_jwt_identity()
     from sqlalchemy import or_
 
@@ -832,6 +888,20 @@ def mark_all_student_notifications_read():
 @require_role(["student"])
 @tenant_required
 def clear_student_notifications_history():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     user_id = get_jwt_identity()
     from app.models.dashboard import Notification
 
@@ -847,6 +917,18 @@ def clear_student_notifications_history():
 @require_role(["student"])
 @tenant_required
 def get_student_conversations():
+    return (
+        jsonify(
+            {
+                "success": True,
+                "threads": [],
+                "degraded": True,
+                "code": "MESSAGE_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        200,
+    )
+
     user_id = get_jwt_identity()
     student = Student.query.filter_by(user_id=int(user_id)).first()
     if not student:
@@ -943,6 +1025,20 @@ def get_student_conversations():
 @require_role(["student"])
 @tenant_required
 def send_student_message():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Messaging is temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "MESSAGE_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     user_id = get_jwt_identity()
     data = request.json or {}
     recipient_id = data.get("recipient_id")

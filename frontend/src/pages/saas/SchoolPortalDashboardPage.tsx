@@ -6,8 +6,8 @@ import { SaasShell, schoolNav } from './SaasShell'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/contexts/AuthContext'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { useTenantAuthority } from '@/hooks/useTenantAuthority'
 import { usePlanContext } from '@/hooks/usePlanContext'
 import billingService, { BillingInvoice, Payment } from '@/services/billingService'
 import {
@@ -17,13 +17,18 @@ import {
 } from '@/lib/saasRoutes'
 
 export default function SchoolPortalDashboardPage() {
-  const { user } = useAuth()
   const { currentTenantId, current, isLoading } = useSaasTenant()
+  const {
+    isPlatform,
+    hasRole: hasAuthorityRole,
+  } = useTenantAuthority()
   const { data: planContext, isLoading: isLoadingPlanContext } = usePlanContext()
   const [invoices, setInvoices] = useState<BillingInvoice[] | null>(null)
   const [payments, setPayments] = useState<Payment[] | null>(null)
   const [loadingData, setLoadingData] = useState(false)
-  const canManageSchoolBilling = ['admin', 'school_admin', 'super_admin', 'super_manager'].includes(String(user?.role || ''))
+  const canManageSchoolBilling =
+    isPlatform ||
+    hasAuthorityRole(['admin', 'school_admin'])
 
   useEffect(() => {
     let cancelled = false

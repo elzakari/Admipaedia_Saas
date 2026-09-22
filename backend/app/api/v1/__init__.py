@@ -14,6 +14,7 @@ from app.api.v1.attendance.routes import attendance_bp
 from app.api.v1.attendances import attendances_bp
 # Import existing blueprints
 from app.api.v1.auth import auth_bp
+from app.api.v1.access_context import access_context_bp
 from app.api.v1.billing import billing_bp
 from app.api.v1.branches.routes import branches_bp
 from app.api.v1.calendar import calendar_bp
@@ -77,6 +78,7 @@ api_v1_bp.register_blueprint(academics_bp, url_prefix="/academics")
 api_v1_bp.register_blueprint(
     auth_bp, url_prefix="/auth"
 )  # Enhanced auth is now included
+api_v1_bp.register_blueprint(access_context_bp)
 api_v1_bp.register_blueprint(profile_bp, url_prefix="/profile")
 api_v1_bp.register_blueprint(students_bp, url_prefix="/students")
 api_v1_bp.register_blueprint(student_bp, url_prefix="/student")

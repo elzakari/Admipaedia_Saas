@@ -1183,9 +1183,8 @@ def patch_admission_status(form_id):
         from app.models.security import TenantCredentialCounter
 
         current_year = datetime.utcnow().year
-        tenant_str = str(tenant_id)
         counter = TenantCredentialCounter.query.filter_by(
-            tenant_id=tenant_str, year=current_year
+            tenant_id=tenant_id, year=current_year
         ).first()
         current_serial = counter.last_value if counter else 0
         serial_padded = f"{current_serial:06d}"

@@ -28,16 +28,42 @@ def _get_user_from_jwt():
 
 
 def admin_required(fn):
-    """Decorator to check if the current user has an admin-capable role."""
+    """Require school-admin authority in the current tenant."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         user = _get_user_from_jwt()
 
-        if not user or user.role not in ADMIN_COMPATIBLE_ROLES:
+        if not user:
             return (
-                jsonify({"success": False, "message": "Admin privileges required"}),
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Admin privileges required",
+                    }
+                ),
+                403,
+            )
+
+        from app.utils.rbac_decorators import (
+            _is_platform_user,
+            get_request_effective_roles,
+        )
+
+        authorized = (
+            _is_platform_user(user)
+            or "admin" in get_request_effective_roles(user)
+        )
+
+        if not authorized:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Admin privileges required",
+                    }
+                ),
                 403,
             )
 
@@ -47,23 +73,44 @@ def admin_required(fn):
 
 
 def teacher_required(fn):
-    """Decorator to check if the current user has teacher role or admin role."""
+    """Require teacher or school-admin authority in the current tenant."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         user = _get_user_from_jwt()
 
-        if not user or user.role not in (
-            "teacher",
-            "admin",
-            "school_admin",
-            "super_admin",
-            "superadmin",
-            "super_manager",
-        ):
+        if not user:
             return (
-                jsonify({"success": False, "message": "Teacher privileges required"}),
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Teacher privileges required",
+                    }
+                ),
+                403,
+            )
+
+        from app.utils.rbac_decorators import (
+            _is_platform_user,
+            get_request_effective_roles,
+        )
+
+        roles = get_request_effective_roles(user)
+
+        authorized = (
+            _is_platform_user(user)
+            or bool({"teacher", "admin"}.intersection(roles))
+        )
+
+        if not authorized:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Teacher privileges required",
+                    }
+                ),
                 403,
             )
 
@@ -73,16 +120,36 @@ def teacher_required(fn):
 
 
 def student_required(fn):
-    """Decorator to check if the current user has student role."""
+    """Require student authority in the current tenant."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         user = _get_user_from_jwt()
 
-        if not user or user.role != "student":
+        if not user:
             return (
-                jsonify({"success": False, "message": "Student privileges required"}),
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Student privileges required",
+                    }
+                ),
+                403,
+            )
+
+        from app.utils.rbac_decorators import (
+            get_request_effective_roles,
+        )
+
+        if "student" not in get_request_effective_roles(user):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Student privileges required",
+                    }
+                ),
                 403,
             )
 
@@ -92,29 +159,42 @@ def student_required(fn):
 
 
 def parent_required(fn):
-    """Decorator to check if the current user has parent role."""
+    """Require parent authority in the current tenant."""
 
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
         user = _get_user_from_jwt()
 
-        if not user or user.role != "parent":
+        if not user:
             return (
-                jsonify({"success": False, "message": "Parent privileges required"}),
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Parent privileges required",
+                    }
+                ),
                 403,
             )
 
-        try:
-            from app.extensions import db
-            from app.models.parent import Parent
+        from app.utils.rbac_decorators import (
+            get_request_effective_roles,
+        )
 
-            if not Parent.query.filter_by(user_id=user.id).first():
-                db.session.add(Parent(user_id=user.id))
-                db.session.commit()
-        except Exception:
-            pass
+        if "parent" not in get_request_effective_roles(user):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Parent privileges required",
+                    }
+                ),
+                403,
+            )
 
+        # Authorization must never create Parent records.
+        # Parent profile provisioning belongs to the tenant onboarding
+        # workflow, where tenant_id can be established explicitly.
         return fn(*args, **kwargs)
 
     return wrapper

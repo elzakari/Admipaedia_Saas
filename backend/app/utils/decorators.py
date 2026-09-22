@@ -45,52 +45,52 @@ def validate_schema(schema_class):
 
 def role_required(roles):
     """
-    Decorator to check if user has required role.
-
-    Args:
-        roles: List of role names required to access the endpoint
+    Legacy compatibility decorator using tenant-effective roles rather
+    than global User.role.
     """
 
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            from flask_jwt_extended import (get_jwt_identity,
-                                            verify_jwt_in_request)
+            from flask_jwt_extended import verify_jwt_in_request
+
+            from app.utils.rbac_decorators import (
+                get_current_user,
+                get_request_effective_roles,
+                _is_platform_user,
+            )
 
             verify_jwt_in_request()
 
-            # Get user identity from JWT (this is a user ID string)
-            user_id = get_jwt_identity()
-
-            # Fetch the user from database to get their role
-            from app.models.user import User
-
-            user = User.query.get(int(user_id))
+            user = get_current_user()
 
             if not user:
-                logger.warning("user_not_found", user_id=user_id)
+                logger.warning("user_not_found")
                 res = jsonify({"error": "User not found"})
                 res.status_code = 404
                 return res
 
-            normalized_roles = set(roles)
-            if "admin" in normalized_roles:
-                normalized_roles.update(ADMIN_EQUIVALENT_ROLES)
-            if "super_admin" in normalized_roles:
-                normalized_roles.add("super_manager")
+            if _is_platform_user(user):
+                return f(*args, **kwargs)
 
-            if user.role not in normalized_roles:
-                if not (
-                    user.role == "super_manager" and "super_admin" in normalized_roles
-                ):
-                    logger.warning(
-                        "unauthorized_access",
-                        required_roles=list(normalized_roles),
-                        user_role=user.role,
-                    )
-                    res = jsonify({"error": "Unauthorized access"})
-                    res.status_code = 403
-                    return res
+            normalized_roles = {
+                str(role or "").strip().lower()
+                for role in roles
+            }
+
+            # Legacy routes asking for "admin" are satisfied by a proven
+            # school_admin membership through the compatibility alias.
+            effective_roles = get_request_effective_roles(user)
+
+            if not normalized_roles.intersection(effective_roles):
+                logger.warning(
+                    "tenant_legacy_role_denied",
+                    required_roles=list(normalized_roles),
+                    effective_roles=list(effective_roles),
+                )
+                res = jsonify({"error": "Unauthorized access"})
+                res.status_code = 403
+                return res
 
             return f(*args, **kwargs)
 

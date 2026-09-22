@@ -1,8 +1,9 @@
+import uuid
 import secrets
 from datetime import datetime, timedelta
 
 import structlog
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, current_app, g, jsonify, request, session
 from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 get_jwt, get_jwt_identity, jwt_required)
 from marshmallow import Schema, ValidationError, fields, validate
@@ -16,11 +17,13 @@ from app.middleware.security_middleware import (CSRFProtection,
 from app.models.parent import Parent
 from app.models.security import LoginAttempt, PasswordHistory, SecurityEvent
 from app.models.session_token import SessionToken
+from app.models.auth_session import AuthSession, RefreshToken
 from app.models.system_setting import SystemSetting
 from app.models.user import User
 from app.utils.avatar_utils import normalize_avatar_url_for_response
 from app.utils.password_security import AccountSecurity, PasswordSecurity
 from app.utils.url_helpers import get_frontend_base_url
+import hashlib
 
 logger = structlog.get_logger()
 
@@ -52,7 +55,6 @@ class ChangePasswordSchema(Schema):
     current_password = fields.String(required=True)
     new_password = fields.String(required=True, validate=validate.Length(min=8))
     confirm_password = fields.String(required=True)
-
 
 @auth_bp.route("/register", methods=["POST"])
 @rate_limit(limit=5, window=3600)  # 5 registrations per hour
@@ -221,7 +223,6 @@ def register():
         logger.error("registration_error", error=str(err))
         return jsonify({"success": False, "error": "Registration failed"}), 500
 
-
 @auth_bp.route("/verify-email", methods=["GET", "POST"])
 @rate_limit(limit=10, window=900)  # 10 verify attempts per 15 mins
 @security_headers()
@@ -271,7 +272,6 @@ def verify_email():
     except Exception as err:
         logger.error("email_verification_error", error=str(err))
         return jsonify({"success": False, "error": "Email verification failed"}), 500
-
 
 @auth_bp.route("/resend-verification", methods=["POST"])
 @rate_limit(limit=3, window=3600)  # max 3 verification resends per hour
@@ -334,11 +334,9 @@ from flask import current_app
 
 from app.services.enhanced_auth_service import EnhancedAuthService
 
-
 @auth_bp.route("/test", methods=["GET"])
 def test_auth():
     return jsonify({"success": True, "message": "Auth service is reachable"}), 200
-
 
 @auth_bp.route("/login", methods=["POST"])
 @auth_bp.route("/login/", methods=["POST"])
@@ -365,7 +363,7 @@ def login():
                 400,
             )
 
-        logger.info("login_attempt", email=email)
+        logger.info("login_attempt")
 
         result = EnhancedAuthService.authenticate_with_security(
             email=email,
@@ -374,7 +372,7 @@ def login():
             device_info=data.get("device_info"),
         )
 
-        logger.info("login_result", email=email, success=result.get("success", False))
+        logger.info("login_result", success=result.get("success", False))
 
         # Ensure status_code is a valid integer
         if result.get("success", False):
@@ -402,36 +400,6 @@ def login():
     except Exception as err:
         logger.error("login_error", error=str(err))
         return jsonify({"success": False, "message": "Login failed"}), 500
-
-
-@auth_bp.route("/bootstrap-dev", methods=["POST"])
-def bootstrap_dev_accounts():
-    if not current_app.config.get("DEBUG"):
-        return jsonify({"success": False, "error": "Not available"}), 404
-
-    if request.remote_addr not in ("127.0.0.1", "::1"):
-        return jsonify({"success": False, "error": "Forbidden"}), 403
-
-    try:
-        from app.db_init import init_db
-
-        init_db()
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "seeded": {
-                        "admin_email": "admin@admipaedia.com",
-                        "super_admin_email": "elzakari@easymsdigit.com",
-                    },
-                }
-            ),
-            200,
-        )
-    except Exception as err:
-        logger.error("bootstrap_dev_accounts_error", error=str(err))
-        return jsonify({"success": False, "error": "Bootstrap failed"}), 500
-
 
 @auth_bp.route("/change-password", methods=["POST"])
 @jwt_required()
@@ -566,7 +534,6 @@ def change_password():
         )
         return jsonify({"success": False, "error": "Password change failed"}), 500
 
-
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 @security_headers()
@@ -643,58 +610,605 @@ def get_current_user():
             500,
         )
 
-
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
-@rate_limit(limit=20, window=3600)  # 20 refreshes per hour
-@security_headers()
 def refresh():
-    """Refresh access token with session validation."""
+    """
+    Rotate a refresh token atomically.
+
+    V27C-R5:
+    - AuthSession remains the durable login/device session.
+    - RefreshToken is the durable refresh-generation chain.
+    - SessionToken remains the temporary JWT compatibility layer.
+    - A refresh generation is single-use.
+    - A confirmed post-rotation replay revokes the complete refresh
+      family and logical AuthSession atomically.
+    - Ordinary R4 concurrent losers remain simple 401 responses and do
+      not trigger compromise revocation.
+    """
     try:
         current_user_id = get_jwt_identity()
-        if not current_user_id:
-            return jsonify({"success": False, "error": "Invalid refresh token"}), 401
 
-        # Create new access token
-        access_token = create_access_token(identity=current_user_id)
+        if current_user_id is None:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        try:
+            current_user_id = int(current_user_id)
+        except (TypeError, ValueError):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        refresh_claims = get_jwt()
+
+        sid = refresh_claims.get("sid")
+        refresh_jti = refresh_claims.get("jti")
+
+        if not sid or not refresh_jti:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        try:
+            auth_session_id = uuid.UUID(str(sid))
+        except (TypeError, ValueError, AttributeError):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        now = datetime.utcnow()
+
+        auth_session = db.session.get(
+            AuthSession,
+            auth_session_id,
+        )
+
+        if (
+            auth_session is None
+            or auth_session.user_id != current_user_id
+            or not auth_session.is_active
+        ):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        presented_hash = hashlib.sha256(
+            refresh_jti.encode("utf-8")
+        ).hexdigest()
+
+        # Load immutable lineage information before the atomic claim.
+        #
+        # We deliberately do not rely on this object's used_at value for
+        # ownership. The conditional UPDATE below is the authority.
+        current_generation = (
+            RefreshToken.query.filter_by(
+                jti_hash=presented_hash,
+                session_id=auth_session.id,
+            )
+            .first()
+        )
+
+        if current_generation is None:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Invalid refresh session",
+                    }
+                ),
+                401,
+            )
+
+        current_generation_id = current_generation.id
+        family_id = current_generation.family_id
+
+        # --------------------------------------------------------
+        # Atomic single-use claim.
+        #
+        # Exactly one request may transition:
+        #
+        #     used_at IS NULL -> used_at = now
+        #
+        # The rowcount is therefore the ownership result.
+        # --------------------------------------------------------
+
+        claim = (
+            db.session.query(RefreshToken)
+            .filter(
+                RefreshToken.id == current_generation_id,
+                RefreshToken.session_id == auth_session.id,
+                RefreshToken.jti_hash == presented_hash,
+                RefreshToken.used_at.is_(None),
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .update(
+                {
+                    RefreshToken.used_at: now,
+                },
+                synchronize_session=False,
+            )
+        )
+
+        if claim != 1:
+            # A zero-row conditional UPDATE is an expected compare-and-swap
+            # outcome, not a database error. The SQLAlchemy transaction is
+            # still valid and must remain intact while R5 determines whether
+            # this request is:
+            #
+            #   1. an ordinary concurrent R4 loser, or
+            #   2. a confirmed post-rotation replay incident.
+            #
+            # Do NOT rollback here. In transactional test isolation a broad
+            # rollback can destroy the surrounding savepoint, and in normal
+            # runtime operation no rollback is required merely because an
+            # UPDATE matched zero rows.
+            #
+            # Confirmed replay handling below performs its security updates
+            # and commits them atomically. Non-replay/loser paths explicitly
+            # rollback before returning.
+            # ------------------------------------------------------------
+            # V27C-R5 ? refresh replay compromise response
+            # ------------------------------------------------------------
+            #
+            # Only requests explicitly tagged by the JWT middleware as
+            # having presented an already-rotated refresh token are treated
+            # as replay incidents.
+            #
+            # A request which entered while the original generation was
+            # still active but subsequently lost R4's atomic UPDATE is an
+            # ordinary concurrent loser and must NOT destroy the winner's
+            # newly-created refresh generation.
+            # ------------------------------------------------------------
+
+            replay_inspection = bool(
+                getattr(
+                    g,
+                    "refresh_replay_inspection",
+                    False,
+                )
+            )
+
+
+            if replay_inspection:
+                replay_now = datetime.utcnow()
+
+                replay_session = db.session.get(
+                    AuthSession,
+                    auth_session_id,
+                )
+
+                replay_generation = (
+                    RefreshToken.query.filter_by(
+                        jti_hash=presented_hash,
+                        session_id=auth_session_id,
+                    )
+                    .first()
+                )
+
+
+                replay_confirmed = bool(
+                    replay_session is not None
+                    and replay_session.user_id == current_user_id
+                    and replay_session.is_active
+                    and replay_generation is not None
+                    and replay_generation.used_at is not None
+                    and replay_generation.revoked_at is None
+                    and replay_generation.expires_at > replay_now
+                    and replay_generation.replaced_by_id is not None
+                )
+
+                if replay_confirmed:
+                    replay_family_id = replay_generation.family_id
+
+                    # ----------------------------------------------------
+                    # Own the compromise response atomically.
+                    #
+                    # Multiple replay requests may arrive together. Exactly
+                    # one request is allowed to transition the AuthSession
+                    # from active to revoked and write the security event.
+                    # ----------------------------------------------------
+
+                    compromise_claim = (
+                        db.session.query(AuthSession)
+                        .filter(
+                            AuthSession.id == auth_session_id,
+                            AuthSession.user_id == current_user_id,
+                            AuthSession.status == "active",
+                            AuthSession.revoked_at.is_(None),
+                            AuthSession.expires_at > replay_now,
+                        )
+                        .update(
+                            {
+                                AuthSession.status: "revoked",
+                                AuthSession.revoked_at: replay_now,
+                                AuthSession.revocation_reason:
+                                    "refresh_token_replay",
+                                AuthSession.session_version:
+                                    AuthSession.session_version + 1,
+                            },
+                            synchronize_session=False,
+                        )
+                    )
+
+                    if compromise_claim == 1:
+                        # Revoke every generation belonging to this one
+                        # durable refresh family. This includes the consumed
+                        # parent and the currently-active child generation.
+                        family_revoked_count = (
+                            db.session.query(RefreshToken)
+                            .filter(
+                                RefreshToken.session_id
+                                == auth_session_id,
+                                RefreshToken.family_id
+                                == replay_family_id,
+                                RefreshToken.revoked_at.is_(None),
+                            )
+                            .update(
+                                {
+                                    RefreshToken.revoked_at:
+                                        replay_now,
+                                    RefreshToken.revocation_reason:
+                                        "refresh_token_replay",
+                                },
+                                synchronize_session=False,
+                            )
+                        )
+
+                        # ------------------------------------------------
+                        # Legacy SessionToken compatibility revocation.
+                        #
+                        # SessionToken has no AuthSession FK yet. During
+                        # this compatibility phase we scope revocation by
+                        # the strongest available device identity.
+                        #
+                        # Never call SessionToken.revoke() here because it
+                        # commits internally.
+                        # ------------------------------------------------
+
+                        legacy_scope = (
+                            SessionToken.query.filter(
+                                SessionToken.user_id
+                                == current_user_id,
+                                SessionToken.is_revoked.is_(False),
+                            )
+                        )
+
+                        if replay_session.device_fingerprint:
+                            legacy_scope = legacy_scope.filter(
+                                SessionToken.device_fingerprint
+                                == replay_session.device_fingerprint
+                            )
+
+                        elif (
+                            replay_session.ip_address
+                            and replay_session.user_agent
+                        ):
+                            legacy_scope = legacy_scope.filter(
+                                SessionToken.ip_address
+                                == replay_session.ip_address,
+                                SessionToken.user_agent
+                                == replay_session.user_agent,
+                            )
+
+                        else:
+                            # Security-first fallback.
+                            #
+                            # Without any trustworthy compatibility
+                            # discriminator, leaving access JWTs alive would
+                            # be weaker than revoking the user's legacy token
+                            # set. The durable AuthSession architecture
+                            # remains scoped to only the compromised login.
+                            logger.warning(
+                                "refresh_replay_legacy_scope_fallback",
+                                user_id=current_user_id,
+                                auth_session_id=str(
+                                    auth_session_id
+                                ),
+                            )
+
+                        legacy_revoked_count = (
+                            legacy_scope.update(
+                                {
+                                    SessionToken.is_revoked:
+                                        True,
+                                    SessionToken.revoked_at:
+                                        replay_now,
+                                    SessionToken.revocation_reason:
+                                        "refresh_token_replay",
+                                },
+                                synchronize_session=False,
+                            )
+                        )
+
+                        # Persist telemetry inside the SAME transaction.
+                        #
+                        # Do not use log_security_event() or
+                        # EnhancedAuthService._log_security_event() here;
+                        # those helpers may own their own commit boundary.
+                        security_event = SecurityEvent(
+                            event_type=(
+                                "refresh_token_replay_detected"
+                            ),
+                            user_id=current_user_id,
+                            ip_address=request.remote_addr,
+                            user_agent=request.headers.get(
+                                "User-Agent"
+                            ),
+                            endpoint=request.endpoint,
+                            method=request.method,
+                            severity="critical",
+                            details={
+                                "auth_session_id":
+                                    str(auth_session_id),
+                                "family_id":
+                                    str(replay_family_id),
+                                "generation_id":
+                                    str(replay_generation.id),
+                                "tenant_id": (
+                                    str(replay_session.tenant_id)
+                                    if replay_session.tenant_id
+                                    else None
+                                ),
+                                "family_revoked_count":
+                                    int(
+                                        family_revoked_count
+                                        or 0
+                                    ),
+                                "legacy_revoked_count":
+                                    int(
+                                        legacy_revoked_count
+                                        or 0
+                                    ),
+                                "reason":
+                                    "refresh_token_replay",
+                            },
+                        )
+
+                        db.session.add(
+                            security_event
+                        )
+
+                        # ONE authoritative transaction boundary.
+                        db.session.commit()
+
+                        logger.warning(
+                            "refresh_token_replay_detected",
+                            user_id=current_user_id,
+                            auth_session_id=str(
+                                auth_session_id
+                            ),
+                            family_id=str(
+                                replay_family_id
+                            ),
+                        )
+
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": (
+                                        "Refresh token replay "
+                                        "detected. Session revoked."
+                                    ),
+                                    "code": (
+                                        "REFRESH_TOKEN_REPLAY"
+                                    ),
+                                }
+                            ),
+                            401,
+                        )
+
+                    # Another replay request already performed the durable
+                    # compromise transition.
+                    db.session.rollback()
+
+            # Ordinary R4 loser, unconfirmed replay, or a replay already
+            # handled by another request. No mutation from this request
+            # should survive.
+            db.session.rollback()
+
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Refresh token already used or invalid",
+                    }
+                ),
+                401,
+            )
+
+        # Do not trust the previously loaded ORM object's used_at after
+        # the bulk UPDATE. Ownership is established solely by rowcount.
+
+        token_claims = {
+            "sid": str(auth_session.id),
+        }
+
+        new_access_token = create_access_token(
+            identity=str(current_user_id),
+            additional_claims=token_claims,
+        )
+
+        new_refresh_token = create_refresh_token(
+            identity=str(current_user_id),
+            additional_claims=token_claims,
+        )
+
         from flask_jwt_extended import decode_token
 
-        decoded = decode_token(access_token)
-        new_access_jti = decoded["jti"]
-        exp_ts = decoded["exp"]  # Unix timestamp
-        expires_at = datetime.utcfromtimestamp(exp_ts)
+        access_payload = decode_token(new_access_token)
+        new_refresh_payload = decode_token(new_refresh_token)
 
-        new_session = SessionToken(
-            jti=new_access_jti,
-            user_id=int(current_user_id),
-            token_type="access",
-            expires_at=expires_at,
-            ip_address=request.remote_addr,
-            user_agent=request.headers.get("User-Agent"),
+        access_jti = access_payload["jti"]
+        new_refresh_jti = new_refresh_payload["jti"]
+
+        access_expiry = datetime.utcfromtimestamp(
+            int(access_payload["exp"])
         )
-        new_session.last_used_at = datetime.utcnow()
-        db.session.add(new_session)
-        db.session.commit()
 
-        # Generate CSRF token for refreshed session
-        csrf_token = CSRFProtection.generate_csrf_token()
-        session["csrf_token"] = csrf_token
+        new_refresh_expiry = datetime.utcfromtimestamp(
+            int(new_refresh_payload["exp"])
+        )
+
+        new_refresh_hash = hashlib.sha256(
+            new_refresh_jti.encode("utf-8")
+        ).hexdigest()
+
+        # --------------------------------------------------------
+        # Create the next durable generation.
+        # --------------------------------------------------------
+
+        child_generation = RefreshToken(
+            session_id=auth_session.id,
+            family_id=family_id,
+            jti_hash=new_refresh_hash,
+            parent_jti_hash=presented_hash,
+            issued_at=now,
+            expires_at=new_refresh_expiry,
+        )
+
+        db.session.add(child_generation)
+        db.session.flush()
+
+        # Avoid using stale current_generation state after the bulk
+        # UPDATE. Update lineage directly with a targeted statement.
+        replaced = (
+            db.session.query(RefreshToken)
+            .filter(
+                RefreshToken.id == current_generation_id,
+                RefreshToken.replaced_by_id.is_(None),
+            )
+            .update(
+                {
+                    RefreshToken.replaced_by_id: child_generation.id,
+                },
+                synchronize_session=False,
+            )
+        )
+
+        if replaced != 1:
+            raise RuntimeError(
+                "Refresh generation lineage update failed"
+            )
+
+        # --------------------------------------------------------
+        # Legacy SessionToken compatibility.
+        #
+        # IMPORTANT:
+        # SessionToken.revoke() commits internally, so do not call it
+        # inside this atomic rotation transaction.
+        # --------------------------------------------------------
+
+        legacy_refresh = SessionToken.find_by_jti(
+            refresh_jti
+        )
+
+        if (
+            legacy_refresh is None
+            or legacy_refresh.user_id != current_user_id
+            or legacy_refresh.token_type != "refresh"
+            or legacy_refresh.is_revoked
+        ):
+            raise RuntimeError(
+                "Refresh compatibility token state is invalid"
+            )
+
+        legacy_refresh.is_revoked = True
+        legacy_refresh.revoked_at = now
+        legacy_refresh.revocation_reason = (
+            "Refresh token rotated"
+        )
+        legacy_refresh.last_used_at = now
+
+        new_access_row = SessionToken(
+            jti=access_jti,
+            user_id=current_user_id,
+            token_type="access",
+            expires_at=access_expiry,
+            ip_address=auth_session.ip_address,
+            user_agent=auth_session.user_agent,
+            device_fingerprint=auth_session.device_fingerprint,
+        )
+
+        new_refresh_row = SessionToken(
+            jti=new_refresh_jti,
+            user_id=current_user_id,
+            token_type="refresh",
+            expires_at=new_refresh_expiry,
+            ip_address=auth_session.ip_address,
+            user_agent=auth_session.user_agent,
+            device_fingerprint=auth_session.device_fingerprint,
+        )
+
+        db.session.add(new_access_row)
+        db.session.add(new_refresh_row)
+
+        auth_session.touch(now)
+
+        db.session.commit()
 
         return (
             jsonify(
                 {
                     "success": True,
-                    "access_token": access_token,
-                    "csrf_token": csrf_token,
+                    "access_token": new_access_token,
+                    "refresh_token": new_refresh_token,
+                    "csrf_token": secrets.token_urlsafe(32),
                 }
             ),
             200,
         )
 
-    except Exception as e:
-        logger.error("token_refresh_error", error=str(e), user_id=get_jwt_identity())
-        return jsonify({"success": False, "error": "Token refresh failed"}), 422
+    except Exception as exc:
+        db.session.rollback()
 
+        logger.error(
+            "refresh_rotation_failed",
+            error=str(exc),
+        )
+
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Token refresh failed",
+                }
+            ),
+            422,
+        )
 
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
@@ -723,7 +1237,6 @@ def logout():
     except Exception as err:
         logger.error("logout_error", error=str(err), user_id=get_jwt_identity())
         return jsonify({"success": False, "error": "Logout failed"}), 500
-
 
 @auth_bp.route("/logout-all", methods=["POST"])
 @jwt_required()
@@ -754,7 +1267,6 @@ def logout_all_sessions():
     except Exception as err:
         logger.error("logout_all_error", error=str(err), user_id=get_jwt_identity())
         return jsonify({"success": False, "error": "Logout all failed"}), 500
-
 
 @auth_bp.route("/sessions", methods=["GET"])
 @jwt_required()
@@ -793,7 +1305,6 @@ def get_active_sessions():
     except Exception as err:
         logger.error("get_sessions_error", error=str(err), user_id=get_jwt_identity())
         return jsonify({"success": False, "error": "Failed to get sessions"}), 500
-
 
 @auth_bp.route("/revoke-session/<int:session_id>", methods=["POST"])
 @jwt_required()
@@ -930,7 +1441,6 @@ def token_value(row, key: str, fallback_index: int = 0):
         pass
     return None
 
-
 @auth_bp.route("/reset-password", methods=["POST"])
 @rate_limit(limit=5, window=3600)  # 5 resets per hour
 @sanitize_request_data()
@@ -1053,7 +1563,6 @@ def reset_password():
     except Exception as err:
         logger.error("password_reset_error", error=str(err))
         return jsonify({"success": False, "error": "Password reset failed"}), 500
-
 
 @auth_bp.route("/claim-account", methods=["POST"])
 @rate_limit(limit=5, window=3600)  # 5 claim attempts per hour

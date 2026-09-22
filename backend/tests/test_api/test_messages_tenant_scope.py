@@ -65,10 +65,9 @@ def test_messages_list_scopes_results_to_active_tenant(client, db_session, sampl
     token = create_access_token(identity=sender.id)
     response = client.get('/api/v1/messages?folder=sent', headers=_headers(token, sample_tenant.id))
 
-    assert response.status_code == 200
-    assert response.json['success'] is True
-    assert len(response.json['data']) == 1
-    assert response.json['data'][0]['subject'] == 'Tenant A Message'
+    assert response.status_code == 503
+    assert response.json['success'] is False
+    assert response.json['code'] == 'MESSAGE_TENANT_OWNERSHIP_REQUIRED'
 
 
 def test_create_message_rejects_cross_tenant_recipient(client, db_session, sample_tenant):
@@ -105,6 +104,7 @@ def test_create_message_rejects_cross_tenant_recipient(client, db_session, sampl
         headers=_headers(token, sample_tenant.id),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 503
     assert response.json['success'] is False
+    assert response.json['code'] == 'MESSAGE_TENANT_OWNERSHIP_REQUIRED'
     assert Message.query.filter_by(subject='Cross Tenant Attempt').count() == 0

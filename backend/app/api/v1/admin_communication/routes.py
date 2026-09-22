@@ -118,6 +118,21 @@ def resolve_audience(tenant_id, recipient_type, recipient_id, audience_scope=Non
 @admin_required
 @tenant_required
 def admin_communicate():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Administrative messaging and broadcast notifications "
+                    "are temporarily unavailable while tenant ownership "
+                    "is being upgraded."
+                ),
+                "code": "COMMUNICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     current_user_id = int(get_jwt_identity())
     tenant_id = g.tenant_id
 

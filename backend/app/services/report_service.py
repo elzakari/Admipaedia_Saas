@@ -330,50 +330,65 @@ class ReportService:
         """Fetches financial data for reports."""
 
         def _studentfee_scope(query):
-            if tenant_id is not None:
-                if hasattr(StudentFee, "tenant_id"):
-                    query = query.filter(
-                        (StudentFee.tenant_id == tenant_id) | (StudentFee.tenant_id.is_(None))
-                    )
-                else:
-                    if "Student" not in [m.class_.__name__ for m in query.column_descriptions if hasattr(m, 'class_')]:
-                        query = query.join(Student, StudentFee.student_id == Student.id)
-                    query = query.filter(Student.tenant_id == tenant_id)
-            if branch_id is not None and hasattr(StudentFee, "branch_id"):
-                query = query.filter(
-                    (StudentFee.branch_id == branch_id) | (StudentFee.branch_id.is_(None))
-                )
+            from sqlalchemy import false
+
+            if tenant_id is None:
+                return query.filter(false())
+
+            query = query.join(
+                Student,
+                StudentFee.student_id == Student.id,
+            ).filter(
+                Student.tenant_id == tenant_id
+            )
+
+            if branch_id is not None:
+                query = query.filter(Student.branch_id == branch_id)
+
             return query
 
         def _student_scope(query):
-            if tenant_id is not None and hasattr(Student, "tenant_id"):
-                query = query.filter(Student.tenant_id == tenant_id)
-            if branch_id is not None and hasattr(Student, "branch_id"):
-                query = query.filter(
-                    (Student.branch_id == branch_id) | (Student.branch_id.is_(None))
-                )
+            from sqlalchemy import false
+
+            if tenant_id is None:
+                return query.filter(false())
+
+            query = query.filter(Student.tenant_id == tenant_id)
+
+            if branch_id is not None:
+                query = query.filter(Student.branch_id == branch_id)
+
             return query
 
         def _payment_scope(query):
-            if tenant_id is not None and hasattr(Payment, "tenant_id"):
-                query = query.filter(
-                    (Payment.tenant_id == tenant_id) | (Payment.tenant_id.is_(None))
-                )
-            if branch_id is not None and hasattr(Payment, "branch_id"):
-                query = query.filter(
-                    (Payment.branch_id == branch_id) | (Payment.branch_id.is_(None))
-                )
+            from sqlalchemy import false
+
+            if tenant_id is None:
+                return query.filter(false())
+
+            query = query.join(
+                Student,
+                Payment.student_id == Student.id,
+            ).filter(
+                Student.tenant_id == tenant_id
+            )
+
+            if branch_id is not None:
+                query = query.filter(Student.branch_id == branch_id)
+
             return query
 
         def _class_scope(query):
-            if tenant_id is not None and hasattr(Class, "tenant_id"):
-                query = query.filter(
-                    (Class.tenant_id == tenant_id) | (Class.tenant_id.is_(None))
-                )
-            if branch_id is not None and hasattr(Class, "branch_id"):
-                query = query.filter(
-                    (Class.branch_id == branch_id) | (Class.branch_id.is_(None))
-                )
+            from sqlalchemy import false
+
+            if tenant_id is None:
+                return query.filter(false())
+
+            query = query.filter(Class.tenant_id == tenant_id)
+
+            if branch_id is not None:
+                query = query.filter(Class.branch_id == branch_id)
+
             return query
 
         # Total Fees Collection

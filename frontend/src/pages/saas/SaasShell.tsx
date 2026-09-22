@@ -5,6 +5,7 @@ import { Building2, Users, Receipt, CreditCard, Shield, BarChart3, Settings2, Sp
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { useTenantAuthority } from '@/hooks/useTenantAuthority'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -25,9 +26,16 @@ type NavItem = {
 
 export function SaasShell({ title, nav, children, showTenantSwitcher }: { title: string; nav: NavItem[]; children: React.ReactNode; showTenantSwitcher: boolean }) {
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const { tenants, currentTenantId, setCurrentTenant, isLoading } = useSaasTenant()
-  const canManageSchoolBilling = ['admin', 'school_admin', 'super_admin', 'super_manager'].includes(String(user?.role || ''))
+  const {
+    primaryRole: authorityRole,
+    isPlatform,
+    hasRole: hasAuthorityRole,
+  } = useTenantAuthority()
+  const canManageSchoolBilling =
+    isPlatform ||
+    hasAuthorityRole(['admin', 'school_admin'])
   const filteredNav = useMemo(() => {
     if (canManageSchoolBilling) {
       return nav
@@ -47,7 +55,7 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold tracking-tight text-foreground truncate">{title}</h1>
-              {user?.role === 'super_admin' && (
+              {authorityRole === 'super_admin' && (
                 <Badge variant="secondary">Super Admin</Badge>
               )}
             </div>
@@ -84,7 +92,7 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           <aside className="bg-card border border-border rounded-2xl p-3">
             <div className="px-2 py-2 flex items-center gap-2 text-foreground">
-              {user?.role === 'super_admin' ? <Shield className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
+              {authorityRole === 'super_admin' ? <Shield className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
               <span className="text-sm font-semibold">Navigation</span>
             </div>
 
@@ -104,7 +112,7 @@ export function SaasShell({ title, nav, children, showTenantSwitcher }: { title:
               ))}
             </nav>
 
-            {user?.role !== 'super_admin' && (
+            {authorityRole !== 'super_admin' && (
               <div className="mt-4 px-2">
                 <div className="rounded-xl bg-muted/40 border border-border p-3">
                   <div className="text-xs text-foreground">Need another school workspace?</div>

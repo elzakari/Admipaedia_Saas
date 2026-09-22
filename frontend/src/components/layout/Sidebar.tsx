@@ -34,6 +34,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntitlements } from '@/hooks/useEntitlements'
 import { useSaasTenant } from '@/hooks/useSaasTenant'
+import { useTenantAuthority } from '@/hooks/useTenantAuthority'
 import { useTheme } from '../../contexts/ThemeContext';
 import { 
   Tooltip,
@@ -63,19 +64,20 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const isCasaos = theme === 'casaos';
   const { current } = useSaasTenant()
-  const userRole = user?.role === 'school_admin' ? 'admin' : (user?.role || 'user');
+  const { primaryRole: authorityRole } = useTenantAuthority()
+  const userRole = authorityRole || 'user';
 
   const brandTitle =
-    user?.role === 'super_admin'
+    authorityRole === 'super_admin'
       ? 'ADMIPEDIA'
       : (current?.tenant?.slug?.toUpperCase() || current?.tenant?.name || 'ADMIPEDIA')
 
-  const brandLogoUrl = (user?.role === 'super_admin' || user?.role === 'super_manager') ? null : (current?.tenant?.logo_url || null)
+  const brandLogoUrl = (authorityRole === 'super_admin' || authorityRole === 'super_manager') ? null : (current?.tenant?.logo_url || null)
 
   const toggleCollapse = () => {
     const newCollapsedState = !collapsed;
@@ -107,7 +109,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   };
 
   const dashboardPath =
-    (user?.role === 'super_admin' || user?.role === 'super_manager') ? '/super-admin' :
+    (authorityRole === 'super_admin' || authorityRole === 'super_manager') ? '/super-admin' :
     userRole === 'admin' ? '/admin/dashboard' :
     userRole === 'teacher' ? '/teacher/dashboard' :
     userRole === 'student' ? '/student/dashboard' :
@@ -282,7 +284,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
   const filteredNavItems: NavItem[] = baseNavItems.filter((item) => {
     if (item.path === '/admin/administration') {
       const hasAdministrationAccess = canAccessAdministration({
-        role: user?.role,
+        role: authorityRole,
         planSlug: current?.tenant?.plan || null,
         enabledFeatures: current?.tenant?.enabled_features || [],
       });
@@ -292,7 +294,7 @@ const Sidebar = ({ isOpen, toggleSidebar, onCollapse }: SidebarProps) => {
       }
     }
 
-    if (user?.role === 'super_admin' || user?.role === 'super_manager') return true;
+    if (authorityRole === 'super_admin' || authorityRole === 'super_manager') return true;
 
     // Check direct enabled features first
     const directFeatures = simpleFeatureByPath[item.path];

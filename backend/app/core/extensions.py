@@ -219,41 +219,51 @@ def init_extensions(app):
 def _configure_jwt(app):
     """Configure JWT extension with custom handlers"""
 
-    from flask import jsonify
+    from flask import g, jsonify, request
 
     from app.middleware.security_middleware import log_security_event
-    from app.models.session_token import SessionToken
+    from app.services.token_security_service import TokenSecurityService
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
-        """Check if JWT token is revoked"""
-        # Bypass check in testing environment
-        import sys
+        """
+        Apply the centralized JWT/session security policy.
 
-        from flask import current_app
+        R5 adds one narrowly-scoped exception for an already-rotated
+        refresh generation presented back to the canonical refresh
+        endpoint. The token remains security-invalid; it is admitted
+        only far enough for refresh() to perform durable replay-family
+        compromise handling.
 
-        print(
-            f"DEBUG: app.config['TESTING'] = {app.config.get('TESTING')}",
-            file=sys.stderr,
+        Every other invalid/revoked token remains fail-closed.
+        """
+
+        decision = TokenSecurityService.evaluate(
+            jwt_payload
         )
-        if current_app:
-            print(
-                f"DEBUG: current_app.config['TESTING'] = {current_app.config.get('TESTING')}",
-                file=sys.stderr,
-            )
-        is_testing = False
-        try:
-            is_testing = app.config.get("TESTING") or (
-                current_app and current_app.config.get("TESTING")
-            )
-        except Exception:
-            pass
-        if is_testing:
+
+        if not decision.revoked:
             return False
 
-        jti = jwt_payload["jti"]
-        session_token = SessionToken.query.filter_by(jti=jti, is_revoked=False).first()
-        return session_token is None or session_token.is_revoked
+        if TokenSecurityService.allow_refresh_replay_inspection(
+            jwt_payload,
+            decision,
+            endpoint=request.endpoint,
+            method=request.method,
+            path=request.path,
+        ):
+            # Request-scoped marker only.
+            #
+            # This is intentionally NOT stored in JWT claims and does
+            # not weaken the token globally. refresh() uses it only to
+            # distinguish a true post-rotation replay from an R4
+            # concurrent contender which lost the atomic UPDATE.
+            g.refresh_replay_inspection = True
+            g.refresh_replay_reason = decision.reason
+
+            return False
+
+        return True
 
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):

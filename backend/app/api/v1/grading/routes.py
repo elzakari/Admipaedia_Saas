@@ -1,11 +1,12 @@
 from datetime import datetime
 
-from flask import jsonify, request
+from flask import jsonify, request, g
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.models import GradeBoundary, GradingScheme, GradingStandard
 from app.services.enhanced_grading_service import EnhancedGradingService
 from app.utils.rbac_decorators import require_permission
+from app.utils.tenant_context import tenant_required
 
 from . import grading_bp
 
@@ -78,6 +79,7 @@ def get_grading_schemes(educational_level_id):
 
 @grading_bp.route("/student/<int:student_id>/grade", methods=["POST"])
 @jwt_required()
+@tenant_required
 @require_permission("grade.create")
 def record_enhanced_grade(student_id):
     """Compatibility wrapper around enhanced grade creation."""
@@ -135,6 +137,7 @@ def record_enhanced_grade(student_id):
             term=data["term"],
             academic_year=data["academic_year"],
             teacher_id=int(get_jwt_identity()),
+            tenant_id=g.tenant_id,
             weight=float(data.get("weight", 1.0)),
             teacher_comments=data.get("teacher_comments"),
         )
@@ -165,6 +168,7 @@ def record_enhanced_grade(student_id):
 
 @grading_bp.route("/student/<int:student_id>/final-grade", methods=["POST"])
 @jwt_required()
+@tenant_required
 @require_permission("grade.approve")
 def calculate_final_grade(student_id):
     """Compatibility wrapper around final grade calculation."""
@@ -202,6 +206,7 @@ def calculate_final_grade(student_id):
             ),
             grading_scheme_id=int(data["grading_scheme_id"]),
             computed_by=int(get_jwt_identity()),
+            tenant_id=g.tenant_id,
         )
         if error:
             return jsonify({"success": False, "message": error}), 400

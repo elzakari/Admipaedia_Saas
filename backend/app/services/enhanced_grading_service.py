@@ -55,11 +55,24 @@ class EnhancedGradingService:
 
     @staticmethod
     def _get_final_grade_analytics(
-        student_id: int, academic_year: str, term: Optional[str] = None
+        student_id: int,
+        academic_year: str,
+        tenant_id,
+        term: Optional[str] = None,
     ) -> List[FinalGrade]:
+        # FinalGrade has no tenant_id. Authorize the tenant-owned Student
+        # first, then constrain FinalGrade to that authorized student.
+        student = (
+            Student.query.without_tenant_filter()
+            .filter_by(id=student_id, tenant_id=tenant_id)
+            .first()
+        )
+        if not student:
+            return []
+
         query = FinalGrade.query.options(joinedload(FinalGrade.subject)).filter(
             and_(
-                FinalGrade.student_id == student_id,
+                FinalGrade.student_id == student.id,
                 FinalGrade.academic_year == academic_year,
             )
         )
@@ -70,21 +83,46 @@ class EnhancedGradingService:
     @staticmethod
     def _get_class_final_grade_analytics(
         class_id: int,
+        tenant_id,
         subject_id: Optional[int] = None,
         term: Optional[str] = None,
         academic_year: Optional[str] = None,
     ) -> List[FinalGrade]:
+        # FinalGrade has no tenant_id. Anchor the query through a
+        # tenant-owned Class before reading ownership-less rows.
+        class_obj = (
+            Class.query.without_tenant_filter()
+            .filter_by(id=class_id, tenant_id=tenant_id)
+            .first()
+        )
+        if not class_obj:
+            return []
+
+        if subject_id is not None:
+            subject = (
+                Subject.query.without_tenant_filter()
+                .filter_by(id=subject_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not subject:
+                return []
+
         query = FinalGrade.query.options(
             joinedload(FinalGrade.student),
             joinedload(FinalGrade.subject),
-        ).filter(FinalGrade.class_id == class_id)
-        if subject_id:
+        ).filter(FinalGrade.class_id == class_obj.id)
+
+        if subject_id is not None:
             query = query.filter(FinalGrade.subject_id == subject_id)
         if term:
             query = query.filter(FinalGrade.term == term)
         if academic_year:
             query = query.filter(FinalGrade.academic_year == academic_year)
-        return query.order_by(FinalGrade.computed_at.asc(), FinalGrade.id.asc()).all()
+
+        return query.order_by(
+            FinalGrade.computed_at.asc(),
+            FinalGrade.id.asc(),
+        ).all()
 
     @staticmethod
     def create_enhanced_grade(
@@ -100,6 +138,7 @@ class EnhancedGradingService:
         term: str,
         academic_year: str,
         teacher_id: int,
+        tenant_id,
         weight: float = 1.0,
         teacher_comments: Optional[str] = None,
     ) -> Tuple[Optional[EnhancedGrade], Optional[str]]:
@@ -112,12 +151,53 @@ class EnhancedGradingService:
             if total_marks <= 0:
                 return None, "Total marks must be greater than 0"
 
-            # Calculate percentage
-            percentage = (raw_score / total_marks) * 100
+            # Resolve all tenant-bearing resources before touching
+            # ownership-less EnhancedGrade rows.
+            class_obj = (
+                Class.query.without_tenant_filter()
+                .filter_by(id=class_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not class_obj:
+                return None, "Class not found"
 
-            scheme = GradingScheme.query.get(grading_scheme_id)
+            student = (
+                Student.query.without_tenant_filter()
+                .filter_by(
+                    id=student_id,
+                    tenant_id=tenant_id,
+                    class_id=class_id,
+                )
+                .first()
+            )
+            if not student:
+                return None, "Student not found"
+
+            subject = (
+                Subject.query.without_tenant_filter()
+                .filter_by(id=subject_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not subject:
+                return None, "Subject not found"
+
+            scheme = (
+                GradingScheme.query.without_tenant_filter()
+                .filter(
+                    GradingScheme.id == grading_scheme_id,
+                    GradingScheme.is_active.is_(True),
+                    (
+                        (GradingScheme.tenant_id == tenant_id)
+                        | GradingScheme.tenant_id.is_(None)
+                    ),
+                )
+                .first()
+            )
             if not scheme:
                 return None, "Invalid grading scheme"
+
+            # Calculate percentage only after authorization succeeds.
+            percentage = (raw_score / total_marks) * 100
 
             # Create enhanced grade record
             enhanced_grade = EnhancedGrade(
@@ -156,11 +236,45 @@ class EnhancedGradingService:
 
     @staticmethod
     def calculate_continuous_assessment_average(
-        student_id: int, subject_id: int, class_id: int, term: str, academic_year: str
+        student_id: int,
+        subject_id: int,
+        class_id: int,
+        term: str,
+        academic_year: str,
+        tenant_id,
     ) -> Tuple[Optional[float], Optional[str]]:
         """Calculate weighted average of continuous assessments"""
         try:
-            # Get all continuous assessment grades
+            class_obj = (
+                Class.query.without_tenant_filter()
+                .filter_by(id=class_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not class_obj:
+                return None, "Class not found"
+
+            student = (
+                Student.query.without_tenant_filter()
+                .filter_by(
+                    id=student_id,
+                    tenant_id=tenant_id,
+                    class_id=class_id,
+                )
+                .first()
+            )
+            if not student:
+                return None, "Student not found"
+
+            subject = (
+                Subject.query.without_tenant_filter()
+                .filter_by(id=subject_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not subject:
+                return None, "Subject not found"
+
+            # Get all continuous assessment grades only after the
+            # ownership graph has been authorized.
             grades = EnhancedGrade.query.filter(
                 and_(
                     EnhancedGrade.student_id == student_id,
@@ -199,24 +313,97 @@ class EnhancedGradingService:
         term: str,
         academic_year: str,
         external_exam_score: Optional[float] = None,
-        grading_scheme_id: int = 1,
+        grading_scheme_id: Optional[int] = None,
         computed_by: int = None,
+        tenant_id=None,
     ) -> Tuple[Optional[FinalGrade], Optional[str]]:
         """Calculate final grade using grading scheme weights"""
         try:
             # Get continuous assessment average
             class_average, error = (
                 EnhancedGradingService.calculate_continuous_assessment_average(
-                    student_id, subject_id, class_id, term, academic_year
+                    student_id,
+                    subject_id,
+                    class_id,
+                    term,
+                    academic_year,
+                    tenant_id,
                 )
             )
 
             if error and not external_exam_score:
                 return None, error
 
-            scheme = GradingScheme.query.get(grading_scheme_id)
+            # Resolve a caller-selected scheme only within the current
+            # tenant or the intentional system/global scheme namespace.
+            if grading_scheme_id is not None:
+                scheme = (
+                    GradingScheme.query.without_tenant_filter()
+                    .filter(
+                        GradingScheme.id == grading_scheme_id,
+                        GradingScheme.is_active.is_(True),
+                        (
+                            (GradingScheme.tenant_id == tenant_id)
+                            | GradingScheme.tenant_id.is_(None)
+                        ),
+                    )
+                    .first()
+                )
+            else:
+                # No magic database ID. Resolve the tenant's configured
+                # scheme first, then intentional global defaults.
+                scheme = (
+                    GradingScheme.query.without_tenant_filter()
+                    .filter_by(
+                        tenant_id=tenant_id,
+                        is_active=True,
+                        is_default=True,
+                    )
+                    .first()
+                )
+
+                if not scheme:
+                    scheme = (
+                        GradingScheme.query.without_tenant_filter()
+                        .filter_by(
+                            tenant_id=tenant_id,
+                            is_active=True,
+                        )
+                        .first()
+                    )
+
+                if not scheme:
+                    scheme = (
+                        GradingScheme.query.without_tenant_filter()
+                        .filter_by(
+                            tenant_id=None,
+                            is_active=True,
+                            is_default=True,
+                        )
+                        .first()
+                    )
+
+                if not scheme:
+                    scheme = (
+                        GradingScheme.query.without_tenant_filter()
+                        .filter_by(
+                            tenant_id=None,
+                            is_active=True,
+                        )
+                        .first()
+                    )
+
             if not scheme:
                 return None, "Invalid grading scheme"
+
+            grading_scheme_id = scheme.id
+
+            # A grading scheme is not usable for final-grade computation
+            # unless its configured boundaries can translate the final
+            # percentage into the required symbol/pass state.
+            boundaries = list(scheme.grade_boundaries)
+            if not boundaries:
+                return None, "Grading scheme has no grade boundaries configured"
 
             class_weight = float(scheme.class_score_weight or 0) / 100.0
             external_weight = float(scheme.external_exam_weight or 0) / 100.0
@@ -262,11 +449,24 @@ class EnhancedGradingService:
                     computed_at=datetime.utcnow(),
                     computed_by=computed_by,
                 )
-                db.session.add(final_grade)
             final_grade.grading_scheme = scheme
 
-            # Compute final grade using model method
+            # Compute all non-null grading fields before a new FinalGrade
+            # enters the pending Session. Accessing grade_boundaries may
+            # otherwise trigger Query-invoked autoflush of an incomplete row.
             final_grade.compute_final_grade()
+
+            if (
+                final_grade.final_grade_symbol is None
+                or final_grade.is_passing is None
+            ):
+                return (
+                    None,
+                    "Grading scheme boundaries do not cover the final percentage",
+                )
+
+            if not existing_final:
+                db.session.add(final_grade)
 
             db.session.commit()
 
@@ -282,12 +482,26 @@ class EnhancedGradingService:
 
     @staticmethod
     def get_student_performance_analytics(
-        student_id: int, academic_year: str, term: Optional[str] = None
+        student_id: int,
+        academic_year: str,
+        tenant_id,
+        term: Optional[str] = None,
     ) -> Dict[str, any]:
         """Get comprehensive performance analytics for a student"""
         try:
+            student = (
+                Student.query.without_tenant_filter()
+                .filter_by(id=student_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not student:
+                return {"error": "Student not found"}
+
             final_grades = EnhancedGradingService._get_final_grade_analytics(
-                student_id, academic_year, term
+                student_id,
+                academic_year,
+                tenant_id,
+                term,
             )
             if final_grades:
                 total_assessments = len(final_grades)
@@ -474,14 +688,33 @@ class EnhancedGradingService:
     @staticmethod
     def get_class_performance_analytics(
         class_id: int,
+        tenant_id,
         subject_id: Optional[int] = None,
         term: Optional[str] = None,
         academic_year: str = None,
     ) -> Dict[str, any]:
         """Get comprehensive performance analytics for a class"""
         try:
+            class_obj = (
+                Class.query.without_tenant_filter()
+                .filter_by(id=class_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not class_obj:
+                return {"error": "Class not found"}
+
+            if subject_id is not None:
+                subject = (
+                    Subject.query.without_tenant_filter()
+                    .filter_by(id=subject_id, tenant_id=tenant_id)
+                    .first()
+                )
+                if not subject:
+                    return {"error": "Subject not found"}
+
             final_grades = EnhancedGradingService._get_class_final_grade_analytics(
                 class_id=class_id,
+                tenant_id=tenant_id,
                 subject_id=subject_id,
                 term=term,
                 academic_year=academic_year,
@@ -720,27 +953,47 @@ class EnhancedGradingService:
 
     @staticmethod
     def bulk_calculate_final_grades(
-        class_id: int, term: str, academic_year: str, computed_by: int
+        class_id: int,
+        term: str,
+        academic_year: str,
+        computed_by: int,
+        tenant_id,
     ) -> Tuple[List[FinalGrade], Optional[str]]:
         """Bulk calculate final grades for all students in a class"""
         try:
-            # Get all students in the class
-            students = Student.query.filter(Student.class_id == class_id).all()
+            class_obj = (
+                Class.query.without_tenant_filter()
+                .filter_by(id=class_id, tenant_id=tenant_id)
+                .first()
+            )
+            if not class_obj:
+                return [], "Class not found"
+
+            # Get only tenant-owned students in the authorized class.
+            students = (
+                Student.query.without_tenant_filter()
+                .filter_by(
+                    tenant_id=tenant_id,
+                    class_id=class_id,
+                )
+                .all()
+            )
 
             if not students:
                 return [], "No students found in the class"
 
-            # Get all subjects for the class
+            # Get all subjects represented by grades for the class.
             subjects = (
-                Subject.query.join(
-                    EnhancedGrade, Subject.id == EnhancedGrade.subject_id
+                Subject.query.without_tenant_filter()
+                .join(
+                    EnhancedGrade,
+                    Subject.id == EnhancedGrade.subject_id,
                 )
                 .filter(
-                    and_(
-                        EnhancedGrade.class_id == class_id,
-                        EnhancedGrade.term == term,
-                        EnhancedGrade.academic_year == academic_year,
-                    )
+                    Subject.tenant_id == tenant_id,
+                    EnhancedGrade.class_id == class_id,
+                    EnhancedGrade.term == term,
+                    EnhancedGrade.academic_year == academic_year,
                 )
                 .distinct()
                 .all()
@@ -758,6 +1011,7 @@ class EnhancedGradingService:
                         term=term,
                         academic_year=academic_year,
                         computed_by=computed_by,
+                        tenant_id=tenant_id,
                     )
 
                     if final_grade:

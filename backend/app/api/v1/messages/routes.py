@@ -27,6 +27,45 @@ message_create_schema = MessageCreateSchema()
 message_update_schema = MessageUpdateSchema()
 
 
+@messages_bp.before_request
+def _message_tenant_ownership_required():
+    """
+    Message rows do not currently carry tenant ownership.
+
+    Recipient discovery is safe to serve because it operates only on
+    tenant-owned identity/class records and is independently protected
+    by jwt_required + tenant_required.
+
+    All routes that read, create, update, delete, download from, or
+    otherwise depend on Message rows remain fail-closed.
+    """
+    endpoint_leaf = (
+        request.endpoint.rsplit(".", 1)[-1]
+        if request.endpoint
+        else None
+    )
+
+    if (
+        request.method == "GET"
+        and endpoint_leaf == "get_recipients"
+    ):
+        return None
+
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Messaging is temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "MESSAGE_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
+
 @messages_bp.route("/recipients", methods=["GET"])
 @jwt_required()
 @tenant_required

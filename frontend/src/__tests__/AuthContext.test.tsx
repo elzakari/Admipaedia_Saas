@@ -58,6 +58,9 @@ const TestComponent = () => {
       <div data-testid="authenticated">{isAuthenticated ? 'Authenticated' : 'Not Authenticated'}</div>
       <div data-testid="user">{user ? user.username : 'No User'}</div>
       <div data-testid="has-admin-role">{hasRole('admin') ? 'Has Admin' : 'No Admin'}</div>
+      <div data-testid="has-platform-role">
+        {hasRole(['super_admin', 'super_manager']) ? 'Has Platform' : 'No Platform'}
+      </div>
       <button onClick={() => login('test@example.com', 'password')} data-testid="login-btn">
         Login
       </button>
@@ -104,7 +107,9 @@ describe('AuthContext', () => {
       id: 1,
       username: 'testuser',
       email: 'test@example.com',
-      role: 'admin' as const
+      role: 'admin' as const,
+      effective_roles: ['super_admin'],
+      roles: ['super_manager']
     };
 
     mockLocalStorage.getItem.mockReturnValue('mock-token');
@@ -117,7 +122,29 @@ describe('AuthContext', () => {
     });
     
     expect(screen.getByTestId('user')).toHaveTextContent('testuser');
-    expect(screen.getByTestId('has-admin-role')).toHaveTextContent('Has Admin');
+    expect(screen.getByTestId('has-admin-role')).toHaveTextContent('No Admin');
+    expect(screen.getByTestId('has-platform-role')).toHaveTextContent('No Platform');
+  });
+
+  it('should recognize only an explicit platform identity as global authority', async () => {
+    const mockUser = {
+      id: 99,
+      username: 'platform-admin',
+      email: 'platform@example.com',
+      role: 'super_admin' as const,
+    };
+
+    mockLocalStorage.getItem.mockReturnValue('mock-token');
+    mockAuthService.getCurrentUser.mockResolvedValue(mockUser);
+
+    renderWithRouter(<TestComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('Authenticated');
+    });
+
+    expect(screen.getByTestId('has-platform-role')).toHaveTextContent('Has Platform');
+    expect(screen.getByTestId('has-admin-role')).toHaveTextContent('No Admin');
   });
 
   it('should handle login successfully', async () => {

@@ -94,6 +94,28 @@ def test_subjects_class_resilient_fallback(app, client, db_session):
         )
         db_session.add(c)
         db_session.flush()
+
+        # Canonical teacher profile + class assignment required by
+        # relationship-aware class authorization.
+        from app.models.teacher import Teacher
+        from app.services.class_service import ClassService
+
+        teacher = Teacher(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            first_name="Test",
+            last_name="Teacher",
+        )
+        db_session.add(teacher)
+        db_session.flush()
+
+        assigned_class, assignment_error = ClassService.assign_teacher(
+            c.id,
+            teacher.id,
+        )
+        assert assignment_error is None
+        assert assigned_class is not None
+
         db_session.commit()
 
         login_resp = client.post('/api/v1/auth/login', json={

@@ -127,6 +127,21 @@ class NotificationsNamespace(Namespace):
         self.emit("new_notification", notification_data, room=f"user_{user_id}")
 
     def on_create_notification(self, data):
+        logger.warning(
+            "notification_websocket_creation_suppressed_pending_tenant_ownership"
+        )
+        emit(
+            "error",
+            {
+                "message": (
+                    "Notification creation is temporarily unavailable "
+                    "while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            },
+        )
+        return
+
         """Create a new notification from WebSocket"""
         try:
             from app.services.notification_service import NotificationService

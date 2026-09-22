@@ -1,10 +1,15 @@
 import logging
 from datetime import date, datetime
 
-from flask import jsonify, request
+from flask import jsonify, request, g
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.decorators.auth import role_required
+from app.utils.tenant_context import tenant_required
+from app.utils.rbac_decorators import require_permission
+from app.models.parent import Parent
+from app.models.student import Student
+from app.models.tenant import TenantMembership
 from app.services.enhanced_grading_service import EnhancedGradingService
 
 from . import enhanced_grading_bp
@@ -12,9 +17,125 @@ from . import enhanced_grading_bp
 logger = logging.getLogger(__name__)
 
 
+def _authorize_parent_student_access(student_id: int):
+    """
+    Enforce parent -> child ownership for student-level grading analytics.
+
+    TenantMembership is authoritative for the caller's tenant role.
+    Admin/teacher callers retain their existing access semantics.
+    Parent callers may access only students linked through Student.parent_id.
+    """
+    user_id = int(get_jwt_identity())
+    tenant_id = getattr(g, "tenant_id", None)
+
+    if tenant_id is None:
+        return False, (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Tenant context required",
+                }
+            ),
+            403,
+        )
+
+    memberships = (
+        TenantMembership.query
+        .filter_by(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            status="active",
+        )
+        .all()
+    )
+
+    effective_roles = {
+        str(membership.role).strip().lower()
+        for membership in memberships
+        if getattr(membership, "role", None)
+    }
+
+    # Privileged grading readers retain current behavior.
+    if effective_roles & {
+        "admin",
+        "school_admin",
+        "teacher",
+        "super_admin",
+    }:
+        return True, None
+
+    if "parent" not in effective_roles:
+        return False, (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            403,
+        )
+
+    parent = (
+        Parent.query.without_tenant_filter()
+        .filter_by(
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+        .first()
+    )
+
+    if not parent:
+        return False, (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            403,
+        )
+
+    # Resolve the requested student inside the same authoritative tenant
+    # before comparing ownership. This prevents cross-tenant existence leaks.
+    student = (
+        Student.query.without_tenant_filter()
+        .filter_by(
+            id=student_id,
+            tenant_id=tenant_id,
+        )
+        .first()
+    )
+
+    if not student:
+        return False, (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Student not found",
+                }
+            ),
+            404,
+        )
+
+    if student.parent_id != parent.id:
+        return False, (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unauthorized",
+                }
+            ),
+            403,
+        )
+
+    return True, None
+
+
 @enhanced_grading_bp.route("/create-grade", methods=["POST"])
 @jwt_required()
+@tenant_required
 @role_required(["admin", "teacher"])
+@require_permission("grade.create")
 def create_enhanced_grade():
     """Create an enhanced grade with GES compliance"""
     try:
@@ -77,6 +198,7 @@ def create_enhanced_grade():
             term=data["term"],
             academic_year=data["academic_year"],
             teacher_id=get_jwt_identity(),
+            tenant_id=g.tenant_id,
             weight=float(data.get("weight", 1.0)),
             teacher_comments=data.get("teacher_comments"),
         )
@@ -116,7 +238,9 @@ def create_enhanced_grade():
 
 @enhanced_grading_bp.route("/calculate-final-grade", methods=["POST"])
 @jwt_required()
-@role_required(["admin", "teacher"])
+@tenant_required
+@role_required(["admin", "school_admin"])
+@require_permission("grade.approve")
 def calculate_final_grade():
     """Calculate final grade using GES weighting (40% class + 60% external)"""
     try:
@@ -150,8 +274,9 @@ def calculate_final_grade():
             term=data["term"],
             academic_year=data["academic_year"],
             external_exam_score=data.get("external_exam_score"),
-            grading_scheme_id=data.get("grading_scheme_id", 1),
+            grading_scheme_id=data.get("grading_scheme_id"),
             computed_by=get_jwt_identity(),
+            tenant_id=g.tenant_id,
         )
 
         if error:
@@ -191,10 +316,18 @@ def calculate_final_grade():
 
 @enhanced_grading_bp.route("/student-analytics/<int:student_id>", methods=["GET"])
 @jwt_required()
+@tenant_required
 @role_required(["admin", "teacher", "parent"])
+@require_permission("grade.read")
 def get_student_analytics(student_id):
     """Get comprehensive performance analytics for a student"""
     try:
+        authorized, denial_response = _authorize_parent_student_access(
+            student_id
+        )
+        if not authorized:
+            return denial_response
+
         academic_year = request.args.get("academic_year")
         if not academic_year:
             return (
@@ -204,7 +337,10 @@ def get_student_analytics(student_id):
         term = request.args.get("term")
 
         analytics = EnhancedGradingService.get_student_performance_analytics(
-            student_id=student_id, academic_year=academic_year, term=term
+            student_id=student_id,
+            academic_year=academic_year,
+            tenant_id=g.tenant_id,
+            term=term,
         )
 
         if "error" in analytics:
@@ -227,7 +363,9 @@ def get_student_analytics(student_id):
 
 @enhanced_grading_bp.route("/class-analytics/<int:class_id>", methods=["GET"])
 @jwt_required()
+@tenant_required
 @role_required(["admin", "teacher"])
+@require_permission("grade.read")
 def get_class_analytics(class_id):
     """Get comprehensive performance analytics for a class"""
     try:
@@ -237,6 +375,7 @@ def get_class_analytics(class_id):
 
         analytics = EnhancedGradingService.get_class_performance_analytics(
             class_id=class_id,
+            tenant_id=g.tenant_id,
             subject_id=subject_id,
             term=term,
             academic_year=academic_year,
@@ -262,7 +401,9 @@ def get_class_analytics(class_id):
 
 @enhanced_grading_bp.route("/bulk-calculate-final/<int:class_id>", methods=["POST"])
 @jwt_required()
-@role_required(["admin", "teacher"])
+@tenant_required
+@role_required(["admin", "school_admin"])
+@require_permission("grade.approve")
 def bulk_calculate_final_grades(class_id):
     """Bulk calculate final grades for all students in a class"""
     try:
@@ -288,6 +429,7 @@ def bulk_calculate_final_grades(class_id):
             term=data["term"],
             academic_year=data["academic_year"],
             computed_by=get_jwt_identity(),
+            tenant_id=g.tenant_id,
         )
 
         message = f"Successfully calculated {len(final_grades)} final grades"

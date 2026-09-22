@@ -25,8 +25,17 @@ def create_announcement():
 
         title = (data.get("title") or "").strip()
         content = (data.get("content") or "").strip()
-        scope = AnnouncementService.normalize_scope(data.get("scope"))
-        class_id = data.get("class_id") if scope == "class_bound" else None
+        raw_scope = data.get("scope")
+        raw_class_id = data.get("class_id")
+
+        # A class target without an explicit scope is class-bound.
+        # Preserve an explicitly supplied scope, including "global".
+        if not raw_scope and raw_class_id is not None:
+            scope = "class_bound"
+        else:
+            scope = AnnouncementService.normalize_scope(raw_scope)
+
+        class_id = raw_class_id if scope == "class_bound" else None
         send_email = bool(data.get("send_email", False))
 
         if not title or not content:

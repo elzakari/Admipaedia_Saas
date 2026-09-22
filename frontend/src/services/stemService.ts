@@ -19,16 +19,23 @@ export interface STEMSubject {
 
 export interface STEMProject {
     id: number;
+    learning_module_id: number;
     title: string;
     description: string;
-    stem_domain_id: number;
-    educational_level_id: number;
-    difficulty_level: string;
-    estimated_duration_hours: number;
-    learning_objectives: string[];
-    required_materials: string[];
-    assessment_criteria: string[];
-    teacher_id: number;
+    problem_statement: string;
+    duration_days: number;
+    difficulty_level?: string;
+    is_individual?: boolean;
+    is_group?: boolean;
+    max_group_size?: number;
+    milestones?: unknown[];
+    required_resources?: unknown[];
+    expected_deliverables?: unknown[];
+    evaluation_criteria?: unknown[];
+    industry_connections?: unknown[];
+    community_impact?: string;
+    sustainability_focus?: boolean;
+    created_by: number;
 }
 
 const stemService = {
@@ -52,7 +59,7 @@ const stemService = {
         }
     },
 
-    createProject: async (projectData: Omit<STEMProject, 'id' | 'teacher_id'>): Promise<{ id: number }> => {
+    createProject: async (projectData: Omit<STEMProject, 'id' | 'created_by'>): Promise<{ id: number }> => {
         try {
             const response = await api.post('/stem/projects', projectData);
             return response.data.data;

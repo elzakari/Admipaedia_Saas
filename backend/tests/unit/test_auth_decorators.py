@@ -11,30 +11,44 @@ from app.utils.decorators import role_required
 from app.models.user import User
 
 
+def _mock_role_context(user, roles=None, platform=False):
+    """Mock role_required's direct tenant-aware authority dependencies."""
+    if roles is None:
+        roles = {str(getattr(user, "role", "") or "").strip().lower()}
+
+    return (
+        patch("app.utils.rbac_decorators.get_current_user", return_value=user),
+        patch(
+            "app.utils.rbac_decorators.get_request_effective_roles",
+            return_value=set(roles),
+        ),
+        patch("app.utils.rbac_decorators._is_platform_user", return_value=platform),
+    )
+
+
 class TestRoleRequiredDecorator:
     """Test cases for role_required decorator."""
 
+
     def test_role_required_single_role_authorized(self):
-        """Test role_required decorator with single role - authorized."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def admin_endpoint():
             return "Admin content"
-        
+
+        mock_user = Mock(spec=User)
+        mock_user.role = 'admin'
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock user with admin role
-                        mock_user = Mock(spec=User)
-                        mock_user.role = 'admin'
-                        mock_query.get.return_value = mock_user
-                        mock_jwt.return_value = '1'
-                        
-                        result = admin_endpoint()
-                        assert result == "Admin content"
+                p_user, p_roles, p_platform = _mock_role_context(
+                    mock_user,
+                    roles={'admin'},
+                )
+                with p_user, p_roles, p_platform:
+                    assert admin_endpoint() == "Admin content"
 
     def test_role_required_single_role_unauthorized(self):
         """Test role_required decorator with single role - unauthorized."""
@@ -60,27 +74,26 @@ class TestRoleRequiredDecorator:
                             # Should return 403 response
                             assert hasattr(response, 'status_code') or response == ("Unauthorized access", 403)
 
+
     def test_role_required_multiple_roles_authorized(self):
-        """Test role_required decorator with multiple roles - authorized."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin', 'teacher'])
         def staff_endpoint():
             return "Staff content"
-        
+
+        mock_user = Mock(spec=User)
+        mock_user.role = 'teacher'
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock user with teacher role
-                        mock_user = Mock(spec=User)
-                        mock_user.role = 'teacher'
-                        mock_query.get.return_value = mock_user
-                        mock_jwt.return_value = '1'
-                        
-                        result = staff_endpoint()
-                        assert result == "Staff content"
+                p_user, p_roles, p_platform = _mock_role_context(
+                    mock_user,
+                    roles={'teacher'},
+                )
+                with p_user, p_roles, p_platform:
+                    assert staff_endpoint() == "Staff content"
 
     def test_role_required_multiple_roles_unauthorized(self):
         """Test role_required decorator with multiple roles - unauthorized."""
@@ -154,27 +167,31 @@ class TestRoleRequiredDecorator:
         assert test_function.__name__ == 'test_function'
         assert test_function.__doc__ == "Test function docstring."
 
+
     def test_role_required_with_args_and_kwargs(self):
-        """Test role_required decorator with function arguments."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def endpoint_with_args(arg1, arg2, kwarg1=None):
             return f"Args: {arg1}, {arg2}, {kwarg1}"
-        
+
+        mock_user = Mock(spec=User)
+        mock_user.role = 'admin'
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock admin user
-                        mock_user = Mock(spec=User)
-                        mock_user.role = 'admin'
-                        mock_query.get.return_value = mock_user
-                        mock_jwt.return_value = '1'
-                        
-                        result = endpoint_with_args('test1', 'test2', kwarg1='test3')
-                        assert result == "Args: test1, test2, test3"
+                p_user, p_roles, p_platform = _mock_role_context(
+                    mock_user,
+                    roles={'admin'},
+                )
+                with p_user, p_roles, p_platform:
+                    result = endpoint_with_args(
+                        'test1',
+                        'test2',
+                        kwarg1='test3',
+                    )
+                    assert result == "Args: test1, test2, test3"
 
     def test_role_required_case_sensitivity(self):
         """Test role_required decorator role case sensitivity."""
@@ -224,45 +241,45 @@ class TestRoleRequiredDecorator:
                             # Should be unauthorized since no role matches empty list
                             assert hasattr(response, 'status_code') or "Unauthorized" in str(response)
 
+
     def test_role_required_invalid_user_id(self):
-        """Test role_required decorator with invalid user ID."""
+        """Invalid identities are normalized by get_current_user to no user."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def admin_endpoint():
             return "Admin content"
-        
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock invalid user ID
-                        mock_jwt.return_value = 'invalid_id'
-                        mock_query.get.side_effect = ValueError("Invalid user ID")
-                        
-                        with pytest.raises(ValueError):
-                            admin_endpoint()
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user',
+                    return_value=None,
+                ):
+                    response = admin_endpoint()
+                    assert response.status_code == 404
+                    assert response.get_json()['error'] == 'User not found'
+
 
     def test_role_required_database_error(self):
-        """Test role_required decorator when database query fails."""
+        """Database lookup failures are fail-closed by get_current_user."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def admin_endpoint():
             return "Admin content"
-        
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock database error
-                        mock_jwt.return_value = '1'
-                        mock_query.get.side_effect = Exception("Database connection error")
-                        
-                        with pytest.raises(Exception):
-                            admin_endpoint()
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user',
+                    return_value=None,
+                ):
+                    response = admin_endpoint()
+                    assert response.status_code == 404
+                    assert response.get_json()['error'] == 'User not found'
 
     def test_role_required_logging(self):
         """Test that role_required decorator logs security events."""
@@ -316,187 +333,192 @@ class TestRoleRequiredDecorator:
                             result = admin_endpoint()
                             assert result is not None
 
+
     def test_role_required_nested_decorators(self):
-        """Test role_required decorator with other decorators."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         def custom_decorator(f):
             def wrapper(*args, **kwargs):
                 return f"Custom: {f(*args, **kwargs)}"
             return wrapper
-        
+
         @custom_decorator
         @role_required(['admin'])
         def admin_endpoint():
             return "Admin content"
-        
+
+        mock_user = Mock(spec=User)
+        mock_user.role = 'admin'
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock admin user
-                        mock_user = Mock(spec=User)
-                        mock_user.role = 'admin'
-                        mock_query.get.return_value = mock_user
-                        mock_jwt.return_value = '1'
-                        
-                        result = admin_endpoint()
-                        assert result == "Custom: Admin content"
-
+                p_user, p_roles, p_platform = _mock_role_context(
+                    mock_user,
+                    roles={'admin'},
+                )
+                with p_user, p_roles, p_platform:
+                    assert admin_endpoint() == "Custom: Admin content"
 
 class TestAuthenticationDecoratorIntegration:
     """Integration tests for authentication decorators."""
 
+
     def test_complete_authentication_flow(self):
-        """Test complete authentication flow with role checking."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin', 'teacher'])
         def protected_endpoint():
             return {"message": "Protected content", "status": "success"}
-        
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Test with admin user
-                        admin_user = Mock(spec=User)
-                        admin_user.role = 'admin'
-                        mock_query.get.return_value = admin_user
-                        mock_jwt.return_value = '1'
-                        
-                        result = protected_endpoint()
-                        assert result["status"] == "success"
-                        
-                        # Test with teacher user
-                        teacher_user = Mock(spec=User)
-                        teacher_user.role = 'teacher'
-                        mock_query.get.return_value = teacher_user
-                        
-                        result = protected_endpoint()
-                        assert result["status"] == "success"
-                        
-                        # Test with unauthorized user
-                        student_user = Mock(spec=User)
-                        student_user.role = 'student'
-                        mock_query.get.return_value = student_user
-                        
-                        with app.test_client():
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user'
+                ) as mock_current:
+                    with patch(
+                        'app.utils.rbac_decorators.get_request_effective_roles'
+                    ) as mock_roles:
+                        with patch(
+                            'app.utils.rbac_decorators._is_platform_user',
+                            return_value=False,
+                        ):
+                            admin_user = Mock(spec=User)
+                            admin_user.role = 'admin'
+                            mock_current.return_value = admin_user
+                            mock_roles.return_value = {'admin'}
+                            assert protected_endpoint()['status'] == 'success'
+
+                            teacher_user = Mock(spec=User)
+                            teacher_user.role = 'teacher'
+                            mock_current.return_value = teacher_user
+                            mock_roles.return_value = {'teacher'}
+                            assert protected_endpoint()['status'] == 'success'
+
+                            student_user = Mock(spec=User)
+                            student_user.role = 'student'
+                            mock_current.return_value = student_user
+                            mock_roles.return_value = {'student'}
+
                             response = protected_endpoint()
-                            assert hasattr(response, 'status_code') or "Unauthorized" in str(response)
+                            assert response.status_code == 403
+
 
     def test_role_hierarchy_simulation(self):
-        """Test simulated role hierarchy with decorators."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
-        # Simulate different access levels
+
         @role_required(['admin'])
         def admin_only():
             return "Admin only"
-        
+
         @role_required(['admin', 'teacher'])
         def staff_only():
             return "Staff only"
-        
+
         @role_required(['admin', 'teacher', 'student'])
         def authenticated_only():
             return "Authenticated only"
-        
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        mock_jwt.return_value = '1'
-                        
-                        # Test admin access
-                        admin_user = Mock(spec=User)
-                        admin_user.role = 'admin'
-                        mock_query.get.return_value = admin_user
-                        
-                        assert admin_only() == "Admin only"
-                        assert staff_only() == "Staff only"
-                        assert authenticated_only() == "Authenticated only"
-                        
-                        # Test teacher access
-                        teacher_user = Mock(spec=User)
-                        teacher_user.role = 'teacher'
-                        mock_query.get.return_value = teacher_user
-                        
-                        with app.test_client():
-                            # Should fail admin only
-                            admin_response = admin_only()
-                            assert hasattr(admin_response, 'status_code') or "Unauthorized" in str(admin_response)
-                            
-                            # Should pass staff and authenticated
-                            assert staff_only() == "Staff only"
-                            assert authenticated_only() == "Authenticated only"
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user'
+                ) as mock_current:
+                    with patch(
+                        'app.utils.rbac_decorators.get_request_effective_roles'
+                    ) as mock_roles:
+                        with patch(
+                            'app.utils.rbac_decorators._is_platform_user',
+                            return_value=False,
+                        ):
+                            admin = Mock(spec=User)
+                            admin.role = 'admin'
+                            mock_current.return_value = admin
+                            mock_roles.return_value = {'admin'}
+
+                            assert admin_only() == 'Admin only'
+                            assert staff_only() == 'Staff only'
+                            assert authenticated_only() == 'Authenticated only'
+
+                            teacher = Mock(spec=User)
+                            teacher.role = 'teacher'
+                            mock_current.return_value = teacher
+                            mock_roles.return_value = {'teacher'}
+
+                            assert admin_only().status_code == 403
+                            assert staff_only() == 'Staff only'
+                            assert authenticated_only() == 'Authenticated only'
+
 
     def test_decorator_performance(self):
-        """Test decorator performance with multiple calls."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def performance_endpoint():
             return "Performance test"
-        
+
+        mock_user = Mock(spec=User)
+        mock_user.role = 'admin'
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Mock admin user
-                        mock_user = Mock(spec=User)
-                        mock_user.role = 'admin'
-                        mock_query.get.return_value = mock_user
-                        mock_jwt.return_value = '1'
-                        
-                        # Call multiple times to test performance
-                        for _ in range(100):
-                            result = performance_endpoint()
-                            assert result == "Performance test"
-                        
-                        # Verify query was called for each request
-                        assert mock_query.get.call_count == 100
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user',
+                    return_value=mock_user,
+                ) as mock_current:
+                    with patch(
+                        'app.utils.rbac_decorators.get_request_effective_roles',
+                        return_value={'admin'},
+                    ):
+                        with patch(
+                            'app.utils.rbac_decorators._is_platform_user',
+                            return_value=False,
+                        ):
+                            for _ in range(100):
+                                assert performance_endpoint() == "Performance test"
+
+                            assert mock_current.call_count == 100
+
 
     def test_concurrent_decorator_usage(self):
-        """Test decorator behavior with concurrent-like usage."""
         app = Flask(__name__)
         app.config['JWT_SECRET_KEY'] = 'test-secret'
-        
+
         @role_required(['admin'])
         def endpoint1():
             return "Endpoint 1"
-        
+
         @role_required(['teacher'])
         def endpoint2():
             return "Endpoint 2"
-        
+
         with app.test_request_context('/'):
             with patch('flask_jwt_extended.verify_jwt_in_request'):
-                with patch('flask_jwt_extended.get_jwt_identity') as mock_jwt:
-                    with patch('app.models.user.User.query') as mock_query:
-                        # Test with admin user
-                        admin_user = Mock(spec=User)
-                        admin_user.role = 'admin'
-                        mock_query.get.return_value = admin_user
-                        mock_jwt.return_value = '1'
-                        
-                        assert endpoint1() == "Endpoint 1"
-                        
-                        with app.test_client():
-                            response = endpoint2()
-                            assert hasattr(response, 'status_code') or "Unauthorized" in str(response)
-                        
-                        # Test with teacher user
-                        teacher_user = Mock(spec=User)
-                        teacher_user.role = 'teacher'
-                        mock_query.get.return_value = teacher_user
-                        
-                        with app.test_client():
-                            response = endpoint1()
-                            assert hasattr(response, 'status_code') or "Unauthorized" in str(response)
-                        
-                        assert endpoint2() == "Endpoint 2"
+                with patch(
+                    'app.utils.rbac_decorators.get_current_user'
+                ) as mock_current:
+                    with patch(
+                        'app.utils.rbac_decorators.get_request_effective_roles'
+                    ) as mock_roles:
+                        with patch(
+                            'app.utils.rbac_decorators._is_platform_user',
+                            return_value=False,
+                        ):
+                            admin = Mock(spec=User)
+                            admin.role = 'admin'
+                            mock_current.return_value = admin
+                            mock_roles.return_value = {'admin'}
+
+                            assert endpoint1() == 'Endpoint 1'
+                            assert endpoint2().status_code == 403
+
+                            teacher = Mock(spec=User)
+                            teacher.role = 'teacher'
+                            mock_current.return_value = teacher
+                            mock_roles.return_value = {'teacher'}
+
+                            assert endpoint1().status_code == 403
+                            assert endpoint2() == 'Endpoint 2'

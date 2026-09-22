@@ -1,6 +1,5 @@
 from datetime import date, datetime
 
-from flask_jwt_extended import create_access_token
 
 from app.models.dashboard import Notification
 from app.models.exam import Exam
@@ -19,7 +18,7 @@ def _auth_headers(token: str, tenant_id) -> dict:
     }
 
 
-def test_parent_can_access_owned_child_dashboard(client, db_session, sample_tenant, user_factory):
+def test_parent_can_access_owned_child_dashboard(client, db_session, sample_tenant, user_factory, tracked_access_token_factory):
     parent_user = user_factory("parent")
     child_user = user_factory("student")
 
@@ -46,7 +45,7 @@ def test_parent_can_access_owned_child_dashboard(client, db_session, sample_tena
     db_session.add(child)
     db_session.commit()
 
-    token = create_access_token(identity=parent_user.id)
+    token = tracked_access_token_factory(parent_user.id)
     response = client.get(
         f"/api/v1/portal/child/{child.id}/dashboard",
         headers=_auth_headers(token, sample_tenant.id),
@@ -57,7 +56,7 @@ def test_parent_can_access_owned_child_dashboard(client, db_session, sample_tena
     assert response.json["data"]["student"]["id"] == child.id
 
 
-def test_parent_cannot_access_unowned_child_dashboard(client, db_session, sample_tenant, user_factory):
+def test_parent_cannot_access_unowned_child_dashboard(client, db_session, sample_tenant, user_factory, tracked_access_token_factory):
     parent_user = user_factory("parent")
     other_parent_user = user_factory("parent")
     child_user = user_factory("student")
@@ -89,7 +88,7 @@ def test_parent_cannot_access_unowned_child_dashboard(client, db_session, sample
     db_session.add(child)
     db_session.commit()
 
-    token = create_access_token(identity=parent_user.id)
+    token = tracked_access_token_factory(parent_user.id)
     response = client.get(
         f"/api/v1/portal/child/{child.id}/dashboard",
         headers=_auth_headers(token, sample_tenant.id),
@@ -100,7 +99,7 @@ def test_parent_cannot_access_unowned_child_dashboard(client, db_session, sample
     assert "not authorized" in response.json["message"].lower()
 
 
-def test_parent_children_are_scoped_to_requested_tenant(client, db_session, sample_tenant, user_factory):
+def test_parent_children_are_scoped_to_requested_tenant(client, db_session, sample_tenant, user_factory, tracked_access_token_factory):
     parent_user = user_factory("parent")
     child_user = user_factory("student")
 
@@ -139,7 +138,7 @@ def test_parent_children_are_scoped_to_requested_tenant(client, db_session, samp
     ))
     db_session.commit()
 
-    token = create_access_token(identity=parent_user.id)
+    token = tracked_access_token_factory(parent_user.id)
     sample_response = client.get(
         "/api/v1/portal/children",
         headers=_auth_headers(token, sample_tenant.id),
@@ -159,7 +158,7 @@ def test_parent_children_are_scoped_to_requested_tenant(client, db_session, samp
     assert "parent profile not found" in second_tenant_response.json["message"].lower()
 
 
-def test_parent_can_mark_own_notification_as_read(client, db_session, sample_tenant, user_factory):
+def test_parent_can_mark_own_notification_as_read(client, db_session, sample_tenant, user_factory, tracked_access_token_factory):
     parent_user = user_factory("parent")
 
     db_session.add(TenantMembership(tenant_id=sample_tenant.id, user_id=parent_user.id, role="parent", status="active"))
@@ -178,7 +177,7 @@ def test_parent_can_mark_own_notification_as_read(client, db_session, sample_ten
     db_session.add(notification)
     db_session.commit()
 
-    token = create_access_token(identity=parent_user.id)
+    token = tracked_access_token_factory(parent_user.id)
     response = client.put(
         f"/api/v1/parents/notifications/{notification.id}/read",
         headers=_auth_headers(token, sample_tenant.id),
@@ -191,7 +190,7 @@ def test_parent_can_mark_own_notification_as_read(client, db_session, sample_ten
     assert notification.read is True
 
 
-def test_parent_grades_route_supports_subject_filter(client, db_session, sample_tenant, user_factory):
+def test_parent_grades_route_supports_subject_filter(client, db_session, sample_tenant, user_factory, tracked_access_token_factory):
     parent_user = user_factory("parent")
     student_user = user_factory("student")
     teacher_user = user_factory("teacher")
@@ -287,7 +286,7 @@ def test_parent_grades_route_supports_subject_filter(client, db_session, sample_
     ])
     db_session.commit()
 
-    token = create_access_token(identity=parent_user.id)
+    token = tracked_access_token_factory(parent_user.id)
     response = client.get(
         f"/api/v1/parents/children/{student.id}/grades",
         headers=_auth_headers(token, sample_tenant.id),

@@ -13,6 +13,10 @@ from app.models.administration import (Asset, Budget, Facility,
 from app.models.class_ import Class
 from app.models.finance import (  # Import from finance if needed for read-only or compatibility
     FeeStructure, Payment, StudentFee)
+from app.utils.finance_scope import (
+    scoped_payments,
+    scoped_student_fees,
+)
 from app.models.student import Student
 
 logger = get_logger()
@@ -353,31 +357,32 @@ class AdministrationService:
                 tenant_id = getattr(g, "tenant_id", None)
 
             def _sf_scoped_query(model_cls):
-                """Apply tenant/branch scoping from flask.g for models that have those columns.
+                # SECURITY: financial ownership must be explicit or derived
+                # through an object that is explicitly tenant-owned.
+                from sqlalchemy import false
 
-                Branch scoping is "back-compat" for StudentFee / Payment / Transaction rows
-                that were written BEFORE the create_fee_record / create_fee_payment_v2 fixes
-                that assign branch_id. Those historical rows have branch_id = NULL and
-                would otherwise be silently excluded from all totals, producing the classic
-                "dashboard shows 0 but reminders tab shows 30 defaulters / $288k" bug.
-                So for branch-scoped models we treat `(branch_id == g.branch_id OR branch_id IS NULL)`.
-                Once reconcile_student_fee_branch_ids and reconcile_fee_payment_transactions
-                have been applied in prod, this coalesce can be simplified to an exact match.
-                """
-                q = model_cls.query
-                has_branch = hasattr(model_cls, "branch_id")
-                has_tenant = hasattr(model_cls, "tenant_id")
-                if tenant_id is not None and has_tenant:
-                    q = q.filter(
-                        (model_cls.tenant_id == tenant_id)
-                        | (model_cls.tenant_id.is_(None))
+                if tenant_id is None:
+                    return model_cls.query.filter(false())
+
+                if model_cls is StudentFee:
+                    return scoped_student_fees(
+                        tenant_id=tenant_id,
+                        branch_id=branch_id,
                     )
-                if branch_id is not None and has_branch:
-                    q = q.filter(
-                        (model_cls.branch_id == branch_id)
-                        | (model_cls.branch_id.is_(None))
+
+                if model_cls is Payment:
+                    return scoped_payments(
+                        tenant_id=tenant_id,
+                        branch_id=branch_id,
                     )
-                return q
+
+                # Budget and Transaction currently have no persistent
+                # tenant ownership. Returning their legacy rows here would
+                # leak another school's ledger.
+                if model_cls in (Budget, Transaction):
+                    return model_cls.query.filter(false())
+
+                return model_cls.query.filter(false())
 
             budget_query = _sf_scoped_query(Budget)
             if academic_year:
@@ -400,27 +405,9 @@ class AdministrationService:
             fee_records = fee_records_query.all()
             applied_academic_year_filter = bool(academic_year)
 
-            # Academic-year back-compat fallback. If the caller supplied an
-            # academic year filter but NO fee records matched (either because
-            # legacy FeeStructure rows use NULL/format-mismatched academic_year,
-            # or the year switch happened before new fee structures were
-            # seeded), re-run the aggregates with no year filter and record a
-            # warning. We keep the user-visible summary accurate instead of
-            # silently reporting 0 bills / 0 collection rate.
-            if applied_academic_year_filter and len(fee_records) == 0:
-                fee_records = _sf_scoped_query(StudentFee).join(FeeStructure).all()
-                try:
-                    logger.warning(
-                        "financial_summary_academic_year_mismatch",
-                        requested_academic_year=academic_year,
-                        fee_records_found_without_year_filter=len(fee_records),
-                    )
-                except Exception:
-                    pass
-                applied_academic_year_filter = False
-                used_unfiltered_year_fallback = True
-            else:
-                used_unfiltered_year_fallback = False
+            # SECURITY/ACCOUNTING: never substitute another academic year's
+            # figures when the requested year has no matching records.
+            used_unfiltered_year_fallback = False
 
             total_billed = sum(
                 (getattr(fr, "final_amount", None) or zero) for fr in fee_records
@@ -564,12 +551,23 @@ class AdministrationService:
                     .filter(Payment.status == "completed")
                     .count()
                 )
-                unfiltered_allocations_count = (
-                    _sf_scoped_query(PaymentAllocation).count()
-                    if hasattr(PaymentAllocation, "tenant_id")
-                    or hasattr(PaymentAllocation, "branch_id")
-                    else db.session.query(PaymentAllocation).count()
+                allocation_query = (
+                    db.session.query(PaymentAllocation)
+                    .join(
+                        StudentFee,
+                        StudentFee.id == PaymentAllocation.student_fee_id,
+                    )
+                    .join(
+                        Student,
+                        Student.id == StudentFee.student_id,
+                    )
+                    .filter(Student.tenant_id == tenant_id)
                 )
+                if branch_id is not None:
+                    allocation_query = allocation_query.filter(
+                        Student.branch_id == branch_id
+                    )
+                unfiltered_allocations_count = allocation_query.count()
                 logger.info(
                     "financial_summary_diagnostics",
                     academic_year=academic_year,
@@ -626,7 +624,7 @@ class AdministrationService:
         today = date.today()
         # Join with FeeStructure to check due_date
         return (
-            StudentFee.query.join(FeeStructure)
+            scoped_student_fees().join(FeeStructure)
             .filter(FeeStructure.due_date < today, StudentFee.balance > 0)
             .options(
                 db.joinedload(StudentFee.student), db.joinedload(StudentFee.structure)
@@ -643,8 +641,7 @@ class AdministrationService:
     ):
         from app.models.finance import FeeStructure, StudentFee
 
-        query = StudentFee.query
-        query = query.join(FeeStructure)
+        query = scoped_student_fees().join(FeeStructure)
 
         if academic_year:
             query = query.filter(FeeStructure.academic_year == academic_year)
@@ -661,7 +658,7 @@ class AdministrationService:
     ) -> List[StudentFee]:
         from app.models.finance import FeeStructure, StudentFee
 
-        query = StudentFee.query.join(FeeStructure).filter(
+        query = scoped_student_fees().join(FeeStructure).filter(
             StudentFee.student_id == student_id
         )
 

@@ -17,9 +17,9 @@ from app.extensions import db
 class TestUserRegistration:
     """Test user registration functionality"""
     
-    def test_successful_registration(self, client, db):
+    def test_successful_registration(self, client, db, auth_test_helpers):
         """Test successful user registration"""
-        response = client.post('/api/v1/auth/register', json={
+        response = auth_test_helpers.register(client, {
             'username': 'newuser',
             'email': 'new@example.com',
             'password': 'SecurePass123!',
@@ -40,10 +40,10 @@ class TestUserRegistration:
         assert user.username == 'newuser'
         assert user.check_password('SecurePass123!')
     
-    def test_registration_duplicate_email(self, client, db):
+    def test_registration_duplicate_email(self, client, db, auth_test_helpers):
         """Test registration with duplicate email"""
         # Create first user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register(client, {
             'username': 'user1',
             'email': 'duplicate@example.com',
             'password': 'SecurePass123!',
@@ -51,7 +51,7 @@ class TestUserRegistration:
         })
         
         # Try to create second user with same email
-        response = client.post('/api/v1/auth/register', json={
+        response = auth_test_helpers.register(client, {
             'username': 'user2',
             'email': 'duplicate@example.com',
             'password': 'AnotherPass123!',
@@ -106,10 +106,10 @@ class TestUserRegistration:
 class TestUserLogin:
     """Test user login functionality"""
     
-    def test_successful_login(self, client, db):
+    def test_successful_login(self, client, db, auth_test_helpers):
         """Test successful user login"""
         # Register user first
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'loginuser',
             'email': 'login@example.com',
             'password': 'SecurePass123!',
@@ -134,9 +134,9 @@ class TestUserLogin:
         session_tokens = SessionToken.query.filter_by(user_id=user.id).all()
         assert len(session_tokens) >= 1
 
-    def test_login_seeds_access_session_last_used_at(self, client, db):
+    def test_login_seeds_access_session_last_used_at(self, client, db, auth_test_helpers):
         """Ensure the first /auth/me request does not need to write session activity."""
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'sessionuser',
             'email': 'session@example.com',
             'password': 'SecurePass123!',
@@ -202,10 +202,10 @@ class TestUserLogin:
 class TestTokenManagement:
     """Test JWT token management and refresh"""
     
-    def test_token_refresh(self, client, db):
+    def test_token_refresh(self, client, db, auth_test_helpers):
         """Test token refresh functionality"""
         # Register and login user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'refreshuser',
             'email': 'refresh@example.com',
             'password': 'SecurePass123!',
@@ -228,10 +228,10 @@ class TestTokenManagement:
         assert data['success'] is True
         assert 'access_token' in data
     
-    def test_token_revocation_on_logout(self, client, db):
+    def test_token_revocation_on_logout(self, client, db, auth_test_helpers):
         """Test that tokens are revoked on logout"""
         # Register and login user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'logoutuser',
             'email': 'logout@example.com',
             'password': 'SecurePass123!',
@@ -259,10 +259,10 @@ class TestTokenManagement:
         session_token = SessionToken.find_by_jti(jti)
         assert session_token.is_revoked is True
     
-    def test_access_with_revoked_token(self, client, db):
+    def test_access_with_revoked_token(self, client, db, auth_test_helpers):
         """Test that revoked tokens cannot access protected routes"""
         # Register and login user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'revokeduser',
             'email': 'revoked@example.com',
             'password': 'SecurePass123!',
@@ -296,7 +296,7 @@ class TestRoleBasedAccessControl:
         admin_user = User(
             username='admin',
             email='admin@example.com',
-            role='admin'
+            role='super_admin'
         )
         admin_user.set_password_hash('AdminPass123!')
         db.session.add(admin_user)
@@ -316,7 +316,7 @@ class TestRoleBasedAccessControl:
         
         # Should not be 403 (Forbidden)
         assert response.status_code != 403
-    
+
     def test_student_denied_admin_routes(self, client, db):
         """Test that student users cannot access admin routes"""
         # Create student user
@@ -397,9 +397,9 @@ class TestSecurityFeatures:
 class TestPasswordSecurity:
     """Test password security features"""
     
-    def test_password_hashing(self, client, db):
+    def test_password_hashing(self, client, db, auth_test_helpers):
         """Test that passwords are properly hashed"""
-        response = client.post('/api/v1/auth/register', json={
+        response = auth_test_helpers.register(client, {
             'username': 'hashtest',
             'email': 'hash@example.com',
             'password': 'TestPassword123!',
@@ -414,10 +414,10 @@ class TestPasswordSecurity:
         assert user.password_hash.startswith('$2b$')  # bcrypt hash format
         assert user.check_password('TestPassword123!')
     
-    def test_password_change_requires_current_password(self, client, db):
+    def test_password_change_requires_current_password(self, client, db, auth_test_helpers):
         """Test that password change requires current password"""
         # Register user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'changepass',
             'email': 'change@example.com',
             'password': 'OldPassword123!',
@@ -447,10 +447,10 @@ class TestPasswordSecurity:
 class TestSessionManagement:
     """Test session management features"""
     
-    def test_multiple_sessions_tracking(self, client, db):
+    def test_multiple_sessions_tracking(self, client, db, auth_test_helpers):
         """Test tracking of multiple user sessions"""
         # Register user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'multisession',
             'email': 'multi@example.com',
             'password': 'SecurePass123!',
@@ -477,10 +477,10 @@ class TestSessionManagement:
         active_sessions = SessionToken.get_user_active_sessions(user.id)
         assert len(active_sessions) >= 2
     
-    def test_session_cleanup_on_user_deletion(self, client, db):
+    def test_session_cleanup_on_user_deletion(self, client, db, auth_test_helpers):
         """Test that sessions are cleaned up when user is deleted"""
         # Register user
-        client.post('/api/v1/auth/register', json={
+        auth_test_helpers.register_verified(client, {
             'username': 'deleteuser',
             'email': 'delete@example.com',
             'password': 'SecurePass123!',
@@ -512,10 +512,10 @@ class TestSessionManagement:
 class TestAuthenticationIntegration:
     """Integration tests for authentication system"""
     
-    def test_complete_auth_workflow(self, client, db):
+    def test_complete_auth_workflow(self, client, db, auth_test_helpers):
         """Test complete authentication workflow"""
         # 1. Register
-        register_response = client.post('/api/v1/auth/register', json={
+        register_response = auth_test_helpers.register_verified(client, {
             'username': 'workflow',
             'email': 'workflow@example.com',
             'password': 'ComplexPass123!',

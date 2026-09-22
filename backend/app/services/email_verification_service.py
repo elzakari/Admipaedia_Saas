@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
-from flask import current_app, request
+from flask import request
 
 from app.extensions import db, logger
 from app.models.email_verification import EmailVerificationToken
@@ -19,27 +19,8 @@ class EmailVerificationRepository:
     """
 
     def __init__(self):
-        try:
-            # Skip DDL table creation during unit testing to prevent SQLite savepoint invalidation.
-            # conftest.py already creates all tables automatically.
-            import sys
-
-            is_testing = "pytest" in sys.modules
-            try:
-                if current_app and current_app.config.get("TESTING"):
-                    is_testing = True
-            except RuntimeError:
-                pass
-
-            if not is_testing:
-                db.Model.metadata.create_all(
-                    bind=db.engine, tables=[EmailVerificationToken.__table__]
-                )
-        except Exception as e:
-            logger.warning(
-                "Runtime metadata creation bypassed or not yet bound to an engine",
-                error=str(e),
-            )
+        # Schema ownership is migration-only; email_verification_tokens is maintained by Alembic.
+        pass
 
     def create_token(
         self,

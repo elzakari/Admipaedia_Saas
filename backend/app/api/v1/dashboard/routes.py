@@ -268,6 +268,20 @@ def get_notifications():
 @dashboard_bp.route("/notifications/<notification_id>/read", methods=["PUT"])
 @jwt_required()
 def mark_notification_as_read(notification_id):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Mark a notification as read."""
     success = DashboardService.mark_notification_as_read(notification_id)
     return jsonify({"success": success})
@@ -276,6 +290,20 @@ def mark_notification_as_read(notification_id):
 @dashboard_bp.route("/notifications/read-all", methods=["PUT"])
 @jwt_required()
 def mark_all_notifications_as_read():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notification state changes are temporarily "
+                    "unavailable while tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Mark all notifications as read."""
     user_id = get_jwt_identity()
     success = DashboardService.mark_all_notifications_as_read(user_id)
@@ -313,6 +341,21 @@ def format_time_ago(timestamp):
 @dashboard_bp.route("/teacher-analytics/<int:teacher_id>", methods=["GET"])
 @jwt_required()
 def get_teacher_analytics(teacher_id):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy teacher dashboard endpoint is "
+                    "temporarily unavailable while tenant authorization "
+                    "is being upgraded."
+                ),
+                "code": "DASHBOARD_TEACHER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Get comprehensive analytics for a teacher."""
     # Verify the requesting user has permission to access this data
     user_id = get_jwt_identity()
@@ -346,6 +389,21 @@ def get_teacher_analytics(teacher_id):
 @dashboard_bp.route("/teacher-stats/<int:teacher_id>", methods=["GET"])
 @jwt_required()
 def get_teacher_stats(teacher_id):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "This legacy teacher dashboard endpoint is "
+                    "temporarily unavailable while tenant authorization "
+                    "is being upgraded."
+                ),
+                "code": "DASHBOARD_TEACHER_SCOPE_UPGRADE_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Get basic statistics for a teacher dashboard."""
     # Verify the requesting user has permission to access this data
     user_id = get_jwt_identity()
@@ -380,6 +438,20 @@ def get_teacher_stats(teacher_id):
 @jwt_required()
 @role_required(["admin", "teacher"])
 def create_notification():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notifications are temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Create a new notification."""
     data = request.get_json() or {}
 
@@ -433,6 +505,20 @@ def create_notification():
 @jwt_required()
 @role_required(["admin", "teacher"])
 def create_bulk_notifications():
+    return (
+        jsonify(
+            {
+                "success": False,
+                "message": (
+                    "Notifications are temporarily unavailable while "
+                    "tenant ownership is being upgraded."
+                ),
+                "code": "NOTIFICATION_TENANT_OWNERSHIP_REQUIRED",
+            }
+        ),
+        503,
+    )
+
     """Create notifications for multiple users."""
     try:
         data = request.get_json() or {}

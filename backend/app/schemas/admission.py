@@ -68,7 +68,7 @@ class AdmissionApplicationSchema(Schema):
             from app.models.security import TenantCredentialCounter
 
             counter = TenantCredentialCounter.query.filter_by(
-                tenant_id=str(tenant_id), year=current_year
+                tenant_id=tenant_id, year=current_year
             ).first()
             current_serial = counter.last_value if counter else 0
             next_serial = current_serial + 1

@@ -414,26 +414,10 @@ class ParentService:
             except Exception:
                 active_applications = 0
 
+            # SECURITY CONTAINMENT:
+            # CalendarEvent has no tenant ownership yet, so never surface
+            # a database-wide "next event" on a tenant parent dashboard.
             next_event = None
-            try:
-                from app.models.dashboard import CalendarEvent
-
-                now = datetime.utcnow()
-                ev = (
-                    CalendarEvent.query.filter(CalendarEvent.date >= now)
-                    .order_by(CalendarEvent.date.asc())
-                    .first()
-                )
-                if ev:
-                    next_event = {
-                        "id": ev.id,
-                        "title": ev.title,
-                        "date": ev.date.isoformat() if ev.date else None,
-                        "type": ev.type,
-                        "description": ev.description,
-                    }
-            except Exception:
-                next_event = None
 
             return {
                 "children_count": children_count,
