@@ -117,7 +117,7 @@ def auth_client(app, client):
         user.status = 'active'
     _db.session.flush()
     
-    token = create_access_token(identity=user.id)
+    token = _create_tracked_test_access_token(user.id)
     client.environ_base['HTTP_AUTHORIZATION'] = f'Bearer {token}'
     
     return client
@@ -512,7 +512,7 @@ def student_headers(db_session, client, student_factory, sample_tenant):
     create_test_membership(db_session, sample_tenant.id, student.user_id, 'student')
     db_session.commit()
 
-    token = create_access_token(identity=student.user_id)
+    token = _create_tracked_test_access_token(student.user_id)
     return {
         'Authorization': f'Bearer {token}',
         'X-Tenant-ID': str(sample_tenant.id),
@@ -618,7 +618,7 @@ def _create_tracked_test_access_token(user_id):
     from app.models.session_token import SessionToken
 
     token = create_access_token(
-        identity=user_id
+        identity=str(user_id)
     )
 
     payload = decode_token(token)
@@ -760,6 +760,68 @@ def tenant_teacher(teacher_factory, sample_tenant):
     """Single tenant teacher shared by auth and class fixtures."""
     return teacher_factory(sample_tenant.id)
 
+
+@pytest.fixture
+def tenant_auth_client(
+    auth_client,
+    admin_headers,
+    sample_tenant,
+):
+    """
+    Authenticated school-admin client bound to the same
+    tenant used by tenant-owned test records.
+
+    This is intentionally separate from auth_client so
+    tenantless/security tests keep their existing behavior.
+    """
+    tenant_header = admin_headers.get(
+        "X-Tenant-ID"
+    )
+
+    expected = str(sample_tenant.id)
+
+    if tenant_header != expected:
+        raise RuntimeError(
+            "Tenant auth fixture mismatch: "
+            f"header={tenant_header!r}, "
+            f"sample_tenant={expected!r}"
+        )
+
+    previous = auth_client.environ_base.get(
+        "HTTP_X_TENANT_ID"
+    )
+
+    auth_client.environ_base[
+        "HTTP_X_TENANT_ID"
+    ] = tenant_header
+
+    # Give tenant-aware legacy fixtures the exact native
+    # Tenant.id value rather than reparsing the HTTP string.
+    auth_client.test_tenant_id = (
+        sample_tenant.id
+    )
+
+    try:
+        yield auth_client
+    finally:
+        if previous is None:
+            auth_client.environ_base.pop(
+                "HTTP_X_TENANT_ID",
+                None,
+            )
+        else:
+            auth_client.environ_base[
+                "HTTP_X_TENANT_ID"
+            ] = previous
+
+        if hasattr(
+            auth_client,
+            "test_tenant_id",
+        ):
+            delattr(
+                auth_client,
+                "test_tenant_id",
+            )
 
 @pytest.fixture
 def tracked_access_token_factory():

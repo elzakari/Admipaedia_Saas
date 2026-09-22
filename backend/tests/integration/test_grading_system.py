@@ -1,6 +1,6 @@
 import pytest
-from datetime import date
 from flask_jwt_extended import create_access_token
+from datetime import date
 from app.models.user import User
 from app.models.student import Student
 from app.models.class_ import Class
@@ -12,75 +12,300 @@ from app.services.enhanced_grading_service import EnhancedGradingService
 from tests.test_production_integration import create_test_membership, create_test_user
 
 class TestGradingSystem:
-    def test_enter_grades(self, auth_client, db):
+    def test_enter_grades(
+        self,
+        client,
+        db,
+        sample_tenant,
+        admin_headers,
+        student_factory,
+    ):
         """Test entering grades for a student."""
-        # Setup Data
-        class_obj = Class(name='Grade 10A', grade_level='Grade 10', academic_year='2024')
-        subject = Subject(name='Mathematics', code='MATH10')
-        db.session.add_all([class_obj, subject])
-        db.session.commit()
-        
-        student = Student(
-            first_name='John', last_name='Doe', email='john@school.com',
-            date_of_birth=date(2008, 1, 1), gender='Male', student_id='STU001',
-            class_id=class_obj.id
+        class_obj = Class(
+            name='Grade 10A',
+            grade_level='Grade 10',
+            academic_year='2024',
+            tenant_id=sample_tenant.id,
         )
-        db.session.add(student)
+        subject = Subject(
+            name='Mathematics',
+            code='MATH10',
+            tenant_id=sample_tenant.id,
+        )
+        scheme = GradingScheme(
+            tenant_id=sample_tenant.id,
+            name='Grade 10A Scheme',
+            standard=GradingStandard.INTERNAL_EXAM,
+            is_active=True,
+            is_default=True,
+            class_score_weight=40,
+            external_exam_weight=60,
+        )
+
+        db.session.add_all([class_obj, subject, scheme])
+        db.session.flush()
+
+        db.session.add_all([
+            GradeBoundary(
+                grading_scheme_id=scheme.id,
+                grade_symbol='A1',
+                grade_name='Excellent',
+                min_score=80,
+                max_score=100,
+                is_passing=True,
+                grade_points=1,
+                sequence_order=1,
+            ),
+            GradeBoundary(
+                grading_scheme_id=scheme.id,
+                grade_symbol='F9',
+                grade_name='Fail',
+                min_score=0,
+                max_score=79.99,
+                is_passing=False,
+                grade_points=9,
+                sequence_order=2,
+            ),
+        ])
         db.session.commit()
-        
-        # Test Data
+
+        student = student_factory(
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+        )
+        db.session.commit()
+
         grade_data = {
             'student_id': student.id,
             'class_id': class_obj.id,
             'subject_id': subject.id,
-            'assessment_type_id': 1, # Mock ID
+            'grading_scheme_id': scheme.id,
+            'assessment_type_id': 1,
             'assessment_name': 'Mid-Term Exam',
+            'assessment_date': '2026-07-04',
             'raw_score': 85,
             'total_marks': 100,
             'weight': 0.3,
             'term': 'Term 1',
-            'academic_year': '2024'
+            'academic_year': '2024',
         }
-        
-        response = auth_client.post('/api/v1/grades/entry', json=grade_data)
-        assert response.status_code == 200
+
+        response = client.post(
+            '/api/v1/grades/entry',
+            json=grade_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
         assert response.json['success'] is True
-        
-        # Verify DB
-        grade = EnhancedGrade.query.filter_by(student_id=student.id).first()
+
+        grade = EnhancedGrade.query.filter_by(
+            student_id=student.id
+        ).first()
+
         assert grade is not None
         assert grade.raw_score == 85
-        
-    def test_bulk_enter_grades(self, auth_client, db):
+
+
+    def test_bulk_enter_grades(
+        self,
+        client,
+        db,
+        sample_tenant,
+        admin_headers,
+        student_factory,
+    ):
         """Test bulk grade entry."""
-        class_obj = Class(name='Grade 10B', grade_level='Grade 10', academic_year='2024')
-        subject = Subject(name='Science', code='SCI10')
-        db.session.add_all([class_obj, subject])
+        class_obj = Class(
+            name='Grade 10B',
+            grade_level='Grade 10',
+            academic_year='2024',
+            tenant_id=sample_tenant.id,
+        )
+        subject = Subject(
+            name='Science',
+            code='SCI10',
+            tenant_id=sample_tenant.id,
+        )
+        scheme = GradingScheme(
+            tenant_id=sample_tenant.id,
+            name='Grade 10B Scheme',
+            standard=GradingStandard.INTERNAL_EXAM,
+            is_active=True,
+            is_default=True,
+            class_score_weight=40,
+            external_exam_weight=60,
+        )
+
+        db.session.add_all([class_obj, subject, scheme])
+        db.session.flush()
+
+        db.session.add_all([
+            GradeBoundary(
+                grading_scheme_id=scheme.id,
+                grade_symbol='A1',
+                grade_name='Excellent',
+                min_score=80,
+                max_score=100,
+                is_passing=True,
+                grade_points=1,
+                sequence_order=1,
+            ),
+            GradeBoundary(
+                grading_scheme_id=scheme.id,
+                grade_symbol='F9',
+                grade_name='Fail',
+                min_score=0,
+                max_score=79.99,
+                is_passing=False,
+                grade_points=9,
+                sequence_order=2,
+            ),
+        ])
         db.session.commit()
-        
-        s1 = Student(first_name='A', last_name='B', student_id='S1', class_id=class_obj.id)
-        s2 = Student(first_name='C', last_name='D', student_id='S2', class_id=class_obj.id)
-        db.session.add_all([s1, s2])
+
+        s1 = student_factory(
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+        )
+        s2 = student_factory(
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+        )
         db.session.commit()
-        
+
         grades_data = [
             {
-                'student_id': s1.id, 'class_id': class_obj.id, 'subject_id': subject.id,
-                'assessment_type_id': 1, 'assessment_name': 'Quiz 1', 'raw_score': 10, 'total_marks': 10,
-                'term': 'Term 1', 'academic_year': '2024'
+                'student_id': s1.id,
+                'class_id': class_obj.id,
+                'subject_id': subject.id,
+                'grading_scheme_id': scheme.id,
+                'assessment_type_id': 1,
+                'assessment_name': 'Quiz 1',
+                'assessment_date': '2026-07-04',
+                'raw_score': 10,
+                'total_marks': 10,
+                'term': 'Term 1',
+                'academic_year': '2024',
             },
             {
-                'student_id': s2.id, 'class_id': class_obj.id, 'subject_id': subject.id,
-                'assessment_type_id': 1, 'assessment_name': 'Quiz 1', 'raw_score': 8, 'total_marks': 10,
-                'term': 'Term 1', 'academic_year': '2024'
-            }
+                'student_id': s2.id,
+                'class_id': class_obj.id,
+                'subject_id': subject.id,
+                'grading_scheme_id': scheme.id,
+                'assessment_type_id': 1,
+                'assessment_name': 'Quiz 1',
+                'assessment_date': '2026-07-04',
+                'raw_score': 8,
+                'total_marks': 10,
+                'term': 'Term 1',
+                'academic_year': '2024',
+            },
         ]
-        
-        response = auth_client.post('/api/v1/grades/entry', json=grades_data)
-        assert response.status_code == 200
-        
+
+        response = client.post(
+            '/api/v1/grades/entry',
+            json=grades_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.get_json()
+
         grades = EnhancedGrade.query.all()
         assert len(grades) >= 2
+
+
+    def test_bulk_enter_grades_rolls_back_on_invalid_item(
+        self,
+        client,
+        db,
+        sample_tenant,
+        admin_headers,
+        student_factory,
+    ):
+        """A failed bulk item must roll back the entire batch."""
+        class_obj = Class(
+            name='Grade 10 Atomic',
+            grade_level='Grade 10',
+            academic_year='2024',
+            tenant_id=sample_tenant.id,
+        )
+        subject = Subject(
+            name='Atomic Science',
+            code='ATSCI10',
+            tenant_id=sample_tenant.id,
+        )
+        scheme = GradingScheme(
+            tenant_id=sample_tenant.id,
+            name='Atomic Grade Scheme',
+            standard=GradingStandard.INTERNAL_EXAM,
+            is_active=True,
+            is_default=True,
+            class_score_weight=40,
+            external_exam_weight=60,
+        )
+
+        db.session.add_all([class_obj, subject, scheme])
+        db.session.commit()
+
+        s1 = student_factory(
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+        )
+        s2 = student_factory(
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+        )
+        db.session.commit()
+
+        grades_data = [
+            {
+                'student_id': s1.id,
+                'class_id': class_obj.id,
+                'subject_id': subject.id,
+                'grading_scheme_id': scheme.id,
+                'assessment_type_id': 1,
+                'assessment_name': 'Atomic Quiz',
+                'assessment_date': '2026-07-04',
+                'raw_score': 9,
+                'total_marks': 10,
+                'term': 'Term 1',
+                'academic_year': '2024',
+            },
+            {
+                'student_id': s2.id,
+                'class_id': class_obj.id,
+                'subject_id': subject.id,
+                'grading_scheme_id': scheme.id,
+                'assessment_type_id': 1,
+                'assessment_name': 'Atomic Quiz',
+                # Deliberately omit required assessment_date.
+                'raw_score': 8,
+                'total_marks': 10,
+                'term': 'Term 1',
+                'academic_year': '2024',
+            },
+        ]
+
+        response = client.post(
+            '/api/v1/grades/entry',
+            json=grades_data,
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 400, response.get_json()
+
+        payload = response.get_json()
+        assert payload['success'] is False
+        assert 'Bulk grade entry failed at item 2' in payload['message']
+
+        persisted = EnhancedGrade.query.filter_by(
+            class_id=class_obj.id,
+            subject_id=subject.id,
+        ).all()
+
+        assert persisted == []
+
 
     def test_get_gradebook(self, auth_client, db, sample_tenant):
         """Test fetching enhanced gradebook with stable assessment metadata."""
@@ -136,6 +361,7 @@ class TestGradingSystem:
             subject.id,
             'First Term',
             '2024/2025',
+            tenant_id=class_obj.tenant_id,
         )
 
         assert error is None
@@ -147,13 +373,17 @@ class TestGradingSystem:
         assert student_row['grades']['3:Quiz 1']['score'] == 18
         assert student_row['grades']['3:Quiz 1']['remark'] == 'Strong work'
 
-    def test_class_grade_analytics_prefers_final_grades(self, client, db_session, sample_tenant):
+    def test_class_grade_analytics_prefers_final_grades(self, client, db_session, sample_tenant, rbac_defaults):
         """Class grade analytics should read FinalGrade before legacy grade rows."""
         admin_user = create_test_user(db_session, 'grade-analytics-admin@example.com', 'admin', sample_tenant.id)
         create_test_membership(db_session, sample_tenant.id, admin_user.id, 'admin')
         db_session.commit()
+        from tests.conftest import _create_tracked_test_access_token
+
         headers = {
-            'Authorization': f'Bearer {create_access_token(identity=admin_user.id)}',
+            'Authorization': (
+                f'Bearer {_create_tracked_test_access_token(admin_user.id)}'
+            ),
             'X-Tenant-ID': str(sample_tenant.id),
         }
         class_obj = Class(name='Grade 11A', grade_level='Grade 11', academic_year='2024/2025', tenant_id=sample_tenant.id)
@@ -229,7 +459,13 @@ class TestGradingSystem:
         assert payload['analytics']['grade_distribution']['A1'] == 1
         assert payload['analytics']['total_grades'] == 1
 
-    def test_subject_performance_analytics_prefers_final_grades(self, auth_client, db, sample_tenant):
+    def test_subject_performance_analytics_prefers_final_grades(
+        self,
+        client,
+        db,
+        sample_tenant,
+        admin_headers,
+    ):
         """Subject analytics should aggregate FinalGrade outcomes when they exist."""
         class_obj = Class(name='Grade 9A', grade_level='Grade 9', academic_year='2024/2025', tenant_id=sample_tenant.id)
         subject = Subject(name='Mathematics', code='MATH11', tenant_id=sample_tenant.id)
@@ -292,7 +528,11 @@ class TestGradingSystem:
         ])
         db.session.commit()
 
-        response = auth_client.get('/api/v1/analytics/subjects/performance?academic_year=2024/2025&term=Second%20Term')
+        response = client.get(
+            '/api/v1/analytics/subjects/performance'
+            '?academic_year=2024/2025&term=Second%20Term',
+            headers=admin_headers,
+        )
 
         assert response.status_code == 200
         payload = response.get_json()
@@ -368,9 +608,10 @@ class TestGradingSystem:
         db.session.commit()
 
         analytics = EnhancedGradingService.get_student_performance_analytics(
-            student.id,
-            '2024/2025',
-            'Third Term',
+            student_id=student.id,
+            academic_year='2024/2025',
+            tenant_id=sample_tenant.id,
+            term='Third Term',
         )
 
         assert analytics['average_percentage'] == 84.0
@@ -444,10 +685,11 @@ class TestGradingSystem:
         db.session.commit()
 
         analytics = EnhancedGradingService.get_class_performance_analytics(
-            class_obj.id,
-            subject.id,
-            'First Term',
-            '2024/2025',
+            class_id=class_obj.id,
+            tenant_id=sample_tenant.id,
+            subject_id=subject.id,
+            term='First Term',
+            academic_year='2024/2025',
         )
 
         assert analytics['class_average'] == 78.0
@@ -455,32 +697,107 @@ class TestGradingSystem:
         assert analytics['total_assessments'] == 1
         assert analytics['top_performers'][0]['average_percentage'] == 78.0
 
-    def test_legacy_grading_standards_route_returns_enum_data(self, client, db_session, sample_tenant):
+    def test_legacy_grading_standards_route_returns_enum_data(
+        self,
+        client,
+        admin_headers,
+    ):
         """The legacy /grading/standards route should serialize enum-backed standards."""
-        admin_user = create_test_user(db_session, 'legacy-grading-admin@example.com', 'admin', sample_tenant.id)
-        create_test_membership(db_session, sample_tenant.id, admin_user.id, 'admin')
-        db_session.commit()
-        headers = {
-            'Authorization': f'Bearer {create_access_token(identity=admin_user.id)}',
-            'X-Tenant-ID': str(sample_tenant.id),
-        }
-
-        response = client.get('/api/v1/grading/standards', headers=headers)
+        response = client.get(
+            '/api/v1/grading/standards',
+            headers=admin_headers,
+        )
 
         assert response.status_code == 200
         payload = response.get_json()
         assert payload['success'] is True
         assert any(item['code'] == 'internal_exam' for item in payload['data'])
 
-    def test_legacy_grading_routes_use_current_services(self, client, db_session, sample_tenant):
-        """Legacy /grading routes should create enhanced grades and final grades via current services."""
-        admin_user = create_test_user(db_session, 'legacy-grading-writer@example.com', 'admin', sample_tenant.id)
-        create_test_membership(db_session, sample_tenant.id, admin_user.id, 'admin')
+    def test_final_grade_rejects_scheme_without_boundaries(
+        self,
+        db_session,
+        sample_tenant,
+    ):
+        """Boundaryless schemes must fail cleanly without inserting FinalGrade."""
+        computed_by = create_test_user(
+            db_session,
+            'boundaryless-grade-admin@example.com',
+            'admin',
+            sample_tenant.id,
+        )
+
+        class_obj = Class(
+            name='Boundaryless Grade Class',
+            grade_level='Grade 6',
+            academic_year='2024/2025',
+            tenant_id=sample_tenant.id,
+        )
+        subject = Subject(
+            name='Boundaryless Mathematics',
+            code='BOUND-MATH',
+            tenant_id=sample_tenant.id,
+        )
+        scheme = GradingScheme(
+            tenant_id=sample_tenant.id,
+            name='Boundaryless Scheme',
+            standard=GradingStandard.INTERNAL_EXAM,
+            is_active=True,
+            is_default=False,
+            class_score_weight=40,
+            external_exam_weight=60,
+        )
+
+        db_session.add_all([class_obj, subject, scheme])
+        db_session.flush()
+
+        student = Student(
+            tenant_id=sample_tenant.id,
+            first_name='Boundaryless',
+            last_name='Student',
+            email='boundaryless.student@example.com',
+            date_of_birth=date(2012, 1, 1),
+            gender='Male',
+            admission_number='BOUND001',
+            class_id=class_obj.id,
+            status='active',
+        )
+        db_session.add(student)
         db_session.commit()
-        headers = {
-            'Authorization': f'Bearer {create_access_token(identity=admin_user.id)}',
-            'X-Tenant-ID': str(sample_tenant.id),
-        }
+
+        final_grade, error = EnhancedGradingService.calculate_final_grade(
+            student_id=student.id,
+            subject_id=subject.id,
+            class_id=class_obj.id,
+            term='Term 1',
+            academic_year='2024/2025',
+            external_exam_score=80.0,
+            grading_scheme_id=scheme.id,
+            computed_by=computed_by.id,
+            tenant_id=sample_tenant.id,
+        )
+
+        assert final_grade is None
+        assert error == 'Grading scheme has no grade boundaries configured'
+
+        persisted = FinalGrade.query.filter_by(
+            student_id=student.id,
+            subject_id=subject.id,
+            class_id=class_obj.id,
+            term='Term 1',
+            academic_year='2024/2025',
+        ).first()
+
+        assert persisted is None
+
+
+    def test_legacy_grading_routes_use_current_services(
+        self,
+        client,
+        db_session,
+        sample_tenant,
+        admin_headers,
+    ):
+        """Legacy /grading routes should create enhanced grades and final grades via current services."""
 
         class_obj = Class(name='Grade 6A', grade_level='Grade 6', academic_year='2024/2025', tenant_id=sample_tenant.id)
         subject = Subject(name='Computing', code='COMP6', tenant_id=sample_tenant.id)
@@ -546,7 +863,7 @@ class TestGradingSystem:
                 'term': 'First Term',
                 'academic_year': '2024/2025',
             },
-            headers=headers,
+            headers=admin_headers,
         )
 
         assert grade_response.status_code == 201
@@ -564,7 +881,7 @@ class TestGradingSystem:
                 'academic_year': '2024/2025',
                 'external_score': 90,
             },
-            headers=headers,
+            headers=admin_headers,
         )
 
         assert final_response.status_code == 201

@@ -1,6 +1,8 @@
 from datetime import datetime
 from unittest.mock import patch
 
+from flask import g
+
 from app.schemas.exam import ExamCreateSchema
 from app.models.class_ import Class
 from app.models.subject import Subject
@@ -49,6 +51,13 @@ def test_exam_creation_and_conflict_detection_accept_timezone_aware_input(db_ses
     )
     db_session.add_all([cls, subject])
     db_session.commit()
+
+    # ExamService is fail-closed and derives Exam ownership
+    # through the tenant-owned Class. This direct-service test
+    # must therefore establish the authoritative tenant context
+    # explicitly rather than relying on an unscoped test call.
+    g.tenant_id = sample_tenant.id
+    g.branch_id = cls.branch_id
 
     with patch.object(db_session, 'rollback', return_value=None):
         exam, error = ExamService.create_exam({

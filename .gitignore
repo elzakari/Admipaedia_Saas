@@ -26,6 +26,11 @@ dist-ssr
 # IDE/assistant artifacts
 .trae/
 .bolt/
+.claude/
+.serena/
+backend/diagnostics-*/
+backend/regression-chunks-*/
+backend/*.txt
 
 # Nested repo mirror
 repo_atomic/
@@ -66,7 +71,7 @@ env/
 
 # Pytest cache
 .pytest_cache/
-**/.pytest_cache/
+**/__pytest_cache/
 
 # TypeScript incremental build info
 *.tsbuildinfo

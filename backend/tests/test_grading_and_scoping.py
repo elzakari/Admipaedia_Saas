@@ -15,9 +15,10 @@ from app.models.user import User
 from app.services.grading_engine import PolymorphicGradingEngine
 from app.saas.middleware import campus_isolation_middleware
 
-def test_polymorphic_grading_calculation(app):
+def test_polymorphic_grading_calculation(app, sample_tenant):
     """Test precise decimal grading calculations and matching."""
-    tenant_id = uuid.uuid4()
+    tenant_id = sample_tenant.id
+    g.tenant_id = tenant_id
     
     # 1. Seed GradeTrack & GradeLevel
     track = GradeTrack(tenant_id=tenant_id, name="Test Track", numeric_level_rank=1)
@@ -115,21 +116,36 @@ def test_campus_isolation_middleware_defaults(app):
         assert branch.tenant_id == tenant_id
 
 
-def test_auto_populate_branch_id_before_flush(app):
+def test_auto_populate_branch_id_before_flush(app, sample_tenant, db_session):
     """Test that before_flush dynamically injects g.branch_id on scoped records."""
-    tenant_id = uuid.uuid4()
-    branch_id = uuid.uuid4()
-    
-    # Mock the request state
+    tenant_id = sample_tenant.id
+
+    # Persist the branch referenced by request context so FK integrity
+    # remains valid while branch_id itself is still injected dynamically.
+    branch = Branch(
+        tenant_id=tenant_id,
+        name=f"Dynamic Branch {uuid.uuid4().hex[:6]}",
+        code=f"DYN-{uuid.uuid4().hex[:6]}",
+        is_active=True,
+    )
+    db_session.add(branch)
+    db_session.flush()
+    branch_id = branch.id
+
+    # Mock the request state.
     g.tenant_id = tenant_id
     g.branch_id = branch_id
-    
+
     # 1. Student
-    # Create required user relations
-    user = User(username=f"student_{uuid.uuid4().hex[:4]}", email="stu@test.com", role="student")
+    # Create required user relation.
+    user = User(
+        username=f"student_{uuid.uuid4().hex[:4]}",
+        email=f"stu_{uuid.uuid4().hex[:8]}@test.com",
+        role="student",
+    )
     db.session.add(user)
     db.session.flush()
-    
+
     student = Student(
         tenant_id=tenant_id,
         user_id=user.id,
@@ -137,59 +153,90 @@ def test_auto_populate_branch_id_before_flush(app):
         first_name="First",
         last_name="Last",
         date_of_birth=datetime.date(2010, 1, 1),
-        gender="Male"
+        gender="Male",
     )
     db.session.add(student)
-    
-    # 2. Class
+
+    # 2. Class — branch_id intentionally omitted.
     clazz = Class(
         tenant_id=tenant_id,
         name="Dynamic Scoped Class",
         grade_level="1",
-        academic_year="2026"
+        academic_year="2026",
     )
     db.session.add(clazz)
-    
-    # 3. Attendance
+
+    # Materialize Student and Class PKs before Attendance.
+    # Their branch_id values must still be supplied by the hook.
+    db.session.flush()
+
+    # 3. Attendance — branch_id intentionally omitted.
     attendance = Attendance(
-        student_id=1,
-        class_id=1,
-        subject_id=1,
+        student_id=student.id,
+        class_id=clazz.id,
         date=datetime.date(2026, 5, 26),
-        status="present"
+        status="present",
     )
     db.session.add(attendance)
-    
-    # Flush to database
+
+    # Flush invokes the before_flush branch injector.
     db.session.flush()
-    
-    # Assert branch_id was automatically populated before flush
+
     assert student.branch_id == branch_id
     assert clazz.branch_id == branch_id
     assert attendance.branch_id == branch_id
 
-
-def test_query_scoped_helper(app):
+def test_query_scoped_helper(app, sample_tenant, db_session):
     """Test that Model.query_scoped() successfully scopes database queries."""
-    tenant_id = uuid.uuid4()
-    branch1 = uuid.uuid4()
-    branch2 = uuid.uuid4()
-    
-    # Create two classes in separate branches
-    class1 = Class(tenant_id=tenant_id, branch_id=branch1, name="Branch 1 Class", grade_level="1", academic_year="2026")
-    class2 = Class(tenant_id=tenant_id, branch_id=branch2, name="Branch 2 Class", grade_level="1", academic_year="2026")
-    
+    tenant_id = sample_tenant.id
+
+    branch1 = Branch(
+        tenant_id=tenant_id,
+        name=f"Branch 1 {uuid.uuid4().hex[:6]}",
+        code=f"B1-{uuid.uuid4().hex[:6]}",
+        is_active=True,
+    )
+    branch2 = Branch(
+        tenant_id=tenant_id,
+        name=f"Branch 2 {uuid.uuid4().hex[:6]}",
+        code=f"B2-{uuid.uuid4().hex[:6]}",
+        is_active=True,
+    )
+
+    db_session.add_all([branch1, branch2])
+    db_session.flush()
+
+    # Create two classes in two real persisted branches.
+    class1 = Class(
+        tenant_id=tenant_id,
+        branch_id=branch1.id,
+        name="Branch 1 Class",
+        grade_level="1",
+        academic_year="2026",
+    )
+    class2 = Class(
+        tenant_id=tenant_id,
+        branch_id=branch2.id,
+        name="Branch 2 Class",
+        grade_level="1",
+        academic_year="2026",
+    )
+
     db.session.add_all([class1, class2])
     db.session.commit()
-    
-    # Set context to branch1
-    g.branch_id = branch1
+
+    g.tenant_id = tenant_id
+
+    # Scope to branch 1.
+    g.branch_id = branch1.id
     scoped_classes = Class.query_scoped().all()
+
     assert len(scoped_classes) == 1
     assert scoped_classes[0].name == "Branch 1 Class"
-    
-    # Set context to branch2
-    g.branch_id = branch2
+
+    # Scope to branch 2.
+    g.branch_id = branch2.id
     scoped_classes_2 = Class.query_scoped().all()
+
     assert len(scoped_classes_2) == 1
     assert scoped_classes_2[0].name == "Branch 2 Class"

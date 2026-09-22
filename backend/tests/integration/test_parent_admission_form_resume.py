@@ -8,9 +8,24 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.student import Student
 from app.extensions import db
-from flask_jwt_extended import create_access_token
+from tests.conftest import _create_tracked_test_access_token
 
 
+def create_access_token(identity=None, **kwargs):
+    """
+    Legacy-test compatibility adapter.
+
+    Ordinary access JWTs must be backed by SessionToken authority.
+    JWT option-bearing calls are rejected for individual review
+    rather than silently changing their intended semantics.
+    """
+    if kwargs:
+        raise TypeError(
+            "Tracked test token adapter does not support "
+            f"JWT options: {sorted(kwargs)}"
+        )
+
+    return _create_tracked_test_access_token(identity)
 def py_hydrate_form_data(shape_defaults, submitted_form_data, authoritative_fallback):
     result = {}
     if isinstance(shape_defaults, dict):

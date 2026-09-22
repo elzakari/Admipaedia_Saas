@@ -159,8 +159,16 @@ class TestStudentCompetencyProfiles:
         
         # Verify assessment structure
         assessment = data['assessments'][0]
-        required_fields = ['id', 'student_id', 'competency_id', 'indicator_id',
-                          'proficiency_level', 'assessment_date', 'teacher_id']
+        required_fields = [
+            'id',
+            'student_id',
+            'competency_id',
+            'assessment_date',
+            'term',
+            'academic_year',
+            'level_achieved',
+            'assessed_by',
+        ]
         for field in required_fields:
             assert field in assessment
     
@@ -195,6 +203,9 @@ class TestCompetencyAssessments:
             'competency_id': sample_competency_indicators[0].competency_id,
             'indicator_id': sample_competency_indicators[0].id,
             'proficiency_level': 3,
+            'assessment_date': '2024-06-15',
+            'term': 'Term 2',
+            'academic_year': '2024/2025',
             'assessment_notes': 'Student demonstrates good understanding',
             'assessment_method': 'observation'
         }
@@ -216,7 +227,7 @@ class TestCompetencyAssessments:
             competency_id=sample_competency_indicators[0].competency_id
         ).first()
         assert assessment is not None
-        assert assessment.proficiency_level == 3
+        assert assessment.level_achieved == 3
     
     def test_create_competency_assessment_invalid_data(self, client, auth_headers):
         """Test assessment creation with invalid data"""
@@ -273,7 +284,13 @@ class TestClassCompetencyDashboard:
         assert 'dashboard' in data
         
         dashboard = data['dashboard']
-        required_fields = ['class_info', 'competency_overview', 'student_progress', 'recent_assessments']
+        required_fields = [
+            'student_progress',
+            'class_averages',
+            'competency_trends',
+            'top_performers',
+            'improvement_needed',
+        ]
         for field in required_fields:
             assert field in dashboard
     
@@ -310,7 +327,7 @@ class TestClassCompetencyDashboard:
 class TestCompetenciesIntegrationWorkflow:
     """Test end-to-end competencies system workflows"""
     
-    def test_complete_competency_assessment_workflow(self, client, auth_headers, sample_student, sample_competencies):
+    def test_complete_competency_assessment_workflow(self, client, auth_headers, sample_student, sample_competencies, sample_competency_indicators):
         """Test complete workflow from competency retrieval to assessment creation"""
         # Step 1: Get available competencies
         response = client.get('/api/v1/competencies/core-competencies', headers=auth_headers)
@@ -318,7 +335,7 @@ class TestCompetenciesIntegrationWorkflow:
         competencies = json.loads(response.data)['competencies']
         
         # Step 2: Get indicators for first competency
-        competency_id = competencies[0]['id']
+        competency_id = sample_competency_indicators[0].competency_id
         response = client.get(
             f'/api/v1/competencies/core-competencies/{competency_id}/indicators',
             headers=auth_headers
@@ -332,6 +349,9 @@ class TestCompetenciesIntegrationWorkflow:
             'competency_id': competency_id,
             'indicator_id': indicators[0]['id'],
             'proficiency_level': 3,
+            'assessment_date': '2024-06-15',
+            'term': 'Term 2',
+            'academic_year': '2024/2025',
             'assessment_notes': 'End-to-end test assessment'
         }
         
@@ -365,6 +385,9 @@ class TestCompetenciesIntegrationWorkflow:
                 'student_id': student.id,
                 'competency_id': competency_id,
                 'proficiency_level': (i % 4) + 1,  # Vary proficiency levels
+                'assessment_date': '2024-06-15',
+                'term': 'Term 2',
+                'academic_year': '2024/2025',
                 'assessment_notes': f'Class tracking test for student {student.id}'
             }
             
@@ -383,11 +406,17 @@ class TestCompetenciesIntegrationWorkflow:
         assert response.status_code == 200
         dashboard = json.loads(response.data)['dashboard']
         
-        # Verify dashboard contains assessment data
-        assert 'recent_assessments' in dashboard
-        assert len(dashboard['recent_assessments']) > 0
+        # Verify dashboard contains progress entries for the populated class.
+        assert 'student_progress' in dashboard
+        assert len(dashboard['student_progress']) >= 3
 
+        dashboard_student_ids = {
+            item['student_id']
+            for item in dashboard['student_progress']
+        }
 
+        for student in students[:3]:
+            assert student.id in dashboard_student_ids
 class TestCompetenciesErrorHandling:
     """Test error handling in competencies system"""
     
@@ -454,6 +483,9 @@ class TestCompetenciesPerformance:
                 'student_id': sample_student.id,
                 'competency_id': competency_id,
                 'proficiency_level': level,
+                'assessment_date': '2024-06-15',
+                'term': 'Term 2',
+                'academic_year': '2024/2025',
                 'assessment_notes': f'Concurrent test {threading.current_thread().name}'
             }
             
@@ -501,6 +533,31 @@ class TestCompetenciesPerformance:
 
 
 # Fixtures for test data
+
+@pytest.fixture
+def sample_class_with_students(
+    db_session,
+    sample_class,
+    student_factory,
+):
+    """
+    Tenant-safe class fixture populated with students for competency
+    dashboard/workflow integration tests.
+
+    Reuses the canonical sample_class and student_factory fixtures so
+    tenant ownership, linked users, and Student model invariants remain
+    centralized in tests/conftest.py.
+    """
+    for _ in range(3):
+        student_factory(
+            class_id=sample_class.id,
+        )
+
+    db_session.flush()
+    db_session.refresh(sample_class)
+
+    return sample_class
+
 @pytest.fixture
 def sample_competencies(db_session):
     """Create sample core competencies for testing"""
@@ -597,3 +654,4 @@ def sample_competency_assessments(db_session, sample_student, sample_competency_
     
     db_session.commit()
     return assessments
+

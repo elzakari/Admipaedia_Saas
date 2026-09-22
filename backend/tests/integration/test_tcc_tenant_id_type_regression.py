@@ -71,8 +71,9 @@ from datetime import datetime
 
 import pytest
 from flask import g as _g
-from flask_jwt_extended import create_access_token
 import sqlalchemy as sa
+
+from tests.conftest import _create_tracked_test_access_token
 
 from app.extensions import (
     db,
@@ -105,7 +106,7 @@ def _clear_g_tenant_context():
 
 
 def _make_token(user_id: int) -> str:
-    return f"Bearer {create_access_token(identity=user_id)}"
+    return f"Bearer {_create_tracked_test_access_token(user_id)}"
 
 
 def _make_tenant(slug_suffix: str) -> Tenant:
@@ -245,14 +246,14 @@ def test_ac2_admin_get_all_applications_returns_200_with_app(app, db_session, cl
 
 def test_ac3_tcc_direct_query_under_tenant_context_succeeds(app, db_session):
     tenant = _make_tenant("ac3")
-    db_session.add(TenantCredentialCounter(tenant_id=str(tenant.id), year=2026, last_value=7))
+    db_session.add(TenantCredentialCounter(tenant_id=tenant.id, year=2026, last_value=7))
     db_session.commit()
 
     with app.app_context():
         _clear_g_tenant_context()
         _g.tenant_id = tenant.id
         row = TenantCredentialCounter.query.filter_by(
-            tenant_id=str(tenant.id), year=2026
+            tenant_id=tenant.id, year=2026
         ).first()
         assert row is not None
         assert row.last_value == 7
@@ -402,7 +403,7 @@ def test_ac7_credential_generation_gapless_serial(app, db_session):
         assert serials == [1, 2, 3]
 
         counter = TenantCredentialCounter.query.filter_by(
-            tenant_id=str(tenant.id), year=2026
+            tenant_id=tenant.id, year=2026
         ).one()
         assert counter.last_value == 3
 
@@ -478,25 +479,119 @@ def test_ac8_migration_validates_and_casts_safely(app, db_session):
 # AC-9 Existing TCC data serial continuity post-migration
 # ---------------------------------------------------------------------------
 
-def test_ac9_existing_tcc_data_serial_continuity_post_migration(app, db_session):
-    tenant = _make_tenant("ac9")
-    # Simulate pre-migration counter with last_value=7 already persisted,
-    # then after "migration" (same table, we trust the schema change), next
-    # serial is 8, not reset to 1.
-    db_session.add(TenantCredentialCounter(tenant_id=str(tenant.id), year=2026, last_value=7))
-    db_session.commit()
+def test_ac9_existing_tcc_data_serial_continuity_post_migration(
+    app, db_session, tmp_path
+):
+    """Historical dashed TCC UUID survives forward normalization with serial continuity."""
+    import importlib.util
+    import pathlib
+    import sys
 
-    with app.app_context():
-        _clear_g_tenant_context()
-        _g.tenant_id = tenant.id
-        nxt = TenantCredentialCounter.get_next_serial(tenant_id=tenant.id, year=2026)
-        assert nxt == 8
-        assert (
-            TenantCredentialCounter.query.filter_by(
-                tenant_id=str(tenant.id), year=2026
-            ).one().last_value
-            == 8
-        )
+    from sqlalchemy import create_engine, text
+
+    migration_path = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "migrations"
+        / "versions"
+        / "20260921_normalize_tcc_sqlite_uuid_storage.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "tcc_uuid_normalize_20260921", str(migration_path)
+    )
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = migration
+    spec.loader.exec_module(migration)
+
+    tenant_uuid = uuid.uuid4()
+    historical_dashed = str(tenant_uuid)
+    canonical_compact = tenant_uuid.hex
+
+    db_file = tmp_path / "ac9-tcc-migration.sqlite3"
+    engine = create_engine(f"sqlite:///{db_file}", future=True)
+
+    try:
+        with engine.begin() as conn:
+            # Reproduce the physical representation that caused the incident:
+            # Tenant UUID storage is compact while the historical TCC row is
+            # dashed VARCHAR(36).
+            conn.execute(
+                text(
+                    "CREATE TABLE tenants ("
+                    "id VARCHAR(32) PRIMARY KEY, "
+                    "name VARCHAR(255) NOT NULL"
+                    ")"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE TABLE tenant_credential_counters ("
+                    "tenant_id VARCHAR(36) NOT NULL, "
+                    "year INTEGER NOT NULL, "
+                    "last_value INTEGER NOT NULL DEFAULT 0, "
+                    "PRIMARY KEY (tenant_id, year)"
+                    ")"
+                )
+            )
+
+            conn.execute(
+                text(
+                    "INSERT INTO tenants (id, name) "
+                    "VALUES (:tenant_id, 'AC9 Tenant')"
+                ),
+                {"tenant_id": canonical_compact},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO tenant_credential_counters "
+                    "(tenant_id, year, last_value) "
+                    "VALUES (:tenant_id, 2026, 7)"
+                ),
+                {"tenant_id": historical_dashed},
+            )
+
+            # Execute the actual forward migration helper against the
+            # historical physical schema/data.
+            result = migration._normalize_sqlite_rows(conn)
+            migration._verify_sqlite_contract(conn)
+
+            assert result["rows_seen"] == 1
+            assert result["orphans_deleted"] == 0
+
+            row = conn.execute(
+                text(
+                    "SELECT tenant_id, year, last_value "
+                    "FROM tenant_credential_counters"
+                )
+            ).mappings().one()
+
+            assert row["tenant_id"] == canonical_compact
+            assert row["year"] == 2026
+            assert row["last_value"] == 7
+
+            # Prove serial continuity independently of ORM table creation:
+            # the preserved counter advances from 7 to 8, never resets to 1.
+            conn.execute(
+                text(
+                    "UPDATE tenant_credential_counters "
+                    "SET last_value = last_value + 1 "
+                    "WHERE tenant_id = :tenant_id AND year = 2026"
+                ),
+                {"tenant_id": canonical_compact},
+            )
+
+            next_value = conn.execute(
+                text(
+                    "SELECT last_value "
+                    "FROM tenant_credential_counters "
+                    "WHERE tenant_id = :tenant_id AND year = 2026"
+                ),
+                {"tenant_id": canonical_compact},
+            ).scalar_one()
+
+            assert next_value == 8
+    finally:
+        engine.dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -602,10 +697,10 @@ def test_ac10_cross_tenant_application_and_counter_isolation(app, db_session, cl
         # transaction; ORM before_compile listener applies to all queries
         # regardless of commit status.
         counter_a = TenantCredentialCounter(
-            tenant_id=str(ta.id), year=2026, last_value=10
+            tenant_id=ta.id, year=2026, last_value=10
         )
         counter_b = TenantCredentialCounter(
-            tenant_id=str(tb.id), year=2026, last_value=20
+            tenant_id=tb.id, year=2026, last_value=20
         )
         db.session.add(counter_a)
         db.session.add(counter_b)

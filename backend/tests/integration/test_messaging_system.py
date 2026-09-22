@@ -1,3 +1,21 @@
+from tests.conftest import _create_tracked_test_access_token
+
+
+def create_access_token(identity=None, **kwargs):
+    """
+    Legacy-test compatibility adapter.
+
+    Ordinary access JWTs must be backed by SessionToken authority.
+    JWT option-bearing calls are rejected for individual review
+    rather than silently changing their intended semantics.
+    """
+    if kwargs:
+        raise TypeError(
+            "Tracked test token adapter does not support "
+            f"JWT options: {sorted(kwargs)}"
+        )
+
+    return _create_tracked_test_access_token(identity)
 """
 Integration tests for the Messaging System
 
@@ -134,7 +152,6 @@ class TestAnnouncementManagement:
         assigned_teacher = sample_class_announcement.class_.teacher
         teacher_user = assigned_teacher.user
 
-        from flask_jwt_extended import create_access_token
         token = create_access_token(identity=teacher_user.id)
         headers = {
             'Authorization': f'Bearer {token}',
@@ -472,7 +489,6 @@ class TestMessagingIntegrationWorkflow:
         assigned_teacher = sample_class.teacher
         teacher_user = assigned_teacher.user
 
-        from flask_jwt_extended import create_access_token
         token = create_access_token(identity=teacher_user.id)
         teacher_headers = {
             'Authorization': f'Bearer {token}',
@@ -1295,7 +1311,6 @@ class TestMessagingIdentityResolution:
         db_session.commit()
 
         # 1. Search recipients: parent role searching student (unauthorized, parents cannot search students)
-        from flask_jwt_extended import create_access_token
         parent_token = create_access_token(identity=parent_user.id)
         headers = {
             'Authorization': f'Bearer {parent_token}',
@@ -1397,7 +1412,6 @@ def large_user_dataset(db_session):
 
 @pytest.fixture
 def parent_auth_context(db_session, client, user_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     from tests.test_production_integration import create_test_parent, create_test_membership
 
     user = user_factory('parent')
@@ -1519,7 +1533,6 @@ def sample_users(db_session):
 
 @pytest.fixture
 def student_auth_context(db_session, client, user_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     from tests.test_production_integration import create_test_student, create_test_membership
 
     user = user_factory('student')
@@ -1540,7 +1553,6 @@ def student_auth_context(db_session, client, user_factory, sample_tenant):
 
 @pytest.fixture
 def student_auth_headers(db_session, client, user_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     user = user_factory('student')
     from tests.test_production_integration import create_test_student, create_test_membership
     student = create_test_student(db_session, user, sample_tenant.id)
@@ -1554,7 +1566,6 @@ def student_auth_headers(db_session, client, user_factory, sample_tenant):
 
 @pytest.fixture
 def teacher_auth_context(db_session, client, user_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     from tests.test_production_integration import create_test_teacher, create_test_membership
 
     user = user_factory('teacher')
@@ -1575,7 +1586,6 @@ def teacher_auth_context(db_session, client, user_factory, sample_tenant):
 
 @pytest.fixture
 def teacher_auth_headers(db_session, client, user_factory, sample_tenant):
-    from flask_jwt_extended import create_access_token
     user = user_factory('teacher')
     from tests.test_production_integration import create_test_teacher, create_test_membership
     teacher = create_test_teacher(db_session, user, sample_tenant.id)
@@ -1595,7 +1605,6 @@ def valid_jwt_token(valid_jwt_tokens):
 @pytest.fixture
 def valid_jwt_tokens(sample_users):
     """Create valid JWT tokens for test users"""
-    from flask_jwt_extended import create_access_token
     tokens = []
     for user in sample_users:
         token = create_access_token(identity=user.id)
@@ -1652,7 +1661,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert SchemaGuard.check_message_recipient_orphan_rows() == []
 
     def test_teacher_create_announcement_restricted_to_assigned_classes(self, client, db_session, sample_tenant, sample_class):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_teacher, create_test_membership
 
         teacher_user = User(username='unassigned_t', email='unassigned@example.com', role='teacher')
@@ -1688,7 +1696,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         sample_class,
         sample_teacher,
     ):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import (
             create_test_membership,
             create_test_student,
@@ -1752,7 +1759,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert response.status_code == 403
 
     def test_parent_sees_child_assignments(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_student, create_test_membership, create_test_parent
         from app.models.assignment import Assignment
         from app.models.subject import Subject
@@ -1808,7 +1814,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert data['data']['assignments'][0]['title'] == 'Homework #1'
 
     def test_student_submission_belongs_only_to_current_student(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_student, create_test_membership
         from app.models.assignment import Assignment
         from app.models.subject import Subject
@@ -1871,7 +1876,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         sample_class,
         sample_teacher,
     ):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import (
             create_test_membership,
             create_test_student,
@@ -1977,7 +1981,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert response.status_code == 403
 
     def test_teacher_can_list_visible_assignment_submissions(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_membership, create_test_student
         from app.models.assignment import Assignment
         from app.models.assignment_submission import AssignmentSubmission
@@ -2048,7 +2051,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert payload['submissions'][0]['file_path'] == '/uploads/lab-notes.pdf'
 
     def test_assignment_attachments_flow_visible_to_student_teacher_and_parent(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import (
             create_test_membership,
             create_test_parent,
@@ -2181,7 +2183,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert uploaded_paths[1].endswith('answers.docx')
 
     def test_teacher_can_create_school_based_assessment_from_legacy_payload(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_membership, create_test_student
         from app.models.assessment_methods import SchoolBasedAssessment
         from app.models.subject import Subject
@@ -2253,7 +2254,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         assert created.sba_percentage == 97.5
 
     def test_teacher_can_record_continuous_assessment_from_legacy_payload(self, client, db_session, sample_tenant, sample_class, sample_teacher):
-        from flask_jwt_extended import create_access_token
         from tests.test_production_integration import create_test_membership, create_test_student
         from app.models.assessment_methods import ContinuousAssessmentRecord
         from app.models.subject import Subject
@@ -2568,7 +2568,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         db_session,
         sample_tenant,
     ):
-        from flask_jwt_extended import create_access_token
         from app.models.dashboard import (
             Notification,
             NotificationUserState,
@@ -2663,7 +2662,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         db_session,
         sample_tenant,
     ):
-        from flask_jwt_extended import create_access_token
         from app.models.dashboard import (
             Notification,
             NotificationUserState,
@@ -2754,7 +2752,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         db_session,
         sample_tenant,
     ):
-        from flask_jwt_extended import create_access_token
         from app.models.dashboard import Notification
         from tests.test_production_integration import (
             create_test_membership,
@@ -2849,7 +2846,6 @@ class TestADMIWorkflowAndRelationshipAudit:
         db_session,
         sample_tenant,
     ):
-        from flask_jwt_extended import create_access_token
         from app.models.dashboard import (
             Notification,
             NotificationUserState,

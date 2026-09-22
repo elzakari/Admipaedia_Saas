@@ -97,9 +97,13 @@ def test_admin_dashboard_metrics_active_sessions(client, db):
         'X-Tenant-ID': str(tenant.id)
     }
     
-    # Clean up any existing tokens
-    SessionToken.query.filter_by(user_id=user.id).delete()
-    db.session.commit()
+    # Preserve the SessionToken backing the JWT used to authenticate
+    # this request. TokenSecurityService intentionally fails closed
+    # when a JWT JTI has no corresponding SessionToken row.
+    #
+    # This test validates dashboard session metrics, so synthetic
+    # active/revoked metric rows must coexist with the real
+    # authenticated access-token row rather than replacing it.
     
     # Create active access token session
     active_token = SessionToken(
@@ -123,6 +127,16 @@ def test_admin_dashboard_metrics_active_sessions(client, db):
     db.session.commit()
     
     # Query dashboard metrics
+    # Security invariant: the login JWT must still have its tracked
+    # SessionToken row. Synthetic metric setup must never invalidate
+    # the credential used to authorize this request.
+    authenticated_tokens = SessionToken.query.filter_by(
+        user_id=user.id,
+        token_type="access",
+        is_revoked=False,
+    ).all()
+    assert len(authenticated_tokens) >= 2
+
     res = client.get('/api/v1/admin/dashboard-metrics', headers=headers)
     assert res.status_code == 200
     

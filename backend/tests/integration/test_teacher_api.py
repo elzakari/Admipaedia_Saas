@@ -1,8 +1,70 @@
 import json
 import pytest
 from app.models.teacher import Teacher
+from app.models.user import User
 from app.models.subject import Subject
 from app.extensions import db
+
+
+
+@pytest.fixture(autouse=True)
+def _tenant_authenticated_teacher_api_client(
+    client,
+    admin_headers,
+):
+    """
+    Bind teacher API integration tests to the canonical
+    tenant-aware school-admin identity.
+
+    Teacher CRUD endpoints are protected resources and should
+    never be exercised through an anonymous client.
+    """
+    previous = {
+        "HTTP_AUTHORIZATION": client.environ_base.get(
+            "HTTP_AUTHORIZATION"
+        ),
+        "HTTP_X_TENANT_ID": client.environ_base.get(
+            "HTTP_X_TENANT_ID"
+        ),
+    }
+
+    authorization = admin_headers.get(
+        "Authorization"
+    )
+    tenant_id = admin_headers.get(
+        "X-Tenant-ID"
+    )
+
+    if not authorization:
+        raise RuntimeError(
+            "admin_headers did not provide Authorization"
+        )
+
+    if not tenant_id:
+        raise RuntimeError(
+            "admin_headers did not provide X-Tenant-ID"
+        )
+
+    client.environ_base[
+        "HTTP_AUTHORIZATION"
+    ] = authorization
+
+    client.environ_base[
+        "HTTP_X_TENANT_ID"
+    ] = str(tenant_id)
+
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                client.environ_base.pop(
+                    key,
+                    None,
+                )
+            else:
+                client.environ_base[key] = value
+
 
 @pytest.fixture
 def teacher_payload():
@@ -16,10 +78,14 @@ def teacher_payload():
     }
 
 @pytest.fixture
-def subject_fixture(app):
-    """Create a test subject."""
+def subject_fixture(app, sample_tenant):
+    """Create a tenant-scoped test subject."""
     with app.app_context():
-        subject = Subject(name='Mathematics', code='MATH101')
+        subject = Subject(
+            name='Mathematics',
+            code='MATH101',
+            tenant_id=sample_tenant.id,
+        )
         db.session.add(subject)
         db.session.commit()
         return subject
@@ -39,9 +105,15 @@ def test_create_teacher_api(client, teacher_payload, subject_fixture):
     
     # Verify teacher was created in database
     with client.application.app_context():
-        teacher = Teacher.query.filter_by(email=teacher_payload['email']).first()
+        teacher = (
+            Teacher.query
+            .join(Teacher.user)
+            .filter(User.email == teacher_payload['email'])
+            .first()
+        )
         assert teacher is not None
-        assert teacher.name == teacher_payload['name']
+        assert teacher.full_name == teacher_payload['name']
+        assert teacher.user.email == teacher_payload['email']
 
 def test_get_teachers_api(client, teacher_payload, subject_fixture):
     """Test retrieving teachers API endpoint."""

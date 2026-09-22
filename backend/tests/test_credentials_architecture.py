@@ -62,15 +62,15 @@ def test_format_structure_assertions(app, db_session):
     # Generate unique admission number
     adm_no = Student.generate_admission_number(tenant_id=tenant.id)
     
-    # Assert Admission Number format: ADM + [3-initials] + [YY] + [6-digit padded serial]
+    # Assert configured default Admission Number format: ADM-YYYY-NNNNN
     current_year = datetime.now().year
     yy = str(current_year)[-2:]
     
     # Initials for "Gold Hills School" -> GHS
-    expected_prefix = f"ADMGHS{yy}"
+    expected_prefix = f"ADM-{current_year}-"
     assert adm_no.startswith(expected_prefix)
-    assert len(adm_no) == len(expected_prefix) + 6
-    assert adm_no[-6:].isdigit()
+    assert len(adm_no) == len(expected_prefix) + 5
+    assert adm_no[-5:].isdigit()
 
     # Assert Username format: [first_name] + [last_name_initial] + [YY] + [6-digit padded serial]
     # Assume first_name="Yvette", last_name="Dupond"
@@ -89,7 +89,7 @@ def test_format_structure_assertions(app, db_session):
     clean_last = "".join(c for c in clean_last if c.isalnum()).lower()
     last_initial = clean_last[0] if clean_last else "x"
     
-    serial_padded = adm_no[-6:]
+    serial_padded = f"{int(adm_no.rsplit('-', 1)[-1]):06d}"
     username = f"{clean_first}{last_initial}{yy}{serial_padded}"
 
     assert username == f"yvetted{yy}{serial_padded}"
@@ -136,6 +136,6 @@ def test_concurrent_sequence_verification(app, db_session):
     assert len(results) == num_threads
     assert len(set(results)) == num_threads
 
-    # Verify gapless sequences: serials must range from 000001 to 000010
-    serials = sorted([int(r[-6:]) for r in results])
+    # Verify gapless sequences from the final serial component.
+    serials = sorted([int(r.rsplit("-", 1)[-1]) for r in results])
     assert serials == list(range(1, num_threads + 1))

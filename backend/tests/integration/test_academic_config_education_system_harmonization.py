@@ -610,7 +610,14 @@ def test_get_grading_scheme_apc_togo_seeding_and_calculation(auth_client):
 
     # Calculate final grades
     from app.services.grading.service import GradingService
-    success, err = GradingService.calculate_final_grades(cls.id, subject.id, 'Premier Trimestre', '2026/2027')
+    success, err = GradingService.calculate_final_grades(
+        cls.id,
+        subject.id,
+        'Premier Trimestre',
+        '2026/2027',
+        tenant_id=tenant.id,
+        computed_by=user.id,
+    )
     assert success is True
 
     from app.models.grading_system import FinalGrade
