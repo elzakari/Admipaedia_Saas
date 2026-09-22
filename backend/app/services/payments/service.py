@@ -496,14 +496,19 @@ class PaymentService:
         payment_channel: str,
         return_url: Optional[str],
         notify_url: Optional[str],
+        tenant_id=None,
     ) -> tuple[Optional[Payment], Optional[str]]:
         channel = (payment_channel or "").strip().lower()
         if channel not in ("mobile_money", "card", "bank_transfer", "wallet", "manual"):
             return None, "Invalid payment channel"
 
-        inv = (
-            BillingInvoice.query.filter_by(id=int(invoice_id)).with_for_update().first()
-        )
+        # tenant_id is optional so platform-level callers (super admin) can
+        # still target any invoice; school-scoped callers must pass their
+        # tenant_id so a foreign invoice_id can never be paid into.
+        inv_filters = {"id": int(invoice_id)}
+        if tenant_id is not None:
+            inv_filters["tenant_id"] = tenant_id
+        inv = BillingInvoice.query.filter_by(**inv_filters).with_for_update().first()
         if not inv:
             return None, "Invoice not found"
 
@@ -621,8 +626,17 @@ class PaymentService:
             inv.payment_status = "partially_paid"
 
     @staticmethod
-    def verify_payment(payment_id: int) -> tuple[Optional[Payment], Optional[str]]:
-        p = Payment.query.filter_by(id=int(payment_id)).with_for_update().first()
+    def verify_payment(
+        payment_id: int, *, tenant_id=None
+    ) -> tuple[Optional[Payment], Optional[str]]:
+        # tenant_id is optional so platform callers (super admin, webhooks
+        # resolved by signature-verified gateway reference) can still verify
+        # any payment; school-scoped callers must pass their tenant_id so a
+        # foreign payment_id can never be verified/settled.
+        p_filters = {"id": int(payment_id)}
+        if tenant_id is not None:
+            p_filters["school_id"] = tenant_id
+        p = Payment.query.filter_by(**p_filters).with_for_update().first()
         if not p:
             return None, "Payment not found"
 

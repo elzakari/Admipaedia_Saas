@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 from typing import Optional
 
 import requests
@@ -123,4 +124,4 @@ class FlutterwaveAdapter(PaymentGatewayAdapter):
         )
         if not expected or not provided:
             return False
-        return str(provided).strip() == str(expected).strip()
+        return hmac.compare_digest(str(provided).strip(), str(expected).strip())
