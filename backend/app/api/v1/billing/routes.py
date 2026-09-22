@@ -401,6 +401,7 @@ def school_initialize_payment(invoice_id: int):
         payment_channel=payment_channel,
         return_url=return_url,
         notify_url=notify_url,
+        tenant_id=tenant_id,
     )
     if err or not p:
         return jsonify({"success": False, "message": err or "Failed"}), 400
@@ -424,7 +425,7 @@ def school_verify_payment(payment_id: int):
     p0 = Payment.query.filter_by(id=int(payment_id), school_id=tenant_id).first()
     if not p0:
         return jsonify({"success": False, "message": "Payment not found"}), 404
-    p, err = PaymentService.verify_payment(int(payment_id))
+    p, err = PaymentService.verify_payment(int(payment_id), tenant_id=tenant_id)
     if err or not p:
         return jsonify({"success": False, "message": err or "Failed"}), 400
     inv = BillingInvoice.query.filter_by(

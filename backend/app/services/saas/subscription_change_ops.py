@@ -225,6 +225,7 @@ def create_upgrade(
             payment_channel=payment_channel,
             return_url=return_url,
             notify_url=notify_url,
+            tenant_id=tenant.id,
         )
         if perr:
             db.session.rollback()
