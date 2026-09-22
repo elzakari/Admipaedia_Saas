@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Security - Billing & Payment Tenant Ownership Hardening
+- `get_tenant_for_user()` (`backend/app/services/saas/tenant_ops.py`) now requires `TenantMembership.status == "active"`. Previously a member whose access was set to `suspended`/`revoked` via `platform_upsert_member`/`platform_update_membership` kept full access — while their JWT remained valid — to `get_tenant`, `patch_tenant`, `list_members`, `create_invitation`, and the legacy SaaS billing ops (`list_invoices`, `create_invoice`, `list_payments`, `record_payment`), matching the active-status pattern already enforced by `billing_access.py` and `tenant_context.py`.
+- `_resolve_academic_term_id()` (`backend/app/api/v1/billing/routes.py`) now verifies a numeric `academic_term_id`/`term_id` belongs to the caller's tenant before use, closing an IDOR on `POST /billing/school/subscription/upgrade` where a `school_admin` could reference another tenant's academic term and have its name/dates echoed back via `serialize_change_request`.
+- `FlutterwaveAdapter.verify_webhook()` (`backend/app/services/adapters/payment/flutterwave.py`) now compares the webhook secret with `hmac.compare_digest` instead of `==`, matching the Paystack/CinetPay adapters and removing a timing side-channel on webhook forgery.
+- `PaymentService.verify_payment()` and `PaymentService.initializeInvoicePayment()` (`backend/app/services/payments/service.py`) accept an optional `tenant_id` filter, now passed by every school-scoped caller (`school_verify_payment`, `school_initialize_payment`, `subscription_change_ops.create_upgrade`) as defense-in-depth against a future caller verifying or funding a foreign tenant's payment/invoice. Platform routes and the webhook handler intentionally keep unrestricted scope.
+
+### Fixed - Super Admin Portal
+- Sidebar brand title (`frontend/src/components/layout/Sidebar.tsx`) now shows platform branding for `super_manager` sessions, not just `super_admin` — it previously fell through to the auto-selected tenant's name/slug. Also fixed an `ADMIPEDIA` → `ADMIPAEDIA` typo.
+- Plan Pricing matrix (`frontend/src/pages/super-admin/SuperAdminPlanPricingPage.tsx`) now rejects a `price_per_student_month` of `0` client-side with an inline error, matching the backend's `> 0` rule, instead of allowing submission of a row left at its default price and failing after a round-trip to the API.
+
 ### Security - Tenant File Access Hardening
 - Hardened tenant-scoped attachment and class-resource downloads with canonical path containment and owner validation.
 - Disabled generic arbitrary storage-key signing until attachments have authoritative storage ownership.
