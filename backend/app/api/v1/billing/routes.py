@@ -621,6 +621,31 @@ def platform_create_plan_pricing_tier(plan_id: int):
     )
 
 
+@billing_bp.route("/plans/<int:plan_id>/pricing-matrix", methods=["PUT"])
+@super_admin_required
+def platform_replace_plan_pricing_matrix(plan_id: int):
+    data = request.get_json() or {}
+    plan, err = plan_pricing_ops.replace_matrix(
+        plan_id=int(plan_id),
+        tiers=data.get("tiers"),
+        billing_min_months=data.get("billing_min_months"),
+    )
+    if err or not plan:
+        status = 404 if err == "Plan not found" else 400
+        return jsonify({"success": False, "message": err or "Failed"}), status
+    tiers = plan_pricing_ops.list_tiers(int(plan.id))
+    return (
+        jsonify(
+            {
+                "success": True,
+                "plan": subscription_change_ops.serialize_plan(plan),
+                "tiers": [plan_pricing_ops.serialize_tier(t) for t in tiers],
+            }
+        ),
+        200,
+    )
+
+
 @billing_bp.route("/pricing-tiers/<int:tier_id>", methods=["PUT", "PATCH"])
 @super_admin_required
 def platform_update_plan_pricing_tier(tier_id: int):
