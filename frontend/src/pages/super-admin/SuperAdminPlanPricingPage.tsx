@@ -293,6 +293,26 @@ export default function SuperAdminPlanPricingPage() {
       }
     };
 
+    // The form only validates the currently active country's rows — the
+    // other regional tabs are held in React state and never pass through
+    // Form validation, so a tab the admin never opened can still be
+    // carrying its default price_per_student_month: 0 placeholder. Since
+    // the whole matrix (every country) is submitted together below, every
+    // region's rows must be validated here first, or a stale zero-price
+    // row on an untouched tab silently fails the whole submission.
+    for (const [code, cfg] of Object.entries(updatedConfigs)) {
+      for (const t of cfg.tiers) {
+        const price = Number(t.price_per_student_month);
+        if (!Number.isFinite(price) || price <= 0) {
+          const label = code === 'GLOBAL' ? 'Global Plan' : `${code} Region`;
+          message.error(`${label}: price per student must be greater than 0`);
+          setActiveCountry(code);
+          form.setFieldsValue({ tiers: updatedConfigs[code].tiers });
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     try {
       // Gather flat list of all tiers across all country segments
