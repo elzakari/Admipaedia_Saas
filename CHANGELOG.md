@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed - Super Admin Portal
 - Sidebar brand title (`frontend/src/components/layout/Sidebar.tsx`) now shows platform branding for `super_manager` sessions, not just `super_admin` — it previously fell through to the auto-selected tenant's name/slug. Also fixed an `ADMIPEDIA` → `ADMIPAEDIA` typo.
-- Plan Pricing matrix (`frontend/src/pages/super-admin/SuperAdminPlanPricingPage.tsx`) now rejects a `price_per_student_month` of `0` client-side with an inline error, matching the backend's `> 0` rule, instead of allowing submission of a row left at its default price and failing after a round-trip to the API.
+- Plan Pricing matrix (`frontend/src/pages/super-admin/SuperAdminPlanPricingPage.tsx`) now rejects a `price_per_student_month` of `0`, matching the backend's `> 0` rule. This is validated in two places: inline on the active region's form fields, and — since the GLOBAL/GH/TG regional tabs are submitted together but only the active tab passes through Form validation — across every region's tiers before any API call, so a stale default-priced row on a tab the admin never opened can no longer fail (or partially write) the whole submission.
 
 ### Security - Tenant File Access Hardening
 - Hardened tenant-scoped attachment and class-resource downloads with canonical path containment and owner validation.
