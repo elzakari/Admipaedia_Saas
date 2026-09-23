@@ -296,6 +296,16 @@ const billingService = {
     const res = await api.put(`/billing/pricing-tiers/${tierId}`, payload)
     return res.data as { success: boolean; tier: PlanPricingTier }
   },
+  savePlanPricingMatrix: async (
+    planId: number,
+    payload: {
+      billing_min_months?: number
+      tiers: (Omit<PlanPricingTier, 'id' | 'plan_id' | 'created_at' | 'updated_at'> & { id?: number })[]
+    }
+  ) => {
+    const res = await api.put(`/billing/plans/${planId}/pricing-matrix`, payload)
+    return res.data as { success: boolean; plan: BillingPlan; tiers: PlanPricingTier[] }
+  },
   deletePlanPricingTier: async (tierId: number) => {
     const res = await api.delete(`/billing/pricing-tiers/${tierId}`)
     return res.data as { success: boolean }

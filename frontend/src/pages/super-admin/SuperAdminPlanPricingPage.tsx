@@ -3,6 +3,7 @@ import { Sparkles, Globe, Plus, Trash2, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Card, Form, InputNumber, Button, Space, Radio, Tag, message, Switch } from 'antd';
 import billingService, { BillingPlan, PlanPricingTier } from '@/services/billingService';
+import { buildPricingMatrixPayload, regionLabel } from './planPricingMatrix';
 
 type RegionalConfig = {
   country_code: string;
@@ -27,6 +28,7 @@ export default function SuperAdminPlanPricingPage() {
   const [loading, setLoading] = useState(false);
   const [minMonths, setMinMonths] = useState<string>('3');
   const [savingMinMonths, setSavingMinMonths] = useState(false);
+  const [savingMatrix, setSavingMatrix] = useState(false);
 
   // Regional pricing matrix state (GH, TG, GLOBAL)
   const [regionalConfigs, setRegionalConfigs] = useState<Record<string, RegionalConfig>>({
@@ -278,12 +280,16 @@ export default function SuperAdminPlanPricingPage() {
     }, 0);
   };
 
-  // Submit full pricing matrix to backend
+  // Submit full pricing matrix to backend in one atomic request
   const onFinish = async (values: { tiers: any[] }) => {
     const pid = Number(selectedPlanId);
-    if (!selectedPlan || !Number.isFinite(pid) || pid <= 0) return;
+    if (!selectedPlan || !Number.isFinite(pid) || pid <= 0 || savingMatrix) return;
+    const m = Number(minMonths);
+    if (!Number.isFinite(m) || m < 1) {
+      message.error('Minimum months must be a valid number >= 1');
+      return;
+    }
 
-    // Normalizing the tiers payload to commit
     const activeTiers = normalizeTiersArray(values.tiers || []);
     const updatedConfigs = {
       ...regionalConfigs,
@@ -292,78 +298,43 @@ export default function SuperAdminPlanPricingPage() {
         tiers: activeTiers
       }
     };
+    // Keep the active tab's edits in state so switching tabs below (or
+    // later) does not discard them.
+    setRegionalConfigs(updatedConfigs);
 
-    // The form only validates the currently active country's rows — the
-    // other regional tabs are held in React state and never pass through
-    // Form validation, so a tab the admin never opened can still be
-    // carrying its default price_per_student_month: 0 placeholder. Since
-    // the whole matrix (every country) is submitted together below, every
-    // region's rows must be validated here first, or a stale zero-price
-    // row on an untouched tab silently fails the whole submission.
-    for (const [code, cfg] of Object.entries(updatedConfigs)) {
-      for (const t of cfg.tiers) {
-        const price = Number(t.price_per_student_month);
-        if (!Number.isFinite(price) || price <= 0) {
-          const label = code === 'GLOBAL' ? 'Global Plan' : `${code} Region`;
-          message.error(`${label}: price per student must be greater than 0`);
-          setActiveCountry(code);
-          form.setFieldsValue({ tiers: updatedConfigs[code].tiers });
-          return;
-        }
+    // The form only validates the active region's rows; the other regions are
+    // held in React state, so every region is checked here before saving.
+    // Regions that were never configured are skipped (billing falls back to
+    // the Global tiers).
+    const built = buildPricingMatrixPayload(updatedConfigs);
+    if (built.error) {
+      message.error(built.error.message);
+      if (built.error.region !== activeCountry) {
+        setActiveCountry(built.error.region);
+        form.setFieldsValue({ tiers: updatedConfigs[built.error.region].tiers });
       }
+      return;
     }
 
-    setLoading(true);
+    setSavingMatrix(true);
     try {
-      // Gather flat list of all tiers across all country segments
-      const originalIds = (originalTiers || []).map(x => x.id);
-      const currentTiersList: any[] = [];
-      
-      Object.entries(updatedConfigs).forEach(([code, cfg]) => {
-        cfg.tiers.forEach((t) => {
-          currentTiersList.push({
-            ...t,
-            country_code: code === 'GLOBAL' ? null : code,
-            currency: cfg.currency
-          });
-        });
+      const res = await billingService.savePlanPricingMatrix(pid, {
+        billing_min_months: m,
+        tiers: built.tiers
       });
-
-      const currentIds = currentTiersList.map(x => x.id).filter((id): id is number => id !== undefined);
-      const deletedIds = originalIds.filter(id => !currentIds.includes(id));
-
-      // 1. Delete removed brackets
-      for (const id of deletedIds) {
-        await billingService.deletePlanPricingTier(id);
-      }
-
-      // 2. Update/Save existing and newly created tiers
-      for (const tier of currentTiersList) {
-        const payload = {
-          plan_id: pid,
-          country_code: tier.country_code ? tier.country_code.toUpperCase() : null,
-          currency: tier.currency.toUpperCase(),
-          min_students: Number(tier.min_students),
-          max_students: tier.max_students !== null && tier.max_students !== '' ? Number(tier.max_students) : null,
-          price_per_student_month: Number(tier.price_per_student_month),
-          is_active: !!tier.is_active
-        };
-
-        if (tier.id !== undefined) {
-          await billingService.updatePlanPricingTier(tier.id, payload);
-        } else {
-          await billingService.createPlanPricingTier(pid, payload as any);
-        }
-      }
-
-      message.success('Regional plan pricing matrix updated successfully');
-      // Reload plans and tiers from backend
-      await loadTiers(pid);
+      message.success(`${selectedPlan.name} pricing matrix saved`);
+      // Replacing the plan triggers the tiers reload effect, which re-reads
+      // the persisted matrix (and min months) from the backend.
+      setPlans((prev) => (prev || []).map((p) => (p.id === pid ? res.plan : p)));
     } catch (err: any) {
       message.error(err.response?.data?.message || err.message || 'Failed to save regional pricing configurations');
     } finally {
-      setLoading(false);
+      setSavingMatrix(false);
     }
+  };
+
+  const onFinishFailed = () => {
+    message.error(`${regionLabel(activeCountry)}: please fix the highlighted pricing tier fields`);
   };
 
   return (
@@ -472,7 +443,7 @@ export default function SuperAdminPlanPricingPage() {
                   borderColor: activeCountry === code ? '#4f46e5' : undefined
                 }}
               >
-                {code === 'GLOBAL' ? 'Global Plan' : `${code} Region`}
+                {regionLabel(code)} ({regionalConfigs[code].currency})
               </Button>
             ))}
           </div>
@@ -491,7 +462,7 @@ export default function SuperAdminPlanPricingPage() {
           }}>
             <Info className="h-4 w-4 text-indigo-500" />
             <span>
-              Pricing for <strong>{activeCountry === 'GLOBAL' ? 'Global Region' : `${activeCountry} Region`}</strong> is managed in <strong>{regionalConfigs[activeCountry]?.currency}</strong>.
+              Editing <strong>{selectedPlan.name}</strong> pricing for <strong>{activeCountry === 'GLOBAL' ? 'Global Region' : `${activeCountry} Region`}</strong>, managed in <strong>{regionalConfigs[activeCountry]?.currency}</strong>. Regions left unpriced fall back to Global pricing.
             </span>
           </div>
 
@@ -499,6 +470,7 @@ export default function SuperAdminPlanPricingPage() {
             form={form}
             name="pricing_tiers_form"
             onFinish={onFinish}
+            onFinishFailed={onFinishFailed}
             onValuesChange={handleFormValuesChange}
             layout="vertical"
             initialValues={{
@@ -651,7 +623,8 @@ export default function SuperAdminPlanPricingPage() {
               <Button
                 type="primary"
                 htmlType="submit"
-                loading={loading}
+                loading={savingMatrix}
+                disabled={loading || savingMatrix}
                 style={{
                   backgroundColor: '#4f46e5',
                   borderColor: '#4f46e5',
